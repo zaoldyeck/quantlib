@@ -1,14 +1,34 @@
+import db.table.Suppliers
+import slick.lifted.TableQuery
+import slick.jdbc.H2Profile.api._
+
+import scala.concurrent.Await
 import scala.util.{Failure, Success}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.Duration
 
 object Main {
   def main(args: Array[String]): Unit = {
-    new Crawler().getQuarterlyReport andThen {
+    val suppliers = TableQuery[Suppliers]
+    val setup = DBIO.seq(
+//      suppliers.schema.create,
+//      suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+//      suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+      suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+
+    val db = Database.forConfig("h2mem1")
+    try {
+      val resultFuture = db.run(setup)
+      Await.result(resultFuture, Duration.Inf)
+    } finally db.close
+    /*
+    new Crawler().getQuarterlyReport(2019, 2) andThen {
       case _ => Http.terminate()
     } onComplete {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
+     */
   }
 
   // 除權息(92/5/5 後) https://www.twse.com.tw/exchangeReport/TWT49U?response=csv&strDate=20190701&endDate=20190719
