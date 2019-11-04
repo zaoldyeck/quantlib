@@ -11,9 +11,9 @@ object Main {
   def main(args: Array[String]): Unit = {
     val suppliers = TableQuery[Suppliers]
     val setup = DBIO.seq(
-//      suppliers.schema.create,
-//      suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-//      suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+      suppliers.schema.create,
+      suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+      suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
       suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
 
     val db = Database.forConfig("h2mem1")
