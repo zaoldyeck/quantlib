@@ -21,15 +21,15 @@ class MonthlyReport(tag: Tag) extends Table[(Long, String, Int, String, Int, Int
 
   def lastYearMonthlyRevenue = column[Double]("last_year_monthly_revenue")
 
-  def monthlyRevenueComparedLastMonthPercentage = column[Double]("monthly_revenue_compared_last_month_percentage")
+  def monthlyRevenueComparedLastMonthPercentage = column[Double]("monthly_revenue_compared_last_month(%))")
 
-  def monthlyRevenueComparedLastYearPercentage = column[Double]("monthly_revenue_compared_last_year_percentage")
+  def monthlyRevenueComparedLastYearPercentage = column[Double]("monthly_revenue_compared_last_year(%))")
 
   def cumulativeRevenue = column[Double]("cumulative_revenue")
 
   def lastYearCumulativeRevenue = column[Double]("last_year_cumulative_revenue")
 
-  def cumulativeRevenueComparedLastYearPercentage = column[Double]("cumulative_revenue_compared_last_year_percentage")
+  def cumulativeRevenueComparedLastYearPercentage = column[Double]("cumulative_revenue_compared_last_year(%))")
 
   def idx = index("idx_a", (stockId, year, month), unique = true)
 
