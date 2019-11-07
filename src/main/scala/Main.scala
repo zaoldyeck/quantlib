@@ -1,4 +1,4 @@
-import db.table.Suppliers
+import db.table.FinancialAnalysis
 import slick.lifted.TableQuery
 import slick.jdbc.H2Profile.api._
 
@@ -9,7 +9,7 @@ import scala.concurrent.duration.Duration
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val suppliers = TableQuery[Suppliers]
+    val suppliers = TableQuery[FinancialAnalysis]
     val setup = DBIO.seq(
       suppliers.schema.create,
       suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
