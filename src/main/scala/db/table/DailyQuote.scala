@@ -4,14 +4,20 @@ import java.time.LocalDate
 
 import slick.jdbc.H2Profile.api._
 
-class DailyQuote(tag: Tag) extends Table[(Long, Int, String, LocalDate, Int, Int, Long, Option[Double], Option[Double], Option[Double], Option[Double], Int, Double, Option[Double], Int, Option[Double], Int, Double)](tag, "daily_quote") {
+/**
+ * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
+ * 每日收盤行情
+ *
+ * @param tag
+ */
+class DailyQuote(tag: Tag) extends Table[(Long, LocalDate, String, String, Long, Int, Long, Option[Double], Option[Double], Option[Double], Option[Double], Int, Double, Option[Double], Int, Option[Double], Int, Double)](tag, "daily_quote") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
-  def stockId = column[Int]("stock_id")
-
-  def stockName = column[String]("stock_name")
-
   def date = column[LocalDate]("date")
+
+  def companyCode = column[String]("company_code")
+
+  def companyName = column[String]("company_name")
 
   def tradeVolume = column[Long]("trade_volume")
 
@@ -41,7 +47,7 @@ class DailyQuote(tag: Tag) extends Table[(Long, Int, String, LocalDate, Int, Int
 
   def priceEarningRatio = column[Double]("price_earning_ratio")
 
-  def idx = index("idx_a", (stockId, date), unique = true)
+  def idx = index("idx_a", (date, companyCode), unique = true)
 
-  def * = (id, stockId, stockName, date, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, direction, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio)
+  def * = (id, date, companyCode, companyName, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, direction, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio)
 }

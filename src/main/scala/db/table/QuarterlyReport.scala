@@ -2,16 +2,22 @@ package db.table
 
 import slick.jdbc.H2Profile.api._
 
-class QuarterlyReport(tag: Tag) extends Table[(Long, Int, String, Int, Int, Option[String], String, Double)](tag, "quarterly_report") {
+/**
+ * https://mops.twse.com.tw/mops/web/t203sb02
+ * 財務報表
+ *
+ * @param tag
+ */
+class QuarterlyReport(tag: Tag) extends Table[(Long, Int, Int, String, String, Option[String], String, Double)](tag, "quarterly_report") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
-
-  def stockId = column[Int]("stock_id")
-
-  def stockName = column[String]("stock_name")
 
   def year = column[Int]("year")
 
   def quarter = column[Int]("quarter")
+
+  def companyCode = column[String]("company_code")
+
+  def companyName = column[String]("company_name")
 
   def code = column[Option[String]]("code")
 
@@ -19,7 +25,7 @@ class QuarterlyReport(tag: Tag) extends Table[(Long, Int, String, Int, Int, Opti
 
   def value = column[Double]("value")
 
-  def idx = index("idx_a", (stockId, year, quarter, subject), unique = true)
+  def idx = index("idx_a", (year, quarter, companyCode, subject), unique = true)
 
-  def * = (id, stockId, stockName, year, quarter, code, subject, value)
+  def * = (id, year, quarter, companyCode, companyName, code, subject, value)
 }
