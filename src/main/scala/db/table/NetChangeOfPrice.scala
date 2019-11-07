@@ -4,6 +4,12 @@ import java.time.LocalDate
 
 import slick.jdbc.H2Profile.api._
 
+/**
+ * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
+ * 漲跌證券數合計
+ *
+ * @param tag
+ */
 class NetChangeOfPrice(tag: Tag) extends Table[(Long, LocalDate, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int, Int)](tag, "net_change_of_price") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
