@@ -1,8 +1,10 @@
+import java.io.File
+
 import db.table.FinancialAnalysis
 import slick.lifted.TableQuery
 import slick.jdbc.H2Profile.api._
 
-import scala.concurrent.Await
+import scala.concurrent.{Await, Future}
 import scala.util.{Failure, Success}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
@@ -30,7 +32,9 @@ object Main {
     Await.result(resultFuture, Duration.Inf)
   } finally db.close
      */
-    new Crawler().getFinancialAnalysis(1991) andThen {
+    val crawler = new Crawler()
+    val futures = (2014 to 2014).map(year => crawler.getFinancialAnalysis(year))
+    Future.sequence(futures) andThen {
       case _ => Http.terminate()
     } onComplete {
       case Success(_) =>
