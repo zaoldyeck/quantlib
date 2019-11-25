@@ -3,7 +3,7 @@ package db.table
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://mops.twse.com.tw/nas/t21/sii/t21sc03_102_1_0.html
+ * https://mops.twse.com.tw/mops/web/t21sc04_ifrs
  * 營業收入統計表
  *
  * @param tag
