@@ -1,6 +1,9 @@
 package db.table
 
+import slick.collection.heterogeneous.HNil
 import slick.jdbc.H2Profile.api._
+
+case class FinancialAnalysisRow(id: Long, year: Int, companyCode: String, companyName: String, liabilitiesOfAssetsRatioPercentage: Double, longTermFundsToPropertyAndPlantAndEquipmentPercentage: Double, currentRatioPercentage: Double, quickRatioPercentage: Double, timesInterestEarnedRatioPercentage: Double, averageCollectionTurnoverTimes: Double, averageCollectionDays: Double, averageInventoryTurnoverTimes: Double, averageInventoryDays: Double, propertyAndPlantAndEquipmentTurnoverTimes: Double, totalAssetsTurnoverTimes: Double, returnOnTotalAssetsPercentage: Double, returnOnEquityPercentage: Double, profitBeforeTaxToCapitalPercentage: Double, profitToSalesPercentage: Double, earningsPerShareNTD: Double, cashFlowRatioPercentage: Double, cashFlowAdequacyRatioPercentage: Double, cashFlowReinvestmentRatioPercentage: Double)
 
 /**
  * https://mops.twse.com.tw/mops/web/t51sb02_q1
@@ -8,7 +11,7 @@ import slick.jdbc.H2Profile.api._
  *
  * @param tag
  */
-class FinancialAnalysis(tag: Tag) extends Table[(Long, Int, String, String, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double, Double)](tag, "financial_analysis") {
+class FinancialAnalysis(tag: Tag) extends Table[FinancialAnalysisRow](tag, "financial_analysis") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
   def year = column[Int]("year")
@@ -57,5 +60,5 @@ class FinancialAnalysis(tag: Tag) extends Table[(Long, Int, String, String, Doub
 
   def idx = index("idx_a", (year, companyCode), unique = true)
 
-  def * = (id, year, companyCode, companyName, liabilitiesOfAssetsRatioPercentage, longTermFundsToPropertyAndPlantAndEquipmentPercentage, currentRatioPercentage, quickRatioPercentage, timesInterestEarnedRatioPercentage, averageCollectionTurnoverTimes, averageCollectionDays, averageInventoryTurnoverTimes, averageInventoryDays, propertyAndPlantAndEquipmentTurnoverTimes, totalAssetsTurnoverTimes, returnOnTotalAssetsPercentage, returnOnEquityPercentage, profitBeforeTaxToCapitalPercentage, profitToSalesPercentage, earningsPerShareNTD, cashFlowRatioPercentage, cashFlowAdequacyRatioPercentage, cashFlowReinvestmentRatioPercentage)
+  def * = (id :: year :: companyCode :: companyName :: liabilitiesOfAssetsRatioPercentage :: longTermFundsToPropertyAndPlantAndEquipmentPercentage :: currentRatioPercentage :: quickRatioPercentage :: timesInterestEarnedRatioPercentage :: averageCollectionTurnoverTimes :: averageCollectionDays :: averageInventoryTurnoverTimes :: averageInventoryDays :: propertyAndPlantAndEquipmentTurnoverTimes :: totalAssetsTurnoverTimes :: returnOnTotalAssetsPercentage :: returnOnEquityPercentage :: profitBeforeTaxToCapitalPercentage :: profitToSalesPercentage :: earningsPerShareNTD :: cashFlowRatioPercentage :: cashFlowAdequacyRatioPercentage :: cashFlowReinvestmentRatioPercentage :: HNil).mapTo[FinancialAnalysisRow]
 }
