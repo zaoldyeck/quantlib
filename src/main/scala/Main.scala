@@ -9,26 +9,33 @@ import scala.concurrent.duration.Duration
 
 object Main {
   def main(args: Array[String]): Unit = {
-    val suppliers = TableQuery[FinancialAnalysis]
-    val setup = DBIO.seq(
-      suppliers.schema.create,
-      suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-      suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-      suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+    /**
+     * 1. 每日收盤價（上市、上櫃）
+     * 2. 月報（上市、上櫃）
+     * 3. 財務分析（上市、上櫃）
+     */
 
-    val db = Database.forConfig("h2mem1")
-    try {
-      val resultFuture = db.run(setup)
-      Await.result(resultFuture, Duration.Inf)
-    } finally db.close
+
     /*
-    new Crawler().getQuarterlyReport(2019, 2) andThen {
+  val suppliers = TableQuery[FinancialAnalysis]
+  val setup = DBIO.seq(
+    suppliers.schema.create,
+    suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+    suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+    suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+
+  val db = Database.forConfig("h2mem1")
+  try {
+    val resultFuture = db.run(setup)
+    Await.result(resultFuture, Duration.Inf)
+  } finally db.close
+     */
+    new Crawler().getFinancialAnalysis(1991) andThen {
       case _ => Http.terminate()
     } onComplete {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
-     */
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html
