@@ -32,6 +32,7 @@ object Main {
     Await.result(resultFuture, Duration.Inf)
   } finally db.close
      */
+    /*
     val crawler = new Crawler()
     val futures = (2014 to 2014).map(year => crawler.getFinancialAnalysis(year))
     Future.sequence(futures) andThen {
@@ -40,7 +41,9 @@ object Main {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
+     */
   }
+  new Reader().readFinancialAnalysis()
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html
   // https://mops.twse.com.tw/nas/t21/sii/t21sc03_90_6.html
