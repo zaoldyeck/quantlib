@@ -13,6 +13,7 @@ import scala.concurrent.duration._
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
+import Settings._
 
 class Crawler {
   def getFinancialAnalysis(year: Int): Future[File] = {
@@ -49,7 +50,7 @@ class Crawler {
                 .withBody(fd)
                 .withRequestTimeout(5.minutes)
                 .stream()
-          } flatMap (downloadFile("./data/financial_analysis", Some(s"${y}_b.csv")))
+          } flatMap (downloadFile(financialAnalysisDir, Some(s"${y}_b.csv")))
     }
   }
 
@@ -65,10 +66,10 @@ class Crawler {
       .withMethod("GET")
       .withRequestTimeout(5.minutes)
       .stream()
-      .flatMap(downloadFile("./data/quarterly_report"))
+      .flatMap(downloadFile(quarterlyReportDir))
   }
 
-  def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
+  private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
     val fn = fileName.getOrElse(res.header("Content-disposition").get.split("filename=")(1).replace("\"", ""))
     val file = new File(s"$filePath/$fn")
     file.getParentFile.mkdirs()
