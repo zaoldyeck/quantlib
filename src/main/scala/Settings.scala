@@ -3,5 +3,6 @@ import com.typesafe.config.ConfigFactory
 
 object Settings {
   private val conf: Config = ConfigFactory.load
-  val dataDir: String = conf.getString("data.dir")
+  val quarterlyReportDir: String = conf.getString("data.quarterlyReport.dir")
+  val financialAnalysisDir: String = conf.getString("data.financialAnalysis.dir")
 }
