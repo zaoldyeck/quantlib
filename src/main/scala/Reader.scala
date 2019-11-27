@@ -12,8 +12,8 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class Reader {
-  def readFinancialAnalysis() = {
-    financialAnalysisDir.toDirectory.files.foreach { file =>
+  def readFinancialAnalysis(): Unit = {
+    financialAnalysis.dir.toDirectory.files.foreach { file =>
       val reader = CSVReader.open(file.jfile, "Big5")
       //      val value: Seq[Map[String, String]] = reader.allWithHeaders()
       //      value.foreach(x => println(x))
