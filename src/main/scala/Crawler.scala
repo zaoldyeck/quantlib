@@ -34,7 +34,7 @@ class Crawler {
           "off" -> "1",
           "TYPEK" -> "sii",
           "year" -> y.toString)
-        Http.client.url("https://mops.twse.com.tw/mops/web/ajax_t51sb02")
+        Http.client.url(financialAnalysis.page)
           .post(formData)
           .flatMap {
             res =>
@@ -45,17 +45,35 @@ class Crawler {
                 "firstin" -> "true",
                 "step" -> "10",
                 "filename" -> fileName)
-              Http.client.url("https://mops.twse.com.tw/server-java/t105sb02")
+              Http.client.url(financialAnalysis.file)
                 .withMethod("POST")
                 .withBody(fd)
                 .withRequestTimeout(5.minutes)
                 .stream()
-          } flatMap (downloadFile(financialAnalysisDir, Some(s"${y}_b.csv")))
+          } flatMap (downloadFile(financialAnalysis.dir, Some(s"${y}_b.csv")))
     }
   }
 
-  def getMonthlyReport = {
-
+  def getOperatingRevenue(year: Int, month: Int): Future[File] = {
+    Thread.sleep(10000)
+    year - 1911 match {
+      case y if y < 102 =>
+        // Before IFRS
+        val formData = Map(
+          "step" -> "9",
+          "functionName" -> "show_file",
+          "filePath" -> "/home/html/nas/t21/sii/",
+          "fileName" -> s"t21sc03_${y}_$month.csv")
+        Http.client.url(operatingRevenue.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
+      case y if y > 101 =>
+        // After IFRS
+        val formData = Map(
+          "step" -> "9",
+          "functionName" -> "show_file",
+          "filePath" -> "/home/html/nas/t21/sii/",
+          "fileName" -> s"t21sc03_${y}_$month.csv")
+        Http.client.url(operatingRevenue.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
+    }
   }
 
   def getQuarterlyReport(year: Int, quarter: Int): Future[File] = {

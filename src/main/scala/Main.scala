@@ -1,16 +1,17 @@
 import java.io.File
+import java.util.concurrent.Executors
 
 import db.table.FinancialAnalysis
 import slick.lifted.TableQuery
 import slick.jdbc.H2Profile.api._
-
-import scala.concurrent.{Await, Future}
+import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
-import scala.concurrent.ExecutionContext.Implicits.global
+//import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 object Main {
   def main(args: Array[String]): Unit = {
+    implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
     /**
      * 1. 每日收盤價（上市、上櫃）
      * 2. 月報（上市、上櫃）
@@ -32,8 +33,23 @@ object Main {
     Await.result(resultFuture, Duration.Inf)
   } finally db.close
      */
-    /*
     val crawler = new Crawler()
+    val yearToMonth: Seq[(Int, Int)] = for {
+      year <- 2013 to 2019
+      month <- 1 to 12
+    } yield (year, month)
+
+    val futures = yearToMonth.map {
+      case (year: Int, month: Int) => crawler.getOperatingRevenue(year, month)
+    }
+    Future.sequence(futures) andThen {
+      case _ => Http.terminate()
+    } onComplete {
+      case Success(_) =>
+      case Failure(t) => t.printStackTrace()
+    }
+
+    /*
     val futures = (2014 to 2014).map(year => crawler.getFinancialAnalysis(year))
     Future.sequence(futures) andThen {
       case _ => Http.terminate()
@@ -41,9 +57,10 @@ object Main {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
+
      */
+    //new Reader().readFinancialAnalysis()
   }
-  new Reader().readFinancialAnalysis()
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html
   // https://mops.twse.com.tw/nas/t21/sii/t21sc03_90_6.html
