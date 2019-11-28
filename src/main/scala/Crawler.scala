@@ -60,11 +60,14 @@ class Crawler {
       case y if y < 102 =>
         // Before IFRS
         val formData = Map(
+          "encodeURIComponent" -> "1",
           "step" -> "9",
-          "functionName" -> "show_file",
-          "filePath" -> "/home/html/nas/t21/sii/",
-          "fileName" -> s"t21sc03_${y}_$month.csv")
-        Http.client.url(operatingRevenue.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
+          "firstin" -> "1",
+          "off" -> "1",
+          "TYPEK" -> "sii",
+          "year" -> "",
+          "month" -> "")
+        Http.client.url(operatingRevenue.beforeIFRSs.page).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
       case y if y > 101 =>
         // After IFRS
         val formData = Map(
@@ -72,7 +75,7 @@ class Crawler {
           "functionName" -> "show_file",
           "filePath" -> "/home/html/nas/t21/sii/",
           "fileName" -> s"t21sc03_${y}_$month.csv")
-        Http.client.url(operatingRevenue.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
+        Http.client.url(operatingRevenue.afterIFRSs.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
     }
   }
 
