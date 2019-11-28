@@ -8,14 +8,14 @@ import slick.jdbc.H2Profile.api._
  *
  * @param tag
  */
-class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, String, String, String, Double, Double, Double, Double, Double, Double, Double, Double)](tag, "operating_revenue") {
+class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], String, String, Double, Double, Double, Double, Double, Double, Double, Double)](tag, "operating_revenue") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
   def year = column[Int]("year")
 
   def month = column[Int]("month")
 
-  def industry = column[String]("industry")
+  def industry = column[Option[String]]("industry")
 
   def companyCode = column[String]("company_code")
 
