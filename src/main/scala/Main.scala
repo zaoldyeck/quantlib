@@ -33,7 +33,9 @@ object Main {
     Await.result(resultFuture, Duration.Inf)
   } finally db.close
      */
+
     val crawler = new Crawler()
+    /*
     val yearToMonth: Seq[(Int, Int)] = for {
       year <- 2013 to 2019
       month <- 1 to 12
@@ -48,8 +50,8 @@ object Main {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
+     */
 
-    /*
     val futures = (2014 to 2014).map(year => crawler.getFinancialAnalysis(year))
     Future.sequence(futures) andThen {
       case _ => Http.terminate()
@@ -58,7 +60,6 @@ object Main {
       case Failure(t) => t.printStackTrace()
     }
 
-     */
     //new Reader().readFinancialAnalysis()
   }
 

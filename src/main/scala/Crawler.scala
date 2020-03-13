@@ -16,41 +16,68 @@ import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
 import Settings._
 
 class Crawler {
-  def getFinancialAnalysis(year: Int): Future[File] = {
-    year - 1911 match {
-      /*
-    case y if y > 100 =>
-    // After IFRS
+  def getFinancialAnalysis(year: Int)= {
+    def request(formData: Map[String, String], fileName: String): Future[File] = {
+      Http.client.url(financialAnalysis.page)
+        .post(formData)
+        .flatMap {
+          res =>
+            val browser = JsoupBrowser()
+            val doc = browser.parseString(res.body)
+            val fileName = doc >> element("input[name=filename]") >> attr("value")
+            val fd = Map(
+              "firstin" -> "true",
+              "step" -> "10",
+              "filename" -> fileName)
+            Http.client.url(financialAnalysis.file)
+              .withMethod("POST")
+              .withBody(fd)
+              .withRequestTimeout(5.minutes)
+              .stream()
+        } flatMap (downloadFile(financialAnalysis.dir, Some(s"$fileName.csv")))
+    }
 
-    case y if y > 100 && y < 104 =>
-    // Both
-       */
-      case y if y < 104 =>
-        // Before IFRS
-        val formData = Map(
-          "encodeURIComponent" -> "1",
-          "step" -> "1",
-          "firstin" -> "1",
-          "off" -> "1",
-          "TYPEK" -> "sii",
-          "year" -> y.toString)
-        Http.client.url(financialAnalysis.page)
-          .post(formData)
-          .flatMap {
-            res =>
-              val browser = JsoupBrowser()
-              val doc = browser.parseString(res.body)
-              val fileName = doc >> element("input[name=filename]") >> attr("value")
-              val fd = Map(
-                "firstin" -> "true",
-                "step" -> "10",
-                "filename" -> fileName)
-              Http.client.url(financialAnalysis.file)
-                .withMethod("POST")
-                .withBody(fd)
-                .withRequestTimeout(5.minutes)
-                .stream()
-          } flatMap (downloadFile(financialAnalysis.dir, Some(s"${y}_b.csv")))
+    val y = year - 1911
+    val task1 = if (y > 100) {
+      // After IFRS
+      val formData = Map(
+        "encodeURIComponent" -> "1",
+        //"run" -> "Y",
+        "step" -> "1",
+        "TYPEK" -> "sii",
+        "year" -> y.toString,
+        "firstin" -> "1",
+        "off" -> "1",
+        "ifrs" -> "Y")
+      request(formData, s"${y}_a")
+    }
+
+
+
+    if (y > 100) {
+      // After IFRS
+      val formData = Map(
+        "encodeURIComponent" -> "1",
+        //"run" -> "Y",
+        "step" -> "1",
+        "TYPEK" -> "sii",
+        "year" -> y.toString,
+        "firstin" -> "1",
+        "off" -> "1",
+        "ifrs" -> "Y")
+      request(formData, s"${y}_a")
+    }
+
+    if (y < 104) {
+      // Before IFRS
+      val formData = Map(
+        "encodeURIComponent" -> "1",
+        "step" -> "1",
+        "firstin" -> "1",
+        "off" -> "1",
+        "TYPEK" -> "sii",
+        "year" -> y.toString)
+      request(formData, s"${y}_b")
     }
   }
 
