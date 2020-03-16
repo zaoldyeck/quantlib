@@ -1,22 +1,21 @@
 import java.io.File
 
 import Http.materializer
+import Settings._
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
+import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
+import net.ruippeixotog.scalascraper.dsl.DSL._
 import play.api.libs.ws.DefaultBodyWritables._
-import play.api.libs.ws.{StandaloneWSRequest, StandaloneWSResponse}
+import play.api.libs.ws.StandaloneWSResponse
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.concurrent.duration._
-import net.ruippeixotog.scalascraper.dsl.DSL._
-import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
-import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
-import Settings._
 
 class Crawler {
-  def getFinancialAnalysis(year: Int)= {
+  def getFinancialAnalysis(year: Int): Future[Unit] = {
     def request(formData: Map[String, String], fileName: String): Future[File] = {
       Http.client.url(financialAnalysis.page)
         .post(formData)
@@ -34,41 +33,11 @@ class Crawler {
               .withBody(fd)
               .withRequestTimeout(5.minutes)
               .stream()
-        } flatMap (downloadFile(financialAnalysis.dir, Some(s"$fileName.csv")))
+        } flatMap (downloadFile(financialAnalysis.dir, Some(fileName)))
     }
 
     val y = year - 1911
-    val task1 = if (y > 100) {
-      // After IFRS
-      val formData = Map(
-        "encodeURIComponent" -> "1",
-        //"run" -> "Y",
-        "step" -> "1",
-        "TYPEK" -> "sii",
-        "year" -> y.toString,
-        "firstin" -> "1",
-        "off" -> "1",
-        "ifrs" -> "Y")
-      request(formData, s"${y}_a")
-    }
-
-
-
-    if (y > 100) {
-      // After IFRS
-      val formData = Map(
-        "encodeURIComponent" -> "1",
-        //"run" -> "Y",
-        "step" -> "1",
-        "TYPEK" -> "sii",
-        "year" -> y.toString,
-        "firstin" -> "1",
-        "off" -> "1",
-        "ifrs" -> "Y")
-      request(formData, s"${y}_a")
-    }
-
-    if (y < 104) {
+    val taskBeforeIFRS = if (y < 104) {
       // Before IFRS
       val formData = Map(
         "encodeURIComponent" -> "1",
@@ -77,8 +46,27 @@ class Crawler {
         "off" -> "1",
         "TYPEK" -> "sii",
         "year" -> y.toString)
-      request(formData, s"${y}_b")
-    }
+      request(formData, s"${y}_b.csv")
+    } else Future.successful()
+
+    val taskAfterIFRS = if (y > 100) {
+      // After IFRS
+      val formData = Map(
+        "encodeURIComponent" -> "1",
+        //"run" -> "Y",
+        "step" -> "1",
+        "TYPEK" -> "sii",
+        "year" -> y.toString,
+        "firstin" -> "1",
+        "off" -> "1",
+        "ifrs" -> "Y")
+      request(formData, s"${y}_a.csv")
+    } else Future.successful()
+
+    for {
+      _ <- taskAfterIFRS
+      _ <- taskBeforeIFRS
+    } yield ()
   }
 
   def getOperatingRevenue(year: Int, month: Int): Future[File] = {
