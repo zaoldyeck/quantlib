@@ -37,7 +37,7 @@ class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], 
 
   def cumulativeRevenueComparedLastYearPercentage = column[Option[Double]]("cumulative_revenue_compared_last_year(%))")
 
-  def idx = index("idx_a", (companyCode, year, month), unique = true)
+  def idx = index("idx_operatingRevenue_companyCode_year_month", (companyCode, year, month), unique = true)
 
   def * = (id, year, month, industry, companyCode, companyName, monthlyRevenue, lastMonthRevenue, lastYearMonthlyRevenue, monthlyRevenueComparedLastMonthPercentage, monthlyRevenueComparedLastYearPercentage, cumulativeRevenue, lastYearCumulativeRevenue, cumulativeRevenueComparedLastYearPercentage)
 }

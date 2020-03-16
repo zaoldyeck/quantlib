@@ -43,7 +43,7 @@ class NetChangeOfPrice(tag: Tag) extends Table[(Long, LocalDate, Int, Int, Int, 
 
   def naStocks = column[Int]("n/a_stocks")
 
-  def idx = index("idx_a", date, unique = true)
+  def idx = index("idx_netChangeOfPrice_date", date, unique = true)
 
   def * = (id, date, upOverallMarket, upStocks, limitUpOverallMarket, limitUpOverallMarket, downOverallMarket, downStocks, limitDownOverallMarket, limitDownStocks, unchangedOverallMarket, unchangedStocks, unmatchedOverallMarket, unmatchedStocks, naOverallMarket, naStocks)
 }

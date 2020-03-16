@@ -24,7 +24,7 @@ class Index(tag: Tag) extends Table[(Long, LocalDate, String, Double, Int, Doubl
 
   def changePercentage = column[Double]("change(%)")
 
-  def idx = index("idx_a", (date, index), unique = true)
+  def idx = index("idx_index_date_index", (date, index), unique = true)
 
   def * = (id, date, index, closingIndex, direction, change, changePercentage)
 }

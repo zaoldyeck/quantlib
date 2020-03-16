@@ -58,7 +58,7 @@ class FinancialAnalysis(tag: Tag) extends Table[FinancialAnalysisRow](tag, "fina
 
   def cashFlowReinvestmentRatioPercentage = column[Option[Double]]("cash_flow_reinvestment_ratio(%)")
 
-  def idx = index("idx_a", (year, companyCode), unique = true)
+  def idx = index("idx_financialAnalysis_year_companyCode", (year, companyCode), unique = true)
 
   def * = (id :: year :: companyCode :: companyName :: liabilitiesOfAssetsRatioPercentage :: longTermFundsToPropertyAndPlantAndEquipmentPercentage :: currentRatioPercentage :: quickRatioPercentage :: timesInterestEarnedRatioPercentage :: averageCollectionTurnoverTimes :: averageCollectionDays :: averageInventoryTurnoverTimes :: averageInventoryDays :: propertyAndPlantAndEquipmentTurnoverTimes :: totalAssetsTurnoverTimes :: returnOnTotalAssetsPercentage :: returnOnEquityPercentage :: profitBeforeTaxToCapitalPercentage :: profitToSalesPercentage :: earningsPerShareNTD :: cashFlowRatioPercentage :: cashFlowAdequacyRatioPercentage :: cashFlowReinvestmentRatioPercentage :: HNil).mapTo[FinancialAnalysisRow]
 }

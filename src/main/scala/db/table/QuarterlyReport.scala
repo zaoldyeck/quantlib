@@ -25,7 +25,7 @@ class QuarterlyReport(tag: Tag) extends Table[(Long, Int, Int, String, String, O
 
   def value = column[Double]("value")
 
-  def idx = index("idx_a", (year, quarter, companyCode, subject), unique = true)
+  def idx = index("idx_quarterlyReport_year_quarter_companyCode_subject", (year, quarter, companyCode, subject), unique = true)
 
   def * = (id, year, quarter, companyCode, companyName, code, subject, value)
 }
