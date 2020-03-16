@@ -19,24 +19,29 @@ object Main {
      * 3. 財務分析（上市、上櫃）
      */
 
-  val suppliers = TableQuery[OperatingRevenue]
-  val setup = DBIO.seq(
-    suppliers.schema.create)//,
-    //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-    //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-    //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+    /*
+      val financialAnalysis = TableQuery[FinancialAnalysis]
+      val operatingRevenue = TableQuery[OperatingRevenue]
+      val setup = DBIO.seq(
+        financialAnalysis.schema.create,
+        operatingRevenue.schema.create)
+         //,
 
-  val db = Database.forConfig("h2mem1")
-  try {
-    val resultFuture = db.run(setup)
-    Await.result(resultFuture, Duration.Inf)
-  } finally db.close
+        //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+        //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+        //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
 
+
+      val db = Database.forConfig("h2mem1")
+      try {
+        val resultFuture = db.run(setup)
+        Await.result(resultFuture, Duration.Inf)
+      } finally db.close
+     */
 
     val crawler = new Crawler()
-    /*
     val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2013 to 2019
+      year <- 2019 to 2020
       month <- 1 to 12
     } yield (year, month)
 
@@ -49,7 +54,6 @@ object Main {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
-     */
 
     /*
     val futures = (2015 to 2019).map(year => crawler.getFinancialAnalysis(year))
@@ -61,7 +65,7 @@ object Main {
     }
     */
 
-    new Reader().readOperatingRevenue()
+    //new Reader().readOperatingRevenue()
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html

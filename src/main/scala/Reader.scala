@@ -46,7 +46,7 @@ class Reader {
 
   def readOperatingRevenue(): Unit = {
     operatingRevenue.dir.toDirectory.files.foreach { file =>
-      val reader = CSVReader.open(file.jfile, "Big5")
+      val reader = CSVReader.open(file.jfile)
       val strings = file.name.split('_')
       val year = strings.head.toInt + 1911
       val month = strings.last.split('.').head.toInt
