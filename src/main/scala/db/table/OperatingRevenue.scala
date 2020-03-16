@@ -8,7 +8,7 @@ import slick.jdbc.H2Profile.api._
  *
  * @param tag
  */
-class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], String, String, Double, Double, Double, Double, Double, Double, Double, Double)](tag, "operating_revenue") {
+class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], String, String, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "operating_revenue") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
   def year = column[Int]("year")
@@ -21,21 +21,21 @@ class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], 
 
   def companyName = column[String]("company_name")
 
-  def monthlyRevenue = column[Double]("monthly_revenue")
+  def monthlyRevenue = column[Option[Double]]("monthly_revenue")
 
-  def lastMonthRevenue = column[Double]("last_month_revenue")
+  def lastMonthRevenue = column[Option[Double]]("last_month_revenue")
 
-  def lastYearMonthlyRevenue = column[Double]("last_year_monthly_revenue")
+  def lastYearMonthlyRevenue = column[Option[Double]]("last_year_monthly_revenue")
 
-  def monthlyRevenueComparedLastMonthPercentage = column[Double]("monthly_revenue_compared_last_month(%))")
+  def monthlyRevenueComparedLastMonthPercentage = column[Option[Double]]("monthly_revenue_compared_last_month(%))")
 
-  def monthlyRevenueComparedLastYearPercentage = column[Double]("monthly_revenue_compared_last_year(%))")
+  def monthlyRevenueComparedLastYearPercentage = column[Option[Double]]("monthly_revenue_compared_last_year(%))")
 
-  def cumulativeRevenue = column[Double]("cumulative_revenue")
+  def cumulativeRevenue = column[Option[Double]]("cumulative_revenue")
 
-  def lastYearCumulativeRevenue = column[Double]("last_year_cumulative_revenue")
+  def lastYearCumulativeRevenue = column[Option[Double]]("last_year_cumulative_revenue")
 
-  def cumulativeRevenueComparedLastYearPercentage = column[Double]("cumulative_revenue_compared_last_year(%))")
+  def cumulativeRevenueComparedLastYearPercentage = column[Option[Double]]("cumulative_revenue_compared_last_year(%))")
 
   def idx = index("idx_a", (companyCode, year, month), unique = true)
 

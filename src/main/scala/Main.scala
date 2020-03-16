@@ -1,9 +1,10 @@
 import java.io.File
 import java.util.concurrent.Executors
 
-import db.table.FinancialAnalysis
+import db.table.{FinancialAnalysis, OperatingRevenue}
 import slick.lifted.TableQuery
 import slick.jdbc.H2Profile.api._
+
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
 //import scala.concurrent.ExecutionContext.Implicits.global
@@ -18,21 +19,19 @@ object Main {
      * 3. 財務分析（上市、上櫃）
      */
 
-
-    /*
-  val suppliers = TableQuery[FinancialAnalysis]
+  val suppliers = TableQuery[OperatingRevenue]
   val setup = DBIO.seq(
-    suppliers.schema.create,
-    suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-    suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-    suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+    suppliers.schema.create)//,
+    //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+    //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+    //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
 
   val db = Database.forConfig("h2mem1")
   try {
     val resultFuture = db.run(setup)
     Await.result(resultFuture, Duration.Inf)
   } finally db.close
-     */
+
 
     val crawler = new Crawler()
     /*
@@ -62,7 +61,7 @@ object Main {
     }
     */
 
-    new Reader().readFinancialAnalysis()
+    new Reader().readOperatingRevenue()
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html
