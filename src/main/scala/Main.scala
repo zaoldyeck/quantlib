@@ -41,8 +41,8 @@ object Main {
 
     val crawler = new Crawler()
     val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2019 to 2020
-      month <- 1 to 12
+      year <- 2020 to 2020
+      month <- 3 to 12
     } yield (year, month)
 
     val futures = yearToMonth.map {

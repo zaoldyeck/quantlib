@@ -1,4 +1,5 @@
 import java.io.File
+import java.util.concurrent.Executors
 
 import Http.materializer
 import Settings._
@@ -10,11 +11,13 @@ import net.ruippeixotog.scalascraper.dsl.DSL._
 import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.ws.StandaloneWSResponse
 
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.Future
+//import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
 
 class Crawler {
+  implicit val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
+
   def getFinancialAnalysis(year: Int): Future[Unit] = {
     def request(formData: Map[String, String], fileName: String): Future[File] = {
       Http.client.url(financialAnalysis.page)
@@ -70,7 +73,7 @@ class Crawler {
   }
 
   def getOperatingRevenue(year: Int, month: Int): Future[File] = {
-    Thread.sleep(10000)
+    Thread.sleep(20000)
     year - 1911 match {
       case y if y < 102 =>
         // Before IFRS
