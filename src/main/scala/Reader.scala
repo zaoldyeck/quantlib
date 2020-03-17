@@ -12,11 +12,13 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 class Reader {
+  val db = Database.forConfig("db")
+
   def readFinancialAnalysis(): Unit = {
     financialAnalysis.dir.toDirectory.files.foreach { file =>
       val reader = CSVReader.open(file.jfile, "Big5")
-      //      val value: Seq[Map[String, String]] = reader.allWithHeaders()
-      //      value.foreach(x => println(x))
+      // val value: Seq[Map[String, String]] = reader.allWithHeaders()
+      // value.foreach(x => println(x))
 
       val year = file.name.split('_').head.toInt + 1911
       val rows = reader.all().tail
@@ -34,7 +36,6 @@ class Reader {
             transferValues(14), transferValues(15), transferValues(16), transferValues(17), transferValues(18))
       }
       val financialAnalysis = TableQuery[FinancialAnalysis]
-      val db = Database.forConfig("h2mem1")
       try {
         val resultFuture = db.run(financialAnalysis ++= financialAnalysisRows)
         //val resultFuture = db.run(financialAnalysis.schema.create)
@@ -61,10 +62,12 @@ class Reader {
           (0L, year, month, Some(values(4)), values(2), values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7))
       }
 
-      val operatingRevenue = TableQuery[OperatingRevenue]
-      val db = Database.forConfig("h2mem1")
+      val table = TableQuery[OperatingRevenue]
+
+      val x = table.result
+
       try {
-        val resultFuture = db.run(operatingRevenue ++= operatingRevenueRows)
+        val resultFuture = db.run(table ++= operatingRevenueRows)
         //val resultFuture = db.run(financialAnalysis.schema.create)
         Await.result(resultFuture, Duration.Inf)
       } finally db.close
