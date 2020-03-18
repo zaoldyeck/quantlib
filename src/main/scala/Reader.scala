@@ -10,6 +10,7 @@ import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
+import slick.lifted.FlatShapeLevel
 
 class Reader {
   val db = Database.forConfig("db")
@@ -46,12 +47,22 @@ class Reader {
   }
 
   def readOperatingRevenue(): Unit = {
+    /*
+    def insertIfNotExists(name: String) = {
+      val exists = users.filter(_.name === name).map(_ => 1).exists
+      val constRow = (name.bind, None) <> (User.apply _ tupled, User.unapply)
+      users.forceInsertQuery(Query(constRow).filterNot(_ => exists))
+    }
+     */
+
     operatingRevenue.dir.toDirectory.files.foreach { file =>
       val reader = CSVReader.open(file.jfile)
       val strings = file.name.split('_')
       val year = strings.head.toInt + 1911
       val month = strings.last.split('.').head.toInt
       val rows = reader.all().tail
+
+      val operatingRevenues = TableQuery[OperatingRevenue]
       val operatingRevenueRows = rows.map {
         values =>
           val splitValues = values.splitAt(5)
@@ -59,18 +70,33 @@ class Reader {
             case v if v == "" => None
             case value => Some(value.toDouble)
           }
-          (0L, year, month, Some(values(4)), values(2), values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7))
+          val companyCode = values(2)
+          val data = Query((0L, year, month, Some(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)))
+          val exists = operatingRevenues.filter(operatingRevenue => operatingRevenue.companyCode === companyCode && operatingRevenue.year === year && operatingRevenue.month === month).exists
+          val selectExpression = data.filterNot(_ => exists)
+          val forceAction = operatingRevenues.forceInsertQuery(selectExpression)
+
+          /*
+          operatingRevenues.forceInsertQuery {
+            val exists = (for (u <- operatingRevenues if u.companyCode === companyCode && u.year === year && u.month === month) yield u).exists
+            val insert = (None, year, month, Some(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)) <> (OperatingRevenueRow.apply _ tupled, OperatingRevenueRow.unapply)
+            for (u <- Query(insert) if !exists) yield u
+          }
+          val exists = operatingRevenues.filter(operatingRevenue => operatingRevenue.companyCode === companyCode && operatingRevenue.year === year && operatingRevenue.month === month).exists
+
+          operatingRevenues.forceInsertQuery(Query(insert).filterNot(_ => exists))
+
+           */
       }
 
-      val table = TableQuery[OperatingRevenue]
 
-      val x = table.result
-
+      /*
       try {
-        val resultFuture = db.run(table ++= operatingRevenueRows)
+        val resultFuture = db.run(operatingRevenues ++= operatingRevenueRows)
         //val resultFuture = db.run(financialAnalysis.schema.create)
         Await.result(resultFuture, Duration.Inf)
       } finally db.close
+       */
       reader.close()
     }
   }

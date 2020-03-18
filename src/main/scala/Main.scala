@@ -39,6 +39,7 @@ object Main {
       } finally db.close
      */
 
+    /*
     val crawler = new Crawler()
     val yearToMonth: Seq[(Int, Int)] = for {
       year <- 2020 to 2020
@@ -54,6 +55,7 @@ object Main {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
+     */
 
     /*
     val futures = (2015 to 2019).map(year => crawler.getFinancialAnalysis(year))
@@ -65,7 +67,7 @@ object Main {
     }
     */
 
-    //new Reader().readOperatingRevenue()
+    new Reader().readOperatingRevenue()
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html
