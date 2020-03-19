@@ -1,29 +1,26 @@
-import com.github.tototoshi.csv._
-
-import scala.io.Source
 import Settings._
+import com.github.tototoshi.csv._
+import db.table.{FinancialAnalysis, OperatingRevenue}
+import slick.collection.heterogeneous.HNil
+import slick.lifted.TableQuery
 
 import scala.reflect.io.Path._
-import db.table.{FinancialAnalysis, FinancialAnalysisRow, OperatingRevenue}
-import slick.lifted.TableQuery
+//import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
-import slick.lifted.FlatShapeLevel
 
 class Reader {
-  val db = Database.forConfig("db")
-
   def readFinancialAnalysis(): Unit = {
     financialAnalysis.dir.toDirectory.files.foreach { file =>
       val reader = CSVReader.open(file.jfile, "Big5")
-      // val value: Seq[Map[String, String]] = reader.allWithHeaders()
-      // value.foreach(x => println(x))
-
       val year = file.name.split('_').head.toInt + 1911
       val rows = reader.all().tail
-      val financialAnalysisRows = rows.map {
+
+      val financialAnalysis = TableQuery[FinancialAnalysis]
+      val dbIOActions = rows.map {
         values =>
           val splitValues = values.splitAt(2)
           val transferValues = splitValues._2.map {
@@ -31,15 +28,19 @@ class Reader {
             case v if v.contains("*") => None
             case value => Some(value.toDouble)
           }
-          FinancialAnalysisRow(0, year, values(0), values(1), transferValues(0), transferValues(1),
-            transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7),
-            transferValues(8), transferValues(9), transferValues(10), transferValues(11), transferValues(12), transferValues(13),
-            transferValues(14), transferValues(15), transferValues(16), transferValues(17), transferValues(18))
+          val companyCode = values(0)
+          val data = Query((year :: companyCode :: values(1) :: transferValues(0) :: transferValues(1) ::
+            transferValues(2) :: transferValues(3) :: transferValues(4) :: transferValues(5) :: transferValues(6) :: transferValues(7) ::
+            transferValues(8) :: transferValues(9) :: transferValues(10) :: transferValues(11) :: transferValues(12) :: transferValues(13) ::
+            transferValues(14) :: transferValues(15) :: transferValues(16) :: transferValues(17) :: transferValues(18) :: HNil))
+          val exists = financialAnalysis.filter(f => f.year === year && f.companyCode === companyCode).exists
+          val selectExpression = data.filterNot(_ => exists)
+          financialAnalysis.map(f => (f.year :: f.companyCode :: f.companyName :: f.liabilitiesOfAssetsRatioPercentage :: f.longTermFundsToPropertyAndPlantAndEquipmentPercentage :: f.currentRatioPercentage :: f.quickRatioPercentage :: f.timesInterestEarnedRatioPercentage :: f.averageCollectionTurnoverTimes :: f.averageCollectionDays :: f.averageInventoryTurnoverTimes :: f.averageInventoryDays :: f.propertyAndPlantAndEquipmentTurnoverTimes :: f.totalAssetsTurnoverTimes :: f.returnOnTotalAssetsPercentage :: f.returnOnEquityPercentage :: f.profitBeforeTaxToCapitalPercentage :: f.profitToSalesPercentage :: f.earningsPerShareNTD :: f.cashFlowRatioPercentage :: f.cashFlowAdequacyRatioPercentage :: f.cashFlowReinvestmentRatioPercentage :: HNil)).forceInsertQuery(selectExpression)
       }
-      val financialAnalysis = TableQuery[FinancialAnalysis]
+
+      val db = Database.forConfig("db")
       try {
-        val resultFuture = db.run(financialAnalysis ++= financialAnalysisRows)
-        //val resultFuture = db.run(financialAnalysis.schema.create)
+        val resultFuture = db.run(DBIO.sequence(dbIOActions))
         Await.result(resultFuture, Duration.Inf)
       } finally db.close
       reader.close()
@@ -47,14 +48,6 @@ class Reader {
   }
 
   def readOperatingRevenue(): Unit = {
-    /*
-    def insertIfNotExists(name: String) = {
-      val exists = users.filter(_.name === name).map(_ => 1).exists
-      val constRow = (name.bind, None) <> (User.apply _ tupled, User.unapply)
-      users.forceInsertQuery(Query(constRow).filterNot(_ => exists))
-    }
-     */
-
     operatingRevenue.dir.toDirectory.files.foreach { file =>
       val reader = CSVReader.open(file.jfile)
       val strings = file.name.split('_')
@@ -63,7 +56,7 @@ class Reader {
       val rows = reader.all().tail
 
       val operatingRevenues = TableQuery[OperatingRevenue]
-      val operatingRevenueRows = rows.map {
+      val dbIOActions = rows.map {
         values =>
           val splitValues = values.splitAt(5)
           val transferValues = splitValues._2.init.map {
@@ -71,32 +64,17 @@ class Reader {
             case value => Some(value.toDouble)
           }
           val companyCode = values(2)
-          val data = Query((0L, year, month, Some(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)))
-          val exists = operatingRevenues.filter(operatingRevenue => operatingRevenue.companyCode === companyCode && operatingRevenue.year === year && operatingRevenue.month === month).exists
+          val data = Query((year, month, Option(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)))
+          val exists = operatingRevenues.filter(o => o.companyCode === companyCode && o.year === year && o.month === month).exists
           val selectExpression = data.filterNot(_ => exists)
-          val forceAction = operatingRevenues.forceInsertQuery(selectExpression)
-
-          /*
-          operatingRevenues.forceInsertQuery {
-            val exists = (for (u <- operatingRevenues if u.companyCode === companyCode && u.year === year && u.month === month) yield u).exists
-            val insert = (None, year, month, Some(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)) <> (OperatingRevenueRow.apply _ tupled, OperatingRevenueRow.unapply)
-            for (u <- Query(insert) if !exists) yield u
-          }
-          val exists = operatingRevenues.filter(operatingRevenue => operatingRevenue.companyCode === companyCode && operatingRevenue.year === year && operatingRevenue.month === month).exists
-
-          operatingRevenues.forceInsertQuery(Query(insert).filterNot(_ => exists))
-
-           */
+          operatingRevenues.map(o => (o.year, o.month, o.industry, o.companyCode, o.companyName, o.monthlyRevenue, o.lastMonthRevenue, o.lastYearMonthlyRevenue, o.monthlyRevenueComparedLastMonthPercentage, o.monthlyRevenueComparedLastYearPercentage, o.cumulativeRevenue, o.lastYearCumulativeRevenue, o.cumulativeRevenueComparedLastYearPercentage)).forceInsertQuery(selectExpression)
       }
 
-
-      /*
+      val db = Database.forConfig("db")
       try {
-        val resultFuture = db.run(operatingRevenues ++= operatingRevenueRows)
-        //val resultFuture = db.run(financialAnalysis.schema.create)
+        val resultFuture = db.run(DBIO.sequence(dbIOActions))
         Await.result(resultFuture, Duration.Inf)
       } finally db.close
-       */
       reader.close()
     }
   }

@@ -3,41 +3,46 @@ import java.util.concurrent.Executors
 
 import db.table.{FinancialAnalysis, OperatingRevenue}
 import slick.lifted.TableQuery
+//import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.H2Profile.api._
 
 import scala.concurrent.{Await, ExecutionContext, Future}
 import scala.util.{Failure, Success}
-//import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 object Main {
   def main(args: Array[String]): Unit = {
-    implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
+    //implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
     /**
      * 1. 每日收盤價（上市、上櫃）
      * 2. 月報（上市、上櫃）
      * 3. 財務分析（上市、上櫃）
      */
 
-    /*
-      val financialAnalysis = TableQuery[FinancialAnalysis]
-      val operatingRevenue = TableQuery[OperatingRevenue]
-      val setup = DBIO.seq(
-        financialAnalysis.schema.create,
-        operatingRevenue.schema.create)
-         //,
+      /*
+    val financialAnalysis = TableQuery[FinancialAnalysis]
+    val operatingRevenue = TableQuery[OperatingRevenue]
+    val setup = DBIO.seq(
+      financialAnalysis.schema.create,
+      operatingRevenue.schema.create)
 
-        //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-        //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-        //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+    //financialAnalysis.schema.createStatements.foreach(println)
+    //,
+    //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+    //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+    //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
 
 
-      val db = Database.forConfig("h2mem1")
-      try {
-        val resultFuture = db.run(setup)
-        Await.result(resultFuture, Duration.Inf)
-      } finally db.close
-     */
+    val db = Database.forConfig("db")
+    try {
+      val resultFuture = db.run(setup)
+      Await.result(resultFuture, Duration.Inf)
+    } finally db.close
+
+       */
+
 
     /*
     val crawler = new Crawler()
@@ -67,7 +72,7 @@ object Main {
     }
     */
 
-    new Reader().readOperatingRevenue()
+    new Reader().readFinancialAnalysis()
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html
