@@ -1,6 +1,8 @@
 package db.table
 
 import slick.collection.heterogeneous.HNil
+//import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.H2Profile.api._
 
 /**

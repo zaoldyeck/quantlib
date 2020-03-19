@@ -2,11 +2,14 @@ package db.table
 
 import java.time.LocalDate
 
+//import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.H2Profile.api._
 
 /**
  * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
  * 指數
+ *
  * @param tag
  */
 class Index(tag: Tag) extends Table[(Long, LocalDate, String, Double, Int, Double, Double)](tag, "index") {

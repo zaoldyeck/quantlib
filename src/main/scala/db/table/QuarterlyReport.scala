@@ -1,5 +1,8 @@
 package db.table
 
+//import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
+
 import slick.jdbc.H2Profile.api._
 
 /**
