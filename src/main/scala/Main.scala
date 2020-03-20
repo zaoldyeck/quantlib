@@ -1,5 +1,7 @@
 import java.io.File
+import java.time.LocalDate
 import java.util.concurrent.Executors
+import java.util.stream
 
 import db.table.{FinancialAnalysis, OperatingRevenue}
 import slick.lifted.TableQuery
@@ -12,6 +14,8 @@ import scala.util.{Failure, Success}
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
+import scala.jdk.StreamConverters._
+
 object Main {
   def main(args: Array[String]): Unit = {
     //implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
@@ -21,31 +25,37 @@ object Main {
      * 3. 財務分析（上市、上櫃）
      */
 
-      /*
-    val financialAnalysis = TableQuery[FinancialAnalysis]
-    val operatingRevenue = TableQuery[OperatingRevenue]
-    val setup = DBIO.seq(
-      financialAnalysis.schema.create,
-      operatingRevenue.schema.create)
-
-    //financialAnalysis.schema.createStatements.foreach(println)
-    //,
-    //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-    //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-    //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
-
-
-    val db = Database.forConfig("db")
-    try {
-      val resultFuture = db.run(setup)
-      Await.result(resultFuture, Duration.Inf)
-    } finally db.close
-
-       */
-
-
     /*
+  val financialAnalysis = TableQuery[FinancialAnalysis]
+  val operatingRevenue = TableQuery[OperatingRevenue]
+  val setup = DBIO.seq(
+    financialAnalysis.schema.create,
+    operatingRevenue.schema.create)
+
+  //financialAnalysis.schema.createStatements.foreach(println)
+  //,
+  //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+  //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+  //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+
+
+  val db = Database.forConfig("db")
+  try {
+    val resultFuture = db.run(setup)
+    Await.result(resultFuture, Duration.Inf)
+  } finally db.close
+
+     */
+
     val crawler = new Crawler()
+    val futures = LocalDate.of(2020, 3, 1).datesUntil(LocalDate.now()).toScala(Seq).map(crawler.getDailyQuote)
+    Future.sequence(futures) andThen {
+      case _ => Http.terminate()
+    } onComplete {
+      case Success(_) =>
+      case Failure(t) => t.printStackTrace()
+    }
+    /*
     val yearToMonth: Seq[(Int, Int)] = for {
       year <- 2020 to 2020
       month <- 3 to 12
@@ -72,7 +82,11 @@ object Main {
     }
     */
 
-    new Reader().readFinancialAnalysis()
+    /*
+    val reader = new Reader()
+    reader.readFinancialAnalysis()
+    reader.readOperatingRevenue()
+     */
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html

@@ -1,4 +1,6 @@
 import java.io.File
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 
 import Http.materializer
@@ -11,9 +13,8 @@ import net.ruippeixotog.scalascraper.dsl.DSL._
 import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.ws.StandaloneWSResponse
 
-//import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.{ExecutionContext, Future}
 import scala.concurrent.duration._
+import scala.concurrent.{ExecutionContext, Future}
 
 class Crawler {
   implicit val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
@@ -106,6 +107,17 @@ class Crawler {
       .withRequestTimeout(5.minutes)
       .stream()
       .flatMap(downloadFile(quarterlyReportDir))
+  }
+
+  def getDailyQuote(date: LocalDate): Future[File] = {
+    Thread.sleep(20000)
+    val dateString = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+    println(dateString)
+    Http.client.url(dailyQuote.file + dateString)
+      .withMethod("GET")
+      .withRequestTimeout(5.minutes)
+      .stream()
+      .flatMap(downloadFile(dailyQuote.dir, Some(s"${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")))
   }
 
   private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {

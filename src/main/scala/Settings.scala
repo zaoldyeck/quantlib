@@ -25,4 +25,10 @@ object Settings {
   }
 
   val quarterlyReportDir: String = conf.getString("data.quarterlyReport.dir")
+
+  object dailyQuote {
+    val dir: String = conf.getString("data.dailyQuote.dir")
+    val file: String = conf.getString("data.dailyQuote.file")
+  }
+
 }
