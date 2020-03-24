@@ -44,9 +44,9 @@ object Main {
     val resultFuture = db.run(setup)
     Await.result(resultFuture, Duration.Inf)
   } finally db.close
-
      */
 
+    /*
     val crawler = new Crawler()
     val futures = LocalDate.of(2020, 3, 1).datesUntil(LocalDate.now()).toScala(Seq).map(crawler.getDailyQuote)
     Future.sequence(futures) andThen {
@@ -55,6 +55,8 @@ object Main {
       case Success(_) =>
       case Failure(t) => t.printStackTrace()
     }
+
+     */
     /*
     val yearToMonth: Seq[(Int, Int)] = for {
       year <- 2020 to 2020
@@ -82,11 +84,9 @@ object Main {
     }
     */
 
-    /*
     val reader = new Reader()
-    reader.readFinancialAnalysis()
-    reader.readOperatingRevenue()
-     */
+    //reader.readFinancialAnalysis()
+    reader.readDailyQuote()
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html

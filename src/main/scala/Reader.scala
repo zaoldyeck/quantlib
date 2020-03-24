@@ -1,6 +1,8 @@
+import java.time.LocalDate
+
 import Settings._
 import com.github.tototoshi.csv._
-import db.table.{FinancialAnalysis, OperatingRevenue}
+import db.table.{DailyQuote, FinancialAnalysis, OperatingRevenue}
 import slick.collection.heterogeneous.HNil
 import slick.lifted.TableQuery
 
@@ -50,11 +52,12 @@ class Reader {
   def readOperatingRevenue(): Unit = {
     operatingRevenue.dir.toDirectory.files.foreach { file =>
       val reader = CSVReader.open(file.jfile)
-      val strings = file.name.split('_')
-      val year = strings.head.toInt + 1911
-      val month = strings.last.split('.').head.toInt
-      val rows = reader.all().tail
+      val fileNamePattern = """(\d+)_(\d+).csv""".r
+      val fileNamePattern(year, month) = file.name
+      val y = year.toInt + 1911
+      val m = month.toInt
 
+      val rows = reader.all().tail
       val operatingRevenues = TableQuery[OperatingRevenue]
       val dbIOActions = rows.map {
         values =>
@@ -64,8 +67,47 @@ class Reader {
             case value => Some(value.toDouble)
           }
           val companyCode = values(2)
-          val data = Query((year, month, Option(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)))
-          val exists = operatingRevenues.filter(o => o.companyCode === companyCode && o.year === year && o.month === month).exists
+          val data = Query((y, m, Option(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)))
+          val exists = operatingRevenues.filter(o => o.companyCode === companyCode && o.year === y && o.month === m).exists
+          val selectExpression = data.filterNot(_ => exists)
+          operatingRevenues.map(o => (o.year, o.month, o.industry, o.companyCode, o.companyName, o.monthlyRevenue, o.lastMonthRevenue, o.lastYearMonthlyRevenue, o.monthlyRevenueComparedLastMonthPercentage, o.monthlyRevenueComparedLastYearPercentage, o.cumulativeRevenue, o.lastYearCumulativeRevenue, o.cumulativeRevenueComparedLastYearPercentage)).forceInsertQuery(selectExpression)
+      }
+
+      val db = Database.forConfig("db")
+      try {
+        val resultFuture = db.run(DBIO.sequence(dbIOActions))
+        Await.result(resultFuture, Duration.Inf)
+      } finally db.close
+      reader.close()
+    }
+  }
+
+  def readDailyQuote(): Unit = {
+    dailyQuote.dir.toDirectory.files.foreach { file =>
+      implicit object MyFormat extends DefaultCSVFormat {
+        override val quoteChar = 0
+        override val escapeChar = 0
+      }
+      val reader = CSVReader.open(file.jfile, "Big5")
+      val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+      val fileNamePattern(year, month, day) = file.name
+      val y = year.toInt
+      val m = month.toInt
+      val d = day.toInt
+      val date = LocalDate.of(y, m, d)
+
+      val rows = reader.all().drop(194).map(_.map(_.replaceAll("[\"=]", "")))
+      val dailyQuotes = TableQuery[DailyQuote]
+      val dbIOActions = rows.map {
+        values =>
+          val splitValues = values.splitAt(5)
+          val transferValues = splitValues._2.init.map {
+            case v if v == "" => None
+            case value => Some(value.toDouble)
+          }
+          val companyCode = values(2)
+          val data = Query((y, m, Option(values(4)), companyCode, values(3), transferValues(0), transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7)))
+          val exists = operatingRevenues.filter(o => o.companyCode === companyCode && o.year === y && o.month === m).exists
           val selectExpression = data.filterNot(_ => exists)
           operatingRevenues.map(o => (o.year, o.month, o.industry, o.companyCode, o.companyName, o.monthlyRevenue, o.lastMonthRevenue, o.lastYearMonthlyRevenue, o.monthlyRevenueComparedLastMonthPercentage, o.monthlyRevenueComparedLastYearPercentage, o.cumulativeRevenue, o.lastYearCumulativeRevenue, o.cumulativeRevenueComparedLastYearPercentage)).forceInsertQuery(selectExpression)
       }
