@@ -3,7 +3,7 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 import java.util.stream
 
-import db.table.{FinancialAnalysis, OperatingRevenue}
+import db.table.{DailyQuote, FinancialAnalysis, OperatingRevenue}
 import slick.lifted.TableQuery
 //import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
@@ -25,26 +25,29 @@ object Main {
      * 3. 財務分析（上市、上櫃）
      */
 
-    /*
-  val financialAnalysis = TableQuery[FinancialAnalysis]
-  val operatingRevenue = TableQuery[OperatingRevenue]
-  val setup = DBIO.seq(
-    financialAnalysis.schema.create,
-    operatingRevenue.schema.create)
+      /*
+    val financialAnalysis = TableQuery[FinancialAnalysis]
+    val operatingRevenue = TableQuery[OperatingRevenue]
+    val dailyQuote = TableQuery[DailyQuote]
+    val setup = DBIO.seq(
+      //financialAnalysis.schema.create,
+      //operatingRevenue.schema.create,
+      dailyQuote.schema.create)
 
-  //financialAnalysis.schema.createStatements.foreach(println)
-  //,
-  //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-  //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-  //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
+    //financialAnalysis.schema.createStatements.foreach(println)
+    //,
+    //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
+    //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
+    //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
 
 
-  val db = Database.forConfig("db")
-  try {
-    val resultFuture = db.run(setup)
-    Await.result(resultFuture, Duration.Inf)
-  } finally db.close
-     */
+    val db = Database.forConfig("db")
+    try {
+      val resultFuture = db.run(setup)
+      Await.result(resultFuture, Duration.Inf)
+    } finally db.close
+
+       */
 
     /*
     val crawler = new Crawler()
