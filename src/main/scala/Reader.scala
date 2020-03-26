@@ -9,6 +9,7 @@ import slick.lifted.TableQuery
 
 import scala.io.Source
 import scala.reflect.io.Path._
+import scala.util.control.Exception
 //import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.H2Profile.api._
@@ -85,17 +86,74 @@ class Reader {
   }
 
   def readDailyQuote(): Unit = {
-    //CSVReader
+    class MyCSVReader(private val lineReader: LineReader)(implicit format: CSVFormat) extends CSVReader(lineReader){
+      private[this] val parser = new CSVParser(format)
+      override def readNext(): Option[List[String]] = {
+
+        @scala.annotation.tailrec
+        def parseNext(lineReader: LineReader, leftOver: Option[String] = None): Option[List[String]] = {
+
+          val nextLine = lineReader.readLineWithTerminator()
+          if (nextLine == null) {
+            if (leftOver.isDefined) {
+              throw new MalformedCSVException("Malformed Input!: " + leftOver)
+            } else {
+              None
+            }
+          } else {
+            val line = leftOver.getOrElse("") + nextLine
+            parser.parseLine(line) match {
+              case None => {
+                parseNext(lineReader, Some(line))
+              }
+              case result => result
+            }
+          }
+        }
+
+        parseNext(lineReader)
+      }
+    }
     dailyQuote.dir.toDirectory.files.foreach { file =>
       val fin = new FileInputStream(file.jfile)
       val reader = new InputStreamReader(fin, "Big5")
       val readerLineReader = new ReaderLineReader(reader)
       object MyFormat extends DefaultCSVFormat
       val parser = new CSVParser(MyFormat)
-      (1 until 200).foreach(readerLineReader.readLineWithTerminator())
+
+      def readNext(): Option[List[String]] = {
+        @scala.annotation.tailrec
+        def parseNext(lineReader: LineReader, leftOver: Option[String] = None): Option[List[String]] = {
+          val nextLine = lineReader.readLineWithTerminator()
+          println(nextLine)
+          if (nextLine == null) {
+            if (leftOver.isDefined) {
+              throw new MalformedCSVException("Malformed Input!: " + leftOver)
+            } else {
+              None
+            }
+          } else if (nextLine.contains("\"\"")) {
+            println("有進來")
+            //val line = leftOver.getOrElse("") + nextLine
+            parseNext(lineReader)
+          } else {
+            val line = leftOver.getOrElse("") + nextLine.replace("=","")
+            parser.parseLine(line) match {
+              case None => {
+                parseNext(lineReader, Some(line))
+              }
+              case result => result
+            }
+          }
+        }
+
+        parseNext(readerLineReader)
+      }
+
+      LazyList.continually(readNext()).takeWhile(_.isDefined).map(_.get).foreach(println)
 
       //new CSVReader(readerLineReader)
-      parser.parseLine(readerLineReader.readLineWithTerminator())
+      //parser.parseLine(readerLineReader.readLineWithTerminator())
     }
     /*
         val reader = CSVReader
