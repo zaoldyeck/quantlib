@@ -1,15 +1,13 @@
-import java.io.{FileInputStream, InputStreamReader, StringReader}
 import java.time.LocalDate
 
 import Settings._
-import com.github.tototoshi.csv.{CSVFormat, _}
+import com.github.tototoshi.csv._
 import db.table.{DailyQuote, FinancialAnalysis, OperatingRevenue}
 import slick.collection.heterogeneous.HNil
 import slick.lifted.TableQuery
+import utils.QuantlibCSVReader
 
-import scala.io.Source
 import scala.reflect.io.Path._
-import scala.util.control.Exception
 //import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
 import slick.jdbc.H2Profile.api._
@@ -86,130 +84,19 @@ class Reader {
   }
 
   def readDailyQuote(): Unit = {
-    class MyCSVReader(private val lineReader: LineReader)(implicit format: CSVFormat) extends CSVReader(lineReader){
-      private[this] val parser = new CSVParser(format)
-      override def readNext(): Option[List[String]] = {
-
-        @scala.annotation.tailrec
-        def parseNext(lineReader: LineReader, leftOver: Option[String] = None): Option[List[String]] = {
-
-          val nextLine = lineReader.readLineWithTerminator()
-          if (nextLine == null) {
-            if (leftOver.isDefined) {
-              throw new MalformedCSVException("Malformed Input!: " + leftOver)
-            } else {
-              None
-            }
-          } else {
-            val line = leftOver.getOrElse("") + nextLine
-            parser.parseLine(line) match {
-              case None => {
-                parseNext(lineReader, Some(line))
-              }
-              case result => result
-            }
-          }
-        }
-
-        parseNext(lineReader)
-      }
-    }
     dailyQuote.dir.toDirectory.files.foreach { file =>
-      val fin = new FileInputStream(file.jfile)
-      val reader = new InputStreamReader(fin, "Big5")
-      val readerLineReader = new ReaderLineReader(reader)
-      object MyFormat extends DefaultCSVFormat
-      val parser = new CSVParser(MyFormat)
-
-      def readNext(): Option[List[String]] = {
-        @scala.annotation.tailrec
-        def parseNext(lineReader: LineReader, leftOver: Option[String] = None): Option[List[String]] = {
-          val nextLine = lineReader.readLineWithTerminator()
-          println(nextLine)
-          if (nextLine == null) {
-            if (leftOver.isDefined) {
-              throw new MalformedCSVException("Malformed Input!: " + leftOver)
-            } else {
-              None
-            }
-          } else if (nextLine.contains("\"\"")) {
-            println("有進來")
-            //val line = leftOver.getOrElse("") + nextLine
-            parseNext(lineReader)
-          } else {
-            val line = leftOver.getOrElse("") + nextLine.replace("=","")
-            parser.parseLine(line) match {
-              case None => {
-                parseNext(lineReader, Some(line))
-              }
-              case result => result
-            }
-          }
-        }
-
-        parseNext(readerLineReader)
-      }
-
-      LazyList.continually(readNext()).takeWhile(_.isDefined).map(_.get).foreach(println)
-
-      //new CSVReader(readerLineReader)
-      //parser.parseLine(readerLineReader.readLineWithTerminator())
-    }
-    /*
-        val reader = CSVReader
-        object MyFormat extends DefaultCSVFormat {
-          //override val quoteChar = 0
-          override val escapeChar = 0
-        }
-        val parser = new CSVParser(MyFormat)
-
-        dailyQuote.dir.toDirectory.files.foreach { file =>
-          //val reader = new InputStreamReader(new FileInputStream(file.jfile), "Big5")
-          //new ReaderLineReader(reader)
-          println(file.name)
-          val reader2 = new StringReader(Source.fromFile(file.jfile, "Big5").getLines().drop(194).mkString("\n"))
-          val r = new ReaderLineReader(reader2)
-          class MyReader extends CSVReader(r) {
-
-          }
-          reader.open(reader2).all().foreach(println)
-
-
-
-
-          /*
-          Source.fromFile(file.jfile, "Big5").getLines().drop(194).map(parser.parseLine).takeWhile(_.isDefined).map(_.get).toSeq.foreach {
-            values =>
-              println(values)
-          }
-
-           */
-        }
-
-     */
-
-
-    /*
-    dailyQuote.dir.toDirectory.files.foreach { file =>
-      implicit object MyFormat extends DefaultCSVFormat {
-        override val quoteChar = 0
-        override val escapeChar = 0
-      }
-      val reader = CSVReader.open(file.jfile, "Big5")
+      val reader = QuantlibCSVReader.open(file.jfile, "Big5")
       val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
       val fileNamePattern(year, month, day) = file.name
       val y = year.toInt
       val m = month.toInt
       val d = day.toInt
       val date = LocalDate.of(y, m, d)
-      println(date)
 
-      val rows = reader.all().drop(194).map(_.map(_.replaceAll("[\"=]", "")))
-      //rows.foreach(println)
+      val rows = reader.all().dropWhile(_.head != "0050").map(_.map(_.replace(",", "")))
       val dailyQuotes = TableQuery[DailyQuote]
       val dbIOActions = rows.map {
         values =>
-          println(values)
           val splitValues = values.splitAt(2)
           val transferValues: Seq[Option[Double]] = splitValues._2.init.map {
             case v if v == "--" => None
@@ -249,6 +136,5 @@ class Reader {
       } finally db.close
       reader.close()
     }
-    */
   }
 }
