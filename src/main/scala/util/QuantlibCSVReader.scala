@@ -1,4 +1,4 @@
-package utils
+package util
 
 import java.io._
 
@@ -18,7 +18,7 @@ class QuantlibCSVReader(private val lineReader: LineReader)(implicit format: CSV
           if (leftOver.isDefined) {
             throw new MalformedCSVException("Malformed Input!: " + leftOver)
           } else None
-        case n if n.contains("\"\"") => parseNext(lineReader)
+        case n if n.contains("\"\"") && !n.contains(",\"\"") => parseNext(lineReader)
         case _ =>
           val line = leftOver.getOrElse("") + nextLine.replace("=", "")
           parser.parseLine(line) match {
