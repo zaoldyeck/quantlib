@@ -112,12 +112,21 @@ class Crawler {
   def getDailyQuote(date: LocalDate): Future[File] = {
     Thread.sleep(20000)
     val dateString = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-    println(dateString)
     Http.client.url(dailyQuote.file + dateString)
       .withMethod("GET")
       .withRequestTimeout(5.minutes)
       .stream()
       .flatMap(downloadFile(dailyQuote.dir, Some(s"${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")))
+  }
+
+  def getIndex(date: LocalDate): Future[File] = {
+    Thread.sleep(20000)
+    val dateString = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
+    Http.client.url(index.file + dateString)
+      .withMethod("GET")
+      .withRequestTimeout(5.minutes)
+      .stream()
+      .flatMap(downloadFile(index.dir, Some(s"${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")))
   }
 
   private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {

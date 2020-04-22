@@ -3,7 +3,8 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 import java.util.stream
 
-import db.table.{DailyQuote, FinancialAnalysis, OperatingRevenue}
+import Settings.index
+import db.table.{DailyQuote, FinancialAnalysis, Index, OperatingRevenue}
 import slick.lifted.TableQuery
 //import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
@@ -29,10 +30,12 @@ object Main {
     val financialAnalysis = TableQuery[FinancialAnalysis]
     val operatingRevenue = TableQuery[OperatingRevenue]
     val dailyQuote = TableQuery[DailyQuote]
+    val index = TableQuery[Index]
     val setup = DBIO.seq(
       //financialAnalysis.schema.create,
       //operatingRevenue.schema.create,
-      dailyQuote.schema.create)
+      //dailyQuote.schema.create,
+      index.schema.create)
 
     //financialAnalysis.schema.createStatements.foreach(println)
     //,
@@ -51,7 +54,7 @@ object Main {
 
     /*
     val crawler = new Crawler()
-    val futures = LocalDate.of(2020, 3, 1).datesUntil(LocalDate.now()).toScala(Seq).map(crawler.getDailyQuote)
+    val futures = LocalDate.of(2020, 4, 1).datesUntil(LocalDate.now()).toScala(Seq).map(crawler.getIndex)
     Future.sequence(futures) andThen {
       case _ => Http.terminate()
     } onComplete {
@@ -60,6 +63,7 @@ object Main {
     }
 
      */
+
     /*
     val yearToMonth: Seq[(Int, Int)] = for {
       year <- 2020 to 2020
@@ -88,8 +92,7 @@ object Main {
     */
 
     val reader = new Reader()
-    //reader.readFinancialAnalysis()
-    reader.readDailyQuote()
+    reader.readIndex()
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html

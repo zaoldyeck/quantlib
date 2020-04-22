@@ -12,7 +12,7 @@ import slick.jdbc.H2Profile.api._
  *
  * @param tag
  */
-class DailyQuote(tag: Tag) extends Table[(Long, LocalDate, String, String, Long, Int, Long, Option[Double], Option[Double], Option[Double], Option[Double], Int, Double, Option[Double], Int, Option[Double], Int, Double)](tag, "daily_quote") {
+class DailyQuote(tag: Tag) extends Table[(Long, LocalDate, String, String, Long, Int, Long, Option[Double], Option[Double], Option[Double], Option[Double], Double, Option[Double], Int, Option[Double], Int, Double)](tag, "daily_quote") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
   def date = column[LocalDate]("date")
@@ -35,7 +35,7 @@ class DailyQuote(tag: Tag) extends Table[(Long, LocalDate, String, String, Long,
 
   def closingPrice = column[Option[Double]]("closing_price")
 
-  def direction = column[Int]("direction") // -1, 0 , 1
+  //def direction = column[Int]("direction") // -1, 0 , 1
 
   def change = column[Double]("change")
 
@@ -51,5 +51,5 @@ class DailyQuote(tag: Tag) extends Table[(Long, LocalDate, String, String, Long,
 
   def idx = index("idx_dailyQuote_date_companyCode", (date, companyCode), unique = true)
 
-  def * = (id, date, companyCode, companyName, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, direction, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio)
+  def * = (id, date, companyCode, companyName, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio)
 }

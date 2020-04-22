@@ -2,7 +2,7 @@ import java.time.LocalDate
 
 import Settings._
 import com.github.tototoshi.csv._
-import db.table.{DailyQuote, FinancialAnalysis, OperatingRevenue}
+import db.table.{DailyQuote, FinancialAnalysis, Index, OperatingRevenue}
 import slick.collection.heterogeneous.HNil
 import slick.lifted.TableQuery
 import utils.QuantlibCSVReader
@@ -106,6 +106,11 @@ class Reader {
             case value => Some(value.toDouble)
           }
           val companyCode = values(0)
+          val direction = transferValues(7).get
+          val change = direction match {
+            case -1 => -transferValues(8).get
+            case _ => transferValues(8).get
+          }
 
           val data = Query((date,
             companyCode,
@@ -117,8 +122,7 @@ class Reader {
             transferValues(4),
             transferValues(5),
             transferValues(6),
-            transferValues(7).get.toInt,
-            transferValues(8).get,
+            change,
             transferValues(9),
             transferValues(10).get.toInt,
             transferValues(11),
@@ -126,7 +130,55 @@ class Reader {
             transferValues(13).get))
           val exists = dailyQuotes.filter(d => d.date === date && d.companyCode === companyCode).exists
           val selectExpression = data.filterNot(_ => exists)
-          dailyQuotes.map(d => (d.date, d.companyCode, d.companyName, d.tradeVolume, d.transaction, d.tradeValue, d.openingPrice, d.highestPrice, d.lowestPrice, d.closingPrice, d.direction, d.change, d.lastBestBidPrice, d.lastBestBidVolume, d.lastBestAskPrice, d.lastBestAskVolume, d.priceEarningRatio)).forceInsertQuery(selectExpression)
+          dailyQuotes.map(d => (d.date, d.companyCode, d.companyName, d.tradeVolume, d.transaction, d.tradeValue, d.openingPrice, d.highestPrice, d.lowestPrice, d.closingPrice, d.change, d.lastBestBidPrice, d.lastBestBidVolume, d.lastBestAskPrice, d.lastBestAskVolume, d.priceEarningRatio)).forceInsertQuery(selectExpression)
+      }
+
+      val db = Database.forConfig("db")
+      try {
+        val resultFuture = db.run(DBIO.sequence(dbIOActions))
+        Await.result(resultFuture, Duration.Inf)
+      } finally db.close
+      reader.close()
+    }
+  }
+
+  def readIndex(): Unit = {
+    index.dir.toDirectory.files.foreach { file =>
+      val reader = QuantlibCSVReader.open(file.jfile, "Big5")
+      val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+      val fileNamePattern(year, month, day) = file.name
+      val y = year.toInt
+      val m = month.toInt
+      val d = day.toInt
+      val date = LocalDate.of(y, m, d)
+
+      val rows = reader.all().filter(x => x.size == 7 && x(0) != "指數").map(_.map(_.replace(",", "")))
+      val indices = TableQuery[Index]
+      val dbIOActions = rows.map {
+        values =>
+          val name = values(0)
+          val closingIndex = values(1) match {
+            case "--" => None
+            case value => Some(value.toDouble)
+          }
+          val change = values(2) match {
+            case "-" => -values(3).toDouble
+            case "" => 0
+            case "+" => values(3).toDouble
+          }
+          val changePercentage = values(4) match {
+            case "--" => 0
+            case value => value.toDouble
+          }
+
+          val data = Query((date,
+            name,
+            closingIndex,
+            change,
+            changePercentage))
+          val exists = indices.filter(i => i.date === date && i.name === name).exists
+          val selectExpression = data.filterNot(_ => exists)
+          indices.map(i => (i.date, i.name, i.closingIndex, i.change, i.changePercentage)).forceInsertQuery(selectExpression)
       }
 
       val db = Database.forConfig("db")

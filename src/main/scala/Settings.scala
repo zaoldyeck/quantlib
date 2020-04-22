@@ -31,4 +31,8 @@ object Settings {
     val file: String = conf.getString("data.dailyQuote.file")
   }
 
+  object index {
+    val dir: String = conf.getString("data.index.dir")
+    val file: String = conf.getString("data.index.file")
+  }
 }
