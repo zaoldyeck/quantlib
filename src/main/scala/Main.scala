@@ -1,97 +1,9 @@
-import java.io.File
-import java.time.LocalDate
-import java.util.concurrent.Executors
-import java.util.stream
-
-import Settings.index
-import db.table.{DailyQuote, FinancialAnalysis, Index, OperatingRevenue}
-import slick.lifted.TableQuery
-//import slick.jdbc.PostgresProfile.api._
-//import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
-
-import scala.concurrent.{Await, ExecutionContext, Future}
-import scala.util.{Failure, Success}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
-
-import scala.jdk.StreamConverters._
-
 object Main {
   def main(args: Array[String]): Unit = {
-    //implicit val ec = ExecutionContext.fromExecutor(Executors.newFixedThreadPool(1))
-    /**
-     * 1. 每日收盤價（上市、上櫃）
-     * 2. 月報（上市、上櫃）
-     * 3. 財務分析（上市、上櫃）
-     */
-
-      /*
-    val financialAnalysis = TableQuery[FinancialAnalysis]
-    val operatingRevenue = TableQuery[OperatingRevenue]
-    val dailyQuote = TableQuery[DailyQuote]
-    val index = TableQuery[Index]
-    val setup = DBIO.seq(
-      //financialAnalysis.schema.create,
-      //operatingRevenue.schema.create,
-      //dailyQuote.schema.create,
-      index.schema.create)
-
-    //financialAnalysis.schema.createStatements.foreach(println)
-    //,
-    //suppliers += (101, "Acme, Inc.", "99 Market Street", "Groundsville", "CA", "95199"),
-    //suppliers += (49, "Superior Coffee", "1 Party Place", "Mendocino", "CA", "95460"),
-    //suppliers += (150, "The High Ground", "100 Coffee Lane", "Meadows", "CA", "93966"))
-
-
-    val db = Database.forConfig("db")
-    try {
-      val resultFuture = db.run(setup)
-      Await.result(resultFuture, Duration.Inf)
-    } finally db.close
-
-       */
-
-    /*
-    val crawler = new Crawler()
-    val futures = LocalDate.of(2020, 4, 1).datesUntil(LocalDate.now()).toScala(Seq).map(crawler.getIndex)
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
-
-     */
-
-    /*
-    val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2020 to 2020
-      month <- 3 to 12
-    } yield (year, month)
-
-    val futures = yearToMonth.map {
-      case (year: Int, month: Int) => crawler.getOperatingRevenue(year, month)
-    }
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
-     */
-
-    /*
-    val futures = (2015 to 2019).map(year => crawler.getFinancialAnalysis(year))
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
-    */
-
+    val task = new Task()
     val reader = new Reader()
+    //task.pullIndex()
+    //reader.readDailyQuote()
     reader.readIndex()
   }
 
@@ -112,5 +24,4 @@ object Main {
   // 財報(從 98 年起) https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-"+str(year)+"Q"+str(season)+".zip&filePath=/home/html/nas/ifrs/"+str(year)+"/
   // 每5秒指數統計 https://www.twse.com.tw/zh/page/trading/exchange/MI_5MINS_INDEX.html
   // 三大法人買賣超日報 https://www.twse.com.tw/zh/page/trading/fund/T86.html
-
 }

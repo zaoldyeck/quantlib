@@ -5,7 +5,7 @@ import com.github.tototoshi.csv._
 import db.table.{DailyQuote, FinancialAnalysis, Index, OperatingRevenue}
 import slick.collection.heterogeneous.HNil
 import slick.lifted.TableQuery
-import utils.QuantlibCSVReader
+import util.QuantlibCSVReader
 
 import scala.reflect.io.Path._
 //import slick.jdbc.PostgresProfile.api._
@@ -152,7 +152,7 @@ class Reader {
       val d = day.toInt
       val date = LocalDate.of(y, m, d)
 
-      val rows = reader.all().filter(x => x.size == 7 && x(0) != "指數").map(_.map(_.replace(",", "")))
+      val rows = reader.all().filter(row => row.size == 7 && row(0) != "指數" && row(0) != "報酬指數").map(_.map(_.replace(",", "")))
       val indices = TableQuery[Index]
       val dbIOActions = rows.map {
         values =>
