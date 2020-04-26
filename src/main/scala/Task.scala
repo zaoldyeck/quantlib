@@ -75,4 +75,22 @@ class Task {
       case Failure(t) => t.printStackTrace()
     }
   }
+
+  def pullStatementOfComprehensiveIncome():Unit ={
+    val yearToSeason: Seq[(Int, Int)] = for {
+      year <- 2019 to 2019
+      season <- 4 to 4
+    } yield (year, season)
+
+    val futures = yearToSeason.map {
+      case (year: Int, season: Int) => crawler.getStatementOfComprehensiveIncome(year, season)
+    }
+
+    Future.sequence(futures) andThen {
+      case _ => Http.terminate()
+    } onComplete {
+      case Success(_) =>
+      case Failure(t) => t.printStackTrace()
+    }
+  }
 }

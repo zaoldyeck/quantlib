@@ -5,9 +5,9 @@ object Settings {
   private val conf: Config = ConfigFactory.load
 
   object financialAnalysis {
-    val dir: String = conf.getString("data.financialAnalysis.dir")
     val page: String = conf.getString("data.financialAnalysis.page")
     val file: String = conf.getString("data.financialAnalysis.file")
+    val dir: String = conf.getString("data.financialAnalysis.dir")
   }
 
   object operatingRevenue {
@@ -27,12 +27,19 @@ object Settings {
   val quarterlyReportDir: String = conf.getString("data.quarterlyReport.dir")
 
   object dailyQuote {
-    val dir: String = conf.getString("data.dailyQuote.dir")
     val file: String = conf.getString("data.dailyQuote.file")
+    val dir: String = conf.getString("data.dailyQuote.dir")
   }
 
   object index {
-    val dir: String = conf.getString("data.index.dir")
     val file: String = conf.getString("data.index.file")
+    val dir: String = conf.getString("data.index.dir")
   }
+
+  object statementOfComprehensiveIncome {
+    val page: String = conf.getString("data.statementOfComprehensiveIncome.page")
+    val file: String = conf.getString("data.statementOfComprehensiveIncome.file")
+    val dir: String = conf.getString("data.statementOfComprehensiveIncome.dir")
+  }
+
 }

@@ -98,11 +98,11 @@ class Crawler {
     }
   }
 
-  def getQuarterlyReport(year: Int, quarter: Int): Future[File] = {
+  def getQuarterlyReport(year: Int, season: Int): Future[File] = {
     //2014 後開始有 ifrs
     //沒有 ifrs 的到 2014
     ///server-java/FileDownLoad?step=9&fileName=tw-gaap-2014Q4.zip&filePath=/home/html/nas/xbrl/2014/
-    Http.client.url(s"https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-${year}Q$quarter.zip&filePath=/home/html/nas/ifrs/$year/")
+    Http.client.url(s"https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-${year}Q$season.zip&filePath=/home/html/nas/ifrs/$year/")
       .withMethod("GET")
       .withRequestTimeout(5.minutes)
       .stream()
@@ -127,6 +127,45 @@ class Crawler {
       .withRequestTimeout(5.minutes)
       .stream()
       .flatMap(downloadFile(index.dir, Some(s"${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")))
+  }
+
+  def getStatementOfComprehensiveIncome(year: Int, season: Int): Future[Unit] = {
+    println("Here it is")
+    Http.client.url(statementOfComprehensiveIncome.page)
+      .post(Map(
+        "encodeURIComponent" -> "1",
+        "step" -> "1",
+        "firstin" -> "1",
+        "off" -> "1",
+        "isQuery" -> "Y",
+        "TYPEK" -> "sii",
+        "year" -> (year - 1911).toString,
+        "season" -> season.toString))
+      .map {
+        res =>
+          println(res.body)
+          val browser = JsoupBrowser()
+          val doc = browser.parseString(res.body)
+          val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
+          //val fileName = doc >> elements("input[name=filename]") >> attr("value")
+          println(fileNames.size)
+          fileNames.foreach(println)
+
+
+        /*
+          val fd = Map(
+            "firstin" -> "true",
+            "step" -> "10",
+            "filename" -> fileName)
+          Http.client.url(financialAnalysis.file)
+            .withMethod("POST")
+            .withBody(fd)
+            .withRequestTimeout(5.minutes)
+            .stream()
+      } flatMap (downloadFile(financialAnalysis.dir, Some(fileName)))
+
+           */
+      }
   }
 
   private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
