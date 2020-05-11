@@ -1,3 +1,4 @@
+import db.table.ExRightDividend
 import slick.jdbc.H2Profile.api._
 //import slick.jdbc.MySQLProfile.api._
 //import slick.jdbc.PostgresProfile.api._
@@ -20,12 +21,14 @@ class Task {
     val financialAnalysis = TableQuery[FinancialAnalysis]
     val operatingRevenue = TableQuery[OperatingRevenue]
     val dailyQuote = TableQuery[DailyQuote]
+    val exRightDividend = TableQuery[ExRightDividend]
     val index = TableQuery[Index]
     val setup = DBIO.seq(
       financialAnalysis.schema.create,
       operatingRevenue.schema.create,
       dailyQuote.schema.create,
-      index.schema.create)
+      index.schema.create,
+      exRightDividend.schema.create)
 
     val db = Database.forConfig("db")
     try {
@@ -76,7 +79,7 @@ class Task {
     }
   }
 
-  def pullStatementOfComprehensiveIncome():Unit ={
+  def pullStatementOfComprehensiveIncome(): Unit = {
     val yearToSeason: Seq[(Int, Int)] = for {
       year <- 2019 to 2019
       season <- 4 to 4
