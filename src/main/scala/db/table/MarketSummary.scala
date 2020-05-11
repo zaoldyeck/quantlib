@@ -25,7 +25,7 @@ class MarketSummary(tag: Tag) extends Table[(Long, LocalDate, String, Long, Long
 
   def transaction = column[Int]("transaction")
 
-  def idx = index("idx_marketSummary_date_summary", (date, summary), unique = true)
+  def idx = index("idx_MarketSummary_date_summary", (date, summary), unique = true)
 
   def * = (id, date, summary, tradeValue, tradeVolume, transaction)
 }

@@ -49,7 +49,7 @@ class DailyQuote(tag: Tag) extends Table[(Long, LocalDate, String, String, Long,
 
   def priceEarningRatio = column[Double]("price_earning_ratio")
 
-  def idx = index("idx_dailyQuote_date_companyCode", (date, companyCode), unique = true)
+  def idx = index("idx_DailyQuote_date_companyCode", (date, companyCode), unique = true)
 
   def * = (id, date, companyCode, companyName, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio)
 }
