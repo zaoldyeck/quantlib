@@ -42,4 +42,9 @@ object Settings {
     val dir: String = conf.getString("data.statementOfComprehensiveIncome.dir")
   }
 
+  object exRightDividend {
+    val file: String = conf.getString("data.exRightDividend.file")
+    val dir: String = conf.getString("data.exRightDividend.dir")
+  }
+
 }
