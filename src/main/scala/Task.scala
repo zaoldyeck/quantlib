@@ -37,9 +37,23 @@ class Task {
     } finally db.close
   }
 
+  def pullDailyQuote(): Unit = {
+    val futures = LocalDate.of(2020, 5, 11)
+      .datesUntil(LocalDate.now().plusDays(1)).toScala(Seq)
+      //.datesUntil(LocalDate.of(2020, 3, 1).plusDays(1)).toScala(Seq)
+      .map(crawler.getDailyQuote)
+
+    Future.sequence(futures) andThen {
+      case _ => Http.terminate()
+    } onComplete {
+      case Success(_) =>
+      case Failure(t) => t.printStackTrace()
+    }
+  }
+
   def pullIndex(): Unit = {
     val futures = LocalDate.of(2020, 4, 1)
-      .datesUntil(LocalDate.now()).toScala(Seq)
+      .datesUntil(LocalDate.now().plusDays(1)).toScala(Seq)
       .map(crawler.getIndex)
 
     Future.sequence(futures) andThen {
