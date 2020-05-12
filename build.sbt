@@ -15,6 +15,7 @@ libraryDependencies ++= Seq(
   "net.ruippeixotog" %% "scala-scraper" % "2.2.0",
   "com.h2database" % "h2" % "1.4.200",
   "com.github.tototoshi" %% "scala-csv" % "1.3.6",
+  "org.plotly-scala" %% "plotly-render" % "0.7.2"
   //"mysql" % "mysql-connector-java" % "8.0.19",
   //"org.postgresql" % "postgresql" % "42.2.11"
 )
