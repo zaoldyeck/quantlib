@@ -7,7 +7,7 @@ import slick.jdbc.H2Profile.api._
 
 /**
  * https://mops.twse.com.tw/mops/web/t21sc04_ifrs
- * 營業收入統計表
+ * 營業收入統計表 from 2001-6
  *
  * @param tag
  */

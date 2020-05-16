@@ -7,7 +7,7 @@ import slick.jdbc.H2Profile.api._
 
 /**
  * https://mops.twse.com.tw/mops/web/t51sb02_q1
- * 財務分析資料查詢彙總表
+ * 財務分析資料查詢彙總表 from 1989
  *
  * @param tag
  */

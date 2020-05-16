@@ -8,7 +8,7 @@ import slick.jdbc.H2Profile.api._
 
 /**
  * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
- * 每日收盤行情 from 2004/2/11
+ * 每日收盤行情 from 2004-2-11
  *
  * @param tag
  */
