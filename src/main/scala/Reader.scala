@@ -19,8 +19,9 @@ class Reader {
   def readFinancialAnalysis(): Unit = {
     financialAnalysis.dir.toDirectory.files.foreach {
       file =>
+        println(s"Read financial analysis of ${file.name}")
         val reader = CSVReader.open(file.jfile, "Big5")
-        val year = file.name.split('_').head.toInt + 1911
+        val year = file.name.split('_').head.toInt
         val rows = reader.all().tail
 
         val financialAnalysis = TableQuery[FinancialAnalysis]
@@ -57,7 +58,7 @@ class Reader {
         val reader = CSVReader.open(file.jfile)
         val fileNamePattern = """(\d+)_(\d+).csv""".r
         val fileNamePattern(year, month) = file.name
-        val y = year.toInt + 1911
+        val y = year.toInt
         val m = month.toInt
 
         val rows = reader.all().tail
@@ -86,16 +87,19 @@ class Reader {
   }
 
   def readDailyQuote(): Unit = {
-    dailyQuote.dir.toDirectory.files.foreach {
+    dailyQuote.dir.toDirectory.files.toSeq.map {
       file =>
-        val reader = QuantlibCSVReader.open(file.jfile, "Big5")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(year, month, day) = file.name
         val y = year.toInt
         val m = month.toInt
         val d = day.toInt
         val date = LocalDate.of(y, m, d)
-
+        (date, file)
+    }.filter(_._1.isBefore(LocalDate.of(2004, 10, 1))).sortBy(_._1).reverse.foreach {
+      case (date, file) =>
+        println(s"Read daily quote of ${file.name}")
+        val reader = QuantlibCSVReader.open(file.jfile, "Big5")
         val rows = reader.all().dropWhile(_.head != "0050").map(_.map(_.replace(",", "")))
         val dailyQuotes = TableQuery[DailyQuote]
         val dbIOActions = rows.map {
