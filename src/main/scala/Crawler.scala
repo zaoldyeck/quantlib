@@ -20,6 +20,8 @@ class Crawler {
   implicit val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
 
   def getFinancialAnalysis(year: Int): Future[Unit] = {
+    Thread.sleep(20000)
+    println(s"Get financial analysis of $year")
     def request(formData: Map[String, String], fileName: String): Future[File] = {
       Http.client.url(financialAnalysis.page)
         .post(formData)
@@ -50,7 +52,7 @@ class Crawler {
         "off" -> "1",
         "TYPEK" -> "sii",
         "year" -> y.toString)
-      request(formData, s"${y}_b.csv")
+      request(formData, s"${year}_b.csv")
     } else Future.successful()
 
     val taskAfterIFRS = if (y > 100) {
@@ -64,7 +66,7 @@ class Crawler {
         "firstin" -> "1",
         "off" -> "1",
         "ifrs" -> "Y")
-      request(formData, s"${y}_a.csv")
+      request(formData, s"${year}_a.csv")
     } else Future.successful()
 
     for {
@@ -75,8 +77,10 @@ class Crawler {
 
   def getOperatingRevenue(year: Int, month: Int): Future[File] = {
     Thread.sleep(20000)
+    println(s"Get operating revenue of $year-$month")
     year - 1911 match {
       case y if y < 102 =>
+        // TODO https://mops.twse.com.tw/mops/web/t21sc04
         // Before IFRS
         val formData = Map(
           "encodeURIComponent" -> "1",
@@ -86,7 +90,7 @@ class Crawler {
           "TYPEK" -> "sii",
           "year" -> "",
           "month" -> "")
-        Http.client.url(operatingRevenue.beforeIFRSs.page).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
+        Http.client.url(operatingRevenue.beforeIFRSs.page).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${year}_$month.csv")))
       case y if y > 101 =>
         // After IFRS
         val formData = Map(
@@ -94,7 +98,7 @@ class Crawler {
           "functionName" -> "show_file",
           "filePath" -> "/home/html/nas/t21/sii/",
           "fileName" -> s"t21sc03_${y}_$month.csv")
-        Http.client.url(operatingRevenue.afterIFRSs.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${y}_$month.csv")))
+        Http.client.url(operatingRevenue.afterIFRSs.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${year}_$month.csv")))
     }
   }
 
@@ -111,6 +115,7 @@ class Crawler {
 
   def getDailyQuote(date: LocalDate): Future[File] = {
     Thread.sleep(20000)
+    println(s"Get daily quote of ${date.toString}")
     val dateString = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
     Http.client.url(dailyQuote.file + dateString)
       .withMethod("GET")
