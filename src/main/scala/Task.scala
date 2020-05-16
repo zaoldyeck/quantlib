@@ -1,5 +1,9 @@
+import Settings.dailyQuote
 import db.table.ExRightDividend
 import slick.jdbc.H2Profile.api._
+import util.QuantlibCSVReader
+
+import scala.util.Try
 //import slick.jdbc.MySQLProfile.api._
 //import slick.jdbc.PostgresProfile.api._
 import java.time.LocalDate
@@ -12,6 +16,22 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.jdk.StreamConverters._
 import scala.util.{Failure, Success}
+import java.time.LocalDate
+
+import Settings._
+import com.github.tototoshi.csv._
+import db.table._
+import slick.collection.heterogeneous.HNil
+import slick.lifted.TableQuery
+import util.QuantlibCSVReader
+
+import scala.reflect.io.Path._
+//import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
+import slick.jdbc.H2Profile.api._
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
 
 class Task {
   private val crawler = new Crawler()
@@ -38,9 +58,24 @@ class Task {
   }
 
   def pullDailyQuote(): Unit = {
-    val futures = LocalDate.of(2020, 5, 11)
-      .datesUntil(LocalDate.now().plusDays(1)).toScala(Seq)
-      //.datesUntil(LocalDate.of(2020, 3, 1).plusDays(1)).toScala(Seq)
+    val existDailyQuotes = dailyQuote.dir.toDirectory.files.flatMap {
+      file =>
+        val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+        val fileNamePattern(year, month, day) = file.name
+        val y = year.toInt
+        val m = month.toInt
+        val d = day.toInt
+        val date = LocalDate.of(y, m, d)
+        val dayOfWeek = date.getDayOfWeek.getValue
+
+        val firstLineOption = Try(file.lines("Big5").nextOption).getOrElse(file.lines.nextOption)
+        if ((firstLineOption.isEmpty && dayOfWeek < 6) || firstLineOption == Option("<html>")) None else Some(date)
+    }.toSet
+
+    val futures = LocalDate.of(2004, 2, 11)
+      //.datesUntil(LocalDate.now().plusDays(1)).toScala(Seq).reverse
+      .datesUntil(LocalDate.of(2004, 9, 16).plusDays(1)).toScala(Seq).reverse
+      .filterNot(existDailyQuotes)
       .map(crawler.getDailyQuote)
 
     Future.sequence(futures) andThen {
@@ -66,12 +101,14 @@ class Task {
 
   def pullOperatingRevenue(): Unit = {
     val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2020 to 2020
-      month <- 3 to 12
+      year <- 2001 to 2020
+      month <- 1 to 12
     } yield (year, month)
 
-    val futures = yearToMonth.map {
-      case (year: Int, month: Int) => crawler.getOperatingRevenue(year, month)
+    val futures = yearToMonth.filterNot {
+      case (year, month) => year == 2001 && (month < 6)
+    }.map {
+      case (year, month) => crawler.getOperatingRevenue(year, month)
     }
 
     Future.sequence(futures) andThen {
@@ -83,7 +120,11 @@ class Task {
   }
 
   def pullFinancialAnalysis(): Unit = {
-    val futures = (2015 to 2019).map(year => crawler.getFinancialAnalysis(year))
+    val today = LocalDate.now()
+    val thisYear = today.getYear
+    val thisMonth = today.getMonthValue
+    val lastYear = if (thisMonth > 3) thisYear - 1 else thisYear - 2
+    val futures = (1989 to lastYear).map(year => crawler.getFinancialAnalysis(year))
 
     Future.sequence(futures) andThen {
       case _ => Http.terminate()
