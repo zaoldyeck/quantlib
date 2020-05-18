@@ -5,14 +5,14 @@ import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
 import net.ruippeixotog.scalascraper.model._
 
-object RMain {
+object Main {
   def main(args: Array[String]): Unit = {
     val task = new Task
     val reader = new Reader
     val question = new Question
     val backtest = new Backtest
-    //task.pullOperatingRevenue()
-    reader.readOperatingRevenue()
+    //task.createDB()
+    reader.readCapitalReduction()
     //"0050", "0052", "0056", "006208", "00692", "006201", "0051"
     //question.compareROI(Set("0050", "006208"), LocalDate.of(2012, 7, 17))//, LocalDate.of(2006, 9, 12)) //, LocalDate.of(2017, 5, 17)) //, LocalDate.of(2017, 5, 17))
     //backtest.dollarCostAveraging(Set("0050", "006208"), LocalDate.of(2012, 7, 17), LocalDate.now, Set(6, 16, 26), 1000)

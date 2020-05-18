@@ -2,7 +2,7 @@ import java.time.LocalDate
 
 import Settings._
 import com.github.tototoshi.csv._
-import db.table._
+import db.table.{CapitalReduction, _}
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import slick.collection.heterogeneous.HNil
 import slick.lifted.TableQuery
@@ -206,6 +206,7 @@ class Reader {
   def readIndex(): Unit = {
     index.dir.toDirectory.files.toSeq.par.foreach {
       file =>
+        println(s"Read index of ${file.name}")
         val reader = QuantlibCSVReader.open(file.jfile, "Big5")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = file.name
@@ -255,6 +256,7 @@ class Reader {
   def readExRightDividend(): Unit = {
     exRightDividend.dir.toDirectory.files.toSeq.par.foreach {
       file =>
+        println(s"Read ex-right dividend of ${file.name}")
         val reader = QuantlibCSVReader.open(file.jfile, "Big5")
         val rows = reader.all().filter(row => row.size == 16 && row.head != "資料日期").map(_.map(_.replace(",", "")))
         val exRightDividends = TableQuery[ExRightDividend]
@@ -281,6 +283,46 @@ class Reader {
             val exists = exRightDividends.filter(e => e.date === date && e.companyCode === companyCode).exists
             val selectExpression = query.filterNot(_ => exists)
             exRightDividends.map(e => (e.date, e.companyCode, e.companyName, e.closingPriceBeforeExRightExDividend, e.exRightExDividendReferencePrice, e.cashDividend, e.rightOrDividend, e.limitUp, e.limitDown, e.openingReferencePrice, e.exDividendReferencePrice)).forceInsertQuery(selectExpression)
+        }
+
+        val db = Database.forConfig("db")
+        try {
+          val resultFuture = db.run(DBIO.sequence(dbIOActions))
+          Await.result(resultFuture, Duration.Inf)
+        } finally db.close
+        reader.close()
+    }
+  }
+
+  def readCapitalReduction(): Unit = {
+    capitalReduction.dir.toDirectory.files.toSeq.par.foreach {
+      file =>
+        println(s"Read capital reduction of ${file.name}")
+        val reader = QuantlibCSVReader.open(file.jfile, "Big5")
+        val rows = reader.all().filter(row => row.size == 12 && row.head != "恢復買賣日期").map(_.map(_.replace(",", "")))
+        val capitalReduction = TableQuery[CapitalReduction]
+        val dbIOActions = rows.map {
+          values =>
+            val datePattern = """(\d+)/(\d+)/(\d+)""".r
+            val datePattern(y, m, d) = values.head
+            val year = y.toInt + 1911
+            val month = m.toInt
+            val day = d.toInt
+            val date = LocalDate.of(year, month, day)
+            val companyCode = values(1)
+            val query = Query(date,
+              companyCode,
+              values(2),
+              values(3).toDouble,
+              values(4).toDouble,
+              values(5).toDouble,
+              values(6).toDouble,
+              values(7).toDouble,
+              if (values(8) == "--") None else Some(values(8).toDouble),
+              values(9))
+            val exists = capitalReduction.filter(c => c.date === date && c.companyCode === companyCode).exists
+            val selectExpression = query.filterNot(_ => exists)
+            capitalReduction.map(c => (c.date, c.companyCode, c.companyName, c.closingPriceOnTheLastTradingDate, c.postReductionReferencePrice, c.limitUp, c.limitDown, c.openingReferencePrice, c.exRightReferencePrice, c.reasonForCapitalReduction)).forceInsertQuery(selectExpression)
         }
 
         val db = Database.forConfig("db")

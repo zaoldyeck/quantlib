@@ -1,5 +1,5 @@
 import Settings.dailyQuote
-import db.table.ExRightDividend
+import db.table.{CapitalReduction, ExRightDividend}
 import slick.jdbc.H2Profile.api._
 import util.QuantlibCSVReader
 
@@ -42,13 +42,15 @@ class Task {
     val operatingRevenue = TableQuery[OperatingRevenue]
     val dailyQuote = TableQuery[DailyQuote]
     val exRightDividend = TableQuery[ExRightDividend]
+    val capitalReduction = TableQuery[CapitalReduction]
     val index = TableQuery[Index]
     val setup = DBIO.seq(
-      financialAnalysis.schema.create,
-      operatingRevenue.schema.create,
-      dailyQuote.schema.create,
-      index.schema.create,
-      exRightDividend.schema.create)
+      //      financialAnalysis.schema.create,
+      //      operatingRevenue.schema.create,
+      //      dailyQuote.schema.create,
+      //      index.schema.create,
+      //      exRightDividend.schema.create,
+      capitalReduction.schema.create)
 
     val db = Database.forConfig("db")
     try {

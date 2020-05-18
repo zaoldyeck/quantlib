@@ -47,4 +47,9 @@ object Settings {
     val dir: String = conf.getString("data.exRightDividend.dir")
   }
 
+  object capitalReduction {
+    val file: String = conf.getString("data.capitalReduction.file")
+    val dir: String = conf.getString("data.capitalReduction.dir")
+  }
+
 }
