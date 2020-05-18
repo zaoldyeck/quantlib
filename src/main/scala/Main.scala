@@ -1,15 +1,36 @@
 import java.time.LocalDate
+import net.ruippeixotog.scalascraper.browser.JsoupBrowser
+import net.ruippeixotog.scalascraper.dsl.DSL._
+import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
+import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
+import net.ruippeixotog.scalascraper.model._
 
-object Main {
+object RMain {
   def main(args: Array[String]): Unit = {
     val task = new Task
     val reader = new Reader
     val question = new Question
     val backtest = new Backtest
     //task.pullOperatingRevenue()
-    //reader.readFinancialAnalysis()
-    //question.compareROI(Set("0050", "0052", "0056", "006208", "00692", "006201", "0051"), LocalDate.of(2006, 9, 12))//, LocalDate.of(2006, 9, 12)) //, LocalDate.of(2017, 5, 17)) //, LocalDate.of(2017, 5, 17))
-    //backtest.dollarCostAveraging(Set("0050", "006208","2330"), LocalDate.of(2018, 1, 1), LocalDate.now, Set(6, 16, 26), 10000)
+    reader.readOperatingRevenue()
+    //"0050", "0052", "0056", "006208", "00692", "006201", "0051"
+    //question.compareROI(Set("0050", "006208"), LocalDate.of(2012, 7, 17))//, LocalDate.of(2006, 9, 12)) //, LocalDate.of(2017, 5, 17)) //, LocalDate.of(2017, 5, 17))
+    //backtest.dollarCostAveraging(Set("0050", "006208"), LocalDate.of(2012, 7, 17), LocalDate.now, Set(6, 16, 26), 1000)
+    /*
+    val browser = JsoupBrowser()
+    val doc = browser.parseFile("data/operating_revenue/2001_6.html", "Big5")
+    val uu = (doc >> elements("tr")).map {
+      tr =>
+        val x = tr >?> element("th")
+        if (x.isDefined) (tr >> elements("th")).map(_.text) else {
+          (tr >> elements("td")).map(_.text)
+        }
+    }
+
+    uu.foreach(println)
+     */
+    //val c = (doc >> elements("tr").map(table)).map(_.map(_.text))
+    //c.foreach(println)
   }
 
   // 月營收(90/6 - 102/12) https://mops.twse.com.tw/nas/t21/sii/t21sc03_101_12.html

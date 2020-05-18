@@ -101,7 +101,7 @@ class Task {
 
   def pullOperatingRevenue(): Unit = {
     val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2001 to 2020
+      year <- 2001 to 2012
       month <- 1 to 12
     } yield (year, month)
 
