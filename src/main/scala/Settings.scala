@@ -15,8 +15,7 @@ object Settings {
     val dir: String = conf.getString("data.operatingRevenue.dir")
 
     object beforeIFRSs {
-      val page: String = conf.getString("data.financialAnalysis.beforeIFRSs.page")
-      val file: String = conf.getString("data.financialAnalysis.beforeIFRSs.file")
+      val file: String = conf.getString("data.operatingRevenue.beforeIFRSs.file")
     }
 
     object afterIFRSs {

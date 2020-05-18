@@ -7,8 +7,9 @@ import slick.jdbc.H2Profile.api._
 
 /**
  * https://mops.twse.com.tw/mops/web/t21sc04_ifrs
- * 營業收入統計表 from 2001-6
- *
+ * 營業收入統計表
+ * Before IFRSs from 2001-6
+ * After IFRSs from 2013-1
  * @param tag
  */
 class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], String, String, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "operating_revenue") {

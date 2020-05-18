@@ -22,6 +22,7 @@ class Crawler {
   def getFinancialAnalysis(year: Int): Future[Unit] = {
     Thread.sleep(20000)
     println(s"Get financial analysis of $year")
+
     def request(formData: Map[String, String], fileName: String): Future[File] = {
       Http.client.url(financialAnalysis.page)
         .post(formData)
@@ -80,17 +81,7 @@ class Crawler {
     println(s"Get operating revenue of $year-$month")
     year - 1911 match {
       case y if y < 102 =>
-        // TODO https://mops.twse.com.tw/mops/web/t21sc04
-        // Before IFRS
-        val formData = Map(
-          "encodeURIComponent" -> "1",
-          "step" -> "9",
-          "firstin" -> "1",
-          "off" -> "1",
-          "TYPEK" -> "sii",
-          "year" -> "",
-          "month" -> "")
-        Http.client.url(operatingRevenue.beforeIFRSs.page).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${year}_$month.csv")))
+        Http.client.url(operatingRevenue.beforeIFRSs.file + s"${y}_$month.html").get.flatMap(downloadFile(operatingRevenue.dir, Some(s"${year}_$month.html")))
       case y if y > 101 =>
         // After IFRS
         val formData = Map(
