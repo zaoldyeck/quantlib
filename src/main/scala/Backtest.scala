@@ -26,8 +26,6 @@ class Backtest {
    */
   def dollarCostAveraging(companyCodes: Set[String], fromDate: LocalDate, toDate: LocalDate, daysOfMonth: Set[Int], amountPerInvestment: Int, fees: Int = 0): Unit = {
     val td = toDate.plusDays(10)
-    val estimatedTradingDates = fromDate.datesUntil(toDate).filter(localDate => daysOfMonth.contains(localDate.getDayOfMonth)).toScala(Seq)
-
     val db = Database.forConfig("db")
     val dailyQuote = TableQuery[DailyQuote]
     val dailyQuoteAction = dailyQuote.filter(d => d.companyCode.inSet(companyCodes) && d.date >= fromDate && d.date <= td).sortBy(_.date).result
@@ -39,10 +37,12 @@ class Backtest {
       dailyQuoteResult <- db.run(dailyQuoteAction)
       exRightDividendResult <- db.run(exRightDividendAction)
     } yield {
+      val estimatedTradingDates = fromDate.datesUntil(toDate).filter(localDate => daysOfMonth.contains(localDate.getDayOfMonth)).toScala(Seq)
       val data = dailyQuoteResult.groupBy(_.companyCode).values.map {
         dailyQuotes =>
           val dateToDailyQuote = dailyQuotes.map(dailyQuote => dailyQuote.date -> dailyQuote).toMap
-          val actualTradingDates = estimatedTradingDates.map {
+          val lastDate = dailyQuotes.last.date
+          val actualTradingDates = estimatedTradingDates.filter(_.isBefore(lastDate)).map {
             buyDate =>
               @scala.annotation.tailrec
               def getTradingDay(date: LocalDate): LocalDate = {
