@@ -1,4 +1,4 @@
-import Settings.dailyQuote
+import Settings.DailyQuoteSetting
 import db.table.{CapitalReduction, ExRightDividend}
 import slick.jdbc.H2Profile.api._
 import util.QuantlibCSVReader
@@ -35,7 +35,7 @@ import scala.concurrent.duration.Duration
 
 class Task {
   private val crawler = new Crawler()
-  private val reader = new Reader()
+  //private val reader = new Reader()
 
   def createDB(): Unit = {
     val financialAnalysis = TableQuery[FinancialAnalysis]
@@ -45,12 +45,12 @@ class Task {
     val capitalReduction = TableQuery[CapitalReduction]
     val index = TableQuery[Index]
     val setup = DBIO.seq(
-      //      financialAnalysis.schema.create,
-      //      operatingRevenue.schema.create,
-      //      dailyQuote.schema.create,
-      //      index.schema.create,
-      //      exRightDividend.schema.create,
-      capitalReduction.schema.create)
+      //financialAnalysis.schema.create,
+      //operatingRevenue.schema.create)
+          //dailyQuote.schema.create),
+    //      index.schema.create,
+    //      exRightDividend.schema.create,
+    capitalReduction.schema.create)
 
     val db = Database.forConfig("db")
     try {
@@ -60,7 +60,7 @@ class Task {
   }
 
   def pullDailyQuote(): Unit = {
-    val existDailyQuotes = dailyQuote.dir.toDirectory.files.flatMap {
+    val existDailyQuotes = DailyQuoteSetting().tpex.dir.toDirectory.files.flatMap {
       file =>
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(year, month, day) = file.name
@@ -70,13 +70,16 @@ class Task {
         val date = LocalDate.of(y, m, d)
         val dayOfWeek = date.getDayOfWeek.getValue
 
-        val firstLineOption = Try(file.lines("Big5").nextOption).getOrElse(file.lines.nextOption)
-        if ((firstLineOption.isEmpty && dayOfWeek < 6) || firstLineOption == Option("<html>")) None else Some(date)
+        //val firstLineOption = file.lines("Big5-HKSCS").nextOption
+        //if ((firstLineOption.isEmpty && dayOfWeek < 6) || firstLineOption == Option("<html>")) None else Some(date)
+        val lineSize = file.lines("Big5-HKSCS").size
+        if (lineSize < 5 && dayOfWeek < 6) None else Some(date)
     }.toSet
 
-    val futures = LocalDate.of(2004, 2, 11)
+    val futures = //LocalDate.of(2004, 2, 11)
+      LocalDate.of(2014, 7, 30)
       //.datesUntil(LocalDate.now().plusDays(1)).toScala(Seq).reverse
-      .datesUntil(LocalDate.of(2004, 9, 16).plusDays(1)).toScala(Seq).reverse
+      .datesUntil(LocalDate.of(2020, 6, 21).plusDays(1)).toScala(Seq)
       .filterNot(existDailyQuotes)
       .map(crawler.getDailyQuote)
 
@@ -103,12 +106,12 @@ class Task {
 
   def pullOperatingRevenue(): Unit = {
     val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2001 to 2012
+      year <- 2001 to 2020
       month <- 1 to 12
     } yield (year, month)
 
     val futures = yearToMonth.filterNot {
-      case (year, month) => year == 2001 && (month < 6)
+      case (year, month) => (year == 2001 && (month < 6)) || year == 2020 && (month > 5)
     }.map {
       case (year, month) => crawler.getOperatingRevenue(year, month)
     }
