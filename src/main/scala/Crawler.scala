@@ -1,6 +1,5 @@
 import java.io.File
 import java.time.LocalDate
-import java.time.format.DateTimeFormatter
 import java.util.concurrent.Executors
 
 import Http.materializer
@@ -16,113 +15,50 @@ import play.api.libs.ws.StandaloneWSResponse
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
 
+/**
+ * Press following code in the dev console can easily track url when click button open a new tab
+ * [].forEach.call(document.querySelectorAll('a'),function(link){if(link.attributes.target) {link.attributes.target.value = '_self';}});window.open = function(url) {location.href = url;};
+ */
 class Crawler {
   implicit val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
 
-  def getFinancialAnalysis(year: Int): Future[Unit] = {
-    Thread.sleep(20000)
+  def getFinancialAnalysis(year: Int): Future[Seq[File]] = {
+    Thread.sleep(40000)
     println(s"Get financial analysis of $year")
-
-    def request(formData: Map[String, String], fileName: String): Future[File] = {
-      Http.client.url(financialAnalysis.page)
-        .post(formData)
-        .flatMap {
-          res =>
-            val browser = JsoupBrowser()
-            val doc = browser.parseString(res.body)
-            val fileName = doc >> element("input[name=filename]") >> attr("value")
-            val fd = Map(
-              "firstin" -> "true",
-              "step" -> "10",
-              "filename" -> fileName)
-            Http.client.url(financialAnalysis.file)
-              .withMethod("POST")
-              .withBody(fd)
-              .withRequestTimeout(5.minutes)
-              .stream()
-        } flatMap (downloadFile(financialAnalysis.dir, Some(fileName)))
-    }
-
-    val y = year - 1911
-    val taskBeforeIFRS = if (y < 104) {
-      // Before IFRS
-      val formData = Map(
-        "encodeURIComponent" -> "1",
-        "step" -> "1",
-        "firstin" -> "1",
-        "off" -> "1",
-        "TYPEK" -> "sii",
-        "year" -> y.toString)
-      request(formData, s"${year}_b.csv")
-    } else Future.successful()
-
-    val taskAfterIFRS = if (y > 100) {
-      // After IFRS
-      val formData = Map(
-        "encodeURIComponent" -> "1",
-        //"run" -> "Y",
-        "step" -> "1",
-        "TYPEK" -> "sii",
-        "year" -> y.toString,
-        "firstin" -> "1",
-        "off" -> "1",
-        "ifrs" -> "Y")
-      request(formData, s"${year}_a.csv")
-    } else Future.successful()
-
-    for {
-      _ <- taskAfterIFRS
-      _ <- taskBeforeIFRS
-    } yield ()
+    Future.sequence(FinancialAnalysisSetting(year).markets.map {
+      detail =>
+        Http.client.url(detail.page)
+          .post(detail.formData)
+          .flatMap {
+            res =>
+              val browser = JsoupBrowser()
+              val doc = browser.parseString(res.body)
+              val fileName = doc >> element("input[name=filename]") >> attr("value")
+              val fd = Map(
+                "firstin" -> "true",
+                "step" -> "10",
+                "filename" -> fileName)
+              Http.client.url(detail.url)
+                .withMethod("POST")
+                .withBody(fd)
+                .withRequestTimeout(5.minutes)
+                .stream()
+          } flatMap (downloadFile(detail.dir, Some(detail.fileName)))
+    })
   }
 
-  def getOperatingRevenue(year: Int, month: Int): Future[File] = {
-    Thread.sleep(20000)
+  def getOperatingRevenue(year: Int, month: Int): Future[Seq[File]] = {
+    Thread.sleep(40000)
     println(s"Get operating revenue of $year-$month")
-    year - 1911 match {
-      case y if y < 102 =>
-        Http.client.url(operatingRevenue.beforeIFRSs.file + s"${y}_$month.html").get.flatMap(downloadFile(operatingRevenue.dir, Some(s"${year}_$month.html")))
-      case y if y > 101 =>
-        // After IFRS
-        val formData = Map(
-          "step" -> "9",
-          "functionName" -> "show_file",
-          "filePath" -> "/home/html/nas/t21/sii/",
-          "fileName" -> s"t21sc03_${y}_$month.csv")
-        Http.client.url(operatingRevenue.afterIFRSs.file).post(formData).flatMap(downloadFile(operatingRevenue.dir, Some(s"${year}_$month.csv")))
-    }
-  }
-
-  def getQuarterlyReport(year: Int, season: Int): Future[File] = {
-    //2014 後開始有 ifrs
-    //沒有 ifrs 的到 2014
-    ///server-java/FileDownLoad?step=9&fileName=tw-gaap-2014Q4.zip&filePath=/home/html/nas/xbrl/2014/
-    Http.client.url(s"https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-${year}Q$season.zip&filePath=/home/html/nas/ifrs/$year/")
-      .withMethod("GET")
-      .withRequestTimeout(5.minutes)
-      .stream()
-      .flatMap(downloadFile(quarterlyReportDir))
-  }
-
-  def getDailyQuote(date: LocalDate): Future[File] = {
-    Thread.sleep(20000)
-    println(s"Get daily quote of ${date.toString}")
-    val dateString = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-    Http.client.url(dailyQuote.file + dateString)
-      .withMethod("GET")
-      .withRequestTimeout(5.minutes)
-      .stream()
-      .flatMap(downloadFile(dailyQuote.dir, Some(s"${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")))
-  }
-
-  def getIndex(date: LocalDate): Future[File] = {
-    Thread.sleep(20000)
-    val dateString = date.format(DateTimeFormatter.ofPattern("yyyyMMdd"))
-    Http.client.url(index.file + dateString)
-      .withMethod("GET")
-      .withRequestTimeout(5.minutes)
-      .stream()
-      .flatMap(downloadFile(index.dir, Some(s"${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")))
+    Future.sequence(OperatingRevenueSetting(year, month).markets.map {
+      detail =>
+        year match {
+          case y if y < 2013 =>
+            Http.client.url(detail.url).get.flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+          case y if y > 2012 =>
+            Http.client.url(detail.url).post(detail.formData).flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+        }
+    })
   }
 
   def getStatementOfComprehensiveIncome(year: Int, season: Int): Future[Unit] = {
@@ -134,7 +70,7 @@ class Crawler {
         "firstin" -> "1",
         "off" -> "1",
         "isQuery" -> "Y",
-        "TYPEK" -> "sii",
+        "TYPEK" -> "sii", //otc
         "year" -> (year - 1911).toString,
         "season" -> season.toString))
       .map {
@@ -162,6 +98,64 @@ class Crawler {
 
            */
       }
+  }
+
+  def getQuarterlyReport(year: Int, season: Int): Future[File] = {
+    //2014 後開始有 ifrs
+    //沒有 ifrs 的到 2014
+    ///server-java/FileDownLoad?step=9&fileName=tw-gaap-2014Q4.zip&filePath=/home/html/nas/xbrl/2014/
+    Http.client.url(s"https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-${year}Q$season.zip&filePath=/home/html/nas/ifrs/$year/")
+      .withMethod("GET")
+      .withRequestTimeout(5.minutes)
+      .stream()
+      .flatMap(downloadFile(quarterlyReportDir))
+  }
+
+  def getExRightDividend(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {
+    println(s"Get ex-right/dividend from ${strDate.toString} to ${endDate.toString}")
+    getCSV(ExRightDividendSetting(strDate, endDate))
+  }
+
+  def getCapitalReduction(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {
+    println(s"Get capital reduction from ${strDate.toString} to ${endDate.toString}")
+    getCSV(CapitalReductionSetting(strDate, endDate))
+  }
+
+  def getDailyQuote(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get daily quote of ${date.toString}")
+    getCSV(DailyQuoteSetting(date))
+  }
+
+  def getIndex(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get index of ${date.toString}")
+    getCSV(IndexSetting(date))
+  }
+
+  def getMarginTransactions(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get margin transactions of ${date.toString}")
+    getCSV(MarginTransactionsSetting(date))
+  }
+
+  def getDailyTradingDetails(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get daily trading details of ${date.toString}")
+    getCSV(DailyTradingDetailsSetting(date))
+  }
+
+  def getStockPER_PBR_DividendYield(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get stock PER, PBR and dividend yield of ${date.toString}")
+    getCSV(StockPER_PBR_DividendYieldSetting(date))
+  }
+
+  private def getCSV(setting: Setting): Future[Seq[File]] = {
+    Thread.sleep(20000)
+    Future.sequence(setting.markets.map {
+      detail =>
+        Http.client.url(detail.url)
+          .withMethod("GET")
+          .withRequestTimeout(5.minutes)
+          .stream()
+          .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+    })
   }
 
   private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
