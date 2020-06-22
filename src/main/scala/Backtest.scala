@@ -18,26 +18,26 @@ class Backtest {
    * 3. reduce 每個序列 by date, 用(當日市值-當日至今投入金額)/當日至今投入金額，即可算出每日報酬率，也可以算出每日資產
    *
    * @param companyCodes
-   * @param fromDate
-   * @param toDate
+   * @param strDate
+   * @param endDate
    * @param daysOfMonth
    * @param amountPerInvestment
    * @param fees
    */
-  def dollarCostAveraging(companyCodes: Set[String], fromDate: LocalDate, toDate: LocalDate, daysOfMonth: Set[Int], amountPerInvestment: Int, fees: Int = 0): Unit = {
-    val td = toDate.plusDays(10)
+  def dollarCostAveraging(companyCodes: Set[String], strDate: LocalDate, endDate: LocalDate, daysOfMonth: Set[Int], amountPerInvestment: Int, fees: Int = 0): Unit = {
+    val td = endDate.plusDays(10)
     val db = Database.forConfig("db")
     val dailyQuote = TableQuery[DailyQuote]
-    val dailyQuoteAction = dailyQuote.filter(d => d.companyCode.inSet(companyCodes) && d.date >= fromDate && d.date <= td).sortBy(_.date).result
+    val dailyQuoteAction = dailyQuote.filter(d => d.companyCode.inSet(companyCodes) && d.date >= strDate && d.date <= td).sortBy(_.date).result
 
     val exRightDividend = TableQuery[ExRightDividend]
-    val exRightDividendAction = exRightDividend.filter(e => e.companyCode.inSet(companyCodes) && e.date >= fromDate && e.date <= td).sortBy(_.date).result
+    val exRightDividendAction = exRightDividend.filter(e => e.companyCode.inSet(companyCodes) && e.date >= strDate && e.date <= td).sortBy(_.date).result
 
     val render = for {
       dailyQuoteResult <- db.run(dailyQuoteAction)
       exRightDividendResult <- db.run(exRightDividendAction)
     } yield {
-      val estimatedTradingDates = fromDate.datesUntil(toDate).filter(localDate => daysOfMonth.contains(localDate.getDayOfMonth)).toScala(Seq)
+      val estimatedTradingDates = strDate.datesUntil(endDate).filter(localDate => daysOfMonth.contains(localDate.getDayOfMonth)).toScala(Seq)
       val data = dailyQuoteResult.groupBy(_.companyCode).values.map {
         dailyQuotes =>
           val dateToDailyQuote = dailyQuotes.map(dailyQuote => dailyQuote.date -> dailyQuote).toMap
@@ -55,7 +55,7 @@ class Backtest {
               getTradingDay(buyDate)
           }
 
-          val actualDailyQuotes = dailyQuotes.filter(_.date.compareTo(toDate) <= 0)
+          val actualDailyQuotes = dailyQuotes.filter(_.date.compareTo(endDate) <= 0)
           case class DailyIncome(date: LocalDate, investmentCost: Int, bookValue: Double)
           val dailyIncomes = actualTradingDates.map {
             date =>
