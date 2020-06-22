@@ -8,13 +8,16 @@ import java.time.LocalDate
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://www.twse.com.tw/zh/page/trading/exchange/TWTAUU.html
  * 減資
+ * twse https://www.twse.com.tw/zh/page/trading/exchange/TWTAUU.html from 2011-1-1
+ * tpex https://www.tpex.org.tw/web/stock/exright/revivt/revivt.php from 2013-1-2
  *
  * @param tag
  */
 class CapitalReduction(tag: Tag) extends Table[CapitalReductionRow](tag, "capital_reduction") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def market = column[String]("market")
 
   def date = column[LocalDate]("date")
 
@@ -36,9 +39,9 @@ class CapitalReduction(tag: Tag) extends Table[CapitalReductionRow](tag, "capita
 
   def reasonForCapitalReduction = column[String]("reason_for_capital_reduction")
 
-  def idx = index("idx_CapitalReduction_date_companyCode", (date, companyCode), unique = true)
+  def idx = index("idx_CapitalReduction_market_date_companyCode", (market, date, companyCode), unique = true)
 
-  def * = (id, date, companyCode, companyName, closingPriceOnTheLastTradingDate, postReductionReferencePrice, limitUp, limitDown, openingReferencePrice, exRightReferencePrice, reasonForCapitalReduction) <> (CapitalReductionRow.tupled, CapitalReductionRow.unapply)
+  def * = (id, market, date, companyCode, companyName, closingPriceOnTheLastTradingDate, postReductionReferencePrice, limitUp, limitDown, openingReferencePrice, exRightReferencePrice, reasonForCapitalReduction) <> (CapitalReductionRow.tupled, CapitalReductionRow.unapply)
 }
 
-case class CapitalReductionRow(id: Long, date: LocalDate, companyCode: String, companyName: String, closingPriceOnTheLastTradingDate: Double, postReductionReferencePrice: Double, limitUp: Double, limitDown: Double, openingReferencePrice: Double, exRightReferencePrice: Option[Double], reasonForCapitalReduction: String)
+case class CapitalReductionRow(id: Long, market: String, date: LocalDate, companyCode: String, companyName: String, closingPriceOnTheLastTradingDate: Double, postReductionReferencePrice: Double, limitUp: Double, limitDown: Double, openingReferencePrice: Double, exRightReferencePrice: Option[Double], reasonForCapitalReduction: String)

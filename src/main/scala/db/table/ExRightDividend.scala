@@ -8,13 +8,16 @@ import java.time.LocalDate
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://www.twse.com.tw/zh/page/trading/exchange/TWT49U.html
- * 除權息
+ * 除權除息計算結果表
+ * twse https://www.twse.com.tw/zh/page/trading/exchange/TWT49U.html from 2003-5-5
+ * tpex https://www.tpex.org.tw/web/stock/exright/dailyquo/exDailyQ.php from 2008-1-2
  *
  * @param tag
  */
 class ExRightDividend(tag: Tag) extends Table[ExRightDividendRow](tag, "ex_right_dividend") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def market = column[String]("market")
 
   def date = column[LocalDate]("date")
 
@@ -38,9 +41,9 @@ class ExRightDividend(tag: Tag) extends Table[ExRightDividendRow](tag, "ex_right
 
   def exDividendReferencePrice = column[Double]("ex_dividend_reference_price")
 
-  def idx = index("idx_ExRightDividend_date_companyCode", (date, companyCode), unique = true)
+  def idx = index("idx_ExRightDividend_market_date_companyCode", (market, date, companyCode), unique = true)
 
-  def * = (id, date, companyCode, companyName, closingPriceBeforeExRightExDividend, exRightExDividendReferencePrice, cashDividend, rightOrDividend, limitUp, limitDown, openingReferencePrice, exDividendReferencePrice) <> (ExRightDividendRow.tupled, ExRightDividendRow.unapply)
+  def * = (id, market, date, companyCode, companyName, closingPriceBeforeExRightExDividend, exRightExDividendReferencePrice, cashDividend, rightOrDividend, limitUp, limitDown, openingReferencePrice, exDividendReferencePrice) <> (ExRightDividendRow.tupled, ExRightDividendRow.unapply)
 }
 
-case class ExRightDividendRow(id: Long, date: LocalDate, companyCode: String, companyName: String, closingPriceBeforeExRightExDividend: Double, exRightExDividendReferencePrice: Double, cashDividend: Double, rightOrDividend: String, limitUp: Double, limitDown: Double, openingReferencePrice: Double, exDividendReferencePrice: Double)
+case class ExRightDividendRow(id: Long, market: String, date: LocalDate, companyCode: String, companyName: String, closingPriceBeforeExRightExDividend: Double, exRightExDividendReferencePrice: Double, cashDividend: Double, rightOrDividend: String, limitUp: Double, limitDown: Double, openingReferencePrice: Double, exDividendReferencePrice: Double)

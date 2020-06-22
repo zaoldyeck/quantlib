@@ -7,8 +7,9 @@ import java.time.LocalDate
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
- * 指數 from 2004-2-11
+ * 價格指數
+ * twse https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html from 2004-2-11
+ * tpex https://www.tpex.org.tw/web/stock/aftertrading/index_summary/summary.php from 2016-1-4
  *
  * @param tag
  */

@@ -6,13 +6,16 @@ import slick.collection.heterogeneous.HNil
 import slick.jdbc.H2Profile.api._
 
 /**
+ * 財務分析資料查詢彙總表
  * https://mops.twse.com.tw/mops/web/t51sb02_q1
- * 財務分析資料查詢彙總表 from 1989
+ * from 1989
  *
  * @param tag
  */
 class FinancialAnalysis(tag: Tag) extends Table[FinancialAnalysisRow](tag, "financial_analysis") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def market = column[String]("market")
 
   def year = column[Int]("year")
 
@@ -58,9 +61,9 @@ class FinancialAnalysis(tag: Tag) extends Table[FinancialAnalysisRow](tag, "fina
 
   def cashFlowReinvestmentRatioPercentage = column[Option[Double]]("cash_flow_reinvestment_ratio(%)")
 
-  def idx = index("idx_FinancialAnalysis_year_companyCode", (year, companyCode), unique = true)
+  def idx = index("idx_FinancialAnalysis_market_year_companyCode", (market, year, companyCode), unique = true)
 
-  def * = (id :: year :: companyCode :: companyName :: liabilitiesOfAssetsRatioPercentage :: longTermFundsToPropertyAndPlantAndEquipmentPercentage :: currentRatioPercentage :: quickRatioPercentage :: timesInterestEarnedRatioPercentage :: averageCollectionTurnoverTimes :: averageCollectionDays :: averageInventoryTurnoverTimes :: averageInventoryDays :: propertyAndPlantAndEquipmentTurnoverTimes :: totalAssetsTurnoverTimes :: returnOnTotalAssetsPercentage :: returnOnEquityPercentage :: profitBeforeTaxToCapitalPercentage :: profitToSalesPercentage :: earningsPerShareNTD :: cashFlowRatioPercentage :: cashFlowAdequacyRatioPercentage :: cashFlowReinvestmentRatioPercentage :: HNil).mapTo[FinancialAnalysisRow]
+  def * = (id :: market :: year :: companyCode :: companyName :: liabilitiesOfAssetsRatioPercentage :: longTermFundsToPropertyAndPlantAndEquipmentPercentage :: currentRatioPercentage :: quickRatioPercentage :: timesInterestEarnedRatioPercentage :: averageCollectionTurnoverTimes :: averageCollectionDays :: averageInventoryTurnoverTimes :: averageInventoryDays :: propertyAndPlantAndEquipmentTurnoverTimes :: totalAssetsTurnoverTimes :: returnOnTotalAssetsPercentage :: returnOnEquityPercentage :: profitBeforeTaxToCapitalPercentage :: profitToSalesPercentage :: earningsPerShareNTD :: cashFlowRatioPercentage :: cashFlowAdequacyRatioPercentage :: cashFlowReinvestmentRatioPercentage :: HNil).mapTo[FinancialAnalysisRow]
 }
 
-case class FinancialAnalysisRow(id: Long, year: Int, companyCode: String, companyName: String, liabilitiesOfAssetsRatioPercentage: Option[Double], longTermFundsToPropertyAndPlantAndEquipmentPercentage: Option[Double], currentRatioPercentage: Option[Double], quickRatioPercentage: Option[Double], timesInterestEarnedRatioPercentage: Option[Double], averageCollectionTurnoverTimes: Option[Double], averageCollectionDays: Option[Double], averageInventoryTurnoverTimes: Option[Double], averageInventoryDays: Option[Double], propertyAndPlantAndEquipmentTurnoverTimes: Option[Double], totalAssetsTurnoverTimes: Option[Double], returnOnTotalAssetsPercentage: Option[Double], returnOnEquityPercentage: Option[Double], profitBeforeTaxToCapitalPercentage: Option[Double], profitToSalesPercentage: Option[Double], earningsPerShareNTD: Option[Double], cashFlowRatioPercentage: Option[Double], cashFlowAdequacyRatioPercentage: Option[Double], cashFlowReinvestmentRatioPercentage: Option[Double])
+case class FinancialAnalysisRow(id: Long, market: String, year: Int, companyCode: String, companyName: String, liabilitiesOfAssetsRatioPercentage: Option[Double], longTermFundsToPropertyAndPlantAndEquipmentPercentage: Option[Double], currentRatioPercentage: Option[Double], quickRatioPercentage: Option[Double], timesInterestEarnedRatioPercentage: Option[Double], averageCollectionTurnoverTimes: Option[Double], averageCollectionDays: Option[Double], averageInventoryTurnoverTimes: Option[Double], averageInventoryDays: Option[Double], propertyAndPlantAndEquipmentTurnoverTimes: Option[Double], totalAssetsTurnoverTimes: Option[Double], returnOnTotalAssetsPercentage: Option[Double], returnOnEquityPercentage: Option[Double], profitBeforeTaxToCapitalPercentage: Option[Double], profitToSalesPercentage: Option[Double], earningsPerShareNTD: Option[Double], cashFlowRatioPercentage: Option[Double], cashFlowAdequacyRatioPercentage: Option[Double], cashFlowReinvestmentRatioPercentage: Option[Double])

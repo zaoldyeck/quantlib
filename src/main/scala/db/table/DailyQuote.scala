@@ -7,13 +7,16 @@ import java.time.LocalDate
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
- * 每日收盤行情 from 2004-2-11
+ * 每日收盤行情
+ * twse https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html from 2004-2-11
+ * tpex https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430.php from 2007-7-2
  *
  * @param tag
  */
 class DailyQuote(tag: Tag) extends Table[DailyQuoteRow](tag, "daily_quote") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def market = column[String]("market")
 
   def date = column[LocalDate]("date")
 
@@ -41,17 +44,17 @@ class DailyQuote(tag: Tag) extends Table[DailyQuoteRow](tag, "daily_quote") {
 
   def lastBestBidPrice = column[Option[Double]]("last_best_bid_price")
 
-  def lastBestBidVolume = column[Int]("last_best_bid_volume")
+  def lastBestBidVolume = column[Option[Int]]("last_best_bid_volume")
 
   def lastBestAskPrice = column[Option[Double]]("last_best_ask_price")
 
-  def lastBestAskVolume = column[Int]("last_best_ask_volume")
+  def lastBestAskVolume = column[Option[Int]]("last_best_ask_volume")
 
-  def priceEarningRatio = column[Double]("price_earning_ratio")
+  def priceEarningRatio = column[Option[Double]]("price_earning_ratio")
 
-  def idx = index("idx_DailyQuote_date_companyCode", (date, companyCode), unique = true)
+  def idx = index("idx_DailyQuote_market_date_companyCode", (market, date, companyCode), unique = true)
 
-  def * = (id, date, companyCode, companyName, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio) <> (DailyQuoteRow.tupled, DailyQuoteRow.unapply)
+  def * = (id, market, date, companyCode, companyName, tradeVolume, transaction, tradeValue, openingPrice, highestPrice, lowestPrice, closingPrice, change, lastBestBidPrice, lastBestBidVolume, lastBestAskPrice, lastBestAskVolume, priceEarningRatio) <> (DailyQuoteRow.tupled, DailyQuoteRow.unapply)
 }
 
-case class DailyQuoteRow(id: Long, date: LocalDate, companyCode: String, companyName: String, tradeVolume: Long, transaction: Int, tradeValue: Long, openingPrice: Option[Double], highestPrice: Option[Double], lowestPrice: Option[Double], closingPrice: Option[Double], change: Double, lastBestBidPrice: Option[Double], lastBestBidVolume: Int, lastBestAskPrice: Option[Double], lastBestAskVolume: Int, priceEarningRatio: Double)
+case class DailyQuoteRow(id: Long, market: String, date: LocalDate, companyCode: String, companyName: String, tradeVolume: Long, transaction: Int, tradeValue: Long, openingPrice: Option[Double], highestPrice: Option[Double], lowestPrice: Option[Double], closingPrice: Option[Double], change: Double, lastBestBidPrice: Option[Double], lastBestBidVolume: Option[Int], lastBestAskPrice: Option[Double], lastBestAskVolume: Option[Int], priceEarningRatio: Option[Double])

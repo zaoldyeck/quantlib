@@ -6,24 +6,27 @@ package db.table
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://mops.twse.com.tw/mops/web/t21sc04_ifrs
  * 營業收入統計表
+ * https://mops.twse.com.tw/mops/web/t21sc04_ifrs
  * Before IFRSs from 2001-6
  * After IFRSs from 2013-1
+ *
  * @param tag
  */
-class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], String, String, Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "operating_revenue") {
+class OperatingRevenue(tag: Tag) extends Table[(Long, String, Int, Int, String, String, Option[String], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "operating_revenue") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def market = column[String]("market")
 
   def year = column[Int]("year")
 
   def month = column[Int]("month")
 
-  def industry = column[Option[String]]("industry")
-
   def companyCode = column[String]("company_code")
 
   def companyName = column[String]("company_name")
+
+  def industry = column[Option[String]]("industry")
 
   def monthlyRevenue = column[Option[Double]]("monthly_revenue")
 
@@ -41,7 +44,7 @@ class OperatingRevenue(tag: Tag) extends Table[(Long, Int, Int, Option[String], 
 
   def cumulativeRevenueComparedLastYearPercentage = column[Option[Double]]("cumulative_revenue_compared_last_year(%))")
 
-  def idx = index("idx_OperatingRevenue_companyCode_year_month", (companyCode, year, month), unique = true)
+  def idx = index("idx_OperatingRevenue_market_year_month_companyCode", (market, year, month, companyCode), unique = true)
 
-  def * = (id, year, month, industry, companyCode, companyName, monthlyRevenue, lastMonthRevenue, lastYearMonthlyRevenue, monthlyRevenueComparedLastMonthPercentage, monthlyRevenueComparedLastYearPercentage, cumulativeRevenue, lastYearCumulativeRevenue, cumulativeRevenueComparedLastYearPercentage)
+  def * = (id, market, year, month, companyCode, companyName, industry, monthlyRevenue, lastMonthRevenue, lastYearMonthlyRevenue, monthlyRevenueComparedLastMonthPercentage, monthlyRevenueComparedLastYearPercentage, cumulativeRevenue, lastYearCumulativeRevenue, cumulativeRevenueComparedLastYearPercentage)
 }

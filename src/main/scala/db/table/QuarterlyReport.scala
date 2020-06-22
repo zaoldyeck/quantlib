@@ -6,8 +6,8 @@ package db.table
 import slick.jdbc.H2Profile.api._
 
 /**
- * https://mops.twse.com.tw/mops/web/t203sb02
  * 財務報表
+ * https://mops.twse.com.tw/mops/web/t203sb02
  *
  * @param tag
  */
