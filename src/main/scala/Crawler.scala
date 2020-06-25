@@ -34,16 +34,17 @@ class Crawler {
               val browser = JsoupBrowser()
               val doc = browser.parseString(res.body)
               val fileName = doc >> element("input[name=filename]") >> attr("value")
-              val fd = Map(
+              val formData = Map(
                 "firstin" -> "true",
                 "step" -> "10",
                 "filename" -> fileName)
               Http.client.url(detail.url)
                 .withMethod("POST")
-                .withBody(fd)
+                .withBody(formData)
                 .withRequestTimeout(5.minutes)
                 .stream()
-          } flatMap (downloadFile(detail.dir, Some(detail.fileName)))
+                .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+          }
     })
   }
 
@@ -61,43 +62,58 @@ class Crawler {
     })
   }
 
-  def getStatementOfComprehensiveIncome(year: Int, season: Int): Future[Unit] = {
-    println("Here it is")
-    Http.client.url(statementOfComprehensiveIncome.page)
-      .post(Map(
-        "encodeURIComponent" -> "1",
-        "step" -> "1",
-        "firstin" -> "1",
-        "off" -> "1",
-        "isQuery" -> "Y",
-        "TYPEK" -> "sii", //otc
-        "year" -> (year - 1911).toString,
-        "season" -> season.toString))
-      .map {
-        res =>
-          println(res.body)
-          val browser = JsoupBrowser()
-          val doc = browser.parseString(res.body)
-          val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
-          //val fileName = doc >> elements("input[name=filename]") >> attr("value")
-          println(fileNames.size)
-          fileNames.foreach(println)
+  def getBalanceSheet(year: Int, season: Int): Future[Seq[File]] = {
+    Thread.sleep(40000)
+    println(s"Get balance sheet of $year-Q$season")
+    Future.sequence(Settings.BalanceSheetSetting(year, season).markets.map {
+      detail =>
+        Http.client.url(detail.page).post(detail.formData).flatMap {
+          res =>
+            val browser = JsoupBrowser()
+            val doc = browser.parseString(res.body)
+            val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
+            Future.sequence(fileNames.zipWithIndex.map {
+              case (fileName, index) =>
+                val formData = Map(
+                  "firstin" -> "true",
+                  "step" -> "10",
+                  "filename" -> fileName)
+                Http.client.url(detail.url)
+                  .withMethod("POST")
+                  .withBody(formData)
+                  .withRequestTimeout(5.minutes)
+                  .stream()
+                  .flatMap(downloadFile(detail.dir, Some(detail.fileName + s"$index.csv")))
+            })
+        }
+    }).map(_.reduce(_ ++ _))
+  }
 
-
-        /*
-          val fd = Map(
-            "firstin" -> "true",
-            "step" -> "10",
-            "filename" -> fileName)
-          Http.client.url(financialAnalysis.file)
-            .withMethod("POST")
-            .withBody(fd)
-            .withRequestTimeout(5.minutes)
-            .stream()
-      } flatMap (downloadFile(financialAnalysis.dir, Some(fileName)))
-
-           */
-      }
+  def getIncomeStatement(year: Int, quarter: Int): Future[Unit] = {
+    Thread.sleep(40000)
+    println(s"Get income statement of $year-Q$quarter")
+    Future.sequence(Settings.IncomeStatementSetting(year, quarter).markets.map {
+      detail =>
+        Http.client.url(detail.page).post(detail.formData).flatMap {
+          res =>
+            val browser = JsoupBrowser()
+            val doc = browser.parseString(res.body)
+            val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
+            Future.sequence(fileNames.zipWithIndex.map {
+              case (fileName, index) =>
+                val formData = Map(
+                  "firstin" -> "true",
+                  "step" -> "10",
+                  "filename" -> fileName)
+                Http.client.url(detail.url)
+                  .withMethod("POST")
+                  .withBody(formData)
+                  .withRequestTimeout(5.minutes)
+                  .stream()
+                  .flatMap(downloadFile(detail.dir, Some(detail.fileName + s"$index.csv")))
+            })
+        }
+    }).map(_.reduce(_ ++ _))
   }
 
   def getQuarterlyReport(year: Int, season: Int): Future[File] = {
