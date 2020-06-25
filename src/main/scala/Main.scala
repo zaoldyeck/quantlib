@@ -1,9 +1,14 @@
 import java.time.LocalDate
+
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
 import net.ruippeixotog.scalascraper.model._
+
+import scala.concurrent.Await
+import scala.concurrent.duration.Duration
+import scala.concurrent.ExecutionContext.Implicits.global
 
 object Main {
   def main(args: Array[String]): Unit = {
@@ -11,11 +16,15 @@ object Main {
     val reader = new Reader
     val question = new Question
     val backtest = new Backtest
-    //task.createDB()
-    reader.readCapitalReduction()
+    val crawler = new Crawler
+    //task.pullMarginTransactions()
+    crawler.getStockPER_PBR_DividendYield(LocalDate.of(2020, 6, 24)) andThen {
+      case _ => Http.terminate()
+    }
+    //reader.readCapitalReduction()
     //"0050", "0052", "0056", "006208", "00692", "006201", "0051"
-    //question.compareROI(Set("0050", "006208"), LocalDate.of(2012, 7, 17))//, LocalDate.of(2006, 9, 12)) //, LocalDate.of(2017, 5, 17)) //, LocalDate.of(2017, 5, 17))
-    //backtest.dollarCostAveraging(Set("0050", "006208"), LocalDate.of(2012, 7, 17), LocalDate.now, Set(6, 16, 26), 1000)
+    //question.compareROI(Set("0050", "0052", "0056", "0051"), LocalDate.of(2007, 12, 26))
+    //backtest.dollarCostAveraging(Set("0050", "0052", "0056", "0051"), LocalDate.of(2007, 12, 26), LocalDate.now, Set(6), 1000)
     /*
     val browser = JsoupBrowser()
     val doc = browser.parseFile("data/operating_revenue/2001_6.html", "Big5")
