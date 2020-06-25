@@ -264,8 +264,8 @@ class Reader {
         val indices = TableQuery[Index]
         val dbIOActions = rows.map {
           values =>
-            val name = values.head
-            val closingIndex = values(1) match {
+            val index = values.head
+            val close = values(1) match {
               case "--" => None
               case value => Some(value.toDouble)
             }
@@ -280,13 +280,13 @@ class Reader {
             }
 
             val query = Query((date,
-              name,
-              closingIndex,
+              index,
+              close,
               change,
               changePercentage))
-            val exists = indices.filter(i => i.date === date && i.name === name).exists
+            val exists = indices.filter(i => i.date === date && i.index === index).exists
             val selectExpression = query.filterNot(_ => exists)
-            indices.map(i => (i.date, i.name, i.closingIndex, i.change, i.changePercentage)).forceInsertQuery(selectExpression)
+            indices.map(i => (i.date, i.index, i.close, i.change, i.changePercentage)).forceInsertQuery(selectExpression)
         }
 
         val db = Database.forConfig("db")
