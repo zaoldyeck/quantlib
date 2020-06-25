@@ -47,10 +47,10 @@ class Task {
     val setup = DBIO.seq(
       //financialAnalysis.schema.create,
       //operatingRevenue.schema.create)
-          //dailyQuote.schema.create),
-    //      index.schema.create,
-    //      exRightDividend.schema.create,
-    capitalReduction.schema.create)
+      //dailyQuote.schema.create),
+      //      index.schema.create,
+      //      exRightDividend.schema.create,
+      capitalReduction.schema.create)
 
     val db = Database.forConfig("db")
     try {
@@ -78,17 +78,12 @@ class Task {
 
     val futures = //LocalDate.of(2004, 2, 11)
       LocalDate.of(2014, 7, 30)
-      //.datesUntil(LocalDate.now().plusDays(1)).toScala(Seq).reverse
-      .datesUntil(LocalDate.of(2020, 6, 21).plusDays(1)).toScala(Seq)
-      .filterNot(existDailyQuotes)
-      .map(crawler.getDailyQuote)
+        //.datesUntil(LocalDate.now().plusDays(1)).toScala(Seq).reverse
+        .datesUntil(LocalDate.of(2020, 6, 21).plusDays(1)).toScala(Seq)
+        .filterNot(existDailyQuotes)
+        .map(crawler.getDailyQuote)
 
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
+    runFutures(futures)
   }
 
   def pullIndex(): Unit = {
@@ -96,12 +91,33 @@ class Task {
       .datesUntil(LocalDate.now().plusDays(1)).toScala(Seq)
       .map(crawler.getIndex)
 
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
+    runFutures(futures)
+  }
+
+  def pullBalanceSheet(): Unit = {
+    val yearToSeason: Seq[(Int, Int)] = for {
+      year <- 1989 to 2020
+      season <- 1 to 4
+    } yield (year, season)
+
+    val futures = yearToSeason.map {
+      case (year, season) => crawler.getBalanceSheet(year, season)
     }
+
+    runFutures(futures)
+  }
+
+  def pullIncomeStatement(): Unit = {
+    val yearToSeason: Seq[(Int, Int)] = for {
+      year <- 1989 to 2020
+      season <- 1 to 4
+    } yield (year, season)
+
+    val futures = yearToSeason.map {
+      case (year, season) => crawler.getIncomeStatement(year, season)
+    }
+
+    runFutures(futures)
   }
 
   def pullOperatingRevenue(): Unit = {
@@ -116,12 +132,7 @@ class Task {
       case (year, month) => crawler.getOperatingRevenue(year, month)
     }
 
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
+    runFutures(futures)
   }
 
   def pullFinancialAnalysis(): Unit = {
@@ -131,24 +142,34 @@ class Task {
     val lastYear = if (thisMonth > 3) thisYear - 1 else thisYear - 2
     val futures = (1989 to lastYear).map(year => crawler.getFinancialAnalysis(year))
 
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
+    runFutures(futures)
   }
 
-  def pullStatementOfComprehensiveIncome(): Unit = {
-    val yearToSeason: Seq[(Int, Int)] = for {
-      year <- 2019 to 2019
-      season <- 4 to 4
-    } yield (year, season)
+  def pullMarginTransactions(): Unit = {
+    val futures = LocalDate.of(2014, 5, 29)
+      .datesUntil(LocalDate.now()).toScala(Seq)
+      .map(crawler.getMarginTransactions)
 
-    val futures = yearToSeason.map {
-      case (year: Int, season: Int) => crawler.getStatementOfComprehensiveIncome(year, season)
-    }
+    runFutures(futures)
+  }
 
+  def pullDailyTradingDetails(): Unit = {
+    val futures = LocalDate.of(2007, 4, 23)
+      .datesUntil(LocalDate.now()).toScala(Seq)
+      .map(crawler.getDailyTradingDetails)
+
+    runFutures(futures)
+  }
+
+  def pullStockPER_PBR_DividendYield(): Unit = {
+    val futures = LocalDate.of(2005, 9, 2)
+      .datesUntil(LocalDate.now()).toScala(Seq)
+      .map(crawler.getStockPER_PBR_DividendYield)
+
+    runFutures(futures)
+  }
+
+  private def runFutures(futures: Seq[Future[Any]]): Unit = {
     Future.sequence(futures) andThen {
       case _ => Http.terminate()
     } onComplete {
