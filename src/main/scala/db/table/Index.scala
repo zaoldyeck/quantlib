@@ -13,14 +13,16 @@ import slick.jdbc.H2Profile.api._
  *
  * @param tag
  */
-class Index(tag: Tag) extends Table[(Long, LocalDate, String, Option[Double], Double, Double)](tag, "index") {
+class Index(tag: Tag) extends Table[(Long, String, LocalDate, String, Option[Double], Double, Double)](tag, "index") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
+
+  def market = column[String]("market")
 
   def date = column[LocalDate]("date")
 
-  def name = column[String]("name")
+  def index = column[String]("index")
 
-  def closingIndex = column[Option[Double]]("closing_index")
+  def close = column[Option[Double]]("close")
 
   //def direction = column[Int]("direction") // -1, 0 , 1
 
@@ -28,7 +30,7 @@ class Index(tag: Tag) extends Table[(Long, LocalDate, String, Option[Double], Do
 
   def changePercentage = column[Double]("change(%)")
 
-  def idx = index("idx_Index_date_index", (date, name), unique = true)
+  def idx = index("idx_Index_market_date_index", (market, date, index), unique = true)
 
-  def * = (id, date, name, closingIndex, change, changePercentage)
+  def * = (id, market, date, index, close, change, changePercentage)
 }
