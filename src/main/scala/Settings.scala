@@ -286,7 +286,7 @@ object Settings {
   }
 
   case class IndexSetting(date: LocalDate = LocalDate.now) extends Setting {
-    val twse: TwseDetail = new TwseDetail(LocalDate.of(2004, 2, 11), None, date) {
+    val twse: TwseDetail = new TwseDetail(LocalDate.of(2009, 1, 5), None, date) {
       val file: String = conf.getString("data.index.twse.file")
       val dir: String = conf.getString("data.index.twse.dir")
     }
