@@ -150,9 +150,14 @@ object Settings {
 
   val quarterlyReportDir: String = conf.getString("data.quarterlyReport.dir")
 
-  case class BalanceSheetSetting(year: Int, season: Int) extends Setting {
+  case class BalanceSheetSetting(year: Int = LocalDate.now.getYear, quarter: Int = LocalDate.now.getMonthValue match {
+    case m if m < 4 => 3
+    case m if m < 6 => 4
+    case m if m < 9 => 1
+    case m if m < 12 => 2
+  }) extends Setting {
 
-    class TwseBeforeIFRSsDetail extends TwseDetail(LocalDate.of(1989, 1, 1), None, LocalDate.of(year, season, 1)) {
+    class TwseBeforeIFRSsDetail extends TwseDetail(LocalDate.of(1989, 1, 1), None, LocalDate.of(year, quarter, 1)) {
       private val y = super.endDate.getYear - 1911
       val file: String = conf.getString("data.balanceSheet.file")
       val dir: String = conf.getString("data.balanceSheet.dir.twse")
@@ -196,7 +201,12 @@ object Settings {
     }
   }
 
-  case class IncomeStatementSetting(year: Int, quarter: Int) extends Setting {
+  case class IncomeStatementSetting(year: Int = LocalDate.now.getYear, quarter: Int = LocalDate.now.getMonthValue match {
+    case m if m < 4 => 3
+    case m if m < 6 => 4
+    case m if m < 9 => 1
+    case m if m < 12 => 2
+  }) extends Setting {
 
     class TwseBeforeIFRSsDetail extends TwseDetail(LocalDate.of(1989, 1, 1), None, LocalDate.of(year, quarter, 1)) {
       private val y = super.endDate.getYear - 1911
@@ -281,8 +291,7 @@ object Settings {
       val dir: String = conf.getString("data.dailyQuote.tpex.dir")
     }
 
-    //val markets = Seq(twse, tpex)
-    val markets = Seq(tpex)
+    val markets = Seq(twse, tpex)
   }
 
   case class IndexSetting(date: LocalDate = LocalDate.now) extends Setting {
