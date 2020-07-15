@@ -3,7 +3,9 @@ import java.time.LocalDate
 import db.table.{DailyQuote, ExRightDividend}
 import plotly.layout.Layout
 import plotly.{Plotly, Scatter}
-import slick.jdbc.H2Profile.api._
+import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
+//import slick.jdbc.H2Profile.api._
 import slick.lifted.TableQuery
 
 import scala.concurrent.Await
