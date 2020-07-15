@@ -1,10 +1,14 @@
 import java.time.LocalDate
 
+import db.table.IncomeStatementIndividual
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
 import net.ruippeixotog.scalascraper.model._
+import slick.jdbc.PostgresProfile.api._
+import reader.{FinancialReader, TradingReader}
+import slick.lifted.TableQuery
 
 import scala.concurrent.Await
 import scala.concurrent.duration.Duration
@@ -13,18 +17,21 @@ import scala.concurrent.ExecutionContext.Implicits.global
 object Main {
   def main(args: Array[String]): Unit = {
     val task = new Task
-    val reader = new Reader
+    val tradingReader = new TradingReader
+    val financialReader = new FinancialReader
     val question = new Question
     val backtest = new Backtest
     val crawler = new Crawler
-    //task.pullMarginTransactions()
-    crawler.getStockPER_PBR_DividendYield(LocalDate.of(2020, 6, 24)) andThen {
-      case _ => Http.terminate()
-    }
-    //reader.readCapitalReduction()
-    //"0050", "0052", "0056", "006208", "00692", "006201", "0051"
-    //question.compareROI(Set("0050", "0052", "0056", "0051"), LocalDate.of(2007, 12, 26))
-    //backtest.dollarCostAveraging(Set("0050", "0052", "0056", "0051"), LocalDate.of(2007, 12, 26), LocalDate.now, Set(6), 1000)
+    val job = new Job
+    //-1893
+    job.pullAllData()
+    job.complete()
+    //    crawler.getIndex(LocalDate.of(2020, 4, 1)) andThen {
+    //      case _ => Http.terminate()
+    //    }
+    //"0050", "0051", "0052", "0056", "006201", "006208", "00692"
+    //question.compareROI(Set("0050", "0051", "0052", "0056", "006201", "006208", "00692"), LocalDate.of(2011, 1, 28))
+    //backtest.dollarCostAveraging(Set("0050", "0051", "0052", "0056", "006201", "006208", "00692"), LocalDate.of(2011, 1, 28), LocalDate.now, Set(6, 16, 26), 1000)
     /*
     val browser = JsoupBrowser()
     val doc = browser.parseFile("data/operating_revenue/2001_6.html", "Big5")
