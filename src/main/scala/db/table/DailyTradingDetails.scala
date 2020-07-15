@@ -3,10 +3,9 @@ package db.table
 import java.time.LocalDate
 
 import slick.collection.heterogeneous.HNil
-
-//import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
+//import slick.jdbc.H2Profile.api._
 
 /**
  * 三大法人買賣超日報
@@ -69,6 +68,8 @@ class DailyTradingDetails(tag: Tag) extends Table[DailyTradingDetailsRow](tag, "
   def dealersDifference = column[Int]("dealers_difference")
 
   def totalDifference = column[Int]("total_difference")
+
+  def idx = index("idx_DailyTradingDetails_market_date_companyCode", (market, date, companyCode), unique = true)
 
   def * = (id :: market :: date :: companyCode :: companyName :: foreignInvestorsExcludeDealersTotalBuy :: foreignInvestorsExcludeDealersTotalSell :: foreignInvestorsExcludeDealersDifference :: foreignDealersTotalBuy :: foreignDealersTotalSell :: foreignDealersDifference :: foreignInvestorsTotalBuy :: foreignInvestorsTotalSell :: foreignInvestorsDifference :: securitiesInvestmentTrustCompaniesTotalBuy :: securitiesInvestmentTrustCompaniesTotalSell :: securitiesInvestmentTrustCompaniesDifference :: dealersProprietaryTotalBuy :: dealersProprietaryTotalSell :: dealersProprietaryDifference :: dealersHedgeTotalBuy :: dealersHedgeTotalSell :: dealersHedgeDifference :: dealersTotalBuy :: dealersTotalSell :: dealersDifference :: totalDifference :: HNil).mapTo[DailyTradingDetailsRow]
 }

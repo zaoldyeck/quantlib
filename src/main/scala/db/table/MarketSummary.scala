@@ -2,9 +2,9 @@ package db.table
 
 import java.time.LocalDate
 
-//import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
+//import slick.jdbc.H2Profile.api._
 
 /**
  * 大盤統計資訊

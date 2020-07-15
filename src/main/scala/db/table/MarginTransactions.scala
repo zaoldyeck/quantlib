@@ -1,11 +1,10 @@
 package db.table
 
-//import slick.jdbc.PostgresProfile.api._
-//import slick.jdbc.MySQLProfile.api._
-
 import java.time.LocalDate
 
-import slick.jdbc.H2Profile.api._
+import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
+//import slick.jdbc.H2Profile.api._
 
 /**
  * 融資融券餘額

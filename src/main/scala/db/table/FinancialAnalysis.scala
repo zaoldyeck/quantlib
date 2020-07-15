@@ -1,9 +1,9 @@
 package db.table
 
 import slick.collection.heterogeneous.HNil
-//import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
+//import slick.jdbc.H2Profile.api._
 
 /**
  * 財務分析資料查詢彙總表
