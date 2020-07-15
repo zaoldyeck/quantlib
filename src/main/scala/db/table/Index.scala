@@ -2,9 +2,9 @@ package db.table
 
 import java.time.LocalDate
 
-//import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
+//import slick.jdbc.H2Profile.api._
 
 /**
  * 價格指數
@@ -20,7 +20,7 @@ class Index(tag: Tag) extends Table[(Long, String, LocalDate, String, Option[Dou
 
   def date = column[LocalDate]("date")
 
-  def index = column[String]("index")
+  def name = column[String]("name")
 
   def close = column[Option[Double]]("close")
 
@@ -30,7 +30,7 @@ class Index(tag: Tag) extends Table[(Long, String, LocalDate, String, Option[Dou
 
   def changePercentage = column[Double]("change(%)")
 
-  def idx = index("idx_Index_market_date_index", (market, date, index), unique = true)
+  def idx = index("idx_Index_market_date_name", (market, date, name), unique = true)
 
-  def * = (id, market, date, index, close, change, changePercentage)
+  def * = (id, market, date, name, close, change, changePercentage)
 }
