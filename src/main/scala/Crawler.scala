@@ -3,7 +3,6 @@ import java.time.LocalDate
 import java.util.concurrent.Executors
 
 import Http.materializer
-import Settings._
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
@@ -11,6 +10,8 @@ import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.ws.StandaloneWSResponse
+import setting.Constant._
+import setting._
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
@@ -62,10 +63,10 @@ class Crawler {
     })
   }
 
-  def getBalanceSheet(year: Int, season: Int): Future[Seq[File]] = {
+  def getBalanceSheet(year: Int, quarter: Int): Future[Seq[File]] = {
     Thread.sleep(40000)
-    println(s"Get balance sheet of $year-Q$season")
-    Future.sequence(Settings.BalanceSheetSetting(year, season).markets.map {
+    println(s"Get balance sheet of $year-Q$quarter")
+    Future.sequence(BalanceSheetSetting(year, quarter).markets.map {
       detail =>
         Http.client.url(detail.page).post(detail.formData).flatMap {
           res =>
@@ -74,6 +75,7 @@ class Crawler {
             val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
             Future.sequence(fileNames.zipWithIndex.map {
               case (fileName, index) =>
+                Thread.sleep(5000)
                 val formData = Map(
                   "firstin" -> "true",
                   "step" -> "10",
@@ -89,10 +91,10 @@ class Crawler {
     }).map(_.reduce(_ ++ _))
   }
 
-  def getIncomeStatement(year: Int, quarter: Int): Future[Unit] = {
+  def getIncomeStatement(year: Int, quarter: Int): Future[Seq[File]] = {
     Thread.sleep(40000)
     println(s"Get income statement of $year-Q$quarter")
-    Future.sequence(Settings.IncomeStatementSetting(year, quarter).markets.map {
+    Future.sequence(IncomeStatementSetting(year, quarter).markets.map {
       detail =>
         Http.client.url(detail.page).post(detail.formData).flatMap {
           res =>
@@ -101,6 +103,7 @@ class Crawler {
             val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
             Future.sequence(fileNames.zipWithIndex.map {
               case (fileName, index) =>
+                Thread.sleep(5000)
                 val formData = Map(
                   "firstin" -> "true",
                   "step" -> "10",
