@@ -2,9 +2,9 @@ package db.table
 
 import java.time.LocalDate
 
-//import slick.jdbc.PostgresProfile.api._
+import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
+//import slick.jdbc.H2Profile.api._
 
 /**
  * 個股本益比、殖利率、股價淨值比
@@ -13,7 +13,7 @@ import slick.jdbc.H2Profile.api._
  *
  * @param tag
  */
-class StockPER_PBR_DividendYield(tag: Tag) extends Table[(Long, String, LocalDate, String, String, Option[Double], Option[Double], Double)](tag, "stock_per_pbr_dividend_yield") {
+class StockPER_PBR_DividendYield(tag: Tag) extends Table[(Long, String, LocalDate, String, String, Option[Double], Option[Double], Option[Double])](tag, "stock_per_pbr_dividend_yield") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
   def market = column[String]("market")
@@ -28,7 +28,9 @@ class StockPER_PBR_DividendYield(tag: Tag) extends Table[(Long, String, LocalDat
 
   def priceBookRatio = column[Option[Double]]("price_book_ratio")
 
-  def dividendYield = column[Double]("dividend_yield")
+  def dividendYield = column[Option[Double]]("dividend_yield")
+
+  def idx = index("idx_StockPER_PBR_DividendYield_market_date_companyCode", (market, date, companyCode), unique = true)
 
   def * = (id, market, date, companyCode, companyName, priceToEarningRatio, priceBookRatio, dividendYield)
 }
