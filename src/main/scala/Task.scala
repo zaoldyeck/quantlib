@@ -1,56 +1,46 @@
-import Settings.DailyQuoteSetting
-import db.table.{CapitalReduction, ExRightDividend}
-import slick.jdbc.H2Profile.api._
-import util.QuantlibCSVReader
-
-import scala.util.Try
-//import slick.jdbc.MySQLProfile.api._
-//import slick.jdbc.PostgresProfile.api._
+import java.io.File
 import java.time.LocalDate
 
-import db.table.{DailyQuote, FinancialAnalysis, Index, OperatingRevenue}
+import db.table.{CapitalReduction, DailyQuote, ExRightDividend, FinancialAnalysis, Index, OperatingRevenue, _}
+import setting.{Detail, _}
+import slick.jdbc.PostgresProfile.api._
+//import slick.jdbc.MySQLProfile.api._
+//import slick.jdbc.H2Profile.api._
 import slick.lifted.TableQuery
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.jdk.StreamConverters._
-import scala.util.{Failure, Success}
-import java.time.LocalDate
-
-import Settings._
-import com.github.tototoshi.csv._
-import db.table._
-import slick.collection.heterogeneous.HNil
-import slick.lifted.TableQuery
-import util.QuantlibCSVReader
-
 import scala.reflect.io.Path._
-//import slick.jdbc.PostgresProfile.api._
-//import slick.jdbc.MySQLProfile.api._
-import slick.jdbc.H2Profile.api._
-
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
 
 class Task {
   private val crawler = new Crawler()
-  //private val reader = new Reader()
 
-  def createDB(): Unit = {
-    val financialAnalysis = TableQuery[FinancialAnalysis]
-    val operatingRevenue = TableQuery[OperatingRevenue]
-    val dailyQuote = TableQuery[DailyQuote]
-    val exRightDividend = TableQuery[ExRightDividend]
+  def createTables(): Unit = {
+    val balanceSheet = TableQuery[BalanceSheet]
     val capitalReduction = TableQuery[CapitalReduction]
+    val dailyQuote = TableQuery[DailyQuote]
+    val dailyTradingDetails = TableQuery[DailyTradingDetails]
+    val exRightDividend = TableQuery[ExRightDividend]
+    val financialAnalysis = TableQuery[FinancialAnalysis]
+    val incomeStatementProgressive = TableQuery[IncomeStatementProgressive]
     val index = TableQuery[Index]
+    val marginTransactions = TableQuery[MarginTransactions]
+    val operatingRevenue = TableQuery[OperatingRevenue]
+    val stockPER_PBR_DividendYield = TableQuery[StockPER_PBR_DividendYield]
     val setup = DBIO.seq(
-      //financialAnalysis.schema.create,
-      //operatingRevenue.schema.create)
-      //dailyQuote.schema.create),
-      //      index.schema.create,
-      //      exRightDividend.schema.create,
-      capitalReduction.schema.create)
+      balanceSheet.schema.create,
+      capitalReduction.schema.create,
+      dailyQuote.schema.create,
+      dailyTradingDetails.schema.create,
+      exRightDividend.schema.create,
+      financialAnalysis.schema.create,
+      incomeStatementProgressive.schema.create,
+      index.schema.create,
+      marginTransactions.schema.create,
+      operatingRevenue.schema.create,
+      stockPER_PBR_DividendYield.schema.create)
 
     val db = Database.forConfig("db")
     try {
@@ -59,8 +49,114 @@ class Task {
     } finally db.close
   }
 
+  def pullFinancialAnalysis(): Unit = {
+    val existFiles = FinancialAnalysisSetting().twse.dir.toDirectory.files.map {
+      file =>
+        val fileNamePattern = """(\d+)_.*.csv""".r
+        val fileNamePattern(year) = file.name
+        year.toInt
+    }.toSet
+
+    val today = LocalDate.now()
+    val thisYear = today.getYear
+    val thisMonth = today.getMonthValue
+    val lastYear = if (thisMonth > 3) thisYear - 1 else thisYear - 2
+    val futures = (1989 to lastYear).filterNot(existFiles).map(crawler.getFinancialAnalysis)
+
+    runFutures(futures)
+  }
+
+  def pullBalanceSheet(): Unit = {
+    pullQuarterlyFiles(BalanceSheetSetting().twse, crawler.getBalanceSheet)
+  }
+
+  def pullIncomeStatement(): Unit = {
+    pullQuarterlyFiles(IncomeStatementSetting().twse, crawler.getIncomeStatement)
+  }
+
+  def pullOperatingRevenue(): Unit = {
+    val detail = OperatingRevenueSetting().twse
+    val existFiles = detail.dir.toDirectory.files.map {
+      file =>
+        val fileNamePattern = """(\d+)_(\d+).*""".r
+        val fileNamePattern(year, month) = file.name
+        (year.toInt, month.toInt)
+    }.toSet
+
+    val firstYear = detail.firstDate.getYear
+    val thisYear = LocalDate.now.getYear
+    val thisMonth = LocalDate.now.getMonthValue
+    val firstYearToMonth = (detail.firstDate.getMonthValue to 12).map(month => (firstYear, month))
+    val yearToMonth = for {
+      year <- firstYear + 1 until thisYear
+      month <- 1 to 12
+    } yield (year, month)
+    val thisYearToMonth = (1 to (if (LocalDate.now.getDayOfMonth > 10) thisMonth - 1 else thisMonth - 2)).map(month => (thisYear, month))
+
+    val futures = firstYearToMonth.appendedAll(yearToMonth).appendedAll(thisYearToMonth).filterNot(existFiles).map {
+      case (year, month) => crawler.getOperatingRevenue(year, month)
+    }
+    runFutures(futures)
+  }
+
   def pullDailyQuote(): Unit = {
-    val existDailyQuotes = DailyQuoteSetting().tpex.dir.toDirectory.files.flatMap {
+    //val dayOfWeek = date.getDayOfWeek.getValue
+    //val linesSize = lines.size
+    //if ((firstLineOption.isEmpty && dayOfWeek < 6) || firstLineOption == Option("<html>")) None else Some(date)
+    //if (linesSize < 5 && dayOfWeek < 6) None else Some(date)
+    pullDailyFiles(DailyQuoteSetting().twse, crawler.getDailyQuote)
+  }
+
+  def pullIndex(): Unit = {
+    pullDailyFiles(IndexSetting().twse, crawler.getIndex)
+  }
+
+  def pullMarginTransactions(): Unit = {
+    pullDailyFiles(MarginTransactionsSetting().twse, crawler.getMarginTransactions)
+  }
+
+  def pullDailyTradingDetails(): Unit = {
+    pullDailyFiles(DailyTradingDetailsSetting().tpex, crawler.getDailyTradingDetails)
+  }
+
+  def pullStockPER_PBR_DividendYield(): Unit = {
+    pullDailyFiles(StockPER_PBR_DividendYieldSetting().twse, crawler.getStockPER_PBR_DividendYield)
+  }
+
+  def pullCapitalReduction(): Unit = {
+    val detail = CapitalReductionSetting().twse
+    val existFiles = detail.dir.toDirectory.files.toSeq.map {
+      file =>
+        val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+        val fileNamePattern(year, month, day) = file.name
+        LocalDate.of(year.toInt, month.toInt, day.toInt)
+    }
+    val endDate = LocalDate.now.minusDays(1)
+    if (existFiles.isEmpty) {
+      runFutures(Seq(crawler.getCapitalReduction(detail.firstDate, endDate)))
+    } else if (existFiles.max != endDate) {
+      runFutures(Seq(crawler.getCapitalReduction(existFiles.max.plusDays(1), endDate)))
+    }
+  }
+
+  def pullExRightDividend(): Unit = {
+    val detail = ExRightDividendSetting().twse
+    val existFiles = detail.dir.toDirectory.files.toSeq.map {
+      file =>
+        val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+        val fileNamePattern(year, month, day) = file.name
+        LocalDate.of(year.toInt, month.toInt, day.toInt)
+    }
+    val endDate = LocalDate.now.minusDays(1)
+    if (existFiles.isEmpty) {
+      runFutures(Seq(crawler.getExRightDividend(detail.firstDate, endDate)))
+    } else if (existFiles.max != endDate) {
+      runFutures(Seq(crawler.getExRightDividend(existFiles.max.plusDays(1), endDate)))
+    }
+  }
+
+  private def pullDailyFiles(detail: Detail, crawlerFunction: LocalDate => Future[Seq[File]]): Unit = {
+    val existFiles = detail.dir.toDirectory.files.flatMap {
       file =>
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(year, month, day) = file.name
@@ -68,113 +164,42 @@ class Task {
         val m = month.toInt
         val d = day.toInt
         val date = LocalDate.of(y, m, d)
-        val dayOfWeek = date.getDayOfWeek.getValue
-
-        //val firstLineOption = file.lines("Big5-HKSCS").nextOption
-        //if ((firstLineOption.isEmpty && dayOfWeek < 6) || firstLineOption == Option("<html>")) None else Some(date)
-        val lineSize = file.lines("Big5-HKSCS").size
-        if (lineSize < 5 && dayOfWeek < 6) None else Some(date)
+        val lines = file.lines("Big5-HKSCS")
+        val firstLineOption = lines.nextOption
+        //if ((firstLineOption.isEmpty && date.getDayOfWeek.getValue < 6) || (firstLineOption == Option("<html>"))) None else Some(date)
+        if (firstLineOption == Option("<html>")) None else Some(date)
     }.toSet
 
-    val futures = //LocalDate.of(2004, 2, 11)
-      LocalDate.of(2014, 7, 30)
-        //.datesUntil(LocalDate.now().plusDays(1)).toScala(Seq).reverse
-        .datesUntil(LocalDate.of(2020, 6, 21).plusDays(1)).toScala(Seq)
-        .filterNot(existDailyQuotes)
-        .map(crawler.getDailyQuote)
-
+    val futures = detail.firstDate.datesUntil(LocalDate.now()).toScala(Seq).filterNot(existFiles).map(crawlerFunction)
     runFutures(futures)
   }
 
-  def pullIndex(): Unit = {
-    val futures = LocalDate.of(2020, 4, 1)
-      .datesUntil(LocalDate.now().plusDays(1)).toScala(Seq)
-      .map(crawler.getIndex)
+  private def pullQuarterlyFiles(detail: Detail, crawlerFunction: (Int, Int) => Future[Seq[File]]): Unit = {
+    val existFiles = detail.dir.toDirectory.files.map {
+      file =>
+        val fileNamePattern = """(\d+)_(\d+).*.csv""".r
+        val fileNamePattern(year, quarter) = file.name
+        (year.toInt, quarter.toInt)
+    }.toSet
 
-    runFutures(futures)
-  }
+    val thisYear = LocalDate.now.getYear
+    val yearToQuarter = for {
+      year <- detail.firstDate.getYear until thisYear
+      quarter <- 1 to 4
+    } yield (year, quarter)
 
-  def pullBalanceSheet(): Unit = {
-    val yearToSeason: Seq[(Int, Int)] = for {
-      year <- 1989 to 2020
-      season <- 1 to 4
-    } yield (year, season)
-
-    val futures = yearToSeason.map {
-      case (year, season) => crawler.getBalanceSheet(year, season)
+    val thisYearToQuarter = LocalDate.now.getMonthValue match {
+      case m if m > 11 => (1 to 3).map(quarter => (thisYear, quarter))
+      case m if m > 8 => (1 to 2).map(quarter => (thisYear, quarter))
+      case m if m > 5 => Seq((thisYear, 1))
+      case _ => Seq()
     }
 
-    runFutures(futures)
-  }
-
-  def pullIncomeStatement(): Unit = {
-    val yearToSeason: Seq[(Int, Int)] = for {
-      year <- 1989 to 2020
-      season <- 1 to 4
-    } yield (year, season)
-
-    val futures = yearToSeason.map {
-      case (year, season) => crawler.getIncomeStatement(year, season)
+    val futures = yearToQuarter.appendedAll(thisYearToQuarter).filterNot(existFiles).map {
+      case (year, quarter) => crawlerFunction(year, quarter)
     }
-
     runFutures(futures)
   }
 
-  def pullOperatingRevenue(): Unit = {
-    val yearToMonth: Seq[(Int, Int)] = for {
-      year <- 2001 to 2020
-      month <- 1 to 12
-    } yield (year, month)
-
-    val futures = yearToMonth.filterNot {
-      case (year, month) => (year == 2001 && (month < 6)) || year == 2020 && (month > 5)
-    }.map {
-      case (year, month) => crawler.getOperatingRevenue(year, month)
-    }
-
-    runFutures(futures)
-  }
-
-  def pullFinancialAnalysis(): Unit = {
-    val today = LocalDate.now()
-    val thisYear = today.getYear
-    val thisMonth = today.getMonthValue
-    val lastYear = if (thisMonth > 3) thisYear - 1 else thisYear - 2
-    val futures = (1989 to lastYear).map(year => crawler.getFinancialAnalysis(year))
-
-    runFutures(futures)
-  }
-
-  def pullMarginTransactions(): Unit = {
-    val futures = LocalDate.of(2014, 5, 29)
-      .datesUntil(LocalDate.now()).toScala(Seq)
-      .map(crawler.getMarginTransactions)
-
-    runFutures(futures)
-  }
-
-  def pullDailyTradingDetails(): Unit = {
-    val futures = LocalDate.of(2007, 4, 23)
-      .datesUntil(LocalDate.now()).toScala(Seq)
-      .map(crawler.getDailyTradingDetails)
-
-    runFutures(futures)
-  }
-
-  def pullStockPER_PBR_DividendYield(): Unit = {
-    val futures = LocalDate.of(2005, 9, 2)
-      .datesUntil(LocalDate.now()).toScala(Seq)
-      .map(crawler.getStockPER_PBR_DividendYield)
-
-    runFutures(futures)
-  }
-
-  private def runFutures(futures: Seq[Future[Any]]): Unit = {
-    Future.sequence(futures) andThen {
-      case _ => Http.terminate()
-    } onComplete {
-      case Success(_) =>
-      case Failure(t) => t.printStackTrace()
-    }
-  }
+  private def runFutures(futures: Seq[Future[Any]]): Unit = Await.result(Future.sequence(futures), Duration.Inf)
 }
