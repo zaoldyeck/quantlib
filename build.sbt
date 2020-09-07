@@ -2,7 +2,7 @@ name := "quantlib"
 
 version := "0.1"
 
-scalaVersion := "2.13.1"
+scalaVersion := "2.13.3"
 
 resolvers += "jitpack" at "https://jitpack.io"
 
