@@ -37,8 +37,8 @@ case class FinancialAnalysisSetting(year: Int = LocalDate.now.getYear) extends S
     override val formData: Map[String, String] = super.formData + ("ifrs" -> "Y")
   }
 
-  val twse: Detail = new TwseAfterIFRSsDetail
-  val tpex: Detail = new TpexAfterIFRSsDetail
+  val twse = new TwseAfterIFRSsDetail
+  val tpex = new TpexAfterIFRSsDetail
   val markets: Seq[Detail] = year match {
     case y if y < 1993 => Seq(new TwseBeforeIFRSsDetail)
     case y if y < 2012 => Seq(new TwseBeforeIFRSsDetail, new TpexBeforeIFRSsDetail)

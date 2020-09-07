@@ -1,5 +1,7 @@
 package setting
 
+import java.time.LocalDate
+
 import com.typesafe.config.{Config, ConfigFactory}
 
 import scala.reflect.io.File
@@ -13,10 +15,14 @@ trait Setting {
   val tpex: Detail
   val markets: Seq[Detail]
 
-  def getMarketFiles: Seq[MarketFile] = markets.map {
+  def getMarketFilesFromDirectory: Seq[MarketFile] = markets.map {
     detail =>
       val directory = detail.dir.toDirectory
       val files = directory.files
       files.map(file => MarketFile(directory.name, file))
   }.reduce(_ ++ _).toSeq
+
+  def getTuplesOfExistFiles: Set[(Int, Int)] = markets.map(_.getTuplesOfExistFiles).reduce(_ & _)
+
+  def getDatesOfExistFiles: Set[LocalDate] = markets.map(_.getDatesOfExistFiles).reduce(_ & _)
 }

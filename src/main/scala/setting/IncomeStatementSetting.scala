@@ -4,13 +4,13 @@ import java.time.LocalDate
 
 case class IncomeStatementSetting(year: Int = LocalDate.now.getYear - 1, quarter: Int = if (LocalDate.now.getMonthValue < 4) 3 else 4) extends Setting {
 
-  class TwseBeforeIFRSsDetail extends TwseDetail(LocalDate.of(1989, 1, 1), None, LocalDate.of(year, quarter, 1)) {
+  class TwseBeforeIFRSsIndividualDetail extends TwseDetail(LocalDate.of(1989, 1, 1), None, LocalDate.of(year, quarter, 1)) {
     private val y = super.endDate.getYear - 1911
     val file: String = conf.getString("data.incomeStatement.file")
     val dir: String = conf.getString("data.incomeStatement.dir.twse")
-    override val page: String = conf.getString("data.incomeStatement.page.beforeIFRSs")
+    override val page: String = conf.getString("data.incomeStatement.page.beforeIFRSs.individual")
     override val url: String = file
-    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_b_"
+    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_b_i_"
 
     override def formData = Map(
       "encodeURIComponent" -> "1",
@@ -23,27 +23,40 @@ case class IncomeStatementSetting(year: Int = LocalDate.now.getYear - 1, quarter
       "season" -> s"0${super.endDate.getMonthValue}")
   }
 
-  class TwseAfterIFRSsDetail extends TwseBeforeIFRSsDetail {
-    override val page: String = conf.getString("data.incomeStatement.page.afterIFRSs")
-    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_a_"
+  class TwseBeforeIFRSsConsolidatedDetail extends TwseBeforeIFRSsIndividualDetail {
+    override val page: String = conf.getString("data.incomeStatement.page.beforeIFRSs.consolidated")
+    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_b_c_"
   }
 
-  class TpexBeforeIFRSsDetail extends TwseBeforeIFRSsDetail {
+  class TwseAfterIFRSsDetail extends TwseBeforeIFRSsIndividualDetail {
+    override val page: String = conf.getString("data.incomeStatement.page.afterIFRSs")
+    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_a_c_"
+  }
+
+  class TpexBeforeIFRSsIndividualDetail extends TwseBeforeIFRSsIndividualDetail {
     override val dir: String = conf.getString("data.incomeStatement.dir.tpex")
 
     override def formData: Map[String, String] = super.formData + ("TYPEK" -> "otc")
   }
 
-  class TpexAfterIFRSsDetail extends TpexBeforeIFRSsDetail {
-    override val page: String = conf.getString("data.incomeStatement.page.afterIFRSs")
-    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_a_"
+  class TpexBeforeIFRSsConsolidatedDetail extends TpexBeforeIFRSsIndividualDetail {
+    override val page: String = conf.getString("data.incomeStatement.page.beforeIFRSs.consolidated")
+    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_b_c_"
   }
 
-  val twse: Detail = new TwseAfterIFRSsDetail
-  val tpex: Detail = new TpexAfterIFRSsDetail
-  val markets: Seq[Detail] = year match {
-    case y if y < 1993 => Seq(new TwseBeforeIFRSsDetail)
-    case y if y < 2013 => Seq(new TwseBeforeIFRSsDetail, new TpexBeforeIFRSsDetail)
+  class TpexAfterIFRSsDetail extends TpexBeforeIFRSsIndividualDetail {
+    override val page: String = conf.getString("data.incomeStatement.page.afterIFRSs")
+    override val fileName = s"${super.endDate.getYear}_${super.endDate.getMonthValue}_a_c_"
+  }
+
+  val twse = new TwseAfterIFRSsDetail
+  val tpex = new TpexAfterIFRSsDetail
+  val markets: Seq[Detail] = (year, quarter) match {
+    case (y, _) if y < 1993 => Seq(new TwseBeforeIFRSsIndividualDetail)
+    case (y, q) if y < 2004 || (y == 2004 && q < 4) => Seq(new TwseBeforeIFRSsIndividualDetail, new TpexBeforeIFRSsIndividualDetail)
+    case (y, _) if y < 2006 => Seq(new TwseBeforeIFRSsIndividualDetail, new TwseBeforeIFRSsConsolidatedDetail, new TpexBeforeIFRSsIndividualDetail)
+    case (y, _) if y < 2013 => Seq(new TwseBeforeIFRSsIndividualDetail, new TwseBeforeIFRSsConsolidatedDetail, new TpexBeforeIFRSsIndividualDetail, new TpexBeforeIFRSsConsolidatedDetail)
+    case (y, _) if y < 2015 => Seq(new TwseBeforeIFRSsIndividualDetail, new TwseBeforeIFRSsConsolidatedDetail, new TpexBeforeIFRSsIndividualDetail, new TpexBeforeIFRSsConsolidatedDetail, new TwseAfterIFRSsDetail, new TpexAfterIFRSsDetail)
     case _ => Seq(new TwseAfterIFRSsDetail, new TpexAfterIFRSsDetail)
   }
 }
