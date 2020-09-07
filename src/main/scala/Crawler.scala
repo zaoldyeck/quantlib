@@ -1,8 +1,9 @@
-import java.io.File
+import java.io.{File, FileInputStream, FileOutputStream}
 import java.time.LocalDate
 import java.util.concurrent.Executors
+import java.util.zip.ZipInputStream
 
-import Http.materializer
+import Http.{materializer, scheduler}
 import akka.stream.scaladsl.Sink
 import akka.util.ByteString
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
@@ -10,11 +11,13 @@ import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
 import net.ruippeixotog.scalascraper.dsl.DSL._
 import play.api.libs.ws.DefaultBodyWritables._
 import play.api.libs.ws.StandaloneWSResponse
-import setting.Constant._
 import setting._
+import util.Helpers
+import util.Helpers.SeqExtension
 
 import scala.concurrent.duration._
 import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.io.Path._
 
 /**
  * Press following code in the dev console can easily track url when click button open a new tab
@@ -24,110 +27,148 @@ class Crawler {
   implicit val ec = ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor())
 
   def getFinancialAnalysis(year: Int): Future[Seq[File]] = {
-    Thread.sleep(40000)
     println(s"Get financial analysis of $year")
-    Future.sequence(FinancialAnalysisSetting(year).markets.map {
+    FinancialAnalysisSetting(year).markets.mapInSeries {
       detail =>
-        Http.client.url(detail.page)
-          .post(detail.formData)
-          .flatMap {
-            res =>
-              val browser = JsoupBrowser()
-              val doc = browser.parseString(res.body)
-              val fileName = doc >> element("input[name=filename]") >> attr("value")
-              val formData = Map(
-                "firstin" -> "true",
-                "step" -> "10",
-                "filename" -> fileName)
-              Http.client.url(detail.url)
-                .withMethod("POST")
-                .withBody(formData)
-                .withRequestTimeout(5.minutes)
-                .stream()
-                .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
-          }
-    })
+        Thread.sleep(20000)
+        Helpers.retry {
+          Http.client.url(detail.page)
+            .post(detail.formData)
+            .flatMap {
+              res =>
+                val browser = JsoupBrowser()
+                val doc = browser.parseString(res.body)
+                val fileName = doc >> element("input[name=filename]") >> attr("value")
+                val formData = Map(
+                  "firstin" -> "true",
+                  "step" -> "10",
+                  "filename" -> fileName)
+                Http.client.url(detail.url)
+                  .withMethod("POST")
+                  .withBody(formData)
+                  .withRequestTimeout(5.minutes)
+                  .stream()
+                  .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+            }
+        }
+    }
   }
 
   def getOperatingRevenue(year: Int, month: Int): Future[Seq[File]] = {
-    Thread.sleep(40000)
     println(s"Get operating revenue of $year-$month")
-    Future.sequence(OperatingRevenueSetting(year, month).markets.map {
+    OperatingRevenueSetting(year, month).markets.mapInSeries {
       detail =>
-        year match {
-          case y if y < 2013 =>
-            Http.client.url(detail.url).get.flatMap(downloadFile(detail.dir, Some(detail.fileName)))
-          case y if y > 2012 =>
-            Http.client.url(detail.url).post(detail.formData).flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+        Thread.sleep(20000)
+        Helpers.retry {
+          year match {
+            case y if y < 2013 =>
+              detail.page match {
+                case "" => Http.client.url(detail.url).get.flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+                case _ =>
+                  Http.client.url(detail.page)
+                    .post(detail.formData)
+                    .flatMap {
+                      res =>
+                        val browser = JsoupBrowser()
+                        val doc = browser.parseString(res.body)
+                        val fileName = doc >> element("input[name=filename]") >> attr("value")
+                        val formData = Map(
+                          "firstin" -> "true",
+                          "step" -> "9",
+                          "filename" -> fileName)
+                        Http.client.url(detail.url)
+                          .withMethod("POST")
+                          .withBody(formData)
+                          .stream()
+                          .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+                    }
+              }
+            case y if y > 2012 =>
+              Http.client.url(detail.url).post(detail.formData).flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+          }
         }
-    })
+    }
   }
 
   def getBalanceSheet(year: Int, quarter: Int): Future[Seq[File]] = {
-    Thread.sleep(40000)
     println(s"Get balance sheet of $year-Q$quarter")
-    Future.sequence(BalanceSheetSetting(year, quarter).markets.map {
+    BalanceSheetSetting(year, quarter).markets.mapInSeries {
       detail =>
-        Http.client.url(detail.page).post(detail.formData).flatMap {
-          res =>
-            val browser = JsoupBrowser()
-            val doc = browser.parseString(res.body)
-            val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
-            Future.sequence(fileNames.zipWithIndex.map {
-              case (fileName, index) =>
-                Thread.sleep(5000)
-                val formData = Map(
-                  "firstin" -> "true",
-                  "step" -> "10",
-                  "filename" -> fileName)
-                Http.client.url(detail.url)
-                  .withMethod("POST")
-                  .withBody(formData)
-                  .withRequestTimeout(5.minutes)
-                  .stream()
-                  .flatMap(downloadFile(detail.dir, Some(detail.fileName + s"$index.csv")))
-            })
+        Thread.sleep(20000)
+        Helpers.retry {
+          Http.client.url(detail.page).post(detail.formData).flatMap {
+            res =>
+              val browser = JsoupBrowser()
+              val doc = browser.parseString(res.body)
+              val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
+              fileNames.zipWithIndex.mapInSeries {
+                case (fileName, index) =>
+                  Thread.sleep(10000)
+                  val formData = Map(
+                    "firstin" -> "true",
+                    "step" -> "10",
+                    "filename" -> fileName)
+                  Http.client.url(detail.url)
+                    .withMethod("POST")
+                    .withBody(formData)
+                    .stream()
+                    .flatMap(downloadFile(detail.dir, Some(detail.fileName + s"$index.csv")))
+              }
+          }
         }
-    }).map(_.reduce(_ ++ _))
+    }.map(_.reduce(_ ++ _))
   }
 
   def getIncomeStatement(year: Int, quarter: Int): Future[Seq[File]] = {
-    Thread.sleep(40000)
     println(s"Get income statement of $year-Q$quarter")
-    Future.sequence(IncomeStatementSetting(year, quarter).markets.map {
+    IncomeStatementSetting(year, quarter).markets.mapInSeries {
       detail =>
-        Http.client.url(detail.page).post(detail.formData).flatMap {
-          res =>
-            val browser = JsoupBrowser()
-            val doc = browser.parseString(res.body)
-            val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
-            Future.sequence(fileNames.zipWithIndex.map {
-              case (fileName, index) =>
-                Thread.sleep(5000)
-                val formData = Map(
-                  "firstin" -> "true",
-                  "step" -> "10",
-                  "filename" -> fileName)
-                Http.client.url(detail.url)
-                  .withMethod("POST")
-                  .withBody(formData)
-                  .withRequestTimeout(5.minutes)
-                  .stream()
-                  .flatMap(downloadFile(detail.dir, Some(detail.fileName + s"$index.csv")))
-            })
+        Thread.sleep(20000)
+        Helpers.retry {
+          Http.client.url(detail.page).post(detail.formData).flatMap {
+            res =>
+              val browser = JsoupBrowser()
+              val doc = browser.parseString(res.body)
+              val fileNames = (doc >> elements("input[name=filename]")).map(_ >> attr("value")).toSeq.distinct.sorted
+              fileNames.zipWithIndex.mapInSeries {
+                case (fileName, index) =>
+                  Thread.sleep(10000)
+                  val formData = Map(
+                    "firstin" -> "true",
+                    "step" -> "10",
+                    "filename" -> fileName)
+                  Http.client.url(detail.url)
+                    .withMethod("POST")
+                    .withBody(formData)
+                    .stream()
+                    .flatMap(downloadFile(detail.dir, Some(detail.fileName + s"$index.csv")))
+              }
+          }
         }
-    }).map(_.reduce(_ ++ _))
+    }.map(_.reduce(_ ++ _))
   }
 
-  def getQuarterlyReport(year: Int, season: Int): Future[File] = {
-    //2014 後開始有 ifrs
-    //沒有 ifrs 的到 2014
-    ///server-java/FileDownLoad?step=9&fileName=tw-gaap-2014Q4.zip&filePath=/home/html/nas/xbrl/2014/
-    Http.client.url(s"https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-${year}Q$season.zip&filePath=/home/html/nas/ifrs/$year/")
-      .withMethod("GET")
-      .withRequestTimeout(5.minutes)
-      .stream()
-      .flatMap(downloadFile(quarterlyReportDir))
+  def getFinancialStatements(year: Int, quarter: Int, companyCode: String): Future[Seq[File]] = {
+    println(s"Get financial statements of $year-Q$quarter-$companyCode")
+    FinancialStatementsSetting(year, quarter, companyCode).markets.mapInSeries {
+      detail =>
+        val file = s"${detail.dir}/${detail.fileName}".toFile
+        (file.length match {
+          case l if l > 10000 => Future(file.jfile)
+          case _ =>
+            Thread.sleep(20000)
+            Helpers.retry {
+              Http.client.url(detail.url)
+                .withMethod("GET")
+                .stream()
+                .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+            }
+        }).map {
+          file =>
+            if (file.extension == "zip") Helpers.unzip(file, delete = true)
+            file
+        }
+    }
   }
 
   def getExRightDividend(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {
@@ -169,11 +210,12 @@ class Crawler {
     Thread.sleep(20000)
     Future.sequence(setting.markets.map {
       detail =>
-        Http.client.url(detail.url)
-          .withMethod("GET")
-          .withRequestTimeout(5.minutes)
-          .stream()
-          .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+        Helpers.retry {
+          Http.client.url(detail.url)
+            .withMethod("GET")
+            .stream()
+            .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+        }
     })
   }
 
