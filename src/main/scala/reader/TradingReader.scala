@@ -27,7 +27,7 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = DailyQuoteSetting().getMarketFiles.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = DailyQuoteSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read daily quote -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -90,7 +90,7 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 
   def readDailyTradingDetails(): Unit = {
@@ -99,7 +99,7 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = DailyTradingDetailsSetting().getMarketFiles.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = DailyTradingDetailsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read daily trading details -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -178,7 +178,7 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 
   def readCapitalReduction(): Unit = {
@@ -187,7 +187,7 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf)
 
-    val files = CapitalReductionSetting().getMarketFiles.par
+    val files = CapitalReductionSetting().getMarketFilesFromDirectory.par
     val pb = new ProgressBar("Read capital reduction -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -230,16 +230,15 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 
   def readExRightDividend(): Unit = {
     val exRightDividend = TableQuery[ExRightDividend]
     val query = exRightDividend.map(e => (e.market, e.date, e.companyCode)).distinct.result
-    val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf)
 
-    val files = ExRightDividendSetting().getMarketFiles.par
+    val files = ExRightDividendSetting().getMarketFilesFromDirectory.par
     val pb = new ProgressBar("Read ex-right dividend -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -261,7 +260,7 @@ class TradingReader extends Reader {
                 (marketFile.market, date, companyCode, values(2), values(3).toDouble, values(4).toDouble, values(5).toDouble, values(6), values(7).toDouble, values(8).toDouble, values(9).toDouble, values(10).toDouble)
             }
           case "tpex" =>
-            val rows = reader.all().filter(row => row.size > 20 && row.head != "除權息日期").init.map(_.map(_.replace(" ", "").replace(",", "")))
+            val rows = reader.all().filter(row => row.size > 20 && row.head != "除權息日期").map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
                 val date = LocalDate.parse(values.head, minguoDateTimeFormatter)
@@ -282,7 +281,7 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 
   def readIndex(): Unit = {
@@ -291,7 +290,7 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = IndexSetting().getMarketFiles.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = IndexSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read index -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -352,7 +351,7 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 
   def readMarginTransactions(): Unit = {
@@ -361,7 +360,7 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = MarginTransactionsSetting().getMarketFiles.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = MarginTransactionsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read margin transactions -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -397,7 +396,7 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 
   def readStockPER_PBR_DividendYield(): Unit = {
@@ -406,7 +405,7 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = StockPER_PBR_DividendYieldSetting().getMarketFiles.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = StockPER_PBR_DividendYieldSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read stock PER, PBR, dividend yield -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
@@ -478,6 +477,6 @@ class TradingReader extends Reader {
         reader.close()
         pb.step()
     }
-    pb.stop()
+    pb.close()
   }
 }
