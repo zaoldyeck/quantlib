@@ -8,6 +8,7 @@ import slick.jdbc.PostgresProfile.api._
 /**
  * 財務分析資料查詢彙總表
  * https://mops.twse.com.tw/mops/web/t51sb02_q1
+ * https://mops.twse.com.tw/mops/web/t05st22_q1
  * from 1989
  *
  * @param tag

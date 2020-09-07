@@ -12,10 +12,12 @@ import slick.jdbc.PostgresProfile.api._
  *
  * @param tag
  */
-class OperatingRevenue(tag: Tag) extends Table[(Long, String, Int, Int, String, String, Option[String], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "operating_revenue") {
+class OperatingRevenue(tag: Tag) extends Table[(Long, String, String, Int, Int, String, String, Option[String], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double], Option[Double])](tag, "operating_revenue") {
   def id = column[Long]("id", O.PrimaryKey, O.AutoInc)
 
   def market = column[String]("market")
+
+  def `type` = column[String]("type")
 
   def year = column[Int]("year")
 
@@ -43,7 +45,7 @@ class OperatingRevenue(tag: Tag) extends Table[(Long, String, Int, Int, String, 
 
   def cumulativeRevenueComparedLastYearPercentage = column[Option[Double]]("cumulative_revenue_compared_last_year(%))")
 
-  def idx = index("idx_OperatingRevenue_market_year_month_companyCode", (market, year, month, companyCode), unique = true)
+  def idx = index("idx_OperatingRevenue_market_type_year_month_companyCode", (market, `type`, year, month, companyCode), unique = true)
 
-  def * = (id, market, year, month, companyCode, companyName, industry, monthlyRevenue, lastMonthRevenue, lastYearMonthlyRevenue, monthlyRevenueComparedLastMonthPercentage, monthlyRevenueComparedLastYearPercentage, cumulativeRevenue, lastYearCumulativeRevenue, cumulativeRevenueComparedLastYearPercentage)
+  def * = (id, market, `type`, year, month, companyCode, companyName, industry, monthlyRevenue, lastMonthRevenue, lastYearMonthlyRevenue, monthlyRevenueComparedLastMonthPercentage, monthlyRevenueComparedLastYearPercentage, cumulativeRevenue, lastYearCumulativeRevenue, cumulativeRevenueComparedLastYearPercentage)
 }
