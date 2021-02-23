@@ -35,19 +35,19 @@ class Task {
     val stockPER_PBR_DividendYield = TableQuery[StockPER_PBR_DividendYield]
     val setup = DBIO.seq(
       balanceSheet.schema.create,
-      //      conciseBalanceSheet.schema.create,
-      //      capitalReduction.schema.create,
-      //      dailyQuote.schema.create,
-      //      dailyTradingDetails.schema.create,
-      //      exRightDividend.schema.create,
-      //      financialAnalysis.schema.create,
-      //      conciseIncomeStatementProgressive.schema.create,
+      conciseBalanceSheet.schema.create,
+      capitalReduction.schema.create,
+      dailyQuote.schema.create,
+      dailyTradingDetails.schema.create,
+      exRightDividend.schema.create,
+      financialAnalysis.schema.create,
+      conciseIncomeStatementProgressive.schema.create,
       incomeStatementProgressive.schema.create,
-      cashFlowsProgressive.schema.create)
-    //      index.schema.create,
-    //      marginTransactions.schema.create,
-    //      operatingRevenue.schema.create,
-    //      stockPER_PBR_DividendYield.schema.create)
+      cashFlowsProgressive.schema.create,
+      index.schema.create,
+      marginTransactions.schema.create,
+      operatingRevenue.schema.create,
+      stockPER_PBR_DividendYield.schema.create)
 
     val db = Database.forConfig("db")
     try {
@@ -101,16 +101,21 @@ class Task {
     val thisYear = LocalDate.now.getYear
     val firstYearToQuarter = (firstDate.getMonthValue to 4).map(quarter => (firstYear, quarter))
     val yearToQuarter = for {
-      year <- firstYear + 1 until thisYear
+      year <- firstYear + 1 to thisYear
       quarter <- 1 to 4
     } yield (year, quarter)
-    val thisYearToQuarter = LocalDate.now.getMonthValue match {
-      case m if m > 11 => (1 to 3).map(quarter => (thisYear, quarter))
-      case m if m > 8 => (1 to 2).map(quarter => (thisYear, quarter))
-      case m if m > 5 => Seq((thisYear, 1))
-      case _ => Seq()
+
+    val excludeYearToQuarter = LocalDate.now.getMonthValue match {
+      //3, 5, 8, 11
+      //4, 1, 2, 3
+      case m if m < 3 => (thisYear - 1, 4) +: (1 to 4).map(quarter => (thisYear, quarter))
+      case m if m < 5 => (1 to 4).map(quarter => (thisYear, quarter))
+      case m if m < 8 => (2 to 4).map(quarter => (thisYear, quarter))
+      case m if m < 11 => (3 to 4).map(quarter => (thisYear, quarter))
+      case _ => Seq((thisYear, 4))
     }
-    val yearToQuarterToCompany = firstYearToQuarter.appendedAll(yearToQuarter).appendedAll(thisYearToQuarter).map {
+
+    val yearToQuarterToCompany = firstYearToQuarter.appendedAll(yearToQuarter).diff(excludeYearToQuarter).map {
       case (year, quarter) =>
         year match {
           case y if y < 2019 =>
@@ -213,18 +218,21 @@ class Task {
     val existFiles = detail.getTuplesOfExistFiles
     val thisYear = LocalDate.now.getYear
     val yearToQuarter = for {
-      year <- detail.firstDate.getYear until thisYear
+      year <- detail.firstDate.getYear to thisYear
       quarter <- 1 to 4
     } yield (year, quarter)
 
-    val thisYearToQuarter = LocalDate.now.getMonthValue match {
-      case m if m > 11 => (1 to 3).map(quarter => (thisYear, quarter))
-      case m if m > 8 => (1 to 2).map(quarter => (thisYear, quarter))
-      case m if m > 5 => Seq((thisYear, 1))
-      case _ => Seq()
+    val excludeYearToQuarter = LocalDate.now.getMonthValue match {
+      //3, 5, 8, 11
+      //4, 1, 2, 3
+      case m if m < 3 => (thisYear - 1, 4) +: (1 to 4).map(quarter => (thisYear, quarter))
+      case m if m < 5 => (1 to 4).map(quarter => (thisYear, quarter))
+      case m if m < 8 => (2 to 4).map(quarter => (thisYear, quarter))
+      case m if m < 11 => (3 to 4).map(quarter => (thisYear, quarter))
+      case _ => Seq((thisYear, 4))
     }
 
-    val future = yearToQuarter.appendedAll(thisYearToQuarter).filterNot(existFiles).mapInSeries {
+    val future = yearToQuarter.diff(excludeYearToQuarter).filterNot(existFiles).mapInSeries {
       case (year, quarter) => crawlerFunction(year, quarter)
     }
     Await.result(future, Duration.Inf)
