@@ -7,9 +7,9 @@ scalaVersion := "2.13.3"
 resolvers += "jitpack" at "https://jitpack.io"
 
 libraryDependencies ++= Seq(
-  "com.typesafe.slick" %% "slick" % "3.3.2",
+  "com.typesafe.slick" %% "slick" % "3.3.3",
   "org.slf4j" % "slf4j-nop" % "1.7.28",
-  "com.typesafe.slick" %% "slick-hikaricp" % "3.3.2",
+  "com.typesafe.slick" %% "slick-hikaricp" % "3.3.3",
   "com.typesafe.play" %% "play-ahc-ws-standalone" % "2.1.2",
   "com.typesafe.play" %% "play-ws-standalone-json" % "2.1.2",
   "net.ruippeixotog" %% "scala-scraper" % "2.2.0",
