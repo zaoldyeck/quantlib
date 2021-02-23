@@ -13,13 +13,13 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 
 class Question {
-  def compareROI(companyCodes: Set[String], strDate: LocalDate = LocalDate.of(2004, 2, 11)): Unit = {
+  def compareROI(companyCodes: Set[String], strDate: LocalDate = LocalDate.of(2004, 2, 11), endDate: LocalDate): Unit = {
     val db = Database.forConfig("db")
     val dailyQuote = TableQuery[DailyQuote]
-    val dailyQuoteAction = dailyQuote.filter(d => d.companyCode.inSet(companyCodes) && d.date >= strDate).sortBy(_.date).result
+    val dailyQuoteAction = dailyQuote.filter(d => d.companyCode.inSet(companyCodes) && d.date >= strDate && d.date <= endDate).sortBy(_.date).result
 
     val exRightDividend = TableQuery[ExRightDividend]
-    val exRightDividendAction = exRightDividend.filter(e => e.companyCode.inSet(companyCodes) && e.date >= strDate).sortBy(_.date).result
+    val exRightDividendAction = exRightDividend.filter(e => e.companyCode.inSet(companyCodes) && e.date >= strDate && e.date <= endDate).sortBy(_.date).result
 
     val render = for {
       dailyQuoteResult <- db.run(dailyQuoteAction)
