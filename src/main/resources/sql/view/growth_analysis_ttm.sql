@@ -5,33 +5,33 @@ with index as (select *,
                       case when ocf > profit then 1 else 0 end +
                       case
                           when total_non_current_liabilities <
-                               lag(total_non_current_liabilities, 4)
+                               lag(total_non_current_liabilities)
                                over (partition by company_code order by year, quarter)
                               then 1
                           else 0 end +
                       case
                           when current_ratio >
-                               lag(current_ratio, 4) over (partition by company_code order by year, quarter)
+                               lag(current_ratio) over (partition by company_code order by year, quarter)
                               then 1
                           else 0 end +
                       case
                           when total_capital_stock <=
-                               lag(total_capital_stock, 4)
+                               lag(total_capital_stock)
                                over (partition by company_code order by year, quarter)
                               then 1
                           else 0 end +
                       case
-                          when roa > lag(roa, 4) over (partition by company_code order by year, quarter)
+                          when roa > lag(roa) over (partition by company_code order by year, quarter)
                               then 1
                           else 0 end +
                       case
                           when gross_margin >
-                               lag(gross_margin, 4) over (partition by company_code order by year, quarter)
+                               lag(gross_margin) over (partition by company_code order by year, quarter)
                               then 1
                           else 0 end +
                       case
                           when total_assets_turnover >
-                               lag(total_assets_turnover, 4)
+                               lag(total_assets_turnover)
                                over (partition by company_code order by year, quarter)
                               then 1
                           else 0 end                                                                    as f_score,
@@ -483,6 +483,11 @@ select market,
        company_name,
        industry,
        cbs,
+       operating_performance,
+       return_on_investment,
+       capital_structure,
+       liquidity,
+       cash_flow,
        f_score,
        f_score + coalesce(revenue_growth_rate_increase_5y_overall::INT, 0) +
        coalesce(revenue_growth_rate_increase_5y_continuous::INT, 0) +
@@ -511,7 +516,7 @@ select market,
        coalesce(eps_increase_5y_overall::INT, 0) +
        coalesce(eps_increase_5y_continuous::INT, 0) +
        coalesce(fcf_per_share_increase_5y_overall::INT, 0) +
-       coalesce(fcf_per_share_increase_5y_continuous::INT, 0) as growth_score,
+       coalesce(fcf_per_share_increase_5y_continuous::INT, 0)                                  as growth_score,
        coalesce(revenue_growth_rate_decline_5y_overall::INT, 0) +
        coalesce(revenue_growth_rate_decline_5y_continuous::INT, 0) +
        coalesce(profit_margin_decline_5y_overall::INT, 0) +
@@ -539,39 +544,88 @@ select market,
        coalesce(eps_decline_5y_overall::INT, 0) +
        coalesce(eps_decline_5y_continuous::INT, 0) +
        coalesce(fcf_per_share_decline_5y_overall::INT, 0) +
-       coalesce(fcf_per_share_decline_5y_continuous::INT, 0)  as drop_score,
+       coalesce(fcf_per_share_decline_5y_continuous::INT, 0)                                   as drop_score,
        roic,
        roa,
-       total_operating_revenue /
-       nullif(lag(total_operating_revenue, 4) over (partition by company_code order by year, quarter), 0) -
-       1                                                      as revenue_growth_rate,
        eps,
+       roic / nullif(lag(roic) over (partition by company_code order by year, quarter), 0) - 1 as roic_growth_rate,
+       roa / nullif(lag(roa) over (partition by company_code order by year, quarter), 0) - 1   as roa_growth_rate,
+       eps / nullif(lag(eps) over (partition by company_code order by year, quarter), 0) - 1   as eps_growth_rate,
+       fcf_per_share / nullif(lag(fcf_per_share) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as fcf_per_share_growth_rate,
+
+       total_operating_revenue /
+       nullif(lag(total_operating_revenue) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as revenue_growth_rate,
+       profit / nullif(lag(profit) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as profit_growth_rate,
+       ocf / nullif(lag(ocf) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as ocf_growth_rate,
+       total_assets_turnover /
+       nullif(lag(total_assets_turnover) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as total_assets_turnover_growth_rate,
+       1 - days_sales_of_inventory /
+           nullif(lag(days_sales_of_inventory) over (partition by company_code order by year, quarter),
+                  0)                                                                           as days_sales_of_inventory_growth_rate,
+       1 - days_sales_outstanding /
+           nullif(lag(days_sales_outstanding) over (partition by company_code order by year, quarter),
+                  0)                                                                           as days_sales_outstanding_growth_rate,
+
+       1 - equity_multiplier / nullif(lag(equity_multiplier) over (partition by company_code order by year, quarter),
+                                      0)                                                       as equity_multiplier_growth_rate,
+       current_ratio / nullif(lag(current_ratio) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as current_ratio_growth_rate,
+       quick_ratio / nullif(lag(quick_ratio) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as quick_ratio_growth_rate,
+       1 - total_non_current_liabilities /
+           nullif(lag(total_non_current_liabilities) over (partition by company_code order by year, quarter),
+                  0)                                                                           as total_non_current_liabilities_growth_rate,
+       cash_ratio / nullif(lag(cash_ratio) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as cash_ratio_growth_rate,
+       cash_flow_ratio / nullif(lag(cash_flow_ratio) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as cash_flow_ratio_growth_rate,
+       cash_flow_adequacy_ratio /
+       nullif(lag(cash_flow_adequacy_ratio) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as cash_flow_adequacy_ratio_growth_rate,
+       cash_flow_reinvestment_ratio /
+       nullif(lag(cash_flow_reinvestment_ratio) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as cash_flow_reinvestment_ratio_growth_rate,
+       profit_margin / nullif(lag(profit_margin) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as profit_margin_growth_rate,
+
+       operating_margin / nullif(lag(operating_margin) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as operating_margin_growth_rate,
+
+       gross_margin / nullif(lag(gross_margin) over (partition by company_code order by year, quarter), 0) -
+       1                                                                                       as gross_margin_growth_rate,
+       1 - inventories_ratio / nullif(lag(inventories_ratio) over (partition by company_code order by year, quarter),
+                                      0)                                                       as inventories_ratio_growth_rate,
+       1 - receivables_ratio / nullif(lag(receivables_ratio) over (partition by company_code order by year, quarter),
+                                      0)                                                       as receivables_ratio_growth_rate,
+       1 - total_capital_stock /
+           nullif(lag(total_capital_stock) over (partition by company_code order by year, quarter),
+                  0)                                                                           as total_capital_stock_growth_rate,
        fcf_per_share,
+       total_operating_revenue,
+       profit,
+       ocf,
+       total_assets_turnover,
        days_sales_of_inventory,
        days_sales_outstanding,
-       operating_performance,
-       return_on_investment,
-       capital_structure,
-       liquidity,
-       cash_flow,
-       total_operating_revenue,
-       profit_margin,
-       operating_margin,
-       gross_margin,
-       total_assets_turnover,
        equity_multiplier,
-       total_capital_stock,
-       inventories_ratio,
-       receivables_ratio,
        current_ratio,
        quick_ratio,
+       total_non_current_liabilities,
        cash_ratio,
        cash_flow_ratio,
        cash_flow_adequacy_ratio,
        cash_flow_reinvestment_ratio,
-       total_non_current_liabilities,
-       profit,
-       ocf,
+       profit_margin,
+       operating_margin,
+       gross_margin,
+       inventories_ratio,
+       receivables_ratio,
+       total_capital_stock,
        revenue_growth_rate_increase_5y_overall,
        revenue_growth_rate_increase_5y_continuous,
        profit_margin_increase_5y_overall,
