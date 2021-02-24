@@ -1,9 +1,10 @@
-import java.io.File
-import java.time.LocalDate
-
 import db.table.{CapitalReduction, DailyQuote, ExRightDividend, FinancialAnalysis, Index, OperatingRevenue, _}
 import setting.{Detail, _}
 import slick.jdbc.PostgresProfile.api._
+
+import java.io.File
+import java.time.LocalDate
+import scala.io.Source
 //import slick.jdbc.MySQLProfile.api._
 //import slick.jdbc.H2Profile.api._
 import slick.lifted.TableQuery
@@ -33,7 +34,9 @@ class Task {
     val marginTransactions = TableQuery[MarginTransactions]
     val operatingRevenue = TableQuery[OperatingRevenue]
     val stockPER_PBR_DividendYield = TableQuery[StockPER_PBR_DividendYield]
-    val setup = DBIO.seq(
+    val materializedViews = getClass.getResource("sql/materialized_view").getPath.toDirectory.files.toSeq.sortBy(_.name).map(f => Source.fromFile(f.jfile).mkString).map(s => sqlu"#$s")
+    val views = getClass.getResource("sql/view").getPath.toDirectory.files.toSeq.sortBy(_.name).map(f => Source.fromFile(f.jfile).mkString).map(s => sqlu"#$s")
+    val setup = DBIO.sequence(Seq(
       balanceSheet.schema.create,
       conciseBalanceSheet.schema.create,
       capitalReduction.schema.create,
@@ -48,6 +51,8 @@ class Task {
       marginTransactions.schema.create,
       operatingRevenue.schema.create,
       stockPER_PBR_DividendYield.schema.create)
+      .appendedAll(materializedViews)
+      .appendedAll(views))
 
     val db = Database.forConfig("db")
     try {
