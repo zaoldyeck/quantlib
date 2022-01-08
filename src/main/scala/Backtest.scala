@@ -78,7 +78,7 @@ class Backtest {
 
           val dates = dailyIncomes.map(_.date.toString)
           val roi = dailyIncomes.map(dailyIncome => (dailyIncome.bookValue - dailyIncome.investmentCost) / dailyIncome.investmentCost)
-          Scatter(dates, roi, name = actualDailyQuotes.head.companyCode)
+          Scatter(dates, roi, name = s"${actualDailyQuotes.head.companyCode} ${actualDailyQuotes.head.companyName}")
       }.toSeq
       Plotly.plot("dollar-cost-averaging.html", data, Layout(title = "Dollar Cost Averaging", height = 768, autosize = true))
     }
