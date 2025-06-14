@@ -11,8 +11,8 @@ case class MarketFile(market: String, file: File)
 
 trait Setting {
   protected[this] val conf: Config = ConfigFactory.load
-  val twse: Detail
-  val tpex: Detail
+//  val twse: Detail
+//  val tpex: Detail
   val markets: Seq[Detail]
 
   def getMarketFilesFromDirectory: Seq[MarketFile] = markets.map {

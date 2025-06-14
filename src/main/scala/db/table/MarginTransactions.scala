@@ -8,7 +8,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 融資融券餘額
- * twse https://www.twse.com.tw/zh/page/trading/exchange/MI_MARGN.html from 2001-1-2
+ * twse https://www.twse.com.tw/zh/trading/margin/mi-margn.html from 2001-1-2
  * tpex https://www.tpex.org.tw/web/stock/margin_trading/margin_balance/margin_bal.php from 2007-1-2
  *
  * @param tag

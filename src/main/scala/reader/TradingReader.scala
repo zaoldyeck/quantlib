@@ -27,12 +27,12 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = DailyQuoteSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = DailyQuoteSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))//.par
     val pb = new ProgressBar("Read daily quote -", files.size)
-    files.tasksupport = taskSupport
+    //files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        //println(s"Read daily quote of ${marketFile.market}-${marketFile.file.name}")
+        println(s"Read daily quote of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -47,6 +47,7 @@ class TradingReader extends Reader {
             if (rows.isEmpty) Seq.empty else
               rows.tail.map(_.map(_.replace(" ", "").replace(",", ""))).map {
                 values =>
+                  println(values)
                   val splitValues = values.splitAt(2)
                   val transferValues: Seq[Option[Double]] = splitValues._2.init.map {
                     case v if v == "--" => None
@@ -99,12 +100,12 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = DailyTradingDetailsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = DailyTradingDetailsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))//.par
     val pb = new ProgressBar("Read daily trading details -", files.size)
-    files.tasksupport = taskSupport
+    //files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        //println(s"Read daily trading details of ${marketFile.market}-${marketFile.file.name}")
+        println(s"Read daily trading details of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -207,7 +208,7 @@ class TradingReader extends Reader {
                 val date = LocalDate.of(year, month, day)
                 val companyCode = values(1)
                 (marketFile.market, date, companyCode, values(2), values(3).toDouble, values(4).toDouble, values(5).toDouble, values(6).toDouble, values(7).toDouble,
-                  if (values(8) == "--") None else Some(values(8).toDouble), values(9))
+                  if (values(8) == "--") None else values(8).toDoubleOption, values(9))
             }
           case "tpex" =>
             val rows = reader.all().filter(row => row.size == 10 && row.head != "恢復買賣日期 ").map(_.map(_.replace(" ", "").replace(",", "")))
@@ -220,7 +221,7 @@ class TradingReader extends Reader {
                   .withChronology(MinguoChronology.INSTANCE)
                 val date = LocalDate.parse(values.head, dateFormatter)
                 val companyCode = values(1)
-                (marketFile.market, date, companyCode, values(2), values(3).toDouble, values(4).toDouble, values(5).toDouble, values(6).toDouble, values(7).toDouble, Option(values(8).toDouble), values(9))
+                (marketFile.market, date, companyCode, values(2), values(3).toDouble, values(4).toDouble, values(5).toDouble, values(6).toDouble, values(7).toDouble, values(8).toDoubleOption, values(9))
             }
         }
 
@@ -310,19 +311,13 @@ class TradingReader extends Reader {
             rows.map {
               values =>
                 val name = values.head
-                val close = values(1) match {
-                  case "--" => None
-                  case value => Some(value.toDouble)
-                }
+                val close = values(1).toDoubleOption
                 val change = values(2) match {
                   case "-" => Try(-values(3).toDouble).getOrElse(0D)
                   case "" => 0
                   case "+" => Try(values(3).toDouble).getOrElse(0D)
                 }
-                val changePercentage = values(4) match {
-                  case v if v == "--" || v == "---" => 0
-                  case value => value.toDouble
-                }
+                val changePercentage: Double = values(4).toDoubleOption.getOrElse(0)
                 (marketFile.market, date, name, close, change, changePercentage)
             }
           case "tpex" =>
@@ -333,20 +328,14 @@ class TradingReader extends Reader {
             (indexes :++ returnIndexes).map {
               values =>
                 val name = values.head
-                val close = values(1) match {
-                  case "--" => None
-                  case value => Some(value.toDouble)
-                }
+                val close = values(1).toDoubleOption
                 val change = values(2).toDouble
-                val changePercentage = values(3) match {
-                  case "--" => 0
-                  case value => value.toDouble
-                }
+                val changePercentage: Double = values(3).toDoubleOption.getOrElse(0)
                 (marketFile.market, date, name, close, change, changePercentage)
             }
         }
 
-        val dbIO = index.map(i => (i.market, i.date, i.name, i.close, i.change, i.changePercentage)) ++= data
+        val dbIO = index.map(i => (i.market, i.date, i.name, i.close, i.change, i.changePercentage)) ++= data.filterNot(_._3 == "null")
         dbRun(dbIO)
         reader.close()
         pb.step()
@@ -426,28 +415,8 @@ class TradingReader extends Reader {
               values =>
                 val companyCode = values.head
                 values.size match {
-                  case 6 =>
-                    (marketFile.market, date, companyCode, values(1),
-                      values(2) match {
-                        case "-" => None
-                        case _ => Some(values(2).toDouble)
-                      },
-                      values(4) match {
-                        case "-" => None
-                        case _ => Some(values(4).toDouble)
-                      },
-                      Some(values(3).toDouble))
-                  case _ =>
-                    (marketFile.market, date, companyCode, values(1),
-                      values(4) match {
-                        case "-" => None
-                        case _ => Some(values(4).toDouble)
-                      },
-                      values(5) match {
-                        case "-" => None
-                        case _ => Some(values(5).toDouble)
-                      },
-                      Some(values(2).toDouble))
+                  case 6 => (marketFile.market, date, companyCode, values(1), values(2).toDoubleOption, values(4).toDoubleOption, values(3).toDoubleOption)
+                  case _ => (marketFile.market, date, companyCode, values(1), values(4).toDoubleOption, values(5).toDoubleOption, values(2).toDoubleOption)
                 }
             }
           case "tpex" =>
@@ -455,20 +424,7 @@ class TradingReader extends Reader {
             rows.map {
               values =>
                 val companyCode = values.head
-                (marketFile.market, date, companyCode, values(1),
-                  values(2) match {
-                    case "N/A" => None
-                    case _ => Some(values(2).toDouble)
-                  },
-                  values(6) match {
-                    case "N/A" => None
-                    case _ => Some(values(6).toDouble)
-                  },
-                  values(5) match {
-                    case "" => None
-                    case "N/A" => None
-                    case _ => Some(values(5).toDouble)
-                  })
+                (marketFile.market, date, companyCode, values(1), values(2).toDoubleOption, values(6).toDoubleOption, values(5).toDoubleOption)
             }
         }
 

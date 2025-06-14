@@ -8,7 +8,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 漲跌證券數合計
- * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
+ * https://www.twse.com.tw/zh/trading/historical/mi-index.html
  * from 2004-2-11
  *
  * @param tag

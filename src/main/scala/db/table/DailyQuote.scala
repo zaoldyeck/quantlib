@@ -7,7 +7,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 每日收盤行情
- * twse https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html from 2004-2-11
+ * twse https://www.twse.com.tw/zh/trading/historical/mi-index.html from 2004-2-11
  * tpex https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430.php from 2007-7-2
  *
  * @param tag

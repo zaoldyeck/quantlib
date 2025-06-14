@@ -8,7 +8,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 大盤統計資訊
- * https://www.twse.com.tw/zh/page/trading/exchange/MI_INDEX.html
+ * https://www.twse.com.tw/zh/trading/historical/mi-index.html
  * from 2004-2-11
  *
  * @param tag

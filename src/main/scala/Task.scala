@@ -25,6 +25,7 @@ class Task {
     val capitalReduction = TableQuery[CapitalReduction]
     val dailyQuote = TableQuery[DailyQuote]
     val dailyTradingDetails = TableQuery[DailyTradingDetails]
+    val etf = TableQuery[ETF]
     val exRightDividend = TableQuery[ExRightDividend]
     val financialAnalysis = TableQuery[FinancialAnalysis]
     val incomeStatementProgressive = TableQuery[IncomeStatementProgressive]
@@ -42,6 +43,7 @@ class Task {
       capitalReduction.schema.create,
       dailyQuote.schema.create,
       dailyTradingDetails.schema.create,
+      etf.schema.create,
       exRightDividend.schema.create,
       financialAnalysis.schema.create,
       conciseIncomeStatementProgressive.schema.create,
@@ -211,6 +213,10 @@ class Task {
     } else if (existFiles.max != endDate) {
       Await.result(crawler.getExRightDividend(existFiles.max.plusDays(1), endDate), Duration.Inf)
     }
+  }
+
+  def pullETF(): Unit = {
+    Await.result(crawler.getETF, Duration.Inf)
   }
 
   private def pullDailyFiles(detail: Detail, crawlerFunction: LocalDate => Future[Seq[File]]): Unit = {

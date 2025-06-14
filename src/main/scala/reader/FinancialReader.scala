@@ -1,6 +1,7 @@
 package reader
 
 import com.github.tototoshi.csv._
+import com.typesafe.config.{Config, ConfigFactory}
 import db.table._
 import me.tongfei.progressbar.ProgressBar
 import net.ruippeixotog.scalascraper.browser.JsoupBrowser
@@ -10,6 +11,8 @@ import net.ruippeixotog.scalascraper.model.Element
 import slick.collection.heterogeneous.HNil
 import slick.jdbc.PostgresProfile.api._
 import util.QuantlibCSVReader
+
+import java.time.LocalDate
 //import slick.jdbc.MySQLProfile.api._
 //import slick.jdbc.H2Profile.api._
 import setting._
@@ -40,11 +43,7 @@ class FinancialReader extends Reader {
         val data = rows.map {
           values =>
             val splitValues = values.splitAt(2)
-            val transferValues = splitValues._2.map {
-              case v if v == "NA" => None
-              case v if v.contains("*") => None
-              case value => Some(value.toDouble)
-            }
+            val transferValues = splitValues._2.map(_.toDoubleOption)
             val companyCode = values.head
             marketFile.market :: year :: companyCode :: values(1) :: transferValues.head :: transferValues(1) ::
               transferValues(2) :: transferValues(3) :: transferValues(4) :: transferValues(5) :: transferValues(6) :: transferValues(7) ::
@@ -339,10 +338,7 @@ class FinancialReader extends Reader {
                   val values = v.toSeq
                   if (values.size == 10 && values.head != "公司 代號") {
                     val splitValues = values.splitAt(2)
-                    val transferValues = splitValues._2.map(_.replace(",", "")).map {
-                      case v if v == "" => None
-                      case value: String => Some(value.toDouble)
-                    }
+                    val transferValues = splitValues._2.map(_.replace(",", "")).map(_.toDoubleOption)
                     val d = (marketFile.market, `type`, year, month, values.head, values(1), Option(industry), transferValues.head, transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7))
                     getData(rows.nextOption(), industry, data :+ d)
                   } else {
@@ -365,17 +361,11 @@ class FinancialReader extends Reader {
                 values.size match {
                   case 11 =>
                     val splitValues = values.splitAt(2)
-                    val transferValues = splitValues._2.init.map {
-                      case v if v == "N/A" => None
-                      case value => Some(value.toDouble)
-                    }
+                    val transferValues = splitValues._2.init.map(_.toDoubleOption)
                     (marketFile.market, `type`, year, month, values.head, values(1), None, transferValues.head, transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7))
                   case _ =>
                     val splitValues = values.splitAt(5)
-                    val transferValues = splitValues._2.init.map {
-                      case v if v == "" => None
-                      case value => Some(value.toDouble)
-                    }
+                    val transferValues = splitValues._2.init.map(_.toDoubleOption)
                     (marketFile.market, `type`, year, month, values(2), values(3), Option(values(4)), transferValues.head, transferValues(1), transferValues(2), transferValues(3), transferValues(4), transferValues(5), transferValues(6), transferValues(7))
                 }
             }
@@ -388,5 +378,23 @@ class FinancialReader extends Reader {
         pb.step()
     }
     pb.close()
+  }
+
+  def readETF(): Unit = {
+    val etf = TableQuery[ETF]
+    val conf: Config = ConfigFactory.load
+    val path = conf.getString("data.etf.dir")
+    val file = s"$path/all.csv".toFile.jfile
+    val reader = QuantlibCSVReader.open(file)
+    val rows = reader.allWithHeaders()
+    val data = rows.map {
+      values =>
+        val datePattern = """(\d+).(\d+).(\d+)""".r
+        val datePattern(year, month, day) = values("上市日期").split('(').head
+        val listingDate = LocalDate.of(year.toInt, month.toInt, day.toInt)
+        (listingDate, values("證券代號").split('(').head, values("證券簡稱").split('(').head, values("發行人"), values("標的指數"))
+    }
+    val dbIO = etf.map(e => (e.listingDate, e.companyCode, e.name, e.issuer, e.index)) ++= data
+    dbRun(dbIO)
   }
 }

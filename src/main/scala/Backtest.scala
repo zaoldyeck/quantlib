@@ -26,7 +26,8 @@ class Backtest {
    * @param amountPerInvestment
    * @param fees
    */
-  def dollarCostAveraging(companyCodes: Set[String], strDate: LocalDate, endDate: LocalDate, daysOfMonth: Set[Int], amountPerInvestment: Int, fees: Int = 0): Unit = {
+  def dollarCostAveraging(companyCodes: Set[String], strDate: LocalDate, endDate: LocalDate, daysOfMonth: Set[Int], amountPerInvestment: Int, fees: Int = 0, limit: Int = -1): Unit = {
+    case class TimeSeriesROI(companyName: String, dates: Seq[String], rois: Seq[Double], lastROI: Double)
     val td = endDate.plusDays(10)
     val db = Database.forConfig("db")
     val dailyQuote = TableQuery[DailyQuote]
@@ -40,7 +41,7 @@ class Backtest {
       exRightDividendResult <- db.run(exRightDividendAction)
     } yield {
       val estimatedTradingDates = strDate.datesUntil(endDate).filter(localDate => daysOfMonth.contains(localDate.getDayOfMonth)).toScala(Seq)
-      val data = dailyQuoteResult.groupBy(_.companyCode).values.map {
+      val timeSeriesROIs = dailyQuoteResult.groupBy(_.companyCode).values.map {
         dailyQuotes =>
           val dateToDailyQuote = dailyQuotes.map(dailyQuote => dailyQuote.date -> dailyQuote).toMap
           val lastDate = dailyQuotes.last.date
@@ -77,10 +78,11 @@ class Backtest {
           }.reduce(_ ++ _).groupBy(_.date).view.mapValues(_.reduce((a, b) => DailyIncome(a.date, a.investmentCost + b.investmentCost, a.bookValue + b.bookValue))).values.toSeq.sortBy(_.date)
 
           val dates = dailyIncomes.map(_.date.toString)
-          val roi = dailyIncomes.map(dailyIncome => (dailyIncome.bookValue - dailyIncome.investmentCost) / dailyIncome.investmentCost)
-          Scatter(dates, roi, name = s"${actualDailyQuotes.head.companyCode} ${actualDailyQuotes.head.companyName}")
-      }.toSeq
-      Plotly.plot("dollar-cost-averaging.html", data, Layout(title = "Dollar Cost Averaging", height = 768, autosize = true))
+          val rois = dailyIncomes.map(dailyIncome => (dailyIncome.bookValue - dailyIncome.investmentCost) / dailyIncome.investmentCost)
+          TimeSeriesROI(s"${actualDailyQuotes.head.companyCode} ${actualDailyQuotes.head.companyName}", dates, rois, rois.last)
+      }.toSeq.sortBy(_.lastROI)
+      val traces = (if (limit > 0) timeSeriesROIs.takeRight(limit) else timeSeriesROIs).map(t => Scatter(t.dates, t.rois, name = t.companyName))
+      Plotly.plot("dollar-cost-averaging.html", traces, Layout(title = "Dollar Cost Averaging", height = 768, autosize = true))
     }
     Await.result(render, Duration.Inf)
   }

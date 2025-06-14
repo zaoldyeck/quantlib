@@ -9,7 +9,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 三大法人買賣超日報
- * twse https://www.twse.com.tw/zh/page/trading/fund/T86.html from 2012-5-2
+ * twse https://www.twse.com.tw/zh/trading/foreign/t86.html from 2012-5-2
  * tpex https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade.php from 2007-4-23
  *
  * @param tag

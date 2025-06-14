@@ -156,6 +156,7 @@ class Crawler {
         (file.length match {
           case l if l > 10000 => Future(file.jfile)
           case _ =>
+            println(detail.url)
             Thread.sleep(20000)
             Helpers.retry {
               Http.client.url(detail.url)
@@ -173,40 +174,45 @@ class Crawler {
 
   def getExRightDividend(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {
     println(s"Get ex-right/dividend from ${strDate.toString} to ${endDate.toString}")
-    getCSV(ExRightDividendSetting(strDate, endDate))
+    getFile(ExRightDividendSetting(strDate, endDate))
   }
 
   def getCapitalReduction(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {
     println(s"Get capital reduction from ${strDate.toString} to ${endDate.toString}")
-    getCSV(CapitalReductionSetting(strDate, endDate))
+    getFile(CapitalReductionSetting(strDate, endDate))
   }
 
   def getDailyQuote(date: LocalDate): Future[Seq[File]] = {
     println(s"Get daily quote of ${date.toString}")
-    getCSV(DailyQuoteSetting(date))
+    getFile(DailyQuoteSetting(date))
   }
 
   def getIndex(date: LocalDate): Future[Seq[File]] = {
     println(s"Get index of ${date.toString}")
-    getCSV(IndexSetting(date))
+    getFile(IndexSetting(date))
   }
 
   def getMarginTransactions(date: LocalDate): Future[Seq[File]] = {
     println(s"Get margin transactions of ${date.toString}")
-    getCSV(MarginTransactionsSetting(date))
+    getFile(MarginTransactionsSetting(date))
   }
 
   def getDailyTradingDetails(date: LocalDate): Future[Seq[File]] = {
     println(s"Get daily trading details of ${date.toString}")
-    getCSV(DailyTradingDetailsSetting(date))
+    getFile(DailyTradingDetailsSetting(date))
   }
 
   def getStockPER_PBR_DividendYield(date: LocalDate): Future[Seq[File]] = {
     println(s"Get stock PER, PBR and dividend yield of ${date.toString}")
-    getCSV(StockPER_PBR_DividendYieldSetting(date))
+    getFile(StockPER_PBR_DividendYieldSetting(date))
   }
 
-  private def getCSV(setting: Setting): Future[Seq[File]] = {
+  def getETF: Future[Seq[File]] = {
+    println(s"Get ETF")
+    getFile(ETFSetting())
+  }
+
+  private def getFile(setting: Setting): Future[Seq[File]] = {
     Thread.sleep(20000)
     Future.sequence(setting.markets.map {
       detail =>

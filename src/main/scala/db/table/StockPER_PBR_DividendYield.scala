@@ -8,7 +8,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 個股本益比、殖利率、股價淨值比
- * twse https://www.twse.com.tw/zh/page/trading/exchange/BWIBBU_d.html from 2005-9-2
+ * twse https://www.twse.com.tw/zh/trading/historical/bwibbu-day.html from 2005-9-2
  * tpex https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera.php from 2007-1-2
  *
  * @param tag

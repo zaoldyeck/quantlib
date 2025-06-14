@@ -15,6 +15,7 @@ class Job {
     task.pullIndex()
     task.pullMarginTransactions()
     task.pullStockPER_PBR_DividendYield()
+    task.pullETF()
   }
 
   def readAllData(): Unit = {

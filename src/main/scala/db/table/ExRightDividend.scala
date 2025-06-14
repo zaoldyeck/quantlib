@@ -8,7 +8,7 @@ import slick.jdbc.PostgresProfile.api._
 
 /**
  * 除權除息計算結果表
- * twse https://www.twse.com.tw/zh/page/trading/exchange/TWT49U.html from 2003-5-5
+ * twse https://www.twse.com.tw/zh/announcement/ex-right/twt49u.html from 2003-5-5
  * tpex https://www.tpex.org.tw/web/stock/exright/dailyquo/exDailyQ.php from 2008-1-2
  *
  * @param tag

@@ -37,6 +37,7 @@ abstract class Detail(val firstDate: LocalDate, _strDateOption: Option[LocalDate
 
   def getDatesOfExistFiles: Set[LocalDate] = files.flatMap {
     file =>
+      println(file.name)
       val fileNamePattern = """(\d+)_(\d+)_(\d+).*""".r
       val fileNamePattern(year, month, day) = file.name
       val date = LocalDate.of(year.toInt, month.toInt, day.toInt)
