@@ -8,7 +8,7 @@ case class CapitalReductionSetting(strDate: LocalDate = LocalDate.now, endDate: 
     val dir: String = conf.getString("data.capitalReduction.twse.dir")
   }
 
-  val tpex: TpexDetail = new TpexDetail(LocalDate.of(2013, 1, 2), Some(strDate), endDate) {
+  val tpex: TpexV2Detail = new TpexV2Detail(LocalDate.of(2013, 1, 2), Some(strDate), endDate) {
     val file: String = conf.getString("data.capitalReduction.tpex.file")
     val dir: String = conf.getString("data.capitalReduction.tpex.dir")
   }

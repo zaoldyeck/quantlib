@@ -216,6 +216,7 @@ class Crawler {
     Thread.sleep(20000)
     Future.sequence(setting.markets.map {
       detail =>
+        println(detail.url)
         Helpers.retry {
           Http.client.url(detail.url)
             .withMethod("GET")

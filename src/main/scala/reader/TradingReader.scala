@@ -45,7 +45,7 @@ class TradingReader extends Reader {
           case "twse" =>
             val rows = reader.all().dropWhile(_.head != "證券代號")
             if (rows.isEmpty) Seq.empty else
-              rows.tail.map(_.map(_.replace(" ", "").replace(",", ""))).map {
+              rows.tail.filter(_.size >= 17).map(_.map(_.replace(" ", "").replace(",", ""))).map {
                 values =>
                   println(values)
                   val splitValues = values.splitAt(2)
@@ -67,7 +67,7 @@ class TradingReader extends Reader {
           case "tpex" =>
             val rows = reader.all().dropWhile(_.head != "代號")
             if (rows.isEmpty) Seq.empty else
-              rows.init.tail.map(_.map(_.replace(" ", "").replace(",", ""))).map {
+              rows.init.tail.filter(_.size >= 15).map(_.map(_.replace(" ", "").replace(",", ""))).map {
                 values =>
                   val splitValues = values.splitAt(2)
                   val transferValues: Seq[Option[Double]] = splitValues._2.init.map {
@@ -291,12 +291,12 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = IndexSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val files = IndexSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))//.par
     val pb = new ProgressBar("Read index -", files.size)
-    files.tasksupport = taskSupport
+    //files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        //println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
+        println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -304,12 +304,20 @@ class TradingReader extends Reader {
         val day = d.toInt
         val date = LocalDate.of(year, month, day)
 
-        val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
         val data = marketFile.market match {
           case "twse" =>
-            val rows = reader.all().filter(row => row.size == 7 && row.head != "指數" && row.head != "報酬指數").map(_.map(_.replace(" ", "").replace(",", "")))
+            import scala.io.Source
+            val source = Source.fromFile(marketFile.file.jfile, "Big5-HKSCS")
+            // The file has a footer that is not in CSV format, starting with "備註:".
+            // We read all lines and take only those before this footer.
+            val csvData = source.getLines().takeWhile(! _.startsWith("備註:")).mkString("\n")
+            source.close()
+
+            val reader = QuantlibCSVReader.open(new java.io.StringReader(csvData))
+            val rows = reader.all().filter(row => (row.size == 6 || row.size == 7) && row.head != "指數" && row.head != "報酬指數").map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
+                println(values)
                 val name = values.head
                 val close = values(1).toDoubleOption
                 val change = values(2) match {
@@ -321,12 +329,15 @@ class TradingReader extends Reader {
                 (marketFile.market, date, name, close, change, changePercentage)
             }
           case "tpex" =>
+            val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
             val rows = reader.all().filter(_.size == 4).map(_.map(_.replace(" ", "").replace(",", "")))
+            reader.close()
             val spanRows = rows.span(_.head != "報酬指數")
             val indexes = spanRows._1.tail
             val returnIndexes = spanRows._2.tail.map(values => (values.head.replace("指數", "") + "報酬指數") +: values.tail)
             (indexes :++ returnIndexes).map {
               values =>
+                println(values)
                 val name = values.head
                 val close = values(1).toDoubleOption
                 val change = values(2).toDouble
@@ -337,7 +348,6 @@ class TradingReader extends Reader {
 
         val dbIO = index.map(i => (i.market, i.date, i.name, i.close, i.change, i.changePercentage)) ++= data.filterNot(_._3 == "null")
         dbRun(dbIO)
-        reader.close()
         pb.step()
     }
     pb.close()

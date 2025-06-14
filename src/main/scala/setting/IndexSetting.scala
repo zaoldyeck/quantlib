@@ -8,7 +8,7 @@ case class IndexSetting(date: LocalDate = LocalDate.now) extends Setting {
     val dir: String = conf.getString("data.index.twse.dir")
   }
 
-  val tpex: TpexDetail = new TpexDetail(LocalDate.of(2016, 1, 4), None, date) {
+  val tpex: TpexV2Detail = new TpexV2Detail(LocalDate.of(2016, 1, 4), None, date) {
     val file: String = conf.getString("data.index.tpex.file")
     val dir: String = conf.getString("data.index.tpex.dir")
   }

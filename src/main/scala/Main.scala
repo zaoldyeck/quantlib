@@ -31,9 +31,9 @@ object Main {
     //backtest.dollarCostAveraging(DEBTs.toSet, LocalDate.of(2000, 1, 1), LocalDate.now, Set(6, 16, 26), 10000)
 
     //task.createTables()
-    //task.pullETF()
+    task.pullIndex()
     //financialReader.readETF()
-    tradingReader.readDailyQuote()
+    //tradingReader.readIndex()
     //job.pullAllData()
 //    job.readAllData()
 //    job.updateData()
