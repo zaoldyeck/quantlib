@@ -228,7 +228,16 @@ class Crawler {
 
   private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
     val fn = fileName.getOrElse(res.header("Content-disposition").get.split("filename=")(1).replace("\"", ""))
-    val file = new File(s"$filePath/$fn")
+    
+    // Extract year from filename for daily data (pattern: YYYY_M_D.csv)
+    val finalPath = if (fn.matches("""^\d{4}_\d+_\d+\.csv$""")) {
+      val year = fn.substring(0, 4)
+      s"$filePath/$year"
+    } else {
+      filePath
+    }
+    
+    val file = new File(s"$finalPath/$fn")
     file.getParentFile.mkdirs()
     val outputStream = java.nio.file.Files.newOutputStream(file.toPath)
 

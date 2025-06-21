@@ -4,6 +4,7 @@ import java.time.LocalDate
 
 import scala.reflect.io.File
 import scala.reflect.io.Path._
+import scala.util.Try
 
 abstract class Detail(val firstDate: LocalDate, _strDateOption: Option[LocalDate], _endDate: LocalDate) {
   protected[this] val file: String
@@ -19,7 +20,7 @@ abstract class Detail(val firstDate: LocalDate, _strDateOption: Option[LocalDate
 
   def formData: Map[String, String] = Map()
 
-  private def files: Iterator[File] = dir.toDirectory.files
+  private def files: Iterator[File] = if (dir.toDirectory.exists) dir.toDirectory.deepFiles else Iterator.empty
 
   def getYearsOfExistFiles: Set[Int] = files.map {
     file =>
@@ -37,13 +38,26 @@ abstract class Detail(val firstDate: LocalDate, _strDateOption: Option[LocalDate
 
   def getDatesOfExistFiles: Set[LocalDate] = files.flatMap {
     file =>
-      println(file.name)
       val fileNamePattern = """(\d+)_(\d+)_(\d+).*""".r
-      val fileNamePattern(year, month, day) = file.name
-      val date = LocalDate.of(year.toInt, month.toInt, day.toInt)
-      val lines = file.lines("Big5-HKSCS")
-      val firstLineOption = lines.nextOption
-      //if ((firstLineOption.isEmpty && date.getDayOfWeek.getValue < 6) || (firstLineOption == Option("<html>"))) None else Some(date)
-      if (firstLineOption == Option("<html>")) None else Some(date)
+      Try {
+        fileNamePattern.findFirstMatchIn(file.name).flatMap { m =>
+          val year = m.group(1).toInt
+          val month = m.group(2).toInt
+          val day = m.group(3).toInt
+          val date = LocalDate.of(year, month, day)
+
+          val source = scala.io.Source.fromFile(file.jfile, "Big5-HKSCS")
+          try {
+            val lines = source.getLines().buffered
+            if (!lines.isEmpty && lines.head.toLowerCase.contains("<html>")) {
+              None
+            } else {
+              Some(date)
+            }
+          } finally {
+            source.close()
+          }
+        }
+      }.getOrElse(None)
   }.toSet
 }
