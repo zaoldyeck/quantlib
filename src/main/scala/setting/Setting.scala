@@ -18,7 +18,7 @@ trait Setting {
   def getMarketFilesFromDirectory: Seq[MarketFile] = markets.map {
     detail =>
       val directory = detail.dir.toDirectory
-      val files = directory.files
+      val files = directory.deepFiles.filter(_.isFile)
       files.map(file => MarketFile(directory.name, file))
   }.reduce(_ ++ _).toSeq
 

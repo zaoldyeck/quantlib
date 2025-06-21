@@ -19,13 +19,8 @@ class Job {
   }
 
   def readAllData(): Unit = {
-    val financialReader = new FinancialReader
     val tradingReader = new TradingReader
-    financialReader.readFinancialAnalysis()
-    financialReader.readBalanceSheet()
-    financialReader.readIncomeStatement()
-    financialReader.readFinancialStatements()
-    financialReader.readOperatingRevenue()
+    val financialReader = new FinancialReader
     tradingReader.readDailyQuote()
     tradingReader.readDailyTradingDetails()
     tradingReader.readCapitalReduction()
@@ -33,6 +28,12 @@ class Job {
     tradingReader.readIndex()
     tradingReader.readMarginTransactions()
     tradingReader.readStockPER_PBR_DividendYield()
+    financialReader.readFinancialAnalysis()
+    financialReader.readBalanceSheet()
+    financialReader.readIncomeStatement()
+    financialReader.readFinancialStatements()
+    financialReader.readOperatingRevenue()
+    financialReader.readETF()
   }
 
   def updateData(): Unit = {
