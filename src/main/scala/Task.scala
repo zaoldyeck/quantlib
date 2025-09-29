@@ -186,7 +186,10 @@ class Task {
   }
 
   def pullDailyTradingDetails(): Unit = {
-    pullDailyFiles(DailyTradingDetailsSetting().tpex, crawler.getDailyTradingDetails)
+    val setting = DailyTradingDetailsSetting()
+    val existFiles = setting.twse.getDatesOfExistFiles ++ setting.tpex.getDatesOfExistFiles
+    val future = setting.twse.firstDate.datesUntil(LocalDate.now()).toScala(Seq).filterNot(existFiles).mapInSeries(crawler.getDailyTradingDetails)
+    Await.result(future, Duration.Inf)
   }
 
   def pullStockPER_PBR_DividendYield(): Unit = {

@@ -389,42 +389,47 @@ class FinancialReader extends Reader {
     val conf: Config = ConfigFactory.load
     val path = conf.getString("data.etf.dir")
     
-    def processETFFile(filename: String, region: String): Seq[(LocalDate, String, String, String, String, String)] = {
+    // Get region mapping from domestic and foreign files
+    def getETFCodes(filename: String): Set[String] = {
       val file = s"$path/$filename".toFile.jfile
-      if (!file.exists()) return Seq.empty
+      if (!file.exists()) return Set.empty
       
       val jsonString = scala.io.Source.fromFile(file, "UTF-8").mkString
       val json = Json.parse(jsonString)
       
       (json \ "data").as[Seq[JsArray]].map { row =>
-        if (filename == "all.json") {
-          val datePattern = """(\d+).(\d+).(\d+)""".r
-          val datePattern(year, month, day) = row(0).as[String].split('(').head
-          val listingDate = LocalDate.of(year.toInt, month.toInt, day.toInt)
-          val companyCode = row(1).as[String].split('(').head
-          val index = row(4) match {
-            case JsString(value) => value
-            case JsNull => ""
-            case _ => ""
-          }
-          (listingDate, companyCode, row(2).as[String].split('(').head, row(3).as[String], index, region)
-        } else {
-          // domestic.json and foreign.json have simpler structure
-          val companyCode = row(0).as[String].split('(').head
-          val name = row(1).as[String].split('(').head
-          // For domestic/foreign files, we don't have full data, so we'll only process if not already in DB
-          (LocalDate.now(), companyCode, name, "", "", region)
-        }
-      }
+        row(0).as[String].split('(').head
+      }.toSet
     }
     
-    // Process all files
-    val allData = processETFFile("all.json", "tw")
-    val domesticData = processETFFile("domestic.json", "domestic") 
-    val foreignData = processETFFile("foreign.json", "foreign")
+    val domesticCodes = getETFCodes("domestic.json")
+    val foreignCodes = getETFCodes("foreign.json")
     
-    val combinedData = (allData ++ domesticData ++ foreignData).distinctBy(_._2)
-    val data = combinedData.filterNot(row => dataAlreadyInDB.contains(row._2))
+    // Process all.json with complete data
+    val file = s"$path/all.json".toFile.jfile
+    val jsonString = scala.io.Source.fromFile(file, "UTF-8").mkString
+    val json = Json.parse(jsonString)
+    
+    val allData = (json \ "data").as[Seq[JsArray]].map { row =>
+      val datePattern = """(\d+).(\d+).(\d+)""".r
+      val datePattern(year, month, day) = row(0).as[String].split('(').head
+      val listingDate = LocalDate.of(year.toInt, month.toInt, day.toInt)
+      val companyCode = row(1).as[String].split('(').head
+      val index = row(4) match {
+        case JsString(value) => value
+        case JsNull => ""
+        case _ => ""
+      }
+      
+      // Determine region based on domestic/foreign code sets
+      val region = if (domesticCodes.contains(companyCode)) "tw"
+                   else if (foreignCodes.contains(companyCode)) "foreign"
+                   else "tw" // default to tw
+      
+      (listingDate, companyCode, row(2).as[String].split('(').head, row(3).as[String], index, region)
+    }
+    
+    val data = allData.filterNot(row => dataAlreadyInDB.contains(row._2))
     
     if (data.nonEmpty) {
       val dbIO = etf.map(e => (e.listingDate, e.companyCode, e.name, e.issuer, e.index, e.region)) ++= data

@@ -31,13 +31,13 @@ object Main {
     //backtest.dollarCostAveraging(DEBTs.toSet, LocalDate.of(2000, 1, 1), LocalDate.now, Set(6, 16, 26), 10000)
 
     //task.createTables()
-    task.pullIndex()
+    //task.pullIndex()
     //financialReader.readETF()
     //tradingReader.readIndex()
     //job.pullAllData()
-//    job.readAllData()
-//    job.updateData()
-//    job.complete()
+    //job.readAllData()
+    job.updateData()
+    job.complete()
     //twse-2020_4_a_c_4.csv
     /*
     crawler.getBalanceSheet(2020, 4) andThen {

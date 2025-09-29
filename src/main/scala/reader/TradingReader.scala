@@ -27,12 +27,12 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = DailyQuoteSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))//.par
+    val files = DailyQuoteSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read daily quote -", files.size)
-    //files.tasksupport = taskSupport
+    files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        println(s"Read daily quote of ${marketFile.market}-${marketFile.file.name}")
+        //println(s"Read daily quote of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -47,7 +47,6 @@ class TradingReader extends Reader {
             if (rows.isEmpty) Seq.empty else
               rows.tail.filter(_.size >= 17).map(_.map(_.replace(" ", "").replace(",", ""))).map {
                 values =>
-                  println(values)
                   val splitValues = values.splitAt(2)
                   val transferValues: Seq[Option[Double]] = splitValues._2.init.map {
                     case v if v == "--" => None
@@ -100,12 +99,12 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = DailyTradingDetailsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))//.par
+    val files = DailyTradingDetailsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read daily trading details -", files.size)
-    //files.tasksupport = taskSupport
+    files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        println(s"Read daily trading details of ${marketFile.market}-${marketFile.file.name}")
+        //println(s"Read daily trading details of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -211,7 +210,7 @@ class TradingReader extends Reader {
                   if (values(8) == "--") None else values(8).toDoubleOption, values(9))
             }
           case "tpex" =>
-            val rows = reader.all().filter(row => row.size == 10 && row.head != "恢復買賣日期 ").map(_.map(_.replace(" ", "").replace(",", "")))
+            val rows = reader.all().filter(row => row.size == 10 && !row.head.trim.startsWith("恢復買賣日期") && row.head.matches("\\d{7}")).map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
                 val dateFormatter: DateTimeFormatter = new DateTimeFormatterBuilder()
@@ -291,12 +290,12 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = IndexSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))//.par
+    val files = IndexSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
     val pb = new ProgressBar("Read index -", files.size)
-    //files.tasksupport = taskSupport
+    files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
+        //println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -317,7 +316,6 @@ class TradingReader extends Reader {
             val rows = reader.all().filter(row => (row.size == 6 || row.size == 7) && row.head != "指數" && row.head != "報酬指數").map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
-                println(values)
                 val name = values.head
                 val close = values(1).toDoubleOption
                 val change = values(2) match {
@@ -337,7 +335,6 @@ class TradingReader extends Reader {
             val returnIndexes = spanRows._2.tail.map(values => (values.head.replace("指數", "") + "報酬指數") +: values.tail)
             (indexes :++ returnIndexes).map {
               values =>
-                println(values)
                 val name = values.head
                 val close = values(1).toDoubleOption
                 val change = values(2).toDouble
@@ -364,7 +361,7 @@ class TradingReader extends Reader {
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        //println(s"Read margin transactions of ${marketFile.market}-${marketFile.file.name}")
+        println(s"Read margin transactions of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -375,18 +372,23 @@ class TradingReader extends Reader {
         val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
         val data = marketFile.market match {
           case "twse" =>
-            val rows = reader.all().filter(row => row.size == 17 && row.head != "" && row.head != "股票代號").map(_.map(_.replace(" ", "").replace(",", "")))
+            val rows = reader.all().filter(row => row.size == 17 && row.head.startsWith("=\"") && row.head.length > 2).map(_.map(_.replace(" ", "").replace(",", "").replace("=", "").replace("\"", "")))
             rows.map {
               values =>
                 val companyCode = values.head
                 (marketFile.market, date, companyCode, values(1), values(2).toInt, values(3).toInt, values(4).toInt, values(5).toInt, values(6).toInt, values(7).toInt, values(8).toInt, values(9).toInt, values(10).toInt, values(11).toInt, values(12).toInt, values(13).toInt, values(14).toInt)
             }
           case "tpex" =>
-            val rows = reader.all().filter(row => row.size == 20 && row.head != "代號").map(_.map(_.replace(" ", "").replace(",", "")))
+            val rows = reader.all().filter(row => (row.size == 20 || row.size >= 22) && row.head != "代號" && row.head.startsWith("\"") && row.head.length > 2).map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
                 val companyCode = values.head
-                (marketFile.market, date, companyCode, values(1), values(3).toInt, values(4).toInt, values(5).toInt, values(2).toInt, values(6).toInt, Try(values(9).toInt).getOrElse(values(8).toInt), values(12).toInt, values(11).toInt, values(13).toInt, values(10).toInt, values(14).toInt, values(17).toInt, Try(values(18).toInt).orElse(Try(values(19).toInt)).getOrElse(0))
+                (marketFile.market, date, companyCode, values(1), 
+                 values(3).toInt, values(4).toInt, values(5).toInt, values(2).toInt, values(6).toInt, 
+                 Try(values(9).toInt).getOrElse(values(8).toInt), 
+                 values(12).toInt, values(11).toInt, values(13).toInt, values(10).toInt, values(14).toInt, 
+                 values(17).toInt, 
+                 if (values(18).nonEmpty && values(18) != "\"\"") Try(values(18).toInt).getOrElse(0) else 0)
             }
         }
 
