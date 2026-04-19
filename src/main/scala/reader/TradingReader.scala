@@ -295,7 +295,7 @@ class TradingReader extends Reader {
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        //println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
+        println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -370,16 +370,17 @@ class TradingReader extends Reader {
         val date = LocalDate.of(year, month, day)
 
         val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
+        val StockCode = """[0-9][0-9A-Z]*"""
         val data = marketFile.market match {
           case "twse" =>
-            val rows = reader.all().filter(row => row.size == 17 && row.head.startsWith("=\"") && row.head.length > 2).map(_.map(_.replace(" ", "").replace(",", "").replace("=", "").replace("\"", "")))
+            val rows = reader.all().filter(row => row.size == 17 && row.head.matches(StockCode)).map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
                 val companyCode = values.head
                 (marketFile.market, date, companyCode, values(1), values(2).toInt, values(3).toInt, values(4).toInt, values(5).toInt, values(6).toInt, values(7).toInt, values(8).toInt, values(9).toInt, values(10).toInt, values(11).toInt, values(12).toInt, values(13).toInt, values(14).toInt)
             }
           case "tpex" =>
-            val rows = reader.all().filter(row => (row.size == 20 || row.size >= 22) && row.head != "代號" && row.head.startsWith("\"") && row.head.length > 2).map(_.map(_.replace(" ", "").replace(",", "")))
+            val rows = reader.all().filter(row => (row.size == 20 || row.size >= 22) && row.head.matches(StockCode)).map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
                 val companyCode = values.head
