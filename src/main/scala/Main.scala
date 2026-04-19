@@ -128,13 +128,22 @@ object Main {
       case "strategy" =>
         val db = Database.forConfig("db")
         try {
-          val primary = strategy.Backtester.run(
-            new strategy.MomentumValueStrategy(10), cfg.start, cfg.end, cfg.capital, db)
+          val strat = new strategy.MomentumValueStrategy(10)
+          val primary = strategy.Backtester.run(strat, cfg.start, cfg.end, cfg.capital, db)
           val bench = strategy.Backtester.run(
             new strategy.Hold0050Strategy, cfg.start, cfg.end, cfg.capital, db)
+
+          // IC comes first — a strategy with IC < 0.04 has no selection skill,
+          // so any CAGR outperformance is likely beta or luck.
+          val rebalDates = strat.rebalanceDates(cfg.start, cfg.end, db)
+          val icSeries = strategy.RankMetrics.computeICSeries(strat, rebalDates, horizonDays = 21, db)
+          val icSummary = strategy.RankMetrics.summarize(icSeries)
+          println(icSummary.show)
+
           println(strategy.Metrics.summarize(primary).show)
           println(strategy.Metrics.summarize(bench).show)
-          println(f"Excess vs 0050: ${(primary.totalReturn - bench.totalReturn) * 100}%+.2f pp")
+          println(f"Excess vs 0050: ${(primary.totalReturn - bench.totalReturn) * 100}%+.2f pp\n")
+
           val out = strategy.Output.writeAll(primary, bench)
           println(s"Output: ${out}.html + _trades.csv + _monthly.csv")
         } finally db.close()

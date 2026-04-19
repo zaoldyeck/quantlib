@@ -46,6 +46,17 @@ class MomentumValueStrategy(topN: Int = 10) extends Strategy {
   }
 
   override def targetWeights(asOf: LocalDate, db: Database): Map[String, Double] = {
+    val composite = computeComposite(asOf, db)
+    if (composite.isEmpty) return Map.empty
+    val picks = composite.toSeq.sortBy(-_._2).take(topN).map(_._1)
+    if (picks.isEmpty) Map.empty
+    else picks.map(_ -> (1.0 / picks.size)).toMap
+  }
+
+  /** Full composite score map over the eligible universe. Exposed publicly so
+   *  RankMetrics can compute IC (Spearman rank correlation with forward return)
+   *  without having to re-implement the scoring logic. */
+  def computeComposite(asOf: LocalDate, db: Database): Map[String, Double] = {
     val universe = Universe.eligible(asOf, db)
     if (universe.isEmpty) return Map.empty
 
@@ -58,16 +69,9 @@ class MomentumValueStrategy(topN: Int = 10) extends Strategy {
     val rsRank = percentileRank(common.iterator.map(c => c -> rs(c)).toMap, higherIsBetter = true)
     val pbRank = percentileRank(common.iterator.map(c => c -> pb(c)).toMap, higherIsBetter = false)
 
-    val composite = common.iterator.map { c =>
+    common.iterator.map { c =>
       c -> (0.6 * rsRank.getOrElse(c, 0.0) + 0.4 * pbRank.getOrElse(c, 0.0))
     }.toMap
-
-    val picks = composite.toSeq.sortBy(-_._2).take(topN).map(_._1)
-    if (picks.isEmpty) Map.empty
-    else {
-      val w = 1.0 / picks.size
-      picks.map(_ -> w).toMap
-    }
   }
 
   /** 63-day skip-5 total return (dividend-unadjusted for v1; DRIP inside backtest
