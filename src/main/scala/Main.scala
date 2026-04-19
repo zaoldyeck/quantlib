@@ -23,6 +23,19 @@ object Main {
     val backtest = new Backtest
     val crawler = new Crawler
     val job = new Job
+
+    // ===== Strategy entry points (uncomment to run) =====
+    // val db = Database.forConfig("db")
+    // try {
+    //   val primary = strategy.Backtester.run(new strategy.MomentumValueStrategy(10),
+    //     LocalDate.of(2018, 1, 2), LocalDate.of(2024, 12, 30), 1_000_000.0, db)
+    //   val bench = strategy.Backtester.run(new strategy.Hold0050Strategy,
+    //     LocalDate.of(2018, 1, 2), LocalDate.of(2024, 12, 30), 1_000_000.0, db)
+    //   println(strategy.Metrics.summarize(primary).show)
+    //   println(strategy.Metrics.summarize(bench).show)
+    //   val outBase = strategy.Output.writeAll(primary, bench)
+    //   println(s"Output written: $outBase.html + .csv")
+    // } finally { db.close() }
     //backtest.dollarCostAveraging(ETFs.appended("2330").toSet, LocalDate.of(2018, 5, 17), LocalDate.now, Set(6, 16, 26), 5000, limit = 20)
     //backtest.dollarCostAveraging(ETFs.appended("2330").toSet, LocalDate.of(2021, 6, 10), LocalDate.of(2021, 12, 31), Set(6, 16, 26), 5000, limit = 30)
     //backtest.dollarCostAveraging(Set("006208", "0052", "2330", "2412", "00757"), LocalDate.of(2018, 12, 6), LocalDate.of(2022, 2, 26), Set(6, 16, 26), 10000)
