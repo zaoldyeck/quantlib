@@ -220,15 +220,30 @@ class Crawler {
         Helpers.retry {
           Http.client.url(detail.url)
             .withMethod("GET")
+            .withFollowRedirects(false)
             .stream()
-            .flatMap(downloadFile(detail.dir, Some(detail.fileName)))
+            .flatMap(downloadFile(detail.dir, Some(detail.fileName), detail.validate))
+        }.recover {
+          case e =>
+            // Stateless recovery: after bounded retries still fail, DELETE any partial download
+            // so Detail.getDatesOfExistFiles reports this date as "not downloaded" and a future
+            // pullAllData run will retry. Do NOT write a 0-byte sentinel — that would permanently
+            // mask the failure as a market holiday and lose data when the endpoint recovers.
+            Console.err.println(s"[giveup] will retry next run: ${detail.url}: ${e.getClass.getSimpleName}: ${e.getMessage}")
+            val fn = detail.fileName
+            val yearPath = if (fn.matches("""^\d{4}_\d+_\d+\.csv$""")) s"${detail.dir}/${fn.substring(0, 4)}" else detail.dir
+            val f = new File(s"$yearPath/$fn")
+            if (f.exists()) f.delete()
+            f // non-existent File — satisfies Future[File] type; getDatesOfExistFiles treats as missing
         }
     })
   }
 
-  private def downloadFile(filePath: String, fileName: Option[String] = None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
+  private def downloadFile(filePath: String,
+                           fileName: Option[String] = None,
+                           validate: File => Option[String] = _ => None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
     val fn = fileName.getOrElse(res.header("Content-disposition").get.split("filename=")(1).replace("\"", ""))
-    
+
     // Extract year from filename for daily data (pattern: YYYY_M_D.csv)
     val finalPath = if (fn.matches("""^\d{4}_\d+_\d+\.csv$""")) {
       val year = fn.substring(0, 4)
@@ -236,7 +251,7 @@ class Crawler {
     } else {
       filePath
     }
-    
+
     val file = new File(s"$finalPath/$fn")
     file.getParentFile.mkdirs()
     val outputStream = java.nio.file.Files.newOutputStream(file.toPath)
@@ -255,7 +270,33 @@ class Crawler {
           outputStream.close()
           // Get the result or rethrow the error
           result.get
-      } map (_ => file)
+      } map { _ =>
+      // HTML response (307 redirect body, Cloudflare challenge, or "頁面無法執行" anti-scraping page)
+      // always indicates a failed fetch — never market holiday. Delete and throw so Helpers.retry
+      // can re-attempt; if all retries fail, the outer .recover will clean up and let the next
+      // pullAllData run try again. True market-holiday responses are distinguished by an empty
+      // body (size == 0) which validate() treats as valid per system convention.
+      if (isHtmlResponse(file)) {
+        val deleted = file.delete()
+        throw new RuntimeException(s"HTML error response for ${file.getAbsolutePath} (deleted=$deleted)")
+      } else {
+        validate(file) match {
+          case None => file
+          case Some(err) =>
+            val deleted = file.delete()
+            throw new RuntimeException(s"Schema validation failed for ${file.getAbsolutePath} (deleted=$deleted): $err")
+        }
+      }
+    }
+  }
+
+  private def isHtmlResponse(file: File): Boolean = {
+    if (!file.exists() || file.length() == 0L) return false
+    val buf = new Array[Byte](math.min(64, file.length()).toInt)
+    val in = new FileInputStream(file)
+    try in.read(buf) finally in.close()
+    val head = new String(buf).trim.toLowerCase
+    head.startsWith("<html") || head.startsWith("<!doctype")
   }
 
   //https://mops.twse.com.tw/server-java/FileDownLoad?step=9&fileName=tifrs-2019Q4.zip&filePath=/home/html/nas/ifrs/2019/
