@@ -96,3 +96,23 @@ project/plugins/project/
 .cache
 .lib/
 
+
+# Quantlib-specific: large crawled data and backtest outputs
+/data/
+/result/
+
+# IDE / tooling dirs
+/.bsp/
+/.metals/
+/.vscode/
+/.claude/
+/.specify/
+
+# Feature-planning artifacts not part of main project source
+/backend/
+/frontend/
+/specs/
+
+# macOS / Bloop / misc
+.DS_Store
+/.bloop/
