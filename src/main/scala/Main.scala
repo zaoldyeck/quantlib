@@ -1,74 +1,152 @@
 import java.time.LocalDate
-import db.table.ConciseIncomeStatementIndividual
-import net.ruippeixotog.scalascraper.browser.JsoupBrowser
-import net.ruippeixotog.scalascraper.dsl.DSL._
-import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
-import net.ruippeixotog.scalascraper.dsl.DSL.Parse._
-import net.ruippeixotog.scalascraper.model._
 import slick.jdbc.PostgresProfile.api._
 import reader.{FinancialReader, TradingReader}
-import setting.Constant.{DEBTs, ETFs}
-import slick.lifted.TableQuery
+import scopt.OParser
 
-import scala.concurrent.Await
-import scala.concurrent.duration.Duration
-import scala.concurrent.ExecutionContext.Implicits.global
-
+/**
+ * Single entry point for the quantlib toolchain. Subcommands:
+ *
+ *   update                 — full crawler + reader (default)
+ *   pull    <target>       — crawler only; target = daily_quote | daily_trading_details |
+ *                            index | margin | stock_per_pbr | capital_reduction |
+ *                            ex_right_dividend | operating_revenue | balance_sheet |
+ *                            income_statement | financial_analysis | financial_statements |
+ *                            etf | all
+ *   read    <target>       — reader only; same targets as pull
+ *   strategy               — run MomentumValueStrategy backtest vs 0050
+ *     --start YYYY-MM-DD
+ *     --end   YYYY-MM-DD
+ *     --capital N
+ *
+ * Invocation:
+ *   sbt 'runMain Main'
+ *   sbt 'runMain Main pull daily_trading_details'
+ *   sbt 'runMain Main strategy --start 2018-01-02 --end 2026-04-17'
+ */
 object Main {
+  final case class Config(
+    command: String = "update",
+    target: String = "",
+    since: Option[LocalDate] = None,
+    start: LocalDate = LocalDate.of(2018, 1, 2),
+    end: LocalDate = LocalDate.now,
+    capital: Double = 1_000_000.0
+  )
+
+  private val builder = OParser.builder[Config]
+  private val parser = {
+    import builder._
+    implicit val localDateRead: scopt.Read[LocalDate] =
+      scopt.Read.reads(LocalDate.parse)
+
+    OParser.sequence(
+      programName("quantlib"),
+      head("quantlib"),
+      cmd("update")
+        .action((_, c) => c.copy(command = "update"))
+        .text("Full pull + read (default)"),
+      cmd("pull")
+        .action((_, c) => c.copy(command = "pull"))
+        .text("Crawler only")
+        .children(
+          arg[String]("<target>").action((x, c) => c.copy(target = x)),
+          opt[LocalDate]("since").action((x, c) => c.copy(since = Some(x)))
+            .text("Start date (YYYY-MM-DD). Applies to daily_trading_details; other targets ignore it.")
+        ),
+      cmd("read")
+        .action((_, c) => c.copy(command = "read"))
+        .text("Reader only")
+        .children(
+          arg[String]("<target>").action((x, c) => c.copy(target = x))
+        ),
+      cmd("strategy")
+        .action((_, c) => c.copy(command = "strategy"))
+        .text("Run MomentumValueStrategy backtest vs Hold-0050")
+        .children(
+          opt[LocalDate]("start").action((x, c) => c.copy(start = x)),
+          opt[LocalDate]("end").action((x, c) => c.copy(end = x)),
+          opt[Double]("capital").action((x, c) => c.copy(capital = x))
+        )
+    )
+  }
+
   def main(args: Array[String]): Unit = {
+    OParser.parse(parser, args, Config()) match {
+      case Some(cfg) => run(cfg)
+      case None      => sys.exit(1)
+    }
+  }
+
+  private def run(cfg: Config): Unit = {
     val task = new Task
     val tradingReader = new TradingReader
     val financialReader = new FinancialReader
-    val question = new Question
-    val backtest = new Backtest
-    val crawler = new Crawler
     val job = new Job
 
-    // ===== Strategy entry points (uncomment to run) =====
-    // val db = Database.forConfig("db")
-    // try {
-    //   val primary = strategy.Backtester.run(new strategy.MomentumValueStrategy(10),
-    //     LocalDate.of(2018, 1, 2), LocalDate.of(2024, 12, 30), 1_000_000.0, db)
-    //   val bench = strategy.Backtester.run(new strategy.Hold0050Strategy,
-    //     LocalDate.of(2018, 1, 2), LocalDate.of(2024, 12, 30), 1_000_000.0, db)
-    //   println(strategy.Metrics.summarize(primary).show)
-    //   println(strategy.Metrics.summarize(bench).show)
-    //   val outBase = strategy.Output.writeAll(primary, bench)
-    //   println(s"Output written: $outBase.html + .csv")
-    // } finally { db.close() }
-    //backtest.dollarCostAveraging(ETFs.appended("2330").toSet, LocalDate.of(2018, 5, 17), LocalDate.now, Set(6, 16, 26), 5000, limit = 20)
-    //backtest.dollarCostAveraging(ETFs.appended("2330").toSet, LocalDate.of(2021, 6, 10), LocalDate.of(2021, 12, 31), Set(6, 16, 26), 5000, limit = 30)
-    //backtest.dollarCostAveraging(Set("006208", "0052", "2330", "2412", "00757"), LocalDate.of(2018, 12, 6), LocalDate.of(2022, 2, 26), Set(6, 16, 26), 10000)
-    //backtest.dollarCostAveraging(Set("006208", "00692", "0052", "2330", "2412", "00757"), LocalDate.of(2017, 5, 17), LocalDate.of(2022, 2, 26), Set(6, 16, 26), 10000)
-    //backtest.dollarCostAveraging(Set("006208", "00692", "00733", "00891", "00892", "0052", "2330", "2412", "00757"), LocalDate.of(2018, 5, 17), LocalDate.now, Set(6, 16, 26), 10000)
-    //backtest.dollarCostAveraging(DEBTs.toSet, LocalDate.of(2000, 1, 1), LocalDate.now, Set(6, 16, 26), 10000)
+    try cfg.command match {
+      case "update" =>
+        job.updateData()
 
-    //task.createTables()
-    //task.pullIndex()
-    //financialReader.readETF()
-    //tradingReader.readIndex()
-    //job.pullAllData()
-    //job.readAllData()
-    job.updateData()
-    job.complete()
-    //twse-2020_4_a_c_4.csv
-    /*
-    crawler.getBalanceSheet(2020, 4) andThen {
-      case _ => Http.terminate()
+      case "pull" =>
+        cfg.target match {
+          case "daily_quote"            => task.pullDailyQuote()
+          case "daily_trading_details"  => task.pullDailyTradingDetails(cfg.since)
+          case "index"                  => task.pullIndex()
+          case "margin" | "margin_transactions" => task.pullMarginTransactions()
+          case "stock_per_pbr"          => task.pullStockPER_PBR_DividendYield()
+          case "capital_reduction"      => task.pullCapitalReduction()
+          case "ex_right_dividend"      => task.pullExRightDividend()
+          case "operating_revenue"      => task.pullOperatingRevenue()
+          case "balance_sheet"          => task.pullBalanceSheet()
+          case "income_statement"       => task.pullIncomeStatement()
+          case "financial_analysis"     => task.pullFinancialAnalysis()
+          case "financial_statements"   => task.pullFinancialStatements()
+          case "etf"                    => task.pullETF()
+          case "all"                    => job.pullAllData()
+          case t                        => sys.error(s"unknown pull target: $t")
+        }
+
+      case "read" =>
+        cfg.target match {
+          case "daily_quote"            => tradingReader.readDailyQuote()
+          case "daily_trading_details"  => tradingReader.readDailyTradingDetails()
+          case "index"                  => tradingReader.readIndex()
+          case "margin" | "margin_transactions" => tradingReader.readMarginTransactions()
+          case "stock_per_pbr"          => tradingReader.readStockPER_PBR_DividendYield()
+          case "capital_reduction"      => tradingReader.readCapitalReduction()
+          case "ex_right_dividend"      => tradingReader.readExRightDividend()
+          case "operating_revenue"      => financialReader.readOperatingRevenue()
+          case "balance_sheet"          => financialReader.readBalanceSheet()
+          case "income_statement"       => financialReader.readIncomeStatement()
+          case "financial_analysis"     => financialReader.readFinancialAnalysis()
+          case "financial_statements"   => financialReader.readFinancialStatements()
+          case "etf"                    => financialReader.readETF()
+          case "all"                    => job.readAllData()
+          case t                        => sys.error(s"unknown read target: $t")
+        }
+
+      case "strategy" =>
+        val db = Database.forConfig("db")
+        try {
+          val primary = strategy.Backtester.run(
+            new strategy.MomentumValueStrategy(10), cfg.start, cfg.end, cfg.capital, db)
+          val bench = strategy.Backtester.run(
+            new strategy.Hold0050Strategy, cfg.start, cfg.end, cfg.capital, db)
+          println(strategy.Metrics.summarize(primary).show)
+          println(strategy.Metrics.summarize(bench).show)
+          println(f"Excess vs 0050: ${(primary.totalReturn - bench.totalReturn) * 100}%+.2f pp")
+          val out = strategy.Output.writeAll(primary, bench)
+          println(s"Output: ${out}.html + _trades.csv + _monthly.csv")
+        } finally db.close()
+
+      case c => sys.error(s"unknown command: $c")
     }
-    */
-    //question.compareROI(Set("0050", "0051", "0052", "0056"), LocalDate.of(2007, 12, 26))
-    //backtest.dollarCostAveraging(Set("0050", "0056"), LocalDate.of(2017, 1, 1), LocalDate.of(2020, 10, 30), Set(6, 16, 26), 1000)
-    //backtest.dollarCostAveraging(Set("0050", "0051", "0052", "0053", "0054", "0055", "0056", "0057", "0061", "008201", "006203", "006205", "006204", "006206", "006207", "006208", "00631L", "00632R", "00633L", "00634R", "00636", "00635U", "00637L", "00638R", "00639", "00642U", "00640L", "00641R", "00645", "00643", "00646", "00647L", "00648R", "00650L", "00651R", "00655L", "00656R", "00652", "00653L", "00654R", "00657", "00660", "00661", "00662", "00663L", "00664R", "00665L", "00666R", "00675L", "00676R", "00673R", "00674R", "00669R", "00668", "00678", "00680L", "00681R", "00670L", "00671R", "00682U", "00683L", "00684R", "00685L", "00686R", "00690", "00688L", "00689R", "00693U", "00692", "00700", "00703", "00709", "00701", "00702", "00710B", "00711B", "00712", "00706L", "00707R", "00708L", "00713", "00714", "00715L", "00717", "00730", "00728", "00731", "00732", "00733", "00738U", "00735", "00736", "00737", "00742", "00739", "00743", "00752", "00753L", "00757", "00763U", "00762", "00770", "00775B", "00774B", "00783", "00830", "00771", "00851", "00852L", "00850", "00861", "00865B", "00875", "00876", "00878", "00881", "00882", "00885", "00891", "00892", "00893", "00895", "00894"), LocalDate.of(2021, 1, 1), LocalDate.now, Set(6, 16, 26), 1000)
-    //backtest.dollarCostAveraging(Set("0050", "0051", "0052", "0053", "0054", "0055", "0056", "0057", "0061", "008201", "006203", "006205", "006204", "006206", "006207", "006208", "00631L", "00632R", "00633L", "00634R", "00636", "00635U", "00637L", "00638R", "00639", "00642U", "00640L", "00641R", "00645", "00643", "00646", "00647L", "00648R", "00650L", "00651R", "00655L", "00656R", "00652", "00653L", "00654R", "00657", "00660", "00661", "00662", "00663L", "00664R", "00665L", "00666R", "00675L", "00676R", "00673R", "00674R", "00669R", "00668", "00678", "00680L", "00681R", "00670L", "00671R", "00682U", "00683L", "00684R", "00685L", "00686R", "00690", "00688L", "00689R", "00693U", "00692", "00700", "00703", "00709", "00701", "00702", "00710B", "00711B", "00712", "00706L", "00707R", "00708L", "00713", "00714", "00715L", "00717", "00730", "00728", "00731", "00732", "00733", "00738U", "00735", "00736", "00737", "00742", "00739", "00743", "00752", "00753L", "00757", "00763U", "00762", "00770", "00775B", "00774B", "00783", "00830", "00771", "00851", "00852L", "00850", "00861", "00865B", "00875", "00876", "00878", "00881", "00882", "00885", "00891", "00892", "00893", "00895", "00894"), LocalDate.of(2018, 12, 6), LocalDate.now, Set(6, 16, 26), 1000)
-    //backtest.dollarCostAveraging(Set("00757", "0052", "006208", "2330"), LocalDate.of(2018, 12, 6), LocalDate.now, Set(5,10,15,20,25), 2000)
-    //0050, 2004-2-11
-    //0052, 2006-9-12
-    //0056, 2007-12-26
-    //006208, 2012-7-17
-    //00692, 2017-5-17
-    //00757, 2018-12-06
+    finally {
+      job.complete()
+      // Reader.forkJoinPool holds non-daemon workers and Akka shutdown is async;
+      // without this the JVM idles for 30-60s after work is done. sbt reports
+      // `[success] Total time: Ns` only after the JVM cleanly exits.
+      sys.exit(0)
+    }
   }
-
-  // 每5秒指數統計 https://www.twse.com.tw/zh/page/trading/exchange/MI_5MINS_INDEX.html
 }

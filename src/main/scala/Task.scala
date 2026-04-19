@@ -185,10 +185,14 @@ class Task {
     pullDailyFiles(MarginTransactionsSetting().twse, crawler.getMarginTransactions)
   }
 
-  def pullDailyTradingDetails(): Unit = {
+  def pullDailyTradingDetails(since: Option[LocalDate] = None): Unit = {
+    // Intersection (not union): a date is "already downloaded" only when BOTH
+    // markets have a file. Union silently dropped dates where only one market
+    // was present — e.g. TWSE 2026-04-13~17 were skipped because TPEx had them.
     val setting = DailyTradingDetailsSetting()
-    val existFiles = setting.twse.getDatesOfExistFiles ++ setting.tpex.getDatesOfExistFiles
-    val future = setting.twse.firstDate.datesUntil(LocalDate.now()).toScala(Seq).filterNot(existFiles).mapInSeries(crawler.getDailyTradingDetails)
+    val existFiles = setting.twse.getDatesOfExistFiles & setting.tpex.getDatesOfExistFiles
+    val startDate = since.getOrElse(setting.twse.firstDate)
+    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq).filterNot(existFiles).mapInSeries(crawler.getDailyTradingDetails)
     Await.result(future, Duration.Inf)
   }
 

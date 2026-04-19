@@ -296,11 +296,16 @@ class Crawler {
       // HTML response (307 redirect body, Cloudflare challenge, or "頁面無法執行" anti-scraping page)
       // always indicates a failed fetch — never market holiday. Delete and throw so Helpers.retry
       // can re-attempt; if all retries fail, the outer .recover will clean up and let the next
-      // pullAllData run try again. True market-holiday responses are distinguished by an empty
-      // body (size == 0) which validate() treats as valid per system convention.
+      // pullAllData run try again.
       if (isHtmlResponse(file)) {
         val deleted = file.delete()
         throw new RuntimeException(s"HTML error response for ${file.getAbsolutePath} (deleted=$deleted)")
+      } else if (isMarketHolidayResponse(file)) {
+        // Non-trading day fallback (e.g. TWSE "很抱歉，沒有符合條件的資料" / JSON total=0).
+        // Truncate to 0 bytes so Detail.getDatesOfExistFiles considers the date "done"
+        // and future pullAllData runs don't retry this weekend forever.
+        new FileOutputStream(file).close()
+        file
       } else {
         validate(file) match {
           case None => file
@@ -310,6 +315,26 @@ class Crawler {
         }
       }
     }
+  }
+
+  /** Detect "no data for this date" responses from TWSE/TPEx, used to distinguish
+   *  non-trading days from genuine errors. Known patterns:
+   *    TWSE CSV weekend   — 2-byte near-empty body
+   *    TWSE JSON no-data  — {"stat":"很抱歉...","total":0}
+   *    TPEx CSV weekend   — ~1-2KB JSON {"csvName":"BIGD_...","totalCount":0}
+   *  We use a size cap + content sniff. "Real" CSVs are always much larger (30KB+). */
+  private def isMarketHolidayResponse(file: File): Boolean = {
+    if (!file.exists() || file.length() == 0L) return false
+    val size = file.length()
+    if (size < 50) return true                    // effectively-empty CSV body
+    if (size > 4096) return false                 // real data
+    val buf = new Array[Byte](math.min(1024, size).toInt)
+    val in = new FileInputStream(file)
+    try in.read(buf) finally in.close()
+    val head = new String(buf)
+    head.contains("很抱歉") || head.contains("沒有符合") ||
+      head.contains("\"total\":0") || head.contains("\"totalCount\":0") ||
+      head.startsWith("{\"csvName\"")  // TPEx JSON wrapper (empty on non-trading days)
   }
 
   private def isHtmlResponse(file: File): Boolean = {

@@ -480,11 +480,17 @@ class TradingReader extends Reader {
                 }
             }
           case "tpex" =>
-            val rows = reader.all().filter(row => row.size == 7 && row.head != "股票代號").map(_.map(_.replace(" ", "").replace(",", "")))
+            // TPEx added an 8th column (財報年/季, e.g. "114Q1") mid-2024. The old
+            // `row.size == 7` filter silently dropped every row from 2025 onwards,
+            // starving the DB of ~16 months of TPEx PER/PBR/yield history.
+            val rows = reader.all()
+              .filter(row => (row.size == 7 || row.size == 8) && row.head != "股票代號")
+              .map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
               values =>
                 val companyCode = values.head
-                (marketFile.market, date, companyCode, values(1), values(2).toDoubleOption, values(6).toDoubleOption, values(5).toDoubleOption)
+                (marketFile.market, date, companyCode, values(1),
+                 values(2).toDoubleOption, values(6).toDoubleOption, values(5).toDoubleOption)
             }
         }
 

@@ -17,6 +17,7 @@ lazy val root = (project in file("."))
       "org.plotly-scala" %% "plotly-render" % "0.7.2",
       "org.scala-lang.modules" %% "scala-parallel-collections" % "0.2.0",
       "me.tongfei" % "progressbar" % "0.8.1",
-      "org.postgresql" % "postgresql" % "42.2.14"
+      "org.postgresql" % "postgresql" % "42.2.14",
+      "com.github.scopt" %% "scopt" % "4.1.0"
     )
   )
