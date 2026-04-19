@@ -61,8 +61,11 @@ object Main {
         ),
       cmd("strategy")
         .action((_, c) => c.copy(command = "strategy"))
-        .text("Run MomentumValueStrategy backtest vs Hold-0050")
+        .text("Run strategy backtest vs Hold-0050; default momentum_value, pass alpha_stack for v2")
         .children(
+          arg[String]("<variant>").optional()
+            .action((x, c) => c.copy(target = x))
+            .text("momentum_value (default) | alpha_stack"),
           opt[LocalDate]("start").action((x, c) => c.copy(start = x)),
           opt[LocalDate]("end").action((x, c) => c.copy(end = x)),
           opt[Double]("capital").action((x, c) => c.copy(capital = x))
@@ -128,15 +131,26 @@ object Main {
       case "strategy" =>
         val db = Database.forConfig("db")
         try {
-          val strat = new strategy.MomentumValueStrategy(10)
-          val primary = strategy.Backtester.run(strat, cfg.start, cfg.end, cfg.capital, db)
+          val strategyName = cfg.target  // reuse --target via positional arg within "strategy"
+          val (stratName, composite, stratRun): (String, (LocalDate, Database) => Map[String, Double], strategy.Strategy) =
+            strategyName match {
+              case "alpha_stack" =>
+                val s = new strategy.AlphaStackStrategy(10)
+                ("alpha_stack", s.computeComposite _, s)
+              case _ =>
+                val s = new strategy.MomentumValueStrategy(10)
+                ("momentum_value", s.computeComposite _, s)
+            }
+          println(s"[strategy] $stratName, ${cfg.start} → ${cfg.end}, capital=NT$$${cfg.capital}")
+
+          val primary = strategy.Backtester.run(stratRun, cfg.start, cfg.end, cfg.capital, db)
           val bench = strategy.Backtester.run(
             new strategy.Hold0050Strategy, cfg.start, cfg.end, cfg.capital, db)
 
           // IC comes first — a strategy with IC < 0.04 has no selection skill,
           // so any CAGR outperformance is likely beta or luck.
-          val rebalDates = strat.rebalanceDates(cfg.start, cfg.end, db)
-          val icSeries = strategy.RankMetrics.computeICSeries(strat, rebalDates, horizonDays = 21, db)
+          val rebalDates = stratRun.rebalanceDates(cfg.start, cfg.end, db)
+          val icSeries = strategy.RankMetrics.computeICSeries(composite, rebalDates, horizonDays = 21, db)
           val icSummary = strategy.RankMetrics.summarize(icSeries)
           println(icSummary.show)
 

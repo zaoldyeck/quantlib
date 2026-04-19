@@ -46,13 +46,13 @@ object RankMetrics {
    *  to horizonDays later. Spearman correlation of composite score vs return
    *  across all stocks present in both. */
   def computeICSeries(
-    strategy: MomentumValueStrategy,
+    computeComposite: (LocalDate, Database) => Map[String, Double],
     rebalanceDates: Seq[LocalDate],
     horizonDays: Int,
     db: Database
   ): Seq[ICSnapshot] = {
     rebalanceDates.flatMap { date =>
-      val scores = strategy.computeComposite(date, db)
+      val scores = computeComposite(date, db)
       if (scores.isEmpty) None
       else {
         val returns = forwardReturns(date, horizonDays, scores.keySet, db)
