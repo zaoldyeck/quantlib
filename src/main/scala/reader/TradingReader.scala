@@ -241,11 +241,20 @@ class TradingReader extends Reader {
     val files = ExRightDividendSetting().getMarketFilesFromDirectory.par
     val pb = new ProgressBar("Read ex-right dividend -", files.size)
     files.tasksupport = taskSupport
+    val monthlyFilePattern = """(\d+)_(\d+)\.csv""".r
     files.foreach {
       marketFile =>
-        //println(s"Read ex-right dividend of ${marketFile.market}-${marketFile.file.name}")
         val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
-        val data = marketFile.market match {
+        // New monthly files (YYYY_M.csv) come from MOPS t108sb27 since the legacy
+        // TWT49U endpoint silently stopped returning data in 2024-06. Old legacy
+        // day-range files (YYYY_M_D.csv) still use the previous parsers below.
+        val isMopsMonthly = marketFile.file.name match {
+          case monthlyFilePattern(_, _) => true
+          case _ => false
+        }
+        val data: Seq[(String, LocalDate, String, String, Double, Double, Double, String, Double, Double, Double, Double)] =
+          if (isMopsMonthly) parseMopsRows(reader.all(), marketFile.market)
+          else marketFile.market match {
           case "twse" =>
             val rows = reader.all().filter(row => row.size == 16 && row.head != "資料日期").map(_.map(_.replace(" ", "").replace(",", "")))
             rows.map {
@@ -282,6 +291,44 @@ class TradingReader extends Reader {
         pb.step()
     }
     pb.close()
+  }
+
+  /** Parse MOPS t108sb27 monthly CSV rows into the ex_right_dividend schema.
+   *  One company-period can emit up to two rows: one for 除息日 (if cash > 0) and
+   *  one for 除權日 (if stock dividend > 0). Price-calc columns (closing price
+   *  before, reference price, limits) are unavailable in MOPS and default to 0. */
+  private def parseMopsRows(allRows: Seq[Seq[String]], market: String)
+    : Seq[(String, LocalDate, String, String, Double, Double, Double, String, Double, Double, Double, Double)] = {
+    val slashDate = java.time.format.DateTimeFormatter.ofPattern("yyyy/MM/dd")
+    def d(s: String): Double = Try(s.replaceAll("[,\\s]", "").toDouble).getOrElse(0.0)
+    allRows.filter(r => r.size >= 17 && r.head != "公司代號" && r.head.nonEmpty)
+      .flatMap { r =>
+        val code = r(0).trim
+        val name = r(1).trim
+        val stockSurplus = d(r(4))
+        val stockCapital = d(r(5))
+        val exRightDateStr = r(6).trim
+        val cashSurplus = d(r(7))
+        val cashStatutory = d(r(8))
+        val cashPreferred = d(r(9))
+        val exDividendDateStr = r(10).trim
+        val totalCash = cashSurplus + cashStatutory + cashPreferred
+        val totalStock = stockSurplus + stockCapital
+
+        val dividendRow = if (totalCash > 0 && exDividendDateStr.nonEmpty)
+          Try(LocalDate.parse(exDividendDateStr, slashDate)).toOption.map { date =>
+            (market, date, code, name, 0.0, 0.0, totalCash, "息", 0.0, 0.0, 0.0, 0.0)
+          }
+        else None
+
+        val rightRow = if (totalStock > 0 && exRightDateStr.nonEmpty)
+          Try(LocalDate.parse(exRightDateStr, slashDate)).toOption.map { date =>
+            (market, date, code, name, 0.0, 0.0, 0.0, "權", 0.0, 0.0, 0.0, 0.0)
+          }
+        else None
+
+        dividendRow.toSeq ++ rightRow.toSeq
+      }
   }
 
   def readIndex(): Unit = {

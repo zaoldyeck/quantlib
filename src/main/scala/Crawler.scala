@@ -172,9 +172,31 @@ class Crawler {
     }
   }
 
-  def getExRightDividend(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {
-    println(s"Get ex-right/dividend from ${strDate.toString} to ${endDate.toString}")
-    getFile(ExRightDividendSetting(strDate, endDate))
+  def getExRightDividend(year: Int, month: Int): Future[Seq[File]] = {
+    println(s"Get ex-right/dividend of $year-$month (MOPS t108sb27)")
+    ExRightDividendSetting(year, month).markets.mapInSeries { detail =>
+      Thread.sleep(10000)
+      Helpers.retry {
+        Http.client.url(detail.page).post(detail.formData).flatMap { res =>
+          val browser = JsoupBrowser()
+          val doc = browser.parseString(res.body)
+          val filename: String = doc >> element("input[name=filename]") >> attr("value")
+          if (filename.endsWith(".csv")) {
+            val downloadForm: Map[String, String] =
+              Map("firstin" -> "true", "step" -> "10", "filename" -> filename)
+            Http.client.url(detail.fileUrl)
+              .withMethod("POST")
+              .withBody(downloadForm)
+              .withRequestTimeout(2.minutes)
+              .stream()
+              .flatMap(downloadFile(detail.dir + s"/$year", Some(detail.fileName)))
+          } else {
+            Future.failed(new RuntimeException(
+              s"MOPS step-1 returned no filename for $year-$month/${detail.formData("TYPEK")}"))
+          }
+        }
+      }
+    }
   }
 
   def getCapitalReduction(strDate: LocalDate, endDate: LocalDate): Future[Seq[File]] = {

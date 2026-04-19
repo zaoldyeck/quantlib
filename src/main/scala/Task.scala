@@ -208,13 +208,30 @@ class Task {
   }
 
   def pullExRightDividend(): Unit = {
+    // MOPS t108sb27 returns monthly snapshots. Iterate from 2024-07 (first month
+    // the legacy endpoint started returning empty) through current month; skip
+    // months whose YYYY_M.csv already exists and is non-trivial in size.
+    val firstYear = 2024
+    val firstMonth = 7
+    val today = LocalDate.now
+    val months: Seq[(Int, Int)] = for {
+      y <- firstYear to today.getYear
+      m <- 1 to 12
+      if (y > firstYear || m >= firstMonth) && (y < today.getYear || m <= today.getMonthValue)
+    } yield (y, m)
+
+    def monthDone(year: Int, month: Int, dir: String): Boolean = {
+      val f = new java.io.File(s"$dir/$year/${year}_${month}.csv")
+      f.exists() && f.length() > 200
+    }
+
     val setting = ExRightDividendSetting()
-    val existFiles = setting.getDatesOfExistFiles
-    val endDate = LocalDate.now.minusDays(1)
-    if (existFiles.isEmpty) {
-      Await.result(crawler.getExRightDividend(setting.twse.firstDate, endDate), Duration.Inf)
-    } else if (existFiles.max != endDate) {
-      Await.result(crawler.getExRightDividend(existFiles.max.plusDays(1), endDate), Duration.Inf)
+    val pending = months.filterNot { case (y, m) =>
+      monthDone(y, m, setting.twse.dir) && monthDone(y, m, setting.tpex.dir)
+    }
+    if (pending.nonEmpty) {
+      val future = pending.mapInSeries { case (y, m) => crawler.getExRightDividend(y, m) }
+      Await.result(future, Duration.Inf)
     }
   }
 

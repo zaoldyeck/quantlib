@@ -79,6 +79,13 @@ object Backtester {
     // 4. Pre-load all ex_right_dividend rows in the period (small table; efficient)
     val divByDate: Map[(LocalDate, String), Double] = loadDividends(start, end, db)
 
+    // Pre-load detected stock-split events. TWSE's ex_right endpoint has been
+    // unreliable since mid-2024, so events like 0050's 4:1 split on 2025-06-18
+    // aren't in ex_right_dividend. We detect them heuristically: a single-day
+    // price ratio > 2.5x or < 0.4x across a 3-14 day trading suspension, with
+    // no matching ex_right entry.
+    val splitByDate: Map[(LocalDate, String), Double] = loadSplits(start, end, db)
+
     for (today <- tradingDays) {
       // 4a. Need prices for holdings + (if rebal day) target codes
       val targetCodes: Set[String] =
@@ -98,6 +105,20 @@ object Backtester {
             holdings(code) = pos.copy(shares = pos.shares + extraShares)
             trades += Trade(today, code, "drip", extraShares, priceToday, 0.0)
           }
+        }
+      }
+
+      // 4b'. Stock splits: multiply share count by ratio, divide cost/peak by ratio.
+      // Keeps NAV continuous across the split so the split is a non-event for return math.
+      holdings.keys.toSeq.foreach { code =>
+        splitByDate.get((today, code)).foreach { factor =>
+          val pos = holdings(code)
+          val newShares = pos.shares * factor
+          val newAvgCost = if (factor > 0) pos.avgCost / factor else pos.avgCost
+          val newPeak = if (factor > 0) pos.peakPrice / factor else pos.peakPrice
+          holdings(code) = Position(newShares, newAvgCost, newPeak)
+          val priceToday = prices.getOrElse(code, newAvgCost)
+          trades += Trade(today, code, "split", newShares - pos.shares, priceToday, 0.0)
         }
       }
 
@@ -212,6 +233,37 @@ object Backtester {
     """.as[(java.sql.Date, String, Double)]
     Await.result(db.run(q), Duration.Inf)
       .map { case (d, c, v) => (d.toLocalDate, c) -> v }
+      .toMap
+  }
+
+  /** Heuristic detection of stock-split (or reverse-split) events: a daily-close
+   *  ratio ≥ 2.5x or ≤ 0.4x across a 3-14 day trading-suspension gap, with no
+   *  ex_right_dividend entry that day. Returns split factor = prev_close / today_close.
+   *  Shares should be multiplied by this factor to keep NAV continuous. */
+  private def loadSplits(start: LocalDate, end: LocalDate, db: Database): Map[(LocalDate, String), Double] = {
+    val q = sql"""
+      WITH seq AS (
+        SELECT company_code, date, closing_price,
+               LAG(date) OVER (PARTITION BY company_code ORDER BY date) AS prev_date,
+               LAG(closing_price) OVER (PARTITION BY company_code ORDER BY date) AS prev_close
+        FROM daily_quote
+        WHERE market = 'twse'
+          AND date >= #${"'" + start + "'"}::date
+          AND date <= #${"'" + end + "'"}::date
+      )
+      SELECT date, company_code, prev_close / closing_price
+      FROM seq
+      WHERE prev_close IS NOT NULL AND closing_price > 0
+        AND (prev_close / closing_price BETWEEN 2.5 AND 15
+             OR prev_close / closing_price BETWEEN 0.067 AND 0.4)
+        AND (date - prev_date) BETWEEN 3 AND 14
+        AND NOT EXISTS (
+          SELECT 1 FROM ex_right_dividend
+          WHERE company_code = seq.company_code AND date = seq.date
+        )
+    """.as[(java.sql.Date, String, Double)]
+    Await.result(db.run(q), Duration.Inf)
+      .map { case (d, c, f) => (d.toLocalDate, c) -> f }
       .toMap
   }
 }

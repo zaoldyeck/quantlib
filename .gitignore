@@ -116,3 +116,4 @@ project/plugins/project/
 # macOS / Bloop / misc
 .DS_Store
 /.bloop/
+/.playwright-mcp/
