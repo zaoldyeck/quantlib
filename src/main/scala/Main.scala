@@ -150,6 +150,20 @@ object Main {
               case "regime_aware" =>
                 val s = new strategy.RegimeAwareStrategy(10)
                 ("regime_aware", s.computeComposite _, s)
+              case "multi_factor" =>
+                val s = new strategy.MultiFactorStrategy(10)
+                ("multi_factor", s.computeComposite _, s)
+              case "regime_multi" =>
+                val mf = new strategy.MultiFactorStrategy(10)
+                val s = new strategy.RegimeAwareStrategy(10, 0.05, mf.computeComposite _, "multi-factor")
+                ("regime_multi", s.computeComposite _, s)
+              case "dividend_yield" =>
+                val s = new strategy.DividendYieldStrategy(10)
+                ("dividend_yield", s.computeComposite _, s)
+              case "regime_yield" =>
+                val dy = new strategy.DividendYieldStrategy(10)
+                val s = new strategy.RegimeAwareStrategy(10, 0.05, dy.computeComposite _, "dividend-yield")
+                ("regime_yield", s.computeComposite _, s)
               case _ =>
                 val s = new strategy.MomentumValueStrategy(10)
                 ("momentum_value", s.computeComposite _, s)
@@ -202,44 +216,61 @@ object Main {
         val db = Database.forConfig("db")
         try {
           println(s"[research] ${cfg.start} → ${cfg.end}")
-          // Rebalance dates = first trading day of each month in window
-          val rebalDates = {
-            val startStr = cfg.start.toString
-            val endStr = cfg.end.toString
-            val q = sql"""
-              SELECT MIN(date) FROM daily_quote
-              WHERE market = 'twse' AND company_code = '0050'
-                AND date >= #${"'" + startStr + "'"}::date AND date <= #${"'" + endStr + "'"}::date
-              GROUP BY date_trunc('month', date)
-              ORDER BY MIN(date)
-            """.as[java.sql.Date]
-            import scala.concurrent.Await
-            import scala.concurrent.duration.Duration
-            import scala.concurrent.ExecutionContext.Implicits.global
-            Await.result(db.run(q), Duration.Inf).map(_.toLocalDate)
-          }
+          // Day-15+ monthly cadence to capture fresh monthly revenue (day-10 release)
+          // and same-month Q1/Q2/Q3 reports (5/15, 8/14, 11/14 deadlines).
+          val rebalDates = strategy.RebalanceCalendar.monthlyAfterDay(cfg.start, cfg.end, db)
           println(s"[research] ${rebalDates.size} rebalance dates")
 
           val universeFn: (LocalDate, Database) => Set[String] =
             (d, dbArg) => strategy.Universe.eligible(d, dbArg)
 
           // Factors: (name, signal_fn, higherIsBetter)
-          // Price/flow signals
           val factors: Seq[(String, strategy.FactorResearch.FactorFn, Boolean)] = Seq(
+            // --- Fundamental acceleration (fresh-publication exploit) ---
+            ("revenueYoYLatest",        strategy.Signals.revenueYoYLatest,      true),
+            ("revenueAccel",            strategy.Signals.revenueAccel,          true),
             ("revenueYoY3M",            strategy.Signals.revenueYoY3M,          true),
+
+            // --- Institutional flow breakdown ---
             ("institutionalFlow20d",    strategy.Signals.institutionalFlow20d,  true),
-            ("technicalConfirmation",   strategy.Signals.technicalConfirmation, true),
+            ("foreignNetBuy20d",        strategy.Signals.foreignNetBuy20d,      true),
+            ("dealerNetBuy20d",         strategy.Signals.dealerNetBuy20d,       false), // contrarian hypothesis
+
+            // --- Multi-horizon price/momentum ---
             ("relativeStrength63d",     strategy.Signals.relativeStrength,      true),
-            ("pbBandPosition",          strategy.Signals.pbBandPosition,        false),  // lower = cheaper
-            // Fundamental quality (growth_analysis_ttm)
+            ("momentum12m1m",           strategy.Signals.momentum12m1m,         true),
+            ("shortTermReversal5d",     strategy.Signals.shortTermReversal5d,   false),
+
+            // --- Technical indicators ---
+            ("distFrom52wHigh",         strategy.Signals.distFrom52wHigh,       true), // near-high = strong
+            ("rsi14",                   strategy.Signals.rsi14,                 false), // low RSI = oversold
+            ("bollingerPosition",       strategy.Signals.bollingerPosition,     false), // below MA = rebound
+            ("lowVolatility60d",        strategy.Signals.lowVolatility60d,      false), // low vol anomaly
+            ("technicalConfirmation",   strategy.Signals.technicalConfirmation, true),
+
+            // --- Valuation ---
+            ("pbBandPosition",          strategy.Signals.pbBandPosition,        false), // lower = cheaper
+            ("peBandPosition",          strategy.Signals.peBandPosition,        false),
+            ("dividendYield",           strategy.Signals.dividendYield,         true),
+
+            // --- Margin / short-interest ---
+            ("marginCrowding20d",       strategy.Signals.marginCrowding20d,     false), // crowded = overheated
+            ("shortToMarginRatio",      strategy.Signals.shortToMarginRatio,    true),  // squeeze potential
+
+            // --- Cash-flow quality ---
+            ("fcfYield",                strategy.Signals.fcfYield,              true),
+            ("ocfToNetIncome",          strategy.Signals.ocfToNetIncome,        true),
+
+            // --- Growth & quality (growth_analysis_ttm) ---
             ("fScore",                  strategy.Signals.growthAnalysisField("f_score"),            true),
-            ("dropScore",               strategy.Signals.growthAnalysisField("drop_score"),         false), // lower = healthier
+            ("dropScore",               strategy.Signals.growthAnalysisField("drop_score"),         false),
             ("growthScore",             strategy.Signals.growthAnalysisField("growth_score"),       true),
             ("roicGrowth",              strategy.Signals.growthAnalysisField("roic_growth_rate"),   true),
             ("epsGrowth",               strategy.Signals.growthAnalysisField("eps_growth_rate"),    true),
             ("revenueGrowth",           strategy.Signals.growthAnalysisField("revenue_growth_rate"), true),
             ("fcfGrowth",               strategy.Signals.growthAnalysisField("fcf_per_share_growth_rate"), true),
-            // Fundamental quality levels (financial_index_ttm)
+
+            // --- Quality levels (financial_index_ttm) ---
             ("cbs",                     strategy.Signals.financialIndexField("cbs"),                true),
             ("roic",                    strategy.Signals.financialIndexField("roic"),               true),
             ("grossMargin",             strategy.Signals.financialIndexField("gross_margin"),       true),

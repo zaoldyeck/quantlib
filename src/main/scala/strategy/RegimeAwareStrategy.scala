@@ -31,12 +31,20 @@ import scala.concurrent.ExecutionContext.Implicits.global
  * absolute return — strong enough that stock-picking alpha is unlikely to
  * beat beta exposure net of turnover cost.
  */
-class RegimeAwareStrategy(topN: Int = 10, regimeThreshold: Double = 0.05) extends Strategy {
-  private val base = new ValueRevertStrategy(topN)
-  override val name: String = s"regime-aware-top$topN-thr${(regimeThreshold * 100).toInt}"
+class RegimeAwareStrategy(
+  topN: Int = 10,
+  regimeThreshold: Double = 0.05,
+  baseCompositeFn: (LocalDate, Database) => Map[String, Double] = null,
+  baseName: String = "value-revert"
+) extends Strategy {
+  // Default to ValueRevertStrategy when no base injected.
+  private val defaultBase = new ValueRevertStrategy(topN)
+  private val computeBase: (LocalDate, Database) => Map[String, Double] =
+    if (baseCompositeFn == null) defaultBase.computeComposite else baseCompositeFn
+  override val name: String = s"regime-aware-$baseName-thr${(regimeThreshold * 100).toInt}"
 
   override def rebalanceDates(start: LocalDate, end: LocalDate, db: Database): Seq[LocalDate] =
-    base.rebalanceDates(start, end, db)
+    defaultBase.rebalanceDates(start, end, db)
 
   override def targetWeights(asOf: LocalDate, db: Database): Map[String, Double] = {
     val composite = computeComposite(asOf, db)
@@ -60,7 +68,7 @@ class RegimeAwareStrategy(topN: Int = 10, regimeThreshold: Double = 0.05) extend
     val rs = trailing63dReturn("0050", asOf, db)
     rs match {
       case Some(r) if r >= regimeThreshold => Map("0050" -> Double.PositiveInfinity)
-      case _                               => base.computeComposite(asOf, db)
+      case _                               => computeBase(asOf, db)
     }
   }
 

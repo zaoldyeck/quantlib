@@ -29,16 +29,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
 class ValueRevertStrategy(topN: Int = 10) extends Strategy {
   override val name: String = s"value-revert-top$topN"
 
-  override def rebalanceDates(start: LocalDate, end: LocalDate, db: Database): Seq[LocalDate] = {
-    val q = sql"""
-      SELECT MIN(date) FROM daily_quote
-      WHERE market = 'twse' AND company_code = '0050'
-        AND date >= #${"'" + start + "'"}::date AND date <= #${"'" + end + "'"}::date
-      GROUP BY date_trunc('month', date)
-      ORDER BY MIN(date)
-    """.as[java.sql.Date]
-    Await.result(db.run(q), Duration.Inf).map(_.toLocalDate)
-  }
+  override def rebalanceDates(start: LocalDate, end: LocalDate, db: Database): Seq[LocalDate] =
+    RebalanceCalendar.monthlyAfterDay(start, end, db)
 
   override def targetWeights(asOf: LocalDate, db: Database): Map[String, Double] = {
     val composite = computeComposite(asOf, db)
