@@ -144,6 +144,9 @@ object Main {
               case "alpha_stack" =>
                 val s = new strategy.AlphaStackStrategy(10)
                 ("alpha_stack", s.computeComposite _, s)
+              case "value_revert" =>
+                val s = new strategy.ValueRevertStrategy(10)
+                ("value_revert", s.computeComposite _, s)
               case _ =>
                 val s = new strategy.MomentumValueStrategy(10)
                 ("momentum_value", s.computeComposite _, s)
