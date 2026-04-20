@@ -59,6 +59,13 @@ object Main {
         .children(
           arg[String]("<target>").action((x, c) => c.copy(target = x))
         ),
+      cmd("research")
+        .action((_, c) => c.copy(command = "research"))
+        .text("Measure each candidate factor's standalone IC + pairwise redundancy")
+        .children(
+          opt[LocalDate]("start").action((x, c) => c.copy(start = x)),
+          opt[LocalDate]("end").action((x, c) => c.copy(end = x))
+        ),
       cmd("strategy")
         .action((_, c) => c.copy(command = "strategy"))
         .text("Run strategy backtest vs Hold-0050; default momentum_value, pass alpha_stack for v2")
@@ -183,6 +190,60 @@ object Main {
 
           val out = strategy.Output.writeAll(primary, bench)
           println(s"Output: ${out}.html + _trades.csv + _monthly.csv")
+        } finally db.close()
+
+      case "research" =>
+        val db = Database.forConfig("db")
+        try {
+          println(s"[research] ${cfg.start} → ${cfg.end}")
+          // Rebalance dates = first trading day of each month in window
+          val rebalDates = {
+            val startStr = cfg.start.toString
+            val endStr = cfg.end.toString
+            val q = sql"""
+              SELECT MIN(date) FROM daily_quote
+              WHERE market = 'twse' AND company_code = '0050'
+                AND date >= #${"'" + startStr + "'"}::date AND date <= #${"'" + endStr + "'"}::date
+              GROUP BY date_trunc('month', date)
+              ORDER BY MIN(date)
+            """.as[java.sql.Date]
+            import scala.concurrent.Await
+            import scala.concurrent.duration.Duration
+            import scala.concurrent.ExecutionContext.Implicits.global
+            Await.result(db.run(q), Duration.Inf).map(_.toLocalDate)
+          }
+          println(s"[research] ${rebalDates.size} rebalance dates")
+
+          val universeFn: (LocalDate, Database) => Set[String] =
+            (d, dbArg) => strategy.Universe.eligible(d, dbArg)
+
+          // Factors: (name, signal_fn, higherIsBetter)
+          // Price/flow signals
+          val factors: Seq[(String, strategy.FactorResearch.FactorFn, Boolean)] = Seq(
+            ("revenueYoY3M",            strategy.Signals.revenueYoY3M,          true),
+            ("institutionalFlow20d",    strategy.Signals.institutionalFlow20d,  true),
+            ("technicalConfirmation",   strategy.Signals.technicalConfirmation, true),
+            ("relativeStrength63d",     strategy.Signals.relativeStrength,      true),
+            ("pbBandPosition",          strategy.Signals.pbBandPosition,        false),  // lower = cheaper
+            // Fundamental quality (growth_analysis_ttm)
+            ("fScore",                  strategy.Signals.growthAnalysisField("f_score"),            true),
+            ("dropScore",               strategy.Signals.growthAnalysisField("drop_score"),         false), // lower = healthier
+            ("growthScore",             strategy.Signals.growthAnalysisField("growth_score"),       true),
+            ("roicGrowth",              strategy.Signals.growthAnalysisField("roic_growth_rate"),   true),
+            ("epsGrowth",               strategy.Signals.growthAnalysisField("eps_growth_rate"),    true),
+            ("revenueGrowth",           strategy.Signals.growthAnalysisField("revenue_growth_rate"), true),
+            ("fcfGrowth",               strategy.Signals.growthAnalysisField("fcf_per_share_growth_rate"), true),
+            // Fundamental quality levels (financial_index_ttm)
+            ("cbs",                     strategy.Signals.financialIndexField("cbs"),                true),
+            ("roic",                    strategy.Signals.financialIndexField("roic"),               true),
+            ("grossMargin",             strategy.Signals.financialIndexField("gross_margin"),       true),
+            ("operatingMargin",         strategy.Signals.financialIndexField("operating_margin"),   true)
+          )
+
+          val results = strategy.FactorResearch.individualICs(
+            factors, universeFn, rebalDates, horizonDays = 21, db)
+          val corr = strategy.FactorResearch.pairwiseCorrelations(results)
+          print(strategy.FactorResearch.report(results, corr))
         } finally db.close()
 
       case c => sys.error(s"unknown command: $c")

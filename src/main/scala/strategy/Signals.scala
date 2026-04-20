@@ -73,6 +73,90 @@ object Signals {
 
   // ====== Technical Confirmation ======
 
+  // ====== Momentum & Valuation ======
+
+  /** 63-day skip-5 total return. Used both as standalone signal and as
+   *  Relative Strength input. Positive = recently up. */
+  def relativeStrength(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      WITH recent AS (
+        SELECT company_code, date, closing_price,
+               ROW_NUMBER() OVER (PARTITION BY company_code ORDER BY date DESC) AS rn
+        FROM daily_quote
+        WHERE market = 'twse'
+          AND date <= #${"'" + asOf + "'"}::date
+          AND date >= #${"'" + asOf + "'"}::date - INTERVAL '120 days'
+          AND company_code IN (#$codeList)
+          AND closing_price > 0
+      )
+      SELECT a.company_code, (a.closing_price - b.closing_price) / b.closing_price
+      FROM recent a JOIN recent b USING (company_code)
+      WHERE a.rn = 5 AND b.rn = 68
+    """.as[(String, Double)]
+    Await.result(db.run(q), Duration.Inf).toMap
+  }
+
+  /** Current P/B / 3.5y median P/B. **Lower is better (cheaper vs own history).** */
+  def pbBandPosition(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      WITH hist AS (
+        SELECT company_code,
+               percentile_cont(0.5) WITHIN GROUP (ORDER BY price_book_ratio) AS pb_median
+        FROM stock_per_pbr_dividend_yield
+        WHERE market = 'twse'
+          AND date <= #${"'" + asOf + "'"}::date
+          AND date >= #${"'" + asOf + "'"}::date - INTERVAL '3 years 6 months'
+          AND company_code IN (#$codeList)
+          AND price_book_ratio > 0
+        GROUP BY company_code
+      ),
+      current_pb AS (
+        SELECT DISTINCT ON (company_code) company_code, price_book_ratio AS pb_now
+        FROM stock_per_pbr_dividend_yield
+        WHERE market = 'twse'
+          AND date <= #${"'" + asOf + "'"}::date
+          AND date >= #${"'" + asOf + "'"}::date - INTERVAL '10 days'
+          AND company_code IN (#$codeList)
+          AND price_book_ratio > 0
+        ORDER BY company_code, date DESC
+      )
+      SELECT h.company_code, c.pb_now / h.pb_median
+      FROM hist h JOIN current_pb c USING (company_code)
+      WHERE h.pb_median > 0
+    """.as[(String, Double)]
+    Await.result(db.run(q), Duration.Inf).toMap
+  }
+
+  // ====== Fundamental quality (from growth_analysis_ttm / financial_index_ttm) ======
+
+  /** Generic single-column loader from growth_analysis_ttm with latest-quarter
+   *  semantics (via PublicationLag). Higher raw value is assumed better. */
+  def growthAnalysisField(col: String)(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] =
+    latestQuarterField("growth_analysis_ttm", col, asOf, universe, db)
+
+  def financialIndexField(col: String)(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] =
+    latestQuarterField("financial_index_ttm", col, asOf, universe, db)
+
+  private def latestQuarterField(table: String, col: String, asOf: LocalDate,
+                                  universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val (year, quarter) = PublicationLag.asOfQuarter(asOf)
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      SELECT DISTINCT ON (company_code) company_code, #$col::double precision
+      FROM #$table
+      WHERE company_code IN (#$codeList)
+        AND (year < #$year OR (year = #$year AND quarter <= #$quarter))
+        AND #$col IS NOT NULL
+      ORDER BY company_code, year DESC, quarter DESC
+    """.as[(String, Double)]
+    Await.result(db.run(q), Duration.Inf).toMap
+  }
+
   /** Boolean score in {0, 0.5, 1}: current close > 200D MA (1/3),
    *  50D MA > 200D MA (1/3), max 20-day volume / 20-day avg volume > 1.5 (1/3).
    *  Summed to [0, 1]. Captures "trend + volume confirmation". */
