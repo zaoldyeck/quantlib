@@ -147,6 +147,9 @@ object Main {
               case "value_revert" =>
                 val s = new strategy.ValueRevertStrategy(10)
                 ("value_revert", s.computeComposite _, s)
+              case "regime_aware" =>
+                val s = new strategy.RegimeAwareStrategy(10)
+                ("regime_aware", s.computeComposite _, s)
               case _ =>
                 val s = new strategy.MomentumValueStrategy(10)
                 ("momentum_value", s.computeComposite _, s)
