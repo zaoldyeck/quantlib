@@ -132,7 +132,7 @@ object Main {
         val db = Database.forConfig("db")
         try {
           val strategyName = cfg.target  // reuse --target via positional arg within "strategy"
-          val (stratName, composite, stratRun): (String, (LocalDate, Database) => Map[String, Double], strategy.Strategy) =
+          val (stratName, rawComposite, stratRun): (String, (LocalDate, Database) => Map[String, Double], strategy.Strategy) =
             strategyName match {
               case "alpha_stack" =>
                 val s = new strategy.AlphaStackStrategy(10)
@@ -143,7 +143,30 @@ object Main {
             }
           println(s"[strategy] $stratName, ${cfg.start} → ${cfg.end}, capital=NT$$${cfg.capital}")
 
-          val primary = strategy.Backtester.run(stratRun, cfg.start, cfg.end, cfg.capital, db)
+          // Memoize composite scores per rebalance date — Backtester and
+          // RankMetrics both need them, and each computation is expensive
+          // (5+ SQL queries across Universe/Quality/Signals).
+          val cache = scala.collection.mutable.Map.empty[LocalDate, Map[String, Double]]
+          val composite: (LocalDate, Database) => Map[String, Double] = { (d, dbArg) =>
+            cache.getOrElseUpdate(d, rawComposite(d, dbArg))
+          }
+          // Rebuild a StrategyProxy that routes targetWeights through the cache
+          // so Backtester's calls populate the cache too.
+          val cachedStrat = new strategy.Strategy {
+            override val name = stratRun.name
+            override def rebalanceDates(start: LocalDate, end: LocalDate, d: Database) =
+              stratRun.rebalanceDates(start, end, d)
+            override def targetWeights(asOf: LocalDate, d: Database) = {
+              val comp = composite(asOf, d)
+              if (comp.isEmpty) Map.empty
+              else {
+                val picks = comp.toSeq.sortBy(-_._2).take(10).map(_._1)
+                if (picks.isEmpty) Map.empty else picks.map(_ -> (1.0 / picks.size)).toMap
+              }
+            }
+          }
+
+          val primary = strategy.Backtester.run(cachedStrat, cfg.start, cfg.end, cfg.capital, db)
           val bench = strategy.Backtester.run(
             new strategy.Hold0050Strategy, cfg.start, cfg.end, cfg.capital, db)
 
