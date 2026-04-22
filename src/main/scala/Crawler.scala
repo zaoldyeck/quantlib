@@ -266,12 +266,15 @@ class Crawler {
                            validate: File => Option[String] = _ => None): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
     val fn = fileName.getOrElse(res.header("Content-disposition").get.split("filename=")(1).replace("\"", ""))
 
-    // Extract year from filename for daily data (pattern: YYYY_M_D.csv)
-    val finalPath = if (fn.matches("""^\d{4}_\d+_\d+\.csv$""")) {
-      val year = fn.substring(0, 4)
-      s"$filePath/$year"
-    } else {
-      filePath
+    // Extract year from any file whose name starts with YYYY_...  This covers
+    // both daily (YYYY_M_D.csv) and quarterly (YYYY_Q_a_c_idx.csv) patterns.
+    // Before the widening: only 3-pure-digit (daily) filenames matched, leaving
+    // quarterly CSVs dumped in the market root dir — reader deep-scan still read
+    // them, but `ls data/balance_sheet/twse/{year}/` wouldn't show them, which
+    // caused spurious "crawler failed" diagnoses during debugging.
+    val finalPath = fn match {
+      case s if s.matches("""^\d{4}_.*\.csv$""") => s"$filePath/${s.substring(0, 4)}"
+      case _ => filePath
     }
 
     val file = new File(s"$finalPath/$fn")
