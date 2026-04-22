@@ -164,6 +164,19 @@ object Main {
                 val dy = new strategy.DividendYieldStrategy(10)
                 val s = new strategy.RegimeAwareStrategy(10, 0.05, dy.computeComposite _, "dividend-yield")
                 ("regime_yield", s.computeComposite _, s)
+              case "mf_piot" =>
+                val s = new strategy.MagicFormulaPiotStrategy(5)
+                ("mf_piot", s.computeComposite _, s)
+              case "mf_piot_norsv" =>
+                val s = new strategy.MagicFormulaPiotStrategy(5, minRSV = 0.0)
+                ("mf_piot_norsv", s.computeComposite _, s)
+              case "mf_raw" =>
+                val s = new strategy.MagicFormulaPiotStrategy(10, useFundamentalFilters = false, minRSV = 0.0)
+                ("mf_raw", s.computeComposite _, s)
+              case "regime_mf_piot" =>
+                val mfp = new strategy.MagicFormulaPiotStrategy(5, minRSV = 0.0)
+                val s = new strategy.RegimeAwareStrategy(5, 0.05, mfp.computeComposite _, "mf-piot-norsv")
+                ("regime_mf_piot", s.computeComposite _, s)
               case _ =>
                 val s = new strategy.MomentumValueStrategy(10)
                 ("momentum_value", s.computeComposite _, s)

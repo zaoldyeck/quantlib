@@ -589,6 +589,196 @@ object Signals {
     Await.result(db.run(q), Duration.Inf).toMap
   }
 
+  // ====== Greenblatt Magic Formula factors ======
+
+  /** Greenblatt ROIC: EBIT / Invested Capital where IC = Total Assets - Current Liabilities.
+   *  Uses latest available quarterly snapshot (not TTM) to match the original
+   *  Magic Formula paper. Higher = better. */
+  def greenblattROIC(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val (yr, qtr) = PublicationLag.asOfQuarter(asOf)
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      WITH ebit AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS ebit_val
+        FROM income_statement_progressive
+        WHERE company_code IN (#$codeList)
+          AND title IN ('繼續營業單位稅前淨利（淨損）','繼續營業單位稅前淨利(淨損)',
+                        '繼續營業單位稅前純益（純損）','繼續營業單位稅前純益(純損)',
+                        '繼續營業單位稅前合併淨利(淨損)','繼續營業單位稅前損益',
+                        '本期稅前淨利（淨損）')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      assets AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS ta
+        FROM balance_sheet
+        WHERE company_code IN (#$codeList)
+          AND title IN ('資產總計','資產總額')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      curliab AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS cl
+        FROM balance_sheet
+        WHERE company_code IN (#$codeList)
+          AND title IN ('流動負債合計','流動負債總額')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      )
+      SELECT e.company_code, e.ebit_val / NULLIF(a.ta - c.cl, 0)
+      FROM ebit e
+      JOIN assets a USING (company_code)
+      JOIN curliab c USING (company_code)
+      WHERE (a.ta - c.cl) > 0
+    """.as[(String, Double)]
+    Await.result(db.run(q), Duration.Inf).toMap
+  }
+
+  /** Greenblatt Earnings Yield: EBIT / EV where EV = Market Cap + Total Debt - Cash.
+   *  Higher = cheaper on an enterprise-value basis. The second pillar of Magic
+   *  Formula. Uses latest close × capital_stock/10 as market cap proxy (TW stocks
+   *  have NT$10 par, so total shares outstanding ≈ capital_stock/10). */
+  def earningsYield(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val (yr, qtr) = PublicationLag.asOfQuarter(asOf)
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      WITH ebit AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS ebit_val
+        FROM income_statement_progressive
+        WHERE company_code IN (#$codeList)
+          AND title IN ('繼續營業單位稅前淨利（淨損）','繼續營業單位稅前淨利(淨損)',
+                        '繼續營業單位稅前純益（純損）','繼續營業單位稅前純益(純損)',
+                        '繼續營業單位稅前合併淨利(淨損)','繼續營業單位稅前損益',
+                        '本期稅前淨利（淨損）')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      shares AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS capital_stock
+        FROM balance_sheet
+        WHERE company_code IN (#$codeList)
+          AND title = '股本合計'
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      debt AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS total_debt
+        FROM balance_sheet
+        WHERE company_code IN (#$codeList)
+          AND title IN ('負債總計','負債總額')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      cash AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS cash_val
+        FROM balance_sheet
+        WHERE company_code IN (#$codeList)
+          AND title IN ('現金及約當現金','現金及約當現金合計','現金及約當現金總額')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      px AS (
+        SELECT DISTINCT ON (company_code) company_code, closing_price
+        FROM daily_quote
+        WHERE market = 'twse'
+          AND date <= #${"'" + asOf + "'"}::date
+          AND date >= #${"'" + asOf + "'"}::date - INTERVAL '10 days'
+          AND company_code IN (#$codeList)
+          AND closing_price > 0
+        ORDER BY company_code, date DESC
+      )
+      SELECT e.company_code,
+             e.ebit_val / NULLIF(
+               (p.closing_price * s.capital_stock / 10) + d.total_debt - c.cash_val,
+               0)
+      FROM ebit e
+      JOIN shares s USING (company_code)
+      JOIN debt d USING (company_code)
+      JOIN cash c USING (company_code)
+      JOIN px p USING (company_code)
+      WHERE ((p.closing_price * s.capital_stock / 10) + d.total_debt - c.cash_val) > 0
+    """.as[(String, Double)]
+    Await.result(db.run(q), Duration.Inf).toMap
+  }
+
+  /** RSV-120: (close_now - min_120d) / (max_120d - min_120d). Ranges [0, 1].
+   *  Higher = closer to recent highs. Used as a momentum filter in MFPiot (> 0.9
+   *  ≈ top decile of recent range). */
+  def rsv120d(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      WITH window_px AS (
+        SELECT company_code, closing_price, date,
+               ROW_NUMBER() OVER (PARTITION BY company_code ORDER BY date DESC) AS rn
+        FROM daily_quote
+        WHERE market = 'twse'
+          AND date <= #${"'" + asOf + "'"}::date
+          AND date > #${"'" + asOf + "'"}::date - INTERVAL '180 days'
+          AND company_code IN (#$codeList)
+          AND closing_price > 0
+      )
+      SELECT company_code,
+             MAX(CASE WHEN rn = 1 THEN closing_price END) AS px_now,
+             MIN(CASE WHEN rn <= 120 THEN closing_price END) AS px_min,
+             MAX(CASE WHEN rn <= 120 THEN closing_price END) AS px_max
+      FROM window_px
+      GROUP BY company_code
+      HAVING COUNT(*) >= 120
+    """.as[(String, Double, Double, Double)]
+    Await.result(db.run(q), Duration.Inf).collect {
+      case (code, now, lo, hi) if hi > lo =>
+        code -> ((now - lo) / (hi - lo))
+    }.toMap
+  }
+
+  /** Operating income YoY: (latest_quarter - 4Q_ago) / abs(4Q_ago).
+   *  Positive = accelerating operations. */
+  def opIncomeGrowthYoY(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
+    if (universe.isEmpty) return Map.empty
+    val (yr, qtr) = PublicationLag.asOfQuarter(asOf)
+    val codeList = universe.map(c => s"'$c'").mkString(",")
+    val q = sql"""
+      WITH latest AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS op_latest
+        FROM income_statement_progressive
+        WHERE company_code IN (#$codeList)
+          AND title IN ('營業利益','營業利益（損失）','營業利益(損失)')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      ),
+      yearago AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS op_yearago
+        FROM income_statement_progressive
+        WHERE company_code IN (#$codeList)
+          AND title IN ('營業利益','營業利益（損失）','營業利益(損失)')
+          AND (year < #${yr - 1} OR (year = #${yr - 1} AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
+      )
+      SELECT l.company_code,
+             (l.op_latest - y.op_yearago) / NULLIF(ABS(y.op_yearago), 0)
+      FROM latest l JOIN yearago y USING (company_code)
+      WHERE ABS(y.op_yearago) > 0
+    """.as[(String, Double)]
+    Await.result(db.run(q), Duration.Inf).toMap
+  }
+
+  /** Point-in-time capital-reduction blacklist: companies that underwent a
+   *  capital reduction within `lookbackYears` years on or before asOf. Replaces
+   *  the notebook's hard-coded 2014-2019 list which was itself a look-ahead
+   *  bias source. */
+  def capitalReductionBlacklist(asOf: LocalDate, db: Database, lookbackYears: Int = 3): Set[String] = {
+    val q = sql"""
+      SELECT DISTINCT company_code
+      FROM capital_reduction
+      WHERE date <= #${"'" + asOf + "'"}::date
+        AND date >= #${"'" + asOf + "'"}::date - INTERVAL '#$lookbackYears years'
+    """.as[String]
+    Await.result(db.run(q), Duration.Inf).toSet
+  }
+
   /** Revenue MoM acceleration: latest month revenue / avg of prior 3 months.
    *  Uses the freshly-published month as the numerator. */
   def revenueAccel(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
