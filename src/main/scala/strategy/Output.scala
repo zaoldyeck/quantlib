@@ -48,7 +48,7 @@ object Output {
       autosize = true
     )
 
-    Plotly.plot(path, Seq(primaryTrace, benchTrace), layout)
+    Plotly.plot(path, Seq(primaryTrace, benchTrace), layout, openInBrowser = false)
   }
 
   private def writeTradesCsv(result: BacktestResult, path: String): Unit = {

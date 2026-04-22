@@ -54,7 +54,11 @@ final case class BacktestResult(
  * optional (default 0). Fractional shares assumed in v1 for simpler NAV math.
  */
 object Backtester {
-  val CommissionRate: Double = 0.001425
+  /** TW e-broker commission at 2-折 discount (Sinotrade/Fubon < 1M/mo) —
+   *  0.1425% × 0.20 = 0.0285%. Cathay offers 2.8-折 (0.04%) with immediate
+   *  rebate; Fubon 1.8-折 (0.02565%) monthly rebate. Using 2-折 as realistic
+   *  mid-estimate for retail e-trading. */
+  val CommissionRate: Double = 0.000285
   val SellTaxRate: Double = 0.003
 
   def run(strategy: Strategy,

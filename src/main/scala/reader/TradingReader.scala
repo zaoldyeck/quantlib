@@ -474,9 +474,18 @@ class TradingReader extends Reader {
             rows.map {
               values =>
                 val companyCode = values.head
+                // TWSE schema variations (observed):
+                //   6-col (very legacy): code, name, pe, dy, div_year, pb
+                //   7-col (pre-2024-07): code, name, dy, div_year, pe, pb, fiscal
+                //   8-col (2024-07 onwards — added 收盤價 as col 2):
+                //          code, name, close, dy, div_year, pe, pb, fiscal
+                // If we fall back to the 7-col offset on an 8-col CSV, pe/pb/dy
+                // all land on the wrong field (div_year / pe / close), polluting
+                // ~23% of rows from 2024-07 through present.
                 values.size match {
-                  case 6 => (marketFile.market, date, companyCode, values(1), values(2).toDoubleOption, values(4).toDoubleOption, values(3).toDoubleOption)
-                  case _ => (marketFile.market, date, companyCode, values(1), values(4).toDoubleOption, values(5).toDoubleOption, values(2).toDoubleOption)
+                  case 6 => (marketFile.market, date, companyCode, values(1), values(2).toDoubleOption, values(5).toDoubleOption, values(3).toDoubleOption)
+                  case 7 => (marketFile.market, date, companyCode, values(1), values(4).toDoubleOption, values(5).toDoubleOption, values(2).toDoubleOption)
+                  case _ => (marketFile.market, date, companyCode, values(1), values(5).toDoubleOption, values(6).toDoubleOption, values(3).toDoubleOption)
                 }
             }
           case "tpex" =>
