@@ -167,6 +167,16 @@ Detailed usage + adapters in memory file `project_research_tooling.md`. Quick pi
 
 Agents are on-demand subagents (`$\_\_ 呼叫 agent "..."`), use Claude Code subscription (zero API cost vs TradingAgents' per-query LLM spend).
 
+**Skills in `.claude/skills/`** (5 auto-triggered workflows; Claude invokes on matching keywords):
+
+| Skill | 觸發時機 |
+|---|---|
+| `quantlib-data-refresh` | 「更新資料」「sync data」「refresh cache」 |
+| `quantlib-backtest` | 「跑 X 策略」「compare A vs B」「threshold sweep」 |
+| `quantlib-factor-test` | 「測試 XXX 因子」「看 YYY 有沒有 IC」 |
+| `quantlib-stock-deepdive` | 「分析 XXXX」「深入看 YYYY」（並行呼叫 6 個 agent）|
+| `quantlib-data-health` | 「檢查資料」「audit」「這 anomaly 是 bug 嗎」 |
+
 ## Gotchas & Contracts
 
 ### Bash & JVM
@@ -193,10 +203,12 @@ Agents are on-demand subagents (`$\_\_ 呼叫 agent "..."`), use Claude Code sub
 
 ### Strategy Semantics Contract
 
-- **`ValueRevertStrategy.rebalanceDates` MUST use `minDay=1`** (month-start) — month-mid rebalance loses ~8pp CAGR on pbBand factor.
-- **Python `research/v4.py` must match Scala within 1pp CAGR** — drift >1pp → check (a) asof-join +1-day shift (new picks effective T+1), (b) per-rebal turnover = `|prev ∩ cur| / TOPN`.
-- **`Backtester.CommissionRate` default `0.000285`** (2-折 e-trading) — don't reset to 0.001425 without reason.
-- **`Output.writeNavChart` must pass `openInBrowser = false`** — never auto-open Chrome on backtest.
+- **Python is the canonical research engine** (`research/v4.py` + `vectorbt` + `alphalens`). Scala `strategy/` package is **frozen** as historical reference — no new strategies, no factor research, no backtesting there.
+- **Month-start rebalance** (`minDay=1`) — month-mid loses ~8pp CAGR on pbBand factor. Preserve this in every new Python strategy.
+- **Commission 0.0285%** (2-折 e-trading), **sell tax 0.3%** — hardcoded in `research/v4.py`; copy these constants to any new strategy.
+- **Per-rebal turnover cost** = `|prev ∩ cur| / TOPN × (SELL_TAX + 2 × COMMISSION)` — avoid flat 100% turnover assumption; match research/v4.py formula.
+- **Asof-join +1 day shift**: new picks effective T+1, not T (trade at today's close). Any Python backtest doing monthly rebalance must offset the pick assignment by +1 trading day.
+- **Speed over bit-exact accuracy** — 5-second iterations are worth >1pp CAGR approximation noise. Do not add Python-side complexity to shave final % points.
 
 ## Architecture Overview
 
