@@ -35,13 +35,22 @@ class RegimeAwareStrategy(
   topN: Int = 10,
   regimeThreshold: Double = 0.05,
   baseCompositeFn: (LocalDate, Database) => Map[String, Double] = null,
-  baseName: String = "value-revert"
+  baseName: String = "value-revert",
+  exitThreshold: Option[Double] = None  // None = symmetric; Some(x) = hysteresis
 ) extends Strategy {
   // Default to ValueRevertStrategy when no base injected.
   private val defaultBase = new ValueRevertStrategy(topN)
   private val computeBase: (LocalDate, Database) => Map[String, Double] =
     if (baseCompositeFn == null) defaultBase.computeComposite else baseCompositeFn
-  override val name: String = s"regime-aware-$baseName-thr${(regimeThreshold * 100).toInt}"
+
+  // Hysteresis state: sorted cache of (date → inTrend) for in-order processing.
+  // Populated the first time each asOf is evaluated; subsequent lookups are idempotent.
+  private val regimeCache = scala.collection.mutable.TreeMap.empty[LocalDate, Boolean]
+
+  override val name: String = exitThreshold match {
+    case Some(exit) => s"regime-aware-$baseName-e${(regimeThreshold * 100).toInt}x${(exit * 100).toInt}"
+    case None       => s"regime-aware-$baseName-thr${(regimeThreshold * 100).toInt}"
+  }
 
   override def rebalanceDates(start: LocalDate, end: LocalDate, db: Database): Seq[LocalDate] =
     defaultBase.rebalanceDates(start, end, db)
@@ -65,10 +74,28 @@ class RegimeAwareStrategy(
    *  so RankMetrics can still score the decision (IC will be trivially
    *  near-zero those months — correct, because we're not selecting). */
   def computeComposite(asOf: LocalDate, db: Database): Map[String, Double] = {
-    val rs = trailing63dReturn("0050", asOf, db)
-    rs match {
-      case Some(r) if r >= regimeThreshold => Map("0050" -> Double.PositiveInfinity)
-      case _                               => computeBase(asOf, db)
+    val inTrend = decideRegime(asOf, db)
+    if (inTrend) Map("0050" -> Double.PositiveInfinity) else computeBase(asOf, db)
+  }
+
+  private def decideRegime(asOf: LocalDate, db: Database): Boolean = {
+    regimeCache.get(asOf) match {
+      case Some(cached) => cached
+      case None =>
+        val r = trailing63dReturn("0050", asOf, db).getOrElse(Double.NegativeInfinity)
+        val decided = exitThreshold match {
+          case None =>
+            // Symmetric threshold (original behaviour).
+            r >= regimeThreshold
+          case Some(exit) =>
+            // Hysteresis: enter when r >= enterThr, stay until r drops below
+            // exitThr. Prior state = most recent cached date < asOf.
+            val priorInTrend = regimeCache.rangeUntil(asOf).lastOption.map(_._2).getOrElse(false)
+            if (priorInTrend) r >= exit            // stay in if still above exit
+            else              r >= regimeThreshold // enter only if above enter
+        }
+        regimeCache.put(asOf, decided)
+        decided
     }
   }
 

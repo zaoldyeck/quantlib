@@ -105,8 +105,21 @@ project/plugins/project/
 /.bsp/
 /.metals/
 /.vscode/
-/.claude/
 /.specify/
+
+# Claude Code — team-shared agents/commands are version-controlled;
+# memory stays user-specific at ~/.claude/projects/<encoded>/memory/
+/.claude/settings.local.json
+/.claude/.last_session*
+/.claude/memory/
+
+# Python research — virtual env / local cache / ad-hoc outputs not version-controlled
+/research/cache.duckdb
+/research/.venv/
+/research/__pycache__/
+/research/out/
+/research/research/
+*.pyc
 
 # Feature-planning artifacts not part of main project source
 /backend/

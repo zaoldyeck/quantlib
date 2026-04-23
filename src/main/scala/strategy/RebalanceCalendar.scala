@@ -24,7 +24,8 @@ import scala.concurrent.ExecutionContext.Implicits.global
  */
 object RebalanceCalendar {
   /** First trading day of each month on/after day-of-month `minDay`, within
-   *  [start, end], as reflected in 0050's trading calendar. Default 15 = month-mid. */
+   *  [start, end], as reflected in 0050's trading calendar. Default 15 = month-mid.
+   *  Set minDay=1 for month-start rebalance (first trading day of month). */
   def monthlyAfterDay(start: LocalDate, end: LocalDate, db: Database, minDay: Int = 15): Seq[LocalDate] = {
     val q = sql"""
       SELECT MIN(date) FROM daily_quote

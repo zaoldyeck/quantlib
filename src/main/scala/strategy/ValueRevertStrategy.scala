@@ -30,7 +30,7 @@ class ValueRevertStrategy(topN: Int = 10) extends Strategy {
   override val name: String = s"value-revert-top$topN"
 
   override def rebalanceDates(start: LocalDate, end: LocalDate, db: Database): Seq[LocalDate] =
-    RebalanceCalendar.monthlyAfterDay(start, end, db)
+    RebalanceCalendar.monthlyAfterDay(start, end, db, minDay = 1)  // revert to month-start
 
   override def targetWeights(asOf: LocalDate, db: Database): Map[String, Double] = {
     val composite = computeComposite(asOf, db)

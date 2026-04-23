@@ -177,6 +177,22 @@ object Main {
                 val mfp = new strategy.MagicFormulaPiotStrategy(5, minRSV = 0.0)
                 val s = new strategy.RegimeAwareStrategy(5, 0.05, mfp.computeComposite _, "mf-piot-norsv")
                 ("regime_mf_piot", s.computeComposite _, s)
+              case "value_momentum" =>
+                val s = new strategy.ValueMomentumStrategy(10, 20)
+                ("value_momentum", s.computeComposite _, s)
+              case "regime_value_momentum" =>
+                // v4 + value+momentum overlay + hysteresis (7% enter, 2% exit).
+                val vm = new strategy.ValueMomentumStrategy(10, 20)
+                val s = new strategy.RegimeAwareStrategy(
+                  10, regimeThreshold = 0.07,
+                  vm.computeComposite _, "value-momentum",
+                  exitThreshold = Some(0.02))
+                ("regime_value_momentum", s.computeComposite _, s)
+              case "regime_hyst" =>
+                // v4 with hysteresis only (no value+momentum overlay).
+                val s = new strategy.RegimeAwareStrategy(
+                  10, regimeThreshold = 0.07, exitThreshold = Some(0.02))
+                ("regime_hyst", s.computeComposite _, s)
               case _ =>
                 val s = new strategy.MomentumValueStrategy(10)
                 ("momentum_value", s.computeComposite _, s)
