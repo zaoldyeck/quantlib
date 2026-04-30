@@ -68,10 +68,13 @@ research/
 
 ### 跑主策略（執行手冊見 [`docs/strategy_ranking.md`](../docs/strategy_ranking.md)）
 ```bash
-# iter_21 80/20 ship-ready（先跑 iter_13 + iter_20 子策略，最後合成）
-uv run --project research python research/strat_lab/iter_13.py --mode mcap
-uv run --project research python research/strat_lab/iter_20.py
-uv run --project research python research/strat_lab/iter_21.py --w-iter13 0.8 --w-iter20 0.2
+# strict 5+5 NAV 85/15 with C+B ship-ready
+uv run --project research python research/strat_lab/iter_13.py \
+    --freq monthly --ranker mcap --universe twse_tpex --mode mcap
+uv run --project research python research/strat_lab/iter_24.py \
+    --max-positions 5 --atr-trailing
+uv run --project research python research/strat_lab/sweep_hybrid.py
+# 取得 5+5_w85_atr_mcap 結果與全 sweep 排行
 
 # v4 baseline regression
 uv run --project research python research/strat_lab/v4.py \
@@ -134,4 +137,4 @@ uv run --project research python research/cache_tables.py
 
 ---
 
-_最後更新：2026-04-30 — v5 prices.py 重構 + iter_21 80/20 ship-ready + 專案大整理_
+_最後更新：2026-04-30 — v6 全面重驗 + strict 5+5 NAV 85/15 with C+B ship verdict_

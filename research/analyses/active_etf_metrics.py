@@ -132,13 +132,13 @@ for tk in sorted(set(prices['company_code'].to_list()), key=lambda x: (x[0] != '
           f"{m['sharpe']:>8.2f}{m['sortino']:>9.2f}{m['mdd']*100:>7.1f}%"
           f"{m['vol']*100:>6.1f}%{beta:>6.2f}{alpha*100:>8.1f}%{excess*100:>13.1f}pp")
 
-# iter_21 same-window
-strat = pl.read_csv("research/strat_lab/results/iter_21_daily.csv").with_columns(pl.col("date").str.to_date())
-print(f"\n=== 我方 iter_21 對齊各主動 ETF 上市窗口（apples-to-apples，皆 dividend-adjusted）===")
+# strict 5+5 NAV 85/15 with C+B same-window (v6 ship candidate)
+strat = pl.read_csv("research/strat_lab/results/strict_5_5_w85_atr_daily.csv").with_columns(pl.col("date").str.to_date())
+print(f"\n=== 我方 strict 5+5 NAV 85/15 with C+B 對齊各主動 ETF 上市窗口（apples-to-apples，皆 dividend-adjusted）===")
 print(f"{'ETF':<8}{'window start':<13}{'days':>5}"
-      f"{'iter21 cum':>11}{'ETF cum':>9}"
-      f"{'iter21 CAGR':>13}{'ETF CAGR':>11}{'gap':>9}"
-      f"{'iter21 Sortino':>16}{'ETF Sortino':>13}")
+      f"{'5+5 cum':>10}{'ETF cum':>9}"
+      f"{'5+5 CAGR':>11}{'ETF CAGR':>11}{'gap':>9}"
+      f"{'5+5 Sortino':>14}{'ETF Sortino':>13}")
 print("-" * 130)
 for tk, name, em, _, _, _ in results:
     if tk in ('0050', '0052'): continue
@@ -146,12 +146,12 @@ for tk, name, em, _, _, _ in results:
     sub_d = divs.filter(pl.col("company_code") == tk)
     sub = total_return_series(sub_p, sub_d)
     s_d = sub["date"][0]; e_d = sub["date"][-1]
-    iter21_sub = strat.filter((pl.col("date") >= s_d) & (pl.col("date") <= e_d))
-    if iter21_sub.height < 5: continue
-    im = metrics(iter21_sub["nav"].to_numpy(), iter21_sub["date"].to_list())
+    strat_sub = strat.filter((pl.col("date") >= s_d) & (pl.col("date") <= e_d))
+    if strat_sub.height < 5: continue
+    im = metrics(strat_sub["nav"].to_numpy(), strat_sub["date"].to_list())
     print(f"{tk:<8}{str(s_d):<13}{em['days']:>5}"
-          f"{im['cum']*100:>10.1f}%{em['cum']*100:>8.1f}%"
-          f"{im['cagr']*100:>12.1f}%{em['cagr']*100:>10.1f}%"
+          f"{im['cum']*100:>9.1f}%{em['cum']*100:>8.1f}%"
+          f"{im['cagr']*100:>10.1f}%{em['cagr']*100:>10.1f}%"
           f"{(im['cagr']-em['cagr'])*100:>8.1f}pp"
-          f"{im['sortino']:>16.2f}{em['sortino']:>13.2f}")
+          f"{im['sortino']:>14.2f}{em['sortino']:>13.2f}")
 con.close()

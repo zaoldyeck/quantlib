@@ -5,7 +5,16 @@
 1. **資料層 (Scala)** — 從 TWSE / TPEx / MOPS / TDCC 爬取股價、財報、籌碼、MOPS 結構化公告，存入 PostgreSQL
 2. **研究層 (Python)** — 在本地 DuckDB cache 上跑策略 backtest、OOS 驗證、event study
 
-**Ship-ready 主策略**：[`iter_21 80/20`](docs/strategy_ranking.md) — 21 年 in-sample CAGR +24.50% / Sortino 1.544 / MDD -40.39%；16 fold walk-forward OOS 6/6 PASS（Lo p=2.67e-7、Bootstrap CAGR LB +13.26%、DSR 1.000、PBO 0.098）。
+**Ship-ready 主策略**：[`strict 5+5 NAV 85/15 with C+B`](docs/strategy_ranking.md)
+- 子策略 A: iter_13 monthly mcap top 5 quality pool (TWSE+TPEx) — 5 檔
+- 子策略 B: iter_24 max=5 catalyst breakout + ATR trailing (TWSE+TPEx) — 5 檔
+- 持倉硬上限 = 10 檔（5+5），每年初 rebal 回 85/15
+- 21y in-sample CAGR +22.87% / Sortino 1.416 / MDD -44.85%
+- 16 fold walk-forward **OOS** CAGR **+24.39%** / Sortino **1.535** / Sharpe 1.032
+- Lo p=1.13e-5、Boot CAGR LB +11.74%、DSR 0.954
+- **三維全勝 2330 hold**（CAGR +0.16pp / Sortino +0.20 / MDD +0.86pp）
+- Cross-validation 證實非賭 TSMC（mcap 1.512 vs roa_med 0.635 合理差距）
+- ⚠️ Verdict: 5/6 OOS PASS borderline（PBO single-config CSCV caveat）
 
 ---
 
@@ -98,26 +107,29 @@ uv run --project research python research/cache_tables.py
 
 跳過 step 2 → Python 跑舊資料；跳過 step 1 → cache 灌過時 PG。
 
-### 2. 跑主策略（iter_21 80/20）
+### 2. 跑主策略（strict 5+5 NAV 85/15 with C+B）
 
 ```bash
 # Step 1: 子策略 NAV 各自先跑
-uv run --project research python research/strat_lab/iter_13.py --mode mcap
-uv run --project research python research/strat_lab/iter_20.py
+uv run --project research python research/strat_lab/iter_13.py \
+    --freq monthly --ranker mcap --universe twse_tpex --mode mcap
+uv run --project research python research/strat_lab/iter_24.py \
+    --max-positions 5 --atr-trailing
 
-# Step 2: 80/20 合成 + metrics
-uv run --project research python research/strat_lab/iter_21.py \
-    --start 2005-01-03 --end 2026-04-25 --capital 1000000 \
-    --w-iter13 0.8 --w-iter20 0.2
+# Step 2: 全 hybrid sweep + cross-validation（包含 5+5_w85_atr 主策略）
+uv run --project research python research/strat_lab/sweep_hybrid.py
 ```
 
 ### 3. OOS 全套驗證（每次重大改動必跑）
 
 ```bash
-uv run --project research python research/strat_lab/validate_iter21_v5.py
+uv run --project research python research/strat_lab/validate_hybrid.py --top 5
 ```
 
-期望輸出：6/6 PASS（CAGR retention ≥ 50% / Sharpe retention ≥ 70% / Lo p < 0.05 / Boot LB > 10% / DSR > 0.95 / PBO < 0.5）。
+期望輸出 5+5_w85_atr_mcap 為 **5/6 PASS borderline real alpha**：
+- CAGR retention ≥ 50% ✓ / Sharpe retention ≥ 70% ✓
+- Lo (2002) p < 0.05 ✓ / Bootstrap CAGR LB > 10% ✓
+- DSR > 0.95 ✓ / PBO < 0.5 ⚠️（single-config CSCV 過嚴 caveat）
 
 ### 4. 單元測試
 

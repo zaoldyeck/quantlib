@@ -250,7 +250,7 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 ### Strategy Semantics Contract
 
-- **Ship-ready strategy ranking + execution runbook** — see [`docs/strategy_ranking.md`](docs/strategy_ranking.md). 主策略 `iter_21 80/20` 通過 6/6 OOS 驗證 (CAGR +24.50% / Sortino 1.544 / MDD -40.39%)。此文件含執行命令、子策略邏輯、paper trade 監控規則、不要做的事清單。
+- **Ship-ready strategy ranking + execution runbook** — see [`docs/strategy_ranking.md`](docs/strategy_ranking.md). 主策略 `strict 5+5 NAV 85/15 with C+B`（iter_13 monthly mcap TPEx + iter_24 max=5 ATR）通過 5/6 OOS borderline 驗證 (OOS CAGR +24.39% / Sortino 1.535 / Boot LB +11.74%)。同時持倉硬上限 = 10 檔（5+5）。Cross-validation 證實非賭 TSMC（mcap 1.512 vs roa_med 0.635 的合理差距）。此文件含執行命令、子策略邏輯、paper trade 監控規則、不要做的事清單。
 - **Canonical pricing module (`research/prices.py`, 2026-04-30+)** — ALL NAV simulation MUST go through `prices.fetch_adjusted_panel` (or helpers `daily_returns_from_panel` / `fetch_daily_returns` / `total_return_series`). Reading raw `daily_quote.closing_price` and running daily NAV systematically under-counts cash dividend reinvestment and ignores capital reduction reference resets — historical bug that under-stated iter_20 / iter_24 NAV ~3-6pp CAGR over 21y. See `feedback_canonical_prices_module.md` memory and `research/tests/test_prices.py` for the 10-test parity suite (incl. cross-implementation check vs `research/analyses/active_etf_metrics.py`).
 - **Python is the canonical research engine** (`research/strat_lab/v4.py` + `vectorbt` + `alphalens`). Scala `strategy/` package is **frozen** as historical reference — no new strategies, no factor research, no backtesting there.
 - **Month-start rebalance** (`minDay=1`) is **v4 legacy only**. New strategies應該傾向 **event-driven daily**（見下一節）。月頻只在證明比事件驅動好時才用。
