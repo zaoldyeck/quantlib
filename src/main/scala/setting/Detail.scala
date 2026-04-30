@@ -128,7 +128,12 @@ abstract class Detail(val firstDate: LocalDate, _strDateOption: Option[LocalDate
           val day = m.group(3).toInt
           val date = LocalDate.of(year, month, day)
 
-          val source = scala.io.Source.fromFile(file.jfile, "Big5-HKSCS")
+          // Quick HTML-error sniff using ISO-8859-1 (per-byte, never throws on
+          // UTF-8 / Big5-HKSCS / mixed content). Previously used Big5-HKSCS which
+          // threw MalformedInputException on UTF-8 JSON files (TPEx SBL/QFII)
+          // and silently dropped real-data files from existFiles, causing
+          // O(thousands of dates) of redundant re-fetching after restart.
+          val source = scala.io.Source.fromFile(file.jfile, "ISO-8859-1")
           try {
             val lines = source.getLines().buffered
             if (!lines.isEmpty && lines.head.toLowerCase.contains("<html>")) {
@@ -140,6 +145,15 @@ abstract class Detail(val firstDate: LocalDate, _strDateOption: Option[LocalDate
             source.close()
           }
         }
-      }.getOrElse(None)
+      }.getOrElse {
+        // Fallback: even if read fails (corrupt encoding, IO error), keep the date —
+        // a stat-time file is strong-enough evidence the date is "tried/saved".
+        // This avoids the regression mode where transient read errors trigger
+        // unnecessary re-fetches.
+        val fileNamePattern = """(\d+)_(\d+)_(\d+).*""".r
+        fileNamePattern.findFirstMatchIn(file.name).flatMap { m =>
+          Try(LocalDate.of(m.group(1).toInt, m.group(2).toInt, m.group(3).toInt)).toOption
+        }
+      }
   }.toSet
 }

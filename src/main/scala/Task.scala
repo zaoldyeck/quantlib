@@ -19,6 +19,10 @@ import scala.reflect.io.Path._
 class Task {
   private val crawler = new Crawler()
 
+  /** Idempotent schema setup for tables only. Views / materialized views are
+    * NOT touched here because their `.sql` files use plain `CREATE VIEW` (no
+    * `IF NOT EXISTS` for views in PG) — re-running would fail. Fresh installs
+    * should call `createTablesAndViews()` once. */
   def createTables(): Unit = {
     val balanceSheet = TableQuery[BalanceSheet]
     val conciseBalanceSheet = TableQuery[ConciseBalanceSheet]
@@ -35,32 +39,54 @@ class Task {
     val marginTransactions = TableQuery[MarginTransactions]
     val operatingRevenue = TableQuery[OperatingRevenue]
     val stockPER_PBR_DividendYield = TableQuery[StockPER_PBR_DividendYield]
-    val materializedViews = getClass.getResource("sql/materialized_view").getPath.toDirectory.files.toSeq.sortBy(_.name).map(f => Source.fromFile(f.jfile).mkString).map(s => sqlu"#$s")
-    val views = getClass.getResource("sql/view").getPath.toDirectory.files.toSeq.sortBy(_.name).map(f => Source.fromFile(f.jfile).mkString).map(s => sqlu"#$s")
+    val tdccShareholding = TableQuery[TdccShareholding]
+    val sblBorrowing = TableQuery[SblBorrowing]
+    val foreignHoldingRatio = TableQuery[ForeignHoldingRatio]
+    val treasuryStockBuyback = TableQuery[TreasuryStockBuyback]
+    val insiderHolding = TableQuery[InsiderHolding]
     val setup = DBIO.sequence(Seq(
-      balanceSheet.schema.create,
-      conciseBalanceSheet.schema.create,
-      capitalReduction.schema.create,
-      dailyQuote.schema.create,
-      dailyTradingDetails.schema.create,
-      etf.schema.create,
-      exRightDividend.schema.create,
-      financialAnalysis.schema.create,
-      conciseIncomeStatementProgressive.schema.create,
-      incomeStatementProgressive.schema.create,
-      cashFlowsProgressive.schema.create,
-      index.schema.create,
-      marginTransactions.schema.create,
-      operatingRevenue.schema.create,
-      stockPER_PBR_DividendYield.schema.create)
-      .appendedAll(materializedViews)
-      .appendedAll(views))
+      balanceSheet.schema.createIfNotExists.asTry,
+      conciseBalanceSheet.schema.createIfNotExists.asTry,
+      capitalReduction.schema.createIfNotExists.asTry,
+      dailyQuote.schema.createIfNotExists.asTry,
+      dailyTradingDetails.schema.createIfNotExists.asTry,
+      etf.schema.createIfNotExists.asTry,
+      exRightDividend.schema.createIfNotExists.asTry,
+      financialAnalysis.schema.createIfNotExists.asTry,
+      conciseIncomeStatementProgressive.schema.createIfNotExists.asTry,
+      incomeStatementProgressive.schema.createIfNotExists.asTry,
+      cashFlowsProgressive.schema.createIfNotExists.asTry,
+      index.schema.createIfNotExists.asTry,
+      marginTransactions.schema.createIfNotExists.asTry,
+      operatingRevenue.schema.createIfNotExists.asTry,
+      stockPER_PBR_DividendYield.schema.createIfNotExists.asTry,
+      tdccShareholding.schema.createIfNotExists.asTry,
+      sblBorrowing.schema.createIfNotExists.asTry,
+      foreignHoldingRatio.schema.createIfNotExists.asTry,
+      treasuryStockBuyback.schema.createIfNotExists.asTry,
+      insiderHolding.schema.createIfNotExists.asTry))
 
     val db = Database.forConfig("db")
-    try {
-      val resultFuture = db.run(setup)
-      Await.result(resultFuture, Duration.Inf)
-    } finally db.close
+    try Await.result(db.run(setup), Duration.Inf)
+    finally db.close
+  }
+
+  /** Fresh-install only: runs Slick tables + raw SQL views + matviews. */
+  def createTablesAndViews(): Unit = {
+    createTables()
+    createViewsAndMaterializedViews()
+  }
+
+  /** Re-applies raw SQL views + matviews. Assumes tables already exist; views
+    * themselves are NOT idempotent (plain CREATE VIEW fails if one exists),
+    * so this is fresh-install / manual-refresh only. */
+  private def createViewsAndMaterializedViews(): Unit = {
+    val materializedViews = getClass.getResource("sql/materialized_view").getPath.toDirectory.files.toSeq.sortBy(_.name).map(f => Source.fromFile(f.jfile).mkString).map(s => sqlu"#$s")
+    val views = getClass.getResource("sql/view").getPath.toDirectory.files.toSeq.sortBy(_.name).map(f => Source.fromFile(f.jfile).mkString).map(s => sqlu"#$s")
+    val setup = DBIO.sequence(materializedViews ++ views)
+    val db = Database.forConfig("db")
+    try Await.result(db.run(setup), Duration.Inf)
+    finally db.close
   }
 
   def pullFinancialAnalysis(): Unit = {
@@ -241,6 +267,129 @@ class Task {
 
   def pullETF(): Unit = {
     Await.result(crawler.getETF, Duration.Inf)
+  }
+
+  def pullTdccShareholding(): Unit = {
+    // Endpoint returns only the LATEST week's snapshot; forward-accumulate one file
+    // per invocation. Reader dedupes via unique(data_date, company_code, tier).
+    // Historical backfill (2008+) is Task #20 — not done by this method.
+    Await.result(crawler.getTdccShareholding(), Duration.Inf)
+  }
+
+  // Skip a date if both markets are "covered": either pre-firstDate (no upstream data)
+  // or already saved locally. Plain intersection misbehaves when the two markets have
+  // different firstDates (TPEx 2010+ vs TWSE 2005+ for QFII; TPEx 2013+ vs TWSE 2016+ for SBL).
+  // Without this, post-resume runs systematically re-fetch dates where one market is
+  // pre-firstDate and the other already has its file (e.g. QFII 2005-2009 was re-fetched
+  // wasting ~9h on resume).
+  private def coveredBoth(date: LocalDate, twse: Detail, tpex: Detail,
+                           twseExist: Set[LocalDate], tpexExist: Set[LocalDate]): Boolean = {
+    val twseCovered = date.isBefore(twse.firstDate) || twseExist.contains(date)
+    val tpexCovered = date.isBefore(tpex.firstDate) || tpexExist.contains(date)
+    twseCovered && tpexCovered
+  }
+
+  // Trading-day filter using daily_quote as ground truth. Avoids tens of hours
+  // of [giveup] retries on weekends + national holidays + 颱風假 during bulk
+  // backfill. Returns Set[LocalDate] for fast .contains() check.
+  // Note: dates BEFORE daily_quote.minDate are kept (caller may want pre-2004).
+  private def loadTwseTradingDays(): Set[LocalDate] = {
+    val db = Database.forConfig("db")
+    try {
+      val q = sql"""SELECT DISTINCT date FROM daily_quote WHERE market='twse'""".as[java.sql.Date]
+      val raw = Await.result(db.run(q), Duration.Inf)
+      raw.iterator.map(_.toLocalDate).toSet
+    } finally db.close()
+  }
+
+  def pullSbl(since: Option[LocalDate] = None): Unit = {
+    val setting = SblBorrowingSetting()
+    val twseExist = setting.twse.getDatesOfExistFiles
+    val tpexExist = setting.tpex.getDatesOfExistFiles
+    val tradingDays = loadTwseTradingDays()
+    val startDate = since.getOrElse(setting.twse.firstDate)
+    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq)
+      .filterNot(d => coveredBoth(d, setting.twse, setting.tpex, twseExist, tpexExist))
+      .filter(d => tradingDays.contains(d))   // skip weekends + holidays
+      .mapInSeries(crawler.getSblBorrowing)
+    Await.result(future, Duration.Inf)
+  }
+
+  def pullForeignHoldingRatio(since: Option[LocalDate] = None): Unit = {
+    val setting = ForeignHoldingRatioSetting()
+    val twseExist = setting.twse.getDatesOfExistFiles
+    val tpexExist = setting.tpex.getDatesOfExistFiles
+    val tradingDays = loadTwseTradingDays()
+    val startDate = since.getOrElse(setting.twse.firstDate)
+    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq)
+      .filterNot(d => coveredBoth(d, setting.twse, setting.tpex, twseExist, tpexExist))
+      .filter(d => tradingDays.contains(d))   // skip weekends + holidays
+      .mapInSeries(crawler.getForeignHoldingRatio)
+    Await.result(future, Duration.Inf)
+  }
+
+  // ============== Sprint B (MOPS structured filings) ==============
+  // Common pattern: MOPS endpoints take (year, month) form. Iterate firstYear..now,
+  // skip months whose `{year}_{month}.html` already exists (any size, including 0-byte
+  // sentinel) on BOTH markets. `since` lets one-shot historical backfill jobs
+  // start from a specific point (e.g. since=2005-01 for full history).
+
+  private def pullMopsMonthly(setting: Setting,
+                               firstYear: Int, firstMonth: Int,
+                               crawl: (Int, Int) => Future[Seq[File]],
+                               since: Option[LocalDate] = None): Unit = {
+    val today = LocalDate.now
+    val (sy, sm) = since match {
+      case Some(d) => (d.getYear, d.getMonthValue)
+      case None    => (firstYear, firstMonth)
+    }
+    val months: Seq[(Int, Int)] = for {
+      y <- sy to today.getYear
+      m <- 1 to 12
+      if (y > sy || m >= sm) && (y < today.getYear || m <= today.getMonthValue)
+    } yield (y, m)
+
+    def monthDone(year: Int, month: Int, dir: String): Boolean = {
+      // Either the year subdir holds it (preferred MOPS layout) or the legacy
+      // flat layout — accept any presence (including 0-byte sentinel).
+      val a = new java.io.File(s"$dir/$year/${year}_${month}.html")
+      val b = new java.io.File(s"$dir/${year}_${month}.html")
+      a.exists() || b.exists()
+    }
+
+    // Both markets must have the file before skipping (mirrors coveredBoth).
+    val twseDir = setting.markets.head.dir
+    val tpexDir = setting.markets(1).dir
+    val pending = months.filterNot { case (y, m) => monthDone(y, m, twseDir) && monthDone(y, m, tpexDir) }
+    if (pending.nonEmpty) {
+      val future = pending.mapInSeries { case (y, m) => crawl(y, m) }
+      Await.result(future, Duration.Inf)
+    }
+  }
+
+  def pullTreasuryStockBuyback(since: Option[LocalDate] = None): Unit = {
+    // 庫藏股 — endpoint t35sc09 returns full historical SNAPSHOT in one POST
+    // (4.5MB / 2.8MB for TWSE / TPEx, all years). Monthly loop = redundant 1.1GB
+    // of the same data. Single-shot for current month is enough; reader dedupes
+    // by (market, announce_date, company_code).
+    val today = LocalDate.now
+    val future = crawler.getTreasuryStockBuyback(today.getYear, today.getMonthValue)
+    Await.result(future, Duration.Inf)
+  }
+
+  def pullInsiderHolding(since: Option[LocalDate] = None): Unit = {
+    // 內部人持股轉讓事前申報日報 — daily, 2-step ajax per (market, date).
+    // Mirror pullSbl pattern: filter trading days, skip already-existing dates.
+    val setting = InsiderHoldingSetting()
+    val twseExist = setting.twse.getDatesOfExistFiles
+    val tpexExist = setting.tpex.getDatesOfExistFiles
+    val tradingDays = loadTwseTradingDays()
+    val startDate = since.getOrElse(setting.twse.firstDate)
+    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq)
+      .filterNot(d => coveredBoth(d, setting.twse, setting.tpex, twseExist, tpexExist))
+      .filter(d => tradingDays.contains(d))
+      .mapInSeries(crawler.getInsiderHolding)
+    Await.result(future, Duration.Inf)
   }
 
   private def pullDailyFiles(detail: Detail, crawlerFunction: LocalDate => Future[Seq[File]]): Unit = {

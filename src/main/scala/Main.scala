@@ -45,13 +45,16 @@ object Main {
       cmd("update")
         .action((_, c) => c.copy(command = "update"))
         .text("Full pull + read (default)"),
+      cmd("init")
+        .action((_, c) => c.copy(command = "init"))
+        .text("Idempotent schema setup via Slick (createIfNotExists for all tables + views)"),
       cmd("pull")
         .action((_, c) => c.copy(command = "pull"))
         .text("Crawler only")
         .children(
           arg[String]("<target>").action((x, c) => c.copy(target = x)),
           opt[LocalDate]("since").action((x, c) => c.copy(since = Some(x)))
-            .text("Start date (YYYY-MM-DD). Applies to daily_trading_details; other targets ignore it.")
+            .text("Start date (YYYY-MM-DD). Applies to daily_trading_details + sbl; other targets ignore it.")
         ),
       cmd("read")
         .action((_, c) => c.copy(command = "read"))
@@ -94,6 +97,17 @@ object Main {
     val job = new Job
 
     try cfg.command match {
+      case "init" =>
+        println("[init] calling task.createTables() ...")
+        try {
+          task.createTables()
+          println("[init] Slick schema.createIfNotExists completed.")
+        } catch { case e: Throwable =>
+          Console.err.println(s"[init] FAILED: ${e.getClass.getSimpleName}: ${e.getMessage}")
+          e.printStackTrace(Console.err)
+          sys.exit(1)
+        }
+
       case "update" =>
         job.updateData()
 
@@ -112,6 +126,11 @@ object Main {
           case "financial_analysis"     => task.pullFinancialAnalysis()
           case "financial_statements"   => task.pullFinancialStatements()
           case "etf"                    => task.pullETF()
+          case "tdcc"                   => task.pullTdccShareholding()
+          case "sbl"                    => task.pullSbl(cfg.since)
+          case "foreign_holding_ratio" | "qfii" => task.pullForeignHoldingRatio(cfg.since)
+          case "buyback" | "treasury_stock" => task.pullTreasuryStockBuyback(cfg.since)
+          case "insider"                => task.pullInsiderHolding(cfg.since)
           case "all"                    => job.pullAllData()
           case t                        => sys.error(s"unknown pull target: $t")
         }
@@ -131,6 +150,11 @@ object Main {
           case "financial_analysis"     => financialReader.readFinancialAnalysis()
           case "financial_statements"   => financialReader.readFinancialStatements()
           case "etf"                    => financialReader.readETF()
+          case "tdcc"                   => tradingReader.readTdccShareholding()
+          case "sbl"                    => tradingReader.readSblBorrowing()
+          case "foreign_holding_ratio" | "qfii" => tradingReader.readForeignHoldingRatio()
+          case "buyback" | "treasury_stock" => tradingReader.readTreasuryStockBuyback()
+          case "insider"                => tradingReader.readInsiderHolding()
           case "all"                    => job.readAllData()
           case t                        => sys.error(s"unknown read target: $t")
         }

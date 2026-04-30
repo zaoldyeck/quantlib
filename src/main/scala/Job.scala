@@ -16,6 +16,12 @@ class Job {
     task.pullMarginTransactions()
     task.pullStockPER_PBR_DividendYield()
     task.pullETF()
+    task.pullTdccShareholding()
+    task.pullSbl()
+    task.pullForeignHoldingRatio()
+    task.pullTreasuryStockBuyback()  // Sprint B: 庫藏股 (working)
+    task.pullInsiderHolding()        // Sprint B: 內部人持股轉讓事前申報日報 (working)
+    // 現金增資 / CB 已取消 (見 FUTURE_CRAWLERS_SPEC.md)
   }
 
   def readAllData(): Unit = {
@@ -28,6 +34,11 @@ class Job {
     tradingReader.readIndex()
     tradingReader.readMarginTransactions()
     tradingReader.readStockPER_PBR_DividendYield()
+    tradingReader.readTdccShareholding()
+    tradingReader.readSblBorrowing()
+    tradingReader.readForeignHoldingRatio()
+    tradingReader.readTreasuryStockBuyback()  // Sprint B: 庫藏股
+    tradingReader.readInsiderHolding()        // Sprint B: 內部人持股轉讓
     financialReader.readFinancialAnalysis()
     financialReader.readBalanceSheet()
     financialReader.readIncomeStatement()

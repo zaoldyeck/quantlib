@@ -234,6 +234,182 @@ class Crawler {
     getFile(ETFSetting())
   }
 
+  def getTdccShareholding(): Future[Seq[File]] = {
+    println(s"Get TDCC shareholding (current week snapshot)")
+    getFile(TdccShareholdingSetting())
+  }
+
+  def getSblBorrowing(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get SBL borrowing of ${date.toString}")
+    getFile(SblBorrowingSetting(date))
+  }
+
+  def getForeignHoldingRatio(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get foreign holding ratio of ${date.toString}")
+    getFile(ForeignHoldingRatioSetting(date))
+  }
+
+  def getTreasuryStockBuyback(year: Int, month: Int): Future[Seq[File]] = {
+    println(s"Get treasury stock buyback of $year-$month (MOPS t35sc09)")
+    // t35sc09 is friendly to bare POST (verified 2026-04-29).
+    postMopsDirect(TreasuryStockBuybackSetting(year, month).markets, parentPage = None)
+  }
+
+  /**
+   * 內部人持股轉讓事前申報日報 (t56sb12_q1 / q2).
+   *
+   * Two-step ajax chain (verified Playwright network capture 2026-04-29):
+   *   Step 1: POST /mops/web/ajax_t56sb12_q1 (or q2) — emits intermediate auto-form
+   *           Body: encodeURIComponent=1&step=0&firstin=1&off=1&year+month+day
+   *   Step 2: POST /mops/web/ajax_t56sb12 — returns actual data table
+   *           Body: encodeURIComponent=1&run=&step=2&year+month+day&report=SY|OY&firstin=true
+   *
+   * report=SY = 上市 (q1), OY = 上櫃 (q2). Detail carries the right code.
+   *
+   * Saves step 2 HTML to `{detail.dir}/{year}/YYYY_M_D.html`. Empty body
+   * (< 1KB) = no-data day → truncate to 0-byte sentinel (skip on next run).
+   */
+  def getInsiderHolding(date: LocalDate): Future[Seq[File]] = {
+    println(s"Get insider holding of $date (MOPS t56sb12_q1/q2)")
+    Future.sequence(InsiderHoldingSetting(date).markets.map { detail =>
+      Thread.sleep(20000)  // MOPS rate-limit between markets
+      println(s"  step1 POST ${detail.page} → step2 ajax_t56sb12 report=${detail.reportCode}")
+      Helpers.retry {
+        // Step 1 — emits intermediate form (we don't parse it; we already know
+        // step 2 form data because reportCode is fixed per endpoint).
+        Http.client.url(detail.page)
+          .withRequestTimeout(2.minutes)
+          .post(detail.formData)
+          .flatMap { _ =>
+            // Step 2 — actual data fetch, stream Big5 bytes to disk.
+            Http.client.url(detail.dataUrl)
+              .withMethod("POST")
+              .withBody(detail.step2FormData)
+              .withRequestTimeout(2.minutes)
+              .stream()
+              .flatMap { res =>
+                val outDir = s"${detail.dir}/${date.getYear}"
+                new File(outDir).mkdirs()
+                val outFile = new File(s"$outDir/${detail.fileName}")
+                val outputStream = java.nio.file.Files.newOutputStream(outFile.toPath)
+                val sink = Sink.foreach[ByteString] { bytes => outputStream.write(bytes.toArray) }
+                res.bodyAsSource.runWith(sink).andThen { case _ => outputStream.close() }.map { _ =>
+                  println(s"    saved ${outFile.getAbsolutePath} (${outFile.length()} bytes)")
+                  if (isHtmlResponse(outFile) && outFile.length() < 2000) {
+                    // could be MOPS error page; truncate so getDatesOfExistFiles
+                    // still treats date as "tried" and moves on.
+                    new FileOutputStream(outFile).close()
+                  } else if (outFile.length() > 0 && outFile.length() < 1024) {
+                    new FileOutputStream(outFile).close()
+                  }
+                  outFile
+                }
+              }
+          }
+      }.recover {
+        case e =>
+          Console.err.println(s"[giveup] insider holding ${detail.market} $date: ${e.getClass.getSimpleName}: ${e.getMessage}")
+          val f = new File(s"${detail.dir}/${date.getYear}/${detail.fileName}")
+          if (f.exists()) f.delete()
+          f
+      }
+    })
+  }
+
+  // Browser-like headers to bypass MOPS anti-scraping. Without these the
+  // server completes TLS handshake then closes the connection ("Empty reply").
+  private val browserHeaders: Seq[(String, String)] = Seq(
+    "User-Agent" -> "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept" -> "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+    "Accept-Language" -> "zh-TW,zh;q=0.9,en;q=0.8",
+    "Cache-Control" -> "no-cache"
+  )
+
+  /**
+   * MOPS single-step POST helper: bare POST to ajax_* endpoint, stream raw
+   * Big5-HKSCS HTML body to `{detail.dir}/{year}/{detail.fileName}` byte-for-byte.
+   * Used by buyback. (Insider / CB explored but rejected — see FUTURE_CRAWLERS_SPEC.md)
+   *
+   * Streaming is required (vs `.post().body`) because `body: String` would force
+   * play-ws to decode using its default charset (UTF-8) and mangle Big5 bytes.
+   *
+   * Empty bodies (< 1KB) are normalized to 0-byte sentinel files — same convention
+   * as `isMarketHolidayResponse` so `getDatesOfExistFiles` counts the date as
+   * "tried" and pull won't loop on no-data months forever.
+   */
+  /**
+   * MOPS single-step POST with optional session priming.
+   *
+   * If `parentPage` is provided, performs GET parent → extract Set-Cookie
+   * (JSESSIONID) → POST ajax with cookies + browser headers + Referer.
+   * If None, bare POST (works for t35sc09 buyback).
+   *
+   * For session-required endpoints (t56sb01 / t24sb03), MOPS rejects
+   * connections without browser-like UA + cookies (closes TLS without HTTP
+   * response). The session priming + UA combo is the minimum to bypass it
+   * without resorting to Playwright.
+   */
+  private def postMopsDirect(markets: Seq[setting.MopsDirectDetail],
+                             parentPage: Option[String]): Future[Seq[File]] = {
+    Future.sequence(markets.map { detail =>
+      val outYear = detail.minguoYear + 1911
+      val typek = detail.formData.getOrElse("TYPEK", "?")
+      Thread.sleep(20000)  // MOPS rate-limit
+      println(s"  POST ${detail.page} TYPEK=$typek minguoYear=${detail.minguoYear} → outYear=$outYear")
+
+      val cookieFuture: Future[Seq[(String, String)]] = parentPage match {
+        case Some(parent) =>
+          Http.client.url(parent)
+            .withHttpHeaders(browserHeaders: _*)
+            .withRequestTimeout(30.seconds)
+            .get()
+            .map { res =>
+              res.cookies.map(c => "Cookie" -> s"${c.name}=${c.value}").toSeq
+            }
+            .recover { case _ => Seq.empty }
+        case None => Future.successful(Seq.empty)
+      }
+
+      cookieFuture.flatMap { sessionCookies =>
+        Helpers.retry {
+          val refererHeader: Seq[(String, String)] =
+            parentPage.map(p => Seq("Referer" -> p, "Origin" -> "https://mopsov.twse.com.tw")).getOrElse(Seq.empty)
+          val headers = browserHeaders ++ refererHeader ++ sessionCookies
+          Http.client.url(detail.page)
+            .withHttpHeaders(headers: _*)
+            .withMethod("POST")
+            .withBody(detail.formData)
+            .withRequestTimeout(2.minutes)
+            .stream()
+            .flatMap { res =>
+              val outDir = s"${detail.dir}/$outYear"
+              new File(outDir).mkdirs()
+              val outFile = new File(s"$outDir/${detail.fileName}")
+              val outputStream = java.nio.file.Files.newOutputStream(outFile.toPath)
+              val sink = Sink.foreach[ByteString] { bytes => outputStream.write(bytes.toArray) }
+              res.bodyAsSource.runWith(sink).andThen { case _ => outputStream.close() }.map { _ =>
+                println(s"    saved ${outFile.getAbsolutePath} (${outFile.length()} bytes)")
+                if (isHtmlResponse(outFile) && outFile.length() < 5000) {
+                  outFile.delete()
+                  throw new RuntimeException(s"HTML error response for ${outFile.getAbsolutePath}")
+                }
+                if (outFile.length() > 0 && outFile.length() < 1024) {
+                  new FileOutputStream(outFile).close()  // sentinel for no-data month
+                }
+                outFile
+              }
+            }
+        }.recover {
+          case e =>
+            Console.err.println(s"[giveup] MOPS POST will retry next run: ${detail.page} minguoYear=${detail.minguoYear}: ${e.getClass.getSimpleName}: ${e.getMessage}")
+            val f = new File(s"${detail.dir}/$outYear/${detail.fileName}")
+            if (f.exists()) f.delete()
+            f
+        }
+      }
+    })
+  }
+
   private def getFile(setting: Setting): Future[Seq[File]] = {
     Thread.sleep(20000)
     Future.sequence(setting.markets.map {

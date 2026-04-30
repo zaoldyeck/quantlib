@@ -7,13 +7,16 @@ import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
 import com.github.tototoshi.csv._
 import db.table._
 import me.tongfei.progressbar.ProgressBar
+import play.api.libs.json._
 import slick.collection.heterogeneous.HNil
 import slick.jdbc.PostgresProfile.api._
 //import slick.jdbc.MySQLProfile.api._
 //import slick.jdbc.H2Profile.api._
 import setting._
 import slick.lifted.TableQuery
-import util.QuantlibCSVReader
+// `_root_` qualifier needed: `import play.api.libs.json._` leaks a `util` package
+// into scope, which would otherwise shadow the project's top-level `util.*`.
+import _root_.util.QuantlibCSVReader
 
 import scala.collection.parallel.CollectionConverters._
 import scala.concurrent.Await
@@ -21,6 +24,20 @@ import scala.concurrent.duration.Duration
 import scala.util.Try
 
 class TradingReader extends Reader {
+  // Detect JSON (TPEx) vs CSV (TWSE) by first non-whitespace byte.
+  private def isJsonFile(file: java.io.File): Boolean = {
+    if (file.length() == 0L) return false
+    val in = new java.io.FileInputStream(file)
+    try {
+      var b = in.read()
+      while (b == ' '.toInt || b == '\t'.toInt || b == '\n'.toInt || b == '\r'.toInt) b = in.read()
+      b == '{'.toInt
+    } finally in.close()
+  }
+
+  // Normalize "1,234" / "87.8%" / " 100 " → "1234" / "87.8" / "100".
+  private def cleanCell(s: String): String =
+    s.replace(",", "").replace("%", "").replace(" ", "").trim
   def readDailyQuote(): Unit = {
     val dailyQuote = TableQuery[DailyQuote]
     val query = dailyQuote.map(d => (d.market, d.date)).distinct.result
@@ -510,4 +527,383 @@ class TradingReader extends Reader {
     }
     pb.close()
   }
+
+  def readTdccShareholding(): Unit = {
+    val tdccShareholding = TableQuery[TdccShareholding]
+    // Dedupe by data_date (not filename) — CSV's 資料日期 column is the source of truth.
+    // Multiple downloads within the same week land in different files but encode the
+    // same snapshot; the unique(data_date, company_code, holding_tier) constraint on
+    // insert would fail without this pre-filter.
+    val existingDatesFuture = db.run(tdccShareholding.map(_.dataDate).distinct.result)
+    val existingDates = Await.result(existingDatesFuture, Duration.Inf).toSet
+
+    val files = TdccShareholdingSetting().getMarketFilesFromDirectory.par
+    val pb = new ProgressBar("Read TDCC shareholding -", files.size)
+    files.tasksupport = taskSupport
+    files.foreach {
+      marketFile =>
+        // TDCC opendata endpoint serves UTF-8 with a BOM on the header row.
+        val reader = QuantlibCSVReader.open(marketFile.file.jfile, "UTF-8")
+        val rows = reader.all().dropWhile(row => row.isEmpty || !row.head.matches("""\d{8}"""))
+        if (rows.nonEmpty) {
+          val dateStr = rows.head.head
+          val dataDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern("yyyyMMdd"))
+          if (!existingDates.contains(dataDate)) {
+            val data = rows.flatMap { values =>
+              Try {
+                val companyCode = values(1).trim
+                val tier = values(2).toShort
+                val holders = values(3).replace(",", "").toInt
+                val shares = values(4).replace(",", "").toLong
+                val pct = values(5).toDouble
+                (dataDate, companyCode, tier, holders, shares, pct)
+              }.toOption
+            }.toSeq.distinctBy(t => (t._1, t._2, t._3))
+            val dbIO = tdccShareholding.map(t =>
+              (t.dataDate, t.companyCode, t.holdingTier, t.numHolders, t.numShares, t.pctOfOutstanding)) ++= data
+            dbRun(dbIO)
+            println(s"[tdcc] inserted ${data.size} rows for data_date=${dataDate} (file=${marketFile.file.name})")
+          } else {
+            println(s"[tdcc] data_date=${dataDate} already in DB — skipping ${marketFile.file.name}")
+          }
+        }
+        reader.close()
+        pb.step()
+    }
+    pb.close()
+  }
+
+  def readSblBorrowing(): Unit = {
+    val sblBorrowing = TableQuery[SblBorrowing]
+    val query = sblBorrowing.map(s => (s.market, s.date)).distinct.result
+    val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
+    val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) =>
+      (market, date.format(dateTimeFormatter) + ".csv")
+    }
+
+    val files = SblBorrowingSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val pb = new ProgressBar("Read SBL borrowing -", files.size)
+    files.tasksupport = taskSupport
+    val stockCode = """[0-9][0-9A-Z]*"""
+    files.foreach { marketFile =>
+      val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+      val fileNamePattern(y, m, d) = marketFile.file.name
+      val date = LocalDate.of(y.toInt, m.toInt, d.toInt)
+
+      // Both TWSE CSV and TPEx JSON use SAME column layout after extraction:
+      //   0 code | 1 name
+      //   2..7 融券 (already in margin_transactions)
+      //   8 借券 前日餘額 | 9 當日賣出 | 10 當日還券 | 11 當日調整
+      //   12 當日餘額    | 13 次一營業日可限額         | 14 備註
+      val rows: Seq[Seq[String]] = if (isJsonFile(marketFile.file.jfile)) {
+        // TPEx JSON
+        val raw = new String(java.nio.file.Files.readAllBytes(marketFile.file.jfile.toPath), "UTF-8")
+        Try {
+          val json = Json.parse(raw)
+          val arr = (json \ "tables")(0) \ "data"
+          arr.as[Seq[Seq[String]]]
+        }.getOrElse(Seq.empty)
+      } else {
+        // TWSE CSV (Big5)
+        val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
+        try {
+          reader.all()
+            .filter(row => row.size >= 14 && row.head.matches(stockCode))
+            .map(_.toSeq)
+        } finally reader.close()
+      }
+
+      val cleaned = rows
+        .filter(r => r.size >= 14 && r.head.matches(stockCode))
+        .map(r => r.map(cleanCell))
+      val data = cleaned.flatMap { values =>
+        Try {
+          val companyCode = values.head
+          val companyName = values(1)
+          val prev   = values(8).toLong
+          val sold   = values(9).toLong
+          val ret    = values(10).toLong
+          val adj    = values(11).toLong
+          val bal    = values(12).toLong
+          val limit  = Try(values(13).toLong).getOrElse(0L)
+          (marketFile.market, date, companyCode, companyName, prev, sold, ret, adj, bal, limit)
+        }.toOption
+      }.toSeq.distinctBy(d => (d._1, d._2, d._3))
+
+      val dbIO = sblBorrowing.map(s =>
+        (s.market, s.date, s.companyCode, s.companyName, s.prevDayBalance, s.dailySold,
+         s.dailyReturned, s.dailyAdjustment, s.dailyBalance, s.nextDayLimit)) ++= data
+      dbRun(dbIO)
+      pb.step()
+    }
+    pb.close()
+  }
+
+  def readForeignHoldingRatio(): Unit = {
+    val foreignHoldingRatio = TableQuery[ForeignHoldingRatio]
+    val query = foreignHoldingRatio.map(f => (f.market, f.date)).distinct.result
+    val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
+    val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) =>
+      (market, date.format(dateTimeFormatter) + ".csv")
+    }
+
+    val files = ForeignHoldingRatioSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val pb = new ProgressBar("Read foreign holding ratio -", files.size)
+    files.tasksupport = taskSupport
+    val stockCode = """[0-9][0-9A-Z]*"""
+    files.foreach { marketFile =>
+      val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
+      val fileNamePattern(y, m, d) = marketFile.file.name
+      val date = LocalDate.of(y.toInt, m.toInt, d.toInt)
+
+      // TWSE CSV cols (after QuantlibCSVReader strips = and quotes):
+      //   0 code | 1 name | 2 ISIN | 3 發行股數 | 4 尚可投資股數 | 5 持有股數
+      //   6 尚可投資比率 | 7 持股比率 | 8 共用法令上限 | 9 陸資上限 | 10 異動原因 | 11 最近申報日
+      // TPEx JSON cols (insti/qfii):
+      //   0 排行 | 1 代號 | 2 名稱 | 3 發行股數 | 4 尚可投資股數 | 5 持有股數
+      //   6 尚可投資比率 "X.XX%" | 7 持股比率 "X.XX%" | 8 法令上限 "X%" | 9 備註
+      val data: Seq[(String, LocalDate, String, String, Long, Long, Long, Double, Double, Double)] =
+        if (isJsonFile(marketFile.file.jfile)) {
+          val raw = new String(java.nio.file.Files.readAllBytes(marketFile.file.jfile.toPath), "UTF-8")
+          Try {
+            val json = Json.parse(raw)
+            val arr = (json \ "tables")(0) \ "data"
+            arr.as[Seq[Seq[String]]]
+          }.getOrElse(Seq.empty).flatMap { row =>
+            if (row.size < 9) None else Try {
+              val vals = row.map(cleanCell)
+              val code = vals(1)
+              if (!code.matches(stockCode)) None
+              else Some((
+                marketFile.market, date, code, vals(2),
+                vals(3).toLong, vals(4).toLong, vals(5).toLong,
+                vals(6).toDouble, vals(7).toDouble, vals(8).toDouble
+              ))
+            }.toOption.flatten
+          }
+        } else {
+          val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
+          try {
+            reader.all()
+              .filter(row => row.size >= 10 && row.head.matches(stockCode))
+              .flatMap { row =>
+                Try {
+                  val v = row.map(cleanCell)
+                  (
+                    marketFile.market, date, v.head, v(1),
+                    v(3).toLong, v(4).toLong, v(5).toLong,
+                    v(6).toDouble, v(7).toDouble, v(8).toDouble
+                  )
+                }.toOption
+              }
+          } finally reader.close()
+        }
+
+      val dbIO = foreignHoldingRatio.map(f =>
+        (f.market, f.date, f.companyCode, f.companyName, f.outstandingShares,
+         f.foreignRemainingShares, f.foreignHeldShares, f.foreignRemainingRatio,
+         f.foreignHeldRatio, f.foreignLimitRatio)) ++= data.distinctBy(d => (d._1, d._2, d._3))
+      dbRun(dbIO)
+      pb.step()
+    }
+    pb.close()
+  }
+
+  // ============================================================
+  // Sprint B (MOPS structured filings): buyback (working) / insider (pending 2-step ajax)
+  //
+  // Common parser pattern:
+  //   1. Read .html file as Big5-HKSCS bytes (MOPS encoding)
+  //   2. JsoupBrowser parse → extract rows from <table> elements
+  //   3. Map per-endpoint schema to typed tuple
+  //   4. Filter + dedupe + bulk insert
+  //
+  // 0-byte sentinel files (no-data months) are skipped silently.
+  // Multi-table responses: take all <tr> rows where the first <td> matches a
+  // stock-code regex, ignoring header / summary rows.
+  // ============================================================
+
+  private val stockCodeRegex = """[0-9][0-9A-Z]{3,}""".r
+
+  private def parseMopsHtml(file: java.io.File): Seq[Seq[String]] = {
+    if (!file.exists() || file.length() < 1024) return Seq.empty
+    // MOPS endpoints serve mixed encodings: t35sc09 (買回) = Big5-HKSCS, t56sb12 (內部人) = UTF-8.
+    // Sniff: UTF-8 valid bytes shouldn't have 0x80-0xBF in non-multibyte position.
+    // Practical heuristic: if file has BOM or contains non-ASCII Chinese decoded valid as UTF-8 → UTF-8.
+    val bytes = java.nio.file.Files.readAllBytes(file.toPath)
+    val raw = Try(new String(bytes, "UTF-8")) match {
+      case scala.util.Success(s) if !s.contains("�") => s  // valid UTF-8
+      case _ => new String(bytes, "Big5-HKSCS")
+    }
+    val browser = net.ruippeixotog.scalascraper.browser.JsoupBrowser()
+    val doc = browser.parseString(raw)
+    import net.ruippeixotog.scalascraper.dsl.DSL._
+    import net.ruippeixotog.scalascraper.dsl.DSL.Extract._
+    val rows = doc >> elementList("table tr")
+    rows.map(tr => (tr >> elementList("td")).map(_.text.trim))
+      .filter(_.nonEmpty)
+  }
+
+  // 民國 yyy/MM/dd → LocalDate; falls back to None if unparseable.
+  private val minguoSlashFormatter = new DateTimeFormatterBuilder()
+    .appendPattern("yyy/MM/dd")
+    .toFormatter()
+    .withChronology(MinguoChronology.INSTANCE)
+
+  private def parseMinguoSlashDate(s: String): Option[LocalDate] = {
+    val cleaned = s.trim
+    if (cleaned.isEmpty) return None
+    Try(LocalDate.from(minguoSlashFormatter.parse(cleaned))).toOption
+  }
+
+  private def parseLong(s: String): Long = Try(cleanCell(s).toLong).getOrElse(0L)
+  private def parseDouble(s: String): Double = Try(cleanCell(s).toDouble).getOrElse(0.0)
+
+  /** 庫藏股 t35sc09 — 18-column main data table (verified 2026-04-29 against TWSE Apr 2026):
+   *   [0] 序號 / [1] 公司代號 / [2] 公司名稱 / [3] 公告日 (民國 yyy/MM/dd) /
+   *   [4] 買回次別 / [5] 買回前股本 / [6] 預定買回股數 / [7] 買回價格區間下限 / [8] 買回價格區間上限 /
+   *   [9] 執行起 / [10] 執行迄 / [11] 是否已執行(Y/N) /
+   *   [12] 已買回股數 / [13] 已買回占已發行 % / [14] 平均每股 NTD / [15] 已買回成本(NT$) /
+   *   [16] 占公司資本 % / [17] 變更原因
+   *
+   * Endpoint serves SNAPSHOT of all historical buybacks (4.4MB全套)，每月跑一次刷新即可.
+   * Dedupe key (market, announce_date, company_code) — Slick unique index.
+   */
+  def readTreasuryStockBuyback(): Unit = {
+    val table = TableQuery[TreasuryStockBuyback]
+    val existing = Await.result(
+      db.run(table.map(t => (t.market, t.announceDate, t.companyCode)).distinct.result),
+      Duration.Inf).toSet
+
+    val files = TreasuryStockBuybackSetting().getMarketFilesFromDirectory.par
+    val pb = new ProgressBar("Read treasury stock buyback -", files.size)
+    files.tasksupport = taskSupport
+    files.foreach { mf =>
+      val rows = parseMopsHtml(mf.file.jfile)
+      val data: Seq[(String, LocalDate, String, String, Long, Double, Double, LocalDate, LocalDate, Long, Double)] =
+        rows.flatMap { cols =>
+          if (cols.size < 17) None
+          else Try {
+            val code = cols(1)
+            if (!stockCodeRegex.pattern.matcher(code).matches()) throw new RuntimeException("not stock code")
+            val name = cols(2)
+            val announceDate = parseMinguoSlashDate(cols(3)).getOrElse(throw new RuntimeException("bad announce date"))
+            val plannedShares = parseLong(cols(6))           // 預定買回股數 (already in 股, no ×1000)
+            val priceLow = parseDouble(cols(7))
+            val priceHigh = parseDouble(cols(8))
+            val periodStart = parseMinguoSlashDate(cols(9)).getOrElse(announceDate)
+            val periodEnd = parseMinguoSlashDate(cols(10)).getOrElse(announceDate)
+            val executedShares = parseLong(cols(12))         // 已買回股數
+            val pctOfCapital = parseDouble(cols(16))          // 占公司資本 %
+            (mf.market, announceDate, code, name, plannedShares, priceLow, priceHigh, periodStart, periodEnd, executedShares, pctOfCapital)
+          }.toOption
+        }
+
+      val filtered = data.distinctBy(d => (d._1, d._2, d._3)).filterNot(d => existing.contains((d._1, d._2, d._3)))
+      if (filtered.nonEmpty) {
+        val dbIO = table.map(t =>
+          (t.market, t.announceDate, t.companyCode, t.companyName, t.plannedShares,
+           t.priceLow, t.priceHigh, t.periodStart, t.periodEnd, t.executedShares, t.pctOfCapital)) ++= filtered
+        dbRun(dbIO)
+        println(s"[buyback] ${mf.market}/${mf.file.name}: inserted ${filtered.size} rows (parsed ${data.size}/${rows.size} rows from HTML)")
+      } else {
+        println(s"[buyback] ${mf.market}/${mf.file.name}: 0 new (parsed ${data.size}/${rows.size} rows)")
+      }
+      pb.step()
+    }
+    pb.close()
+  }
+
+  /** 內部人持股轉讓「事前申報」daily report (t56sb12_q1/q2).
+   *
+   * Verified schema (2026-04-29 against TWSE 2026-04-24 data):
+   * Each data row in HTML = ONE 內部人 transfer declaration. 17-18 cells per row.
+   *
+   *   [ 0] 異動情形 sub-cell placeholder (empty)
+   *   [ 1] 申報日期 (民國 yyy/MM/dd)
+   *   [ 2] 公司代號
+   *   [ 3] 公司名稱
+   *   [ 4] 申報人身分（董事本人 / 大股東本人 / 經理人本人 / 監察人本人 / 配偶等）
+   *   [ 5] 姓名
+   *   [ 6] 預定轉讓方式（鉅額逐筆 / 一般交易 / 贈與 / 信託 / 拍賣 等）
+   *   [ 7] 預定轉讓股數
+   *   [ 8] 每日盤中最大轉讓股數（只有「一般交易」有，其他空白）
+   *   [ 9] 受讓人（只有「贈與 / 私下交易 / 信託」有）
+   *   [10] 目前持有股數 - 自有持股
+   *   [11] 目前持有股數 - 保留運用決定權信託股數
+   *   [12] 預定轉讓總股數 - 自有
+   *   [13] 預定轉讓總股數 - 信託
+   *   [14] 預定轉讓後持股 - 自有 (skip, derivable)
+   *   [15] 預定轉讓後持股 - 信託 (skip)
+   *   [16] 有效轉讓期間 (skip, free text)
+   *   [17] 是否申報未完成轉讓 (skip, optional)
+   *
+   * Files saved as `{dir}/{year}/YYYY_M_D.html`. `report_date` = filename date
+   * (data publication day). `declare_date` = parsed from cell [0].
+   *
+   * Forward signal: 內部人 declared upcoming transfer → -2~-5% CAR over 5-30d.
+   */
+  def readInsiderHolding(): Unit = {
+    val table = TableQuery[InsiderHolding]
+    val existing = Await.result(
+      db.run(table.map(t => (t.market, t.reportDate, t.companyCode, t.reporterName, t.transferMethod, t.transferee)).distinct.result),
+      Duration.Inf).toSet
+
+    val dateFromName = """(\d+)_(\d+)_(\d+)\.html""".r
+    val files = InsiderHoldingSetting().getMarketFilesFromDirectory.par
+    val pb = new ProgressBar("Read insider holding -", files.size)
+    files.tasksupport = taskSupport
+    files.foreach { mf =>
+      val reportDateOpt = mf.file.name match {
+        case dateFromName(y, m, d) => Try(LocalDate.of(y.toInt, m.toInt, d.toInt)).toOption
+        case _ => None
+      }
+      reportDateOpt.foreach { reportDate =>
+        val rows = parseMopsHtml(mf.file.jfile)
+        // Skip header (rows 0-1) and footer rows; data rows have stock code at index 2.
+        val data: Seq[(String, LocalDate, LocalDate, String, String, String, String, String, String, Long, Long, Long, Long, Long, Long)] =
+          rows.flatMap { cols =>
+            if (cols.size < 14) None
+            else Try {
+              val code = cols(2).trim
+              if (!stockCodeRegex.pattern.matcher(code).matches()) throw new RuntimeException("not stock code")
+              val declareDate = parseMinguoSlashDate(cols(1).trim).getOrElse(reportDate)
+              val name = cols(3).trim
+              val reporterTitle = cols(4).trim
+              val reporterName = cols(5).trim.replace("\n", "")
+              val transferMethod = cols(6).trim
+              val transferShares = parseLong(cols(7))
+              val maxIntraday = parseLong(cols(8))
+              val transferee = cols(9).trim.replace("\n", "")
+              val currentOwn = parseLong(cols(10))
+              val currentTrust = parseLong(cols(11))
+              val plannedOwn = parseLong(cols(12))
+              val plannedTrust = parseLong(cols(13))
+              (mf.market, reportDate, declareDate, code, name, reporterTitle, reporterName,
+                transferMethod, transferee,
+                transferShares, maxIntraday,
+                currentOwn, currentTrust,
+                plannedOwn, plannedTrust)
+            }.toOption
+          }
+
+        val filtered = data
+          .distinctBy(d => (d._1, d._2, d._4, d._7, d._8, d._9))  // (market, report_date, code, reporter_name, method, transferee)
+          .filterNot(d => existing.contains((d._1, d._2, d._4, d._7, d._8, d._9)))
+        if (filtered.nonEmpty) {
+          val dbIO = table.map(t =>
+            (t.market, t.reportDate, t.declareDate, t.companyCode, t.companyName,
+             t.reporterTitle, t.reporterName, t.transferMethod, t.transferee,
+             t.transferShares, t.maxIntradayShares,
+             t.currentSharesOwn, t.currentSharesTrust,
+             t.plannedSharesOwn, t.plannedSharesTrust)) ++= filtered
+          dbRun(dbIO)
+          println(s"[insider] ${mf.market}/${mf.file.name}: inserted ${filtered.size} rows (parsed ${data.size}/${rows.size})")
+        }
+      }
+      pb.step()
+    }
+    pb.close()
+  }
+
 }
