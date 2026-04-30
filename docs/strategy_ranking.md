@@ -323,6 +323,31 @@ V4 regime gate 用 symmetric ±5% threshold。試 hysteresis (進入 bear -7%、
 
 📝 詳細記憶：`project_revenue_acceleration_insight.md`
 
+### 4.17 ❌ Daily Event-Driven Quality 池（2026-04-30 實測）
+
+**設計**：把 iter_13 的「每月初固定 rebal」改成「daily mcap re-rank within monthly pool」— 持倉跌出 daily TOP 5 立刻出，新進入 TOP 5 立刻入。
+
+**結果**：
+
+| 指標 | Monthly baseline | **Daily event-driven** | 差異 |
+|---|---:|---:|---:|
+| CAGR | +21.97% | **+19.46%** | **-2.51pp** ❌ |
+| Sortino | 1.302 | **1.021** | **-0.281** ❌ |
+| MDD | -43.90% | **-65.63%** | **-21.7pp** ❌ |
+| Sharpe | 0.881 | 0.714 | -0.167 |
+
+**為何退化**：
+1. Quality 條件是 quarterly data → 月內基本不變，daily re-screen 沒新資訊
+2. Daily mcap 排序變動 = momentum signal → daily 換股變成「追漲殺跌」
+3. Systematic crash 時被反覆洗倉 → MDD 大幅惡化 21.7pp
+4. Turnover cost（49 entries + 44 exits over 21y）累積拖累
+
+**結論**：Monthly fixed rebal 在 quality framework 內是最佳設計，不要改 daily event-driven。
+
+**驗證程式**：[`research/strat_lab/iter_13_event_full.py`](../research/strat_lab/iter_13_event_full.py) — 可直接重跑驗證。
+
+**真正的 quality event 應該是「季報新公布」**（每季 4 次 + 個股 stop-loss event）— 但季報事件已隱含在 monthly screen（每月 PIT-safe quarter 切換），daily monitoring 沒邊際效益。
+
 ---
 
 ## 五、為何 5+5 Hybrid 是當前最強
