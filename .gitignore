@@ -119,6 +119,12 @@ project/plugins/project/
 /research/__pycache__/
 /research/out/
 /research/research/
+# Backtest output (regenerable from iter_*.py / validate_*.py)
+/research/strat_lab/results/
+# Factor panel snapshot (regenerable from research/strat_lab/raw_quarterly.py)
+/research/raw_quarterly.parquet
+# Experiment intermediate outputs (ad-hoc)
+/research/experiments/out/
 *.pyc
 
 # Feature-planning artifacts not part of main project source

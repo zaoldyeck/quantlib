@@ -34,21 +34,38 @@ cd /Users/zaoldyeck/Documents/scala/quantlib && \
   uv run --project research python research/cache_tables.py
 ```
 
-- Takes 3-4 min (pulls ~10M rows)
-- Output must show all 5 tables with expected row counts:
-  - daily_quote ~5.2M rows
-  - stock_per_pbr ~4.3M rows
-  - growth_analysis_ttm ~170K rows
-  - ex_right_dividend ~17K rows
-  - etf ~220 rows
-- If any table drops >5% vs expected → stop, invoke quantlib-data-auditor
+- Takes 3-5 min (pulls ~30M rows)
+- Output must show all tables with expected row-count order of magnitude (growing over time — use lower bound not exact):
+  - daily_quote ≥ 8.9M rows
+  - stock_per_pbr ≥ 7.6M rows
+  - growth_analysis_ttm ≥ 170K rows
+  - ex_right_dividend ≥ 29K rows
+  - capital_reduction ≥ 640 rows
+  - operating_revenue ≥ 475K rows
+  - daily_trading_details ≥ 5.7M rows
+  - margin_transactions ≥ 8.2M rows
+  - etf ≥ 200 rows
+  - tdcc_shareholding ≥ 67K rows per week accumulated（只抓當週→線性增長）
+  - sbl_borrowing ≥ 6.5K rows per crawled day × 2 markets（TWSE from 2016, TPEx from 2013）
+  - foreign_holding_ratio ≥ 6.6K rows per crawled day × 2 markets（TWSE from 2005, TPEx from 2010）
+- If any table drops >5% vs last-known-good → stop, invoke quantlib-data-auditor
+
+**Caveat for TDCC / SBL / QFII first-time backfill**:
+- `Main update` will try to crawl `sbl_borrowing` from 2016-01-04 and `foreign_holding_ratio` from 2005-01-03 to today on first run → takes 30-40 hours due to 20s rate-limit per date
+- TDCC opendata endpoint has no history, only returns current week snapshot
+- Recommendation: do first-time backfill via explicit `--since` flag (overnight), then daily `Main update` becomes < 1 min incremental:
+  ```bash
+  sbt "runMain Main pull sbl  --since 2016-01-04"   # ~19-28h
+  sbt "runMain Main pull qfii --since 2005-01-03"   # ~30-38h
+  sbt "runMain Main read sbl" && sbt "runMain Main read qfii"
+  ```
 
 ## Step 3: Baseline regression check
 
 Run v4 backtest; compare against memory baseline (`project_v4_baseline.md`):
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python research/v4.py \
+  uv run --project research python research/strat_lab/v4.py \
     --start 2018-01-02 --end 2026-04-17 --capital 1000000
 ```
 

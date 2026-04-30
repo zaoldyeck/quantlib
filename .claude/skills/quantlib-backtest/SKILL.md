@@ -1,6 +1,6 @@
 ---
 name: quantlib-backtest
-description: Use this skill when the user wants to run a strategy backtest, compare variants, or parameter-sweep (e.g. "跑 regime_aware", "test threshold 3% vs 5% vs 7%", "backtest my new strategy idea", "比較 A vs B"). Always uses Python (research/v4.py or vectorbt) — never Scala. Interprets against memory baseline, flags deviations, produces actionable next-step recommendation.
+description: Use this skill when the user wants to run a strategy backtest, compare variants, or parameter-sweep (e.g. "跑 regime_aware", "test threshold 3% vs 5% vs 7%", "backtest my new strategy idea", "比較 A vs B"). Always uses Python (research/strat_lab/v4.py or vectorbt) — never Scala. Interprets against memory baseline, flags deviations, produces actionable next-step recommendation.
 ---
 
 # Backtest workflow (Python-only)
@@ -10,7 +10,7 @@ description: Use this skill when the user wants to run a strategy backtest, comp
 ## Step 1: Parse request
 
 Classify:
-- **Single run**: specific strategy + specific window → use `research/v4.py` directly or fork it
+- **Single run**: specific strategy + specific window → use `research/strat_lab/v4.py` directly or fork it
 - **Parameter sweep**: multiple config of same strategy (threshold / top-N / lookback) → use `vectorbt` grid
 - **Variant comparison**: 2-5 strategies side-by-side → run each + tabulate
 
@@ -24,11 +24,11 @@ Classify:
 
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python research/v4.py \
+  uv run --project research python research/strat_lab/v4.py \
     --start 2018-01-02 --end 2026-04-17 --capital 1000000
 ```
 
-For a variant: copy `research/v4.py` to `research/experiments/<variant-name>.py`, modify one parameter, run the copy.
+For a variant: copy `research/strat_lab/v4.py` to `research/experiments/<variant-name>.py`, modify one parameter, run the copy.
 
 ### Parameter sweep (vectorbt)
 

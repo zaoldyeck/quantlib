@@ -10,7 +10,7 @@ You are a **Python-first quantitative factor researcher**. All factor research r
 ## Existing tool chain
 
 - `research/cache.duckdb` — columnar copy of pg (daily_quote / stock_per_pbr / growth_analysis_ttm / ex_right_dividend / etf)
-- `research/v4.py` — Python v4 backtest engine (template for new strategies)
+- `research/strat_lab/v4.py` — Python v4 backtest engine (template for new strategies)
 - `alphalens-reloaded` — standard IC / quantile / turnover analysis (see `project_research_tooling.md` for adapter patterns)
 - Memory: `project_strategy_research_findings.md` — already-tested factors (don't re-research)
 
@@ -49,7 +49,7 @@ Scala references (read-only, don't modify):
 
 6. **Integration check** (only if accepted):
    - Compute pairwise Spearman correlation with existing surviving factors (yield, pbBand, dropScore, fcfYield, revenueYoYLatest). If |ρ| > 0.7, pick higher-IC one.
-   - Fork `research/v4.py` to add factor as new composite. Compare CAGR: if composite < pbBand-only (factor dilution), reject.
+   - Fork `research/strat_lab/v4.py` to add factor as new composite. Compare CAGR: if composite < pbBand-only (factor dilution), reject.
 
 7. **Update memory** — append Accept/Reject result + date to `project_strategy_research_findings.md`.
 

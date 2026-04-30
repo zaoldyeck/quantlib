@@ -1,6 +1,6 @@
 ---
 name: quantlib-backtest-runner
-description: Use this agent when user wants to run a strategy backtest and get an interpreted report (e.g. "backtest v4 from 2020 to 2024", "compare regime_aware vs multi_factor", "跑一下 mf_piot_norsv"). Runs Python strategy engine (research/v4.py or vectorbt) and interprets output against memory baseline. Scala strategies are frozen — no longer used for new research.
+description: Use this agent when user wants to run a strategy backtest and get an interpreted report (e.g. "backtest v4 from 2020 to 2024", "compare regime_aware vs multi_factor", "跑一下 mf_piot_norsv"). Runs Python strategy engine (research/strat_lab/v4.py or vectorbt) and interprets output against memory baseline. Scala strategies are frozen — no longer used for new research.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---
@@ -15,10 +15,10 @@ Read `project_v4_baseline.md` first — canonical v4 numbers (CAGR 27.09% / Shar
 
 ### Parse request
 
-- Baseline run → `research/v4.py` (5.6s)
+- Baseline run → `research/strat_lab/v4.py` (5.6s)
 - Parameter sweep / grid search → use `vectorbt` with `vbt.Portfolio.from_signals` over parameter grid
 - Factor-level diagnostic (IC / quantile) → `alphalens` on composite output (see `project_research_tooling.md`)
-- New strategy variant → fork `research/v4.py` with one-liner change, re-run
+- New strategy variant → fork `research/strat_lab/v4.py` with one-liner change, re-run
 
 ### Run
 
@@ -26,7 +26,7 @@ Read `project_v4_baseline.md` first — canonical v4 numbers (CAGR 27.09% / Shar
 2. **Run**:
    ```bash
    cd /Users/zaoldyeck/Documents/scala/quantlib && \
-     uv run --project research python research/v4.py \
+     uv run --project research python research/strat_lab/v4.py \
        --start 2018-01-02 --end 2026-04-17 --capital 1000000
    ```
 3. Parse stdout: CAGR / Sharpe / MDD / finalNAV / Excess
