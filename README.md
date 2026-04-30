@@ -1,194 +1,180 @@
-# QuantLib-Scala: 專案技術規格書
+# QuantLib — 台股量化研究系統
 
-## 1. 專案概要 (Project Overview)
+雙層架構：
 
-本專案是一個使用 Scala 編寫的金融數據資料庫，專注於下載、處理並儲存台灣股市 (TWSE, TPEx) 的各類公開數據。它會自動從台灣證券交易所、證券櫃檯買賣中心及公開資訊觀測站等來源爬取資料，並將其整理後存入 PostgreSQL 資料庫中，以利後續的量化分析與策略回測。
+1. **資料層 (Scala)** — 從 TWSE / TPEx / MOPS / TDCC 爬取股價、財報、籌碼、MOPS 結構化公告，存入 PostgreSQL
+2. **研究層 (Python)** — 在本地 DuckDB cache 上跑策略 backtest、OOS 驗證、event study
+
+**Ship-ready 主策略**：[`iter_21 80/20`](docs/strategy_ranking.md) — 21 年 in-sample CAGR +24.50% / Sortino 1.544 / MDD -40.39%；16 fold walk-forward OOS 6/6 PASS（Lo p=2.67e-7、Bootstrap CAGR LB +13.26%、DSR 1.000、PBO 0.098）。
 
 ---
 
-## 2. 專案架構 (Project Structure)
+## 文件入口
+
+| 想找 | 去哪 |
+|---|---|
+| **最終策略排行 + 執行手冊** | [`docs/strategy_ranking.md`](docs/strategy_ranking.md) |
+| **主動 ETF 同窗口比較** | [`docs/active_etf_analysis.md`](docs/active_etf_analysis.md) |
+| **各領域龍頭股 master 清單** | [`docs/leaders_by_domain.md`](docs/leaders_by_domain.md) |
+| **Python 研究目錄結構** | [`research/README.md`](research/README.md) |
+| **開發鐵則 / data / coding 規範** | [`CLAUDE.md`](CLAUDE.md) |
+
+---
+
+## 專案架構
 
 ```
 .
-├── data/                  # 存放爬取下來的原始 CSV/HTML/JSON 檔案
-│   ├── daily_quote/
-│   │   ├── tpex/
-│   │   │   └── 2024/      # 按年份存放的資料
-│   │   └── twse/
-│   ├── financial_analysis/ # 不按年份存放的資料
-│   └── ...
-├── src/
-│   ├── main/
-│   │   ├── resources/
-│   │   │   ├── application.conf # 核心設定檔
-│   │   │   └── sql/             # SQL 視圖定義
-│   │   └── scala/
-│   │       ├── db/          # Slick 資料庫 Schema 定義
-│   │       ├── reader/      # 資料讀取與解析器
-│   │       ├── setting/     # 各類數據的爬取設定
-│   │       ├── util/        # 輔助工具
-│   │       ├── Crawler.scala  # 網路爬蟲，負責執行下載
-│   │       ├── Job.scala      # 組合高階任務
-│   │       ├── Main.scala     # 程式主入口
-│   │       └── Task.scala     # 高階任務定義 (如何、何時下載)
-│   └── test/
-└── README.md              # 本說明文件
+├── src/main/scala/                Scala 資料爬蟲 + DB schema
+│   ├── Main.scala                 CLI 入口（scopt：update / pull / read / strategy）
+│   ├── Crawler.scala              HTTP 下載 + 年份目錄分流
+│   ├── Task.scala                 高階任務協調
+│   ├── Job.scala                  跨任務組合
+│   ├── reader/                    CSV / HTML / JSON 解析 → DB
+│   ├── setting/                   各資料源 URL / 目錄設定
+│   ├── db/table/                  Slick 表格定義（22 張表）
+│   └── strategy/                  歷史 Scala 策略（frozen，研究全面 Python）
+│
+├── research/                      Python 量化研究（uv 管理）
+│   ├── prices.py                  ⭐ canonical 還原 OHLCV（cash_div + cap_red）
+│   ├── db.py                      DuckDB 連線（attach PG 或讀 cache.duckdb）
+│   ├── cache_tables.py            PG → DuckDB cache 同步
+│   ├── strat_lab/                 策略 + validator + tools
+│   │   ├── v4.py                  v4 RegimeAware baseline
+│   │   ├── iter_13.py             quality pool mcap-weighted（iter_21 子策略 80%）
+│   │   ├── iter_20.py             catalyst-confirmed breakout（iter_21 子策略 20%）
+│   │   ├── iter_21.py             🎯 80/20 hybrid 合成器（ship-ready）
+│   │   ├── validate_iter21_v5.py  OOS validator（30s 完跑）
+│   │   ├── validate_all.py        multi-strategy 驗證 sweep
+│   │   ├── plot_strategies.py     NAV 對比圖
+│   │   └── _engine.py / _types.py shared backtest infra
+│   ├── audits/                    一次性資料 audit (01-05)
+│   ├── analyses/                  一次性分析（active_etf_metrics）
+│   ├── experiments/               prototype 沙箱
+│   ├── tests/                     pytest 單元測試
+│   └── README.md                  研究目錄詳細說明
+│
+├── docs/                          User-facing canonical 文件
+│   ├── strategy_ranking.md        策略排行 + iter_21 執行手冊
+│   ├── active_etf_analysis.md     vs 11 主動 ETF 比較
+│   └── leaders_by_domain.md       Tier 1-5 龍頭清單
+│
+├── .claude/                       Claude Code agents / skills / commands
+│   ├── agents/                    13 個 on-demand subagent
+│   ├── skills/                    6 個 keyword auto-trigger workflow
+│   └── commands/                  自訂 slash command
+│
+├── data/                          [gitignored] 爬蟲下載的原始 CSV / HTML / JSON
+└── src/main/resources/
+    ├── application.conf           DB 連線 + 資料源 URL 配置
+    └── sql/                       SQL views / materialized views
 ```
 
 ---
 
-## 3. 核心概念與資料流程 (Core Concepts & Data Flow)
+## Quick start
 
-本專案的運作流程可分為「設定」、「任務」、「爬取」、「讀取」四個主要階段。為了讓流程更清晰，我們將以 `pullDailyQuote`（下載每日股價）為例，貫穿整個說明。
+### 0. 前置
 
-### 階段一：設定 (Configuration)
+- Java 8+ / SBT 1.10.5 / PostgreSQL on `localhost:5432`，DB 名稱 `quantlib`
+- Python 3.11+ via [`uv`](https://github.com/astral-sh/uv)（research/ 內全部依賴 lock 在 `uv.lock`）
 
-一切的起點是設定。設定分散在 `.conf` 檔案和 `setting` 套件中。
-
-#### `application.conf` 設定詳解
-
-這是專案的基礎設定檔，定義了所有資料來源的 URL 和本地儲存路徑。以每日股價為例：
-
-```hocon
-data = {
-  dir = "./data" // 所有資料的根目錄
-  dailyQuote = {
-    twse = {
-      // TWSE 每日股價的 API 端點，注意結尾的 `date=` 是參數 placeholder
-      file = "https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=csv&type=ALLBUT0999&date="
-      // TWSE 每日股價的本地儲存基礎路徑
-      dir = ${data.dir}"/daily_quote/twse"
-    }
-    tpex = {
-      // TPEx 每日股價的 API 端點
-      file = "https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&o=csv&se=EW&d="
-      // TPEx 每日股價的本地儲存基礎路徑
-      dir = ${data.dir}"/daily_quote/tpex"
-    }
-  }
-}
+```bash
+createdb quantlib
+sbt compile          # 第一次會解 dep
 ```
 
-#### `setting` 套件運作實例
+### 1. 資料更新（每日例行）
 
-`setting` 套件讀取 `.conf` 的設定，並將其物件化，供後續流程使用。
+兩步驟必照順序：
 
-1.  **`DailyQuoteSetting.scala`**:
-    ```scala
-    // 當 `Task` 需要 2024-07-01 的資料時，會這樣實例化
-    case class DailyQuoteSetting(date: LocalDate = LocalDate.now) extends Setting {
-      // 建立一個給 TWSE 用的 Detail 物件
-      val twse: TwseDetail = new TwseDetail(LocalDate.of(2004, 2, 11), None, date) {
-        val file: String = conf.getString("data.dailyQuote.twse.file") // 讀取 .conf 的 URL
-        val dir: String = conf.getString("data.dailyQuote.twse.dir")   // 讀取 .conf 的路徑
-      }
-      // 建立一個給 TPEx 用的 Detail 物件
-      val tpex: TpexDetail = new TpexDetail(...)
-      // 將兩個市場的 Detail 物件打包成一個序列
-      val markets = Seq(twse, tpex)
-    }
-    ```
+```bash
+# Scala 端：crawl + import to PG
+sbt "runMain Main update"
 
-2.  **`TwseDetail.scala` / `TpexDetail.scala`**:
-    這些是 `Detail` 的具體實作，負責根據不同市場的規則，將日期格式化並附加到基礎 URL 後面，產生最終可供下載的完整 URL。
-    ```scala
-    // TwseDetail.scala 簡化版
-    abstract class TwseDetail(..., endDate: LocalDate) extends Detail(...) {
-      private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd")
-      def url: String = {
-        val endDateString = endDate.format(dateFormatter) // 2024-07-01 -> "20240701"
-        // 將基礎 URL 和格式化後的日期組合起來
-        this.file + endDateString // "https://...&date=" + "20240701"
-      }
-    }
-    ```
+# Python 端：PG → DuckDB cache 同步（3-5 min）
+uv run --project research python research/cache_tables.py
+```
 
-### 階段二：任務 (Task)
+跳過 step 2 → Python 跑舊資料；跳過 step 1 → cache 灌過時 PG。
 
-`Task.scala` 負責發起、協調和管理所有下載任務。它決定了**何時**以及**對哪些範圍**的資料發起請求。
+### 2. 跑主策略（iter_21 80/20）
 
-#### `pullDailyQuote` 流程追蹤
+```bash
+# Step 1: 子策略 NAV 各自先跑
+uv run --project research python research/strat_lab/iter_13.py --mode mcap
+uv run --project research python research/strat_lab/iter_20.py
 
-1.  **`job.pullAllData()`** 呼叫 **`task.pullDailyQuote()`**。
-2.  `task.pullDailyQuote()` 實例化一個 `DailyQuoteSetting` 物件，並遍歷其 `markets` 列表（`twse` 和 `tpex`）。
-3.  對於每一個 `detail` 物件（例如 `twse`），它會呼叫 `pullDailyFiles(detail, ...)`。
-4.  `pullDailyFiles` 是**避免重複下載**的核心。它的第一步是呼叫 `detail.getDatesOfExistFiles`。
-5.  `detail.getDatesOfExistFiles` 執行以下操作：
-    a.  取得基礎路徑，例如 `data/daily_quote/twse`。
-    b.  使用 `deepFiles` **遞迴地**掃描此路徑下的**所有檔案和子目錄**。這確保了它能找到 `twse/2024/` 或 `twse/2023/` 等年份資料夾內的檔案。
-    c.  對每個找到的檔案，解析其檔名 (`2024_7_1.csv`) 以取得日期。
-    d.  **驗證檔案有效性**：只有當檔案**不是一個 HTML 錯誤頁面**時，才被視為有效。空檔案是有效的，代表該日休市。
-    e.  最後回傳一個包含所有有效日期的 `Set[LocalDate]`。
-6.  `pullDailyFiles` 接著產生一個從 `firstDate` 到今天的所有日期序列。
-7.  它使用 `filterNot` 從日期序列中**移除**上一步驟中回傳的「已存在日期」。
-8.  對於剩下的「待下載日期」，`pullDailyFiles` 會一一呼叫 `crawler.getFile(...)` 來執行下載。
+# Step 2: 80/20 合成 + metrics
+uv run --project research python research/strat_lab/iter_21.py \
+    --start 2005-01-03 --end 2026-04-25 --capital 1000000 \
+    --w-iter13 0.8 --w-iter20 0.2
+```
 
-### 階段三：爬取 (Crawling)
+### 3. OOS 全套驗證（每次重大改動必跑）
 
-`Crawler.scala` 是實際執行網路下載的底層元件。它只關心如何根據傳入的 `Detail` 物件把檔案抓回來。
+```bash
+uv run --project research python research/strat_lab/validate_iter21_v5.py
+```
 
-1.  `crawler.getFile(detail)` 被呼叫。
-2.  **組合儲存路徑**：`Crawler` 會判斷資料類型。對於每日資料，它會將**年份**附加到基礎路徑後，形成最終的儲存路徑，例如 `data/daily_quote/twse/2024`。
-3.  **執行下載**：使用 `detail.url`（已由 `Setting` 組合完畢）發起 HTTP 請求。
-4.  **儲存檔案**：將下載的檔案流寫入上一步組合好的年份資料夾中，檔名由 `detail.fileName` 定義 (e.g., `2024_7_1.csv`)。
+期望輸出：6/6 PASS（CAGR retention ≥ 50% / Sharpe retention ≥ 70% / Lo p < 0.05 / Boot LB > 10% / DSR > 0.95 / PBO < 0.5）。
 
-#### 特殊處理
+### 4. 單元測試
 
-對於 `capital_reduction` 和 `ex_right_dividend` 這兩類一次下載一個大檔案的資料，`Crawler` 在下載完成後，會額外執行一個拆分步驟：讀取該 CSV 檔的內容，並根據每一筆資料的日期，將其分類後，分別寫入到各個對應的年份子目錄中。
-
-### 階段四：讀取 (Reading)
-
-當原始檔案被下載到 `data` 目錄後，`reader` 套件負責解析它們，並將結構化後的資料存入資料庫。
-
-1.  **`job.readAllData()`** 呼叫 **`tradingReader.readDailyQuote()`**。
-2.  `readDailyQuote` 同樣會呼叫 `DailyQuoteSetting().getMarketFilesFromDirectory`，此方法一樣使用 `deepFiles` **遞迴**掃描所有年份的子目錄來獲取檔案列表。
-3.  它會遍歷所有找到的 `.csv` 檔案。
-4.  **解析 CSV**：由於來自不同來源 (TWSE/TPEx) 的 CSV 格式可能會有細微差異（例如欄位順序、表頭文字），`Reader` 中包含了針對這些差異的處理邏輯。
-5.  **映射至 Schema**：解析出的資料會被映射到 `db.table.DailyQuoteRow` 這個 case class。
-6.  **寫入資料庫**：最後，使用 Slick 將這些 `DailyQuoteRow` 物件批次插入到資料庫的 `daily_quote` 表格中。
+```bash
+uv run --project research python -m pytest research/tests/ -v
+```
 
 ---
 
-## 4. 資料庫 Schema (`db/table`)
+## 資料庫 Schema（22 張 Slick-managed table）
 
-`db.table` 套件中使用 Slick 定義了所有資料庫表格的結構。每個檔案大致對應一個資料庫表格。
+| 類別 | Tables | 起始日 |
+|---|---|---|
+| **價量** | `daily_quote`、`ex_right_dividend`、`capital_reduction`、`index` | 2003+ |
+| **三大法人** | `daily_trading_details` | 2007+ |
+| **融資融券** | `margin_transactions` | 2001+ |
+| **估值** | `stock_per_pbr_dividend_yield` | 2005+ |
+| **財報（原始）** | `balance_sheet`、`income_statement_progressive`、`cash_flows_progressive` | 2010+ |
+| **財報（簡明）** | `concise_balance_sheet`、`concise_income_statement_progressive` | 2010+ |
+| **基本面** | `financial_analysis`、`operating_revenue` | 2001+ |
+| **籌碼面（Sprint A）** | `tdcc_shareholding`（週）、`sbl_borrowing`（日，2016+/2013+）、`foreign_holding_ratio`（日，2005+/2010+） | — |
+| **MOPS 結構化（Sprint B）** | `treasury_stock_buyback`（庫藏股）、`insider_holding`（內部人轉讓事前申報，2007+） | — |
+| **靜態** | `etf` | — |
 
-| 表格 (Table)                      | 描述                                     | 主要資料來源 (範例)        |
-| --------------------------------- | ---------------------------------------- | ------------------------------ |
-| `BalanceSheet`                    | 資產負債表 (詳細)                        | MOPs                           |
-| `ConciseBalanceSheet`             | 資產負債表 (簡明)                        | MOPs                           |
-| `CapitalReduction`                | 減資                                     | TWSE, TPEx                     |
-| `DailyQuote`                      | 每日股價                                 | TWSE, TPEx                     |
-| `DailyTradingDetails`             | 三大法人買賣超                           | TWSE, TPEx                     |
-| `ETF`                             | ETF 列表                                 | TWSE                           |
-| `ExRightDividend`                 | 除權除息                                 | TWSE, TPEx                     |
-| `FinancialAnalysis`               | 財務分析                                 | MOPs                           |
-| `IncomeStatement`                 | 綜合損益表                               | MOPs                           |
-| `Index`                           | 每日指數                                 | TWSE, TPEx                     |
-| `MarginTransactions`              | 融資融券                                 | TWSE, TPEx                     |
-| `OperatingRevenue`                | 營業收入                                 | MOPs                           |
-| `StockPER_PBR_DividendYield`      | 本益比、股價淨值比、殖利率               | TWSE, TPEx                     |
+兩市場全覆蓋（TWSE + TPEx，用 `market` 欄區分）。
 
 ---
 
-## 5. 資料儲存結構
+## CLI 命令參考
 
-根據數據的特性，主要有兩種儲存結構：
+`Main.scala` 是 scopt CLI，5 個 subcommand：
 
-1.  **按年份存放**: 大部分的每日數據、區間數據會按年份存放在對應的子目錄下，以避免單一資料夾內檔案過多。
-    -   **範例**: `data/daily_quote/twse/2024/`
-    -   **資料類型**: `daily_quote`, `daily_trading_details`, `index`, `margin_transactions`, `stock_per_pbr_dividend_yield`, `operating_revenue`, `balance_sheet`, `income_statement`, `capital_reduction`, `ex_right_dividend`
+```bash
+sbt "runMain Main update"                               # crawl + read 全部
+sbt "runMain Main pull <target>"                        # 單一資料源 crawl
+sbt "runMain Main read <target>"                        # 單一資料源 import
+sbt "runMain Main research --start 2018-01-02"          # Scala factor IC scan（已凍結）
+sbt "runMain Main strategy regime_aware --start 2018-01-02 --end 2026-04-17"
+```
 
-2.  **不按年份存放**: 對於數據量較小，或本身沒有按日更新的資料，則直接存放在其類別的根目錄下。
-    -   **範例**: `data/financial_analysis/twse/`
-    -   **資料類型**: `financial_analysis`, `etf`, `financial_statements`
+`<target>` ∈ `daily_quote | daily_trading_details | index | margin | stock_per_pbr | capital_reduction | ex_right_dividend | operating_revenue | balance_sheet | income_statement | financial_analysis | financial_statements | etf | tdcc | sbl | qfii | buyback | insider | all`
 
 ---
 
-## 6. 如何執行
+## 設計原則
 
-主要的執行入口點是 `Main.scala` 或 `Job.scala`。
+完整鐵則見 [`CLAUDE.md`](CLAUDE.md)。摘要：
 
--   `job.pullAllData()`: 執行所有資料的下載任務。
--   `job.readAllData()`: 執行所有已下載資料的讀取與資料庫寫入任務。
--   `job.updateData()`: 依序執行 `pullAllData` 和 `readAllData`。 
+- **Python is canonical research engine** — Scala `strategy/` package frozen as historical reference
+- **NAV 模擬必經 `prices.py`** — 直接讀 raw `daily_quote.closing_price` 跑 daily NAV 系統性低估 ~3-6pp CAGR over 21y
+- **PIT-fair 選股** — 不可 hardcode ticker；mcap ranker 也算（21y TSMC 從沒掉第一）
+- **Long-only / 不開槓桿 / 不做空** — 用戶風險偏好
+- **新策略 ship 前必跑 `quantlib-strategy-validator` agent**（walk-forward + MC + DSR + PBO）
+- **必勝 2330 hold**（CAGR 24.23% / Sortino 1.333 / MDD -45.86%）才算真 alpha
+
+---
+
+## License
+
+Private, 個人研究用途。
