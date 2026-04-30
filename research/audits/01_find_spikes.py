@@ -5,7 +5,7 @@ window_days trading days. Split / ex-right events are excluded (they cause
 fake spikes).
 
 Usage:
-    uv run research/01_find_spikes.py --min-gain 0.80 --window 60
+    uv run research/audits/01_find_spikes.py --min-gain 0.80 --window 60
 
 Writes `research/out/spikes.parquet` for downstream scripts.
 """
@@ -13,8 +13,11 @@ from __future__ import annotations
 
 import argparse
 import os
+import sys
+
 import polars as pl
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from db import connect
 
 
@@ -24,34 +27,39 @@ def find_spikes(
     window_days: int,
     start: str,
     end: str,
-    market: str = "twse",
+    markets: tuple[str, ...] = ("twse", "tpex"),
 ) -> pl.DataFrame:
-    """Return one row per spike event: (company_code, date, closing_price,
+    """Return one row per spike event: (market, company_code, date, closing_price,
     px_future, gain). `date` is the entry (T=0) date; `px_future` is close N
     trading days later; gain = pct return (split-adjusted via event exclusion).
+
+    Default universe includes both TWSE + TPEx because breakout / spike stocks
+    are heavily concentrated in TPEx small-caps.
     """
+    markets_sql = ",".join(f"'{m}'" for m in markets)
     q = f"""
     WITH px AS (
-      SELECT company_code, date, closing_price,
+      SELECT market, company_code, date, closing_price,
              LEAD(closing_price, {window_days}) OVER (
-               PARTITION BY company_code ORDER BY date
+               PARTITION BY market, company_code ORDER BY date
              ) AS px_future,
              LEAD(date, {window_days}) OVER (
-               PARTITION BY company_code ORDER BY date
+               PARTITION BY market, company_code ORDER BY date
              ) AS date_future
-      FROM pg.public.daily_quote
-      WHERE market = '{market}'
+      FROM daily_quote
+      WHERE market IN ({markets_sql})
         AND date BETWEEN '{start}' AND '{end}'
-        AND company_code ~ '^[1-9][0-9]{{3}}$'
+        AND regexp_matches(company_code, '^[1-9][0-9]{{3}}$')
         AND closing_price > 0
     ),
     -- Exclude windows containing split / ex-right events (these inflate gain).
     events AS (
-      SELECT company_code, date FROM pg.public.ex_right_dividend
+      SELECT market, company_code, date FROM ex_right_dividend
       UNION ALL
-      SELECT company_code, date FROM pg.public.capital_reduction
+      SELECT market, company_code, date FROM capital_reduction
     )
     SELECT
+      px.market,
       px.company_code,
       px.date,
       px.closing_price,
@@ -63,7 +71,8 @@ def find_spikes(
       AND (px.px_future / px.closing_price - 1) >= {min_gain}
       AND NOT EXISTS (
         SELECT 1 FROM events e
-        WHERE e.company_code = px.company_code
+        WHERE e.market = px.market
+          AND e.company_code = px.company_code
           AND e.date > px.date AND e.date <= px.date_future
       )
     ORDER BY gain DESC

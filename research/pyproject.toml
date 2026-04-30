@@ -15,8 +15,15 @@ dependencies = [
     "vectorbt>=1.0.0",
     "stockstats>=0.6.8",
     "pyqlib>=0.9.7",
+    "xgboost>=3.2.0",
+    "catboost>=1.2.10",
     "shioaji>=1.3.3",
 ]
 
 [tool.uv]
 managed = true
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]

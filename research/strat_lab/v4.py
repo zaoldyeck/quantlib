@@ -12,12 +12,17 @@ from __future__ import annotations
 
 import argparse
 import math
+import os
+import sys
 import time
 from datetime import date
+
 import numpy as np
 import polars as pl
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from db import connect
+from prices import fetch_adjusted_panel, fetch_daily_returns
 
 TOPN = 10
 REGIME_THRESHOLD = 0.05
@@ -42,10 +47,16 @@ def compute_picks_sql(con, rebal_ds) -> pl.DataFrame:
     q = f"""
     WITH
     uni AS (
+      -- Universe = TWSE 4-digit equity codes only (TPEx ignored).
+      -- Empirical finding: adding TPEx to pbBand picker drops CAGR ~-8pp +
+      -- MDD to -53% (see project_strategy_research_findings.md).
+      -- pbBand value factor fails on TPEx small-caps (cheap = truly bad).
+      -- Keep v4 as TWSE pure-play; use chase / new factors for TPEx universe.
       SELECT r.rebal_d, dq.company_code
       FROM rebal r
       JOIN daily_quote dq
-        ON regexp_matches(dq.company_code, '^[1-9][0-9]{{3}}$')
+        ON dq.market = 'twse'
+       AND regexp_matches(dq.company_code, '^[1-9][0-9]{{3}}$')
        AND dq.date <= r.rebal_d AND dq.date > r.rebal_d - INTERVAL '30 days'
       GROUP BY r.rebal_d, dq.company_code
       HAVING percentile_disc(0.5) WITHIN GROUP (ORDER BY dq.trade_value) >= 50000000
@@ -68,21 +79,26 @@ def compute_picks_sql(con, rebal_ds) -> pl.DataFrame:
       GROUP BY r.rebal_d
     ),
     drop_safe AS (
+      -- First-principles distressed filter (replaces growth_analysis_ttm.drop_score < 10).
+      -- raw_quarterly.f_score_raw is Piotroski F9 derived from raw IS+BS+CF (no PG VIEW).
+      -- f_score_raw >= 4 keeps companies with at least 4 of 9 quality criteria positive,
+      -- a stricter analogue to the original drop_score gate.
       SELECT DISTINCT ON (u.rebal_d, u.company_code) u.rebal_d, u.company_code
       FROM uni_clean u
       JOIN qfor qf ON qf.rebal_d = u.rebal_d
-      JOIN growth_analysis_ttm gat
-        ON gat.company_code = u.company_code
-       AND (gat.year * 100 + gat.quarter) <= qf.yq
-      WHERE COALESCE(gat.drop_score, 0) < 10
-      ORDER BY u.rebal_d, u.company_code, gat.year DESC, gat.quarter DESC
+      JOIN raw_quarterly rq
+        ON rq.company_code = u.company_code
+       AND (rq.year * 100 + rq.quarter) <= qf.yq
+      WHERE COALESCE(rq.f_score_raw, 0) >= 4
+      ORDER BY u.rebal_d, u.company_code, rq.year DESC, rq.quarter DESC
     ),
     pb_med AS (
       SELECT ds.rebal_d, ds.company_code,
              percentile_cont(0.5) WITHIN GROUP (ORDER BY spd.price_book_ratio) AS pbm
       FROM drop_safe ds
       JOIN stock_per_pbr spd
-        ON spd.company_code = ds.company_code
+        ON spd.market = 'twse'
+       AND spd.company_code = ds.company_code
        AND spd.date <= ds.rebal_d AND spd.date >= ds.rebal_d - INTERVAL '3 years 6 months'
        AND spd.price_book_ratio > 0
       GROUP BY ds.rebal_d, ds.company_code
@@ -92,7 +108,8 @@ def compute_picks_sql(con, rebal_ds) -> pl.DataFrame:
              spd.price_book_ratio AS pb_now
       FROM drop_safe ds
       JOIN stock_per_pbr spd
-        ON spd.company_code = ds.company_code
+        ON spd.market = 'twse'
+       AND spd.company_code = ds.company_code
        AND spd.date <= ds.rebal_d AND spd.date >= ds.rebal_d - INTERVAL '10 days'
        AND spd.price_book_ratio > 0
       ORDER BY ds.rebal_d, ds.company_code, spd.date DESC
@@ -111,25 +128,23 @@ def compute_picks_sql(con, rebal_ds) -> pl.DataFrame:
 
 
 def regime_signals(con, rebal_ds):
-    """0050 63-trading-day split-adjusted return per rebal date (Python, lightweight)."""
+    """0050 63-trading-day total-return (DRIP) per rebal date.
+
+    Uses `prices.fetch_adjusted_panel` so cash-dividend + capital-reduction are
+    properly back-adjusted — semantically a "63-day total-return" signal.
+    Replaces the old hand-rolled gap-based split detector.
+    """
     if not rebal_ds:
         return {}
     min_d = min(rebal_ds)
-    px = con.sql(f"""
-        SELECT date, closing_price FROM daily_quote
-        WHERE company_code='0050' AND date >= DATE '{min_d}' - INTERVAL '150 days'
-          AND closing_price > 0 ORDER BY date
-    """).pl()
-    dates = px["date"].to_list()
-    prices = px["closing_price"].to_list()
-
-    splits = []
-    for i in range(1, len(dates)):
-        gap = (dates[i] - dates[i - 1]).days
-        if prices[i] > 0 and 3 <= gap <= 14:
-            ratio = prices[i - 1] / prices[i]
-            if 2.5 <= ratio <= 15 or 0.067 <= ratio <= 0.4:
-                splits.append((dates[i], ratio))
+    panel = (fetch_adjusted_panel(
+                con, min_d.isoformat(), max(rebal_ds).isoformat(),
+                codes=["0050"], market="twse",
+                include_extra_history_days=150,
+            )
+            .sort("date"))
+    dates = panel["date"].to_list()
+    prices = panel["close"].to_list()  # adjusted
 
     result = {}
     for rebal_d in rebal_ds:
@@ -141,47 +156,8 @@ def regime_signals(con, rebal_ds):
         if idx is None or idx < 63:
             result[rebal_d] = None
             continue
-        s_d, e_d = dates[idx - 63], dates[idx]
-        s_p, e_p = prices[idx - 63], prices[idx]
-        adj = 1.0
-        for sd, sf in splits:
-            if sd > s_d and sd <= e_d:
-                adj *= sf
-        result[rebal_d] = e_p / (s_p / adj) - 1.0
+        result[rebal_d] = prices[idx] / prices[idx - 63] - 1.0
     return result
-
-
-def compute_daily_returns_sql(con, start, end, held_codes):
-    """Split-safe DRIP-adjusted daily return in one SQL."""
-    codes_sql = ",".join(f"'{c}'" for c in held_codes)
-    return con.sql(f"""
-    WITH px AS (
-      SELECT company_code, date, closing_price,
-             LAG(closing_price) OVER (PARTITION BY company_code ORDER BY date) AS prev_close,
-             LAG(date) OVER (PARTITION BY company_code ORDER BY date) AS prev_date
-      FROM daily_quote
-      WHERE company_code IN ({codes_sql})
-        AND date BETWEEN DATE '{start}' - INTERVAL '10 days' AND DATE '{end}'
-        AND closing_price > 0
-    )
-    SELECT px.company_code, px.date,
-           CASE
-             WHEN px.prev_close IS NOT NULL
-                  AND (px.prev_close / px.closing_price BETWEEN 2.5 AND 15
-                       OR px.prev_close / px.closing_price BETWEEN 0.067 AND 0.4)
-                  AND (px.date - px.prev_date) BETWEEN 3 AND 14
-                  AND NOT EXISTS (
-                    SELECT 1 FROM ex_right_dividend e
-                    WHERE e.company_code = px.company_code AND e.date = px.date)
-             THEN 0.0
-             WHEN px.prev_close IS NOT NULL AND px.prev_close > 0
-             THEN (px.closing_price + COALESCE(d.cash_dividend, 0)) / px.prev_close - 1.0
-             ELSE NULL
-           END AS ret
-    FROM px
-    LEFT JOIN ex_right_dividend d ON d.company_code = px.company_code AND d.date = px.date
-    WHERE px.date BETWEEN DATE '{start}' AND DATE '{end}'
-    """).pl()
 
 
 def backtest(start: str, end: str, min_day: int, capital: float, use_regime: bool = True):
@@ -189,11 +165,13 @@ def backtest(start: str, end: str, min_day: int, capital: float, use_regime: boo
     t0 = time.time()
 
     days = [r[0] for r in con.sql(f"""
-        SELECT date FROM daily_quote WHERE company_code='0050'
+        SELECT date FROM daily_quote
+        WHERE market='twse' AND company_code='0050'
           AND date BETWEEN DATE '{start}' AND DATE '{end}' ORDER BY date
     """).fetchall()]
     rebal = [r[0] for r in con.sql(f"""
-        SELECT MIN(date) FROM daily_quote WHERE company_code='0050'
+        SELECT MIN(date) FROM daily_quote
+        WHERE market='twse' AND company_code='0050'
           AND date BETWEEN DATE '{start}' AND DATE '{end}'
           AND EXTRACT(DAY FROM date) >= {min_day}
         GROUP BY date_trunc('month', date) ORDER BY MIN(date)
@@ -224,7 +202,7 @@ def backtest(start: str, end: str, min_day: int, capital: float, use_regime: boo
 
     # Daily returns for all held codes
     held_codes = picks["company_code"].unique().to_list()
-    rets = compute_daily_returns_sql(con, start, end, held_codes)
+    rets = fetch_daily_returns(con, start, end, codes=held_codes, market="twse")
     print(f"[rets]   {len(rets):,} daily returns ({time.time()-t0:.2f}s)")
 
     # Asof join: each day → last rebal STRICTLY BEFORE that day.
@@ -294,6 +272,9 @@ def backtest(start: str, end: str, min_day: int, capital: float, use_regime: boo
         "CAGR": cagr, "Sharpe": sharpe, "MDD": mdd,
         "final": float(navs[-1]),
         "total_return": float(navs[-1] / capital - 1),
+        # Daily time series (for downstream ensemble / tear-sheet)
+        "dates": [d for d in port["date"].to_list()],
+        "net_returns": [float(x) for x in rets_arr],
     }
 
 
@@ -315,7 +296,7 @@ def main():
     # 0050 benchmark
     print("\n=== hold_0050 ===")
     con = connect()
-    rets0050 = compute_daily_returns_sql(con, args.start, args.end, ["0050"]).sort("date")
+    rets0050 = fetch_daily_returns(con, args.start, args.end, codes=["0050"], market="twse").sort("date")
     rets_arr = rets0050["ret"].fill_null(0.0).to_numpy()
     navs = args.capital * np.cumprod(1 + rets_arr)
     days = rets0050["date"].to_list()
