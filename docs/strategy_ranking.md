@@ -323,30 +323,77 @@ V4 regime gate 用 symmetric ±5% threshold。試 hysteresis (進入 bear -7%、
 
 📝 詳細記憶：`project_revenue_acceleration_insight.md`
 
-### 4.17 ❌ Daily Event-Driven Quality 池（2026-04-30 實測）
+### 4.17 ❌ Quality 池所有 intra-month exit 機制 ablation（2026-04-30 完整實測）
 
-**設計**：把 iter_13 的「每月初固定 rebal」改成「daily mcap re-rank within monthly pool」— 持倉跌出 daily TOP 5 立刻出，新進入 TOP 5 立刻入。
+User push back：「event-driven 退場 / ATR 退場 / 移動止損都不會比 monthly re-rank 更好嗎？」實證 8 個 variant：
 
-**結果**：
+#### A. Daily event-driven entry+exit（全 event）
 
-| 指標 | Monthly baseline | **Daily event-driven** | 差異 |
+把整個 iter_13 改成「daily mcap re-rank within monthly pool」— 持倉跌出 daily TOP 5 立刻出，新進入 TOP 5 立刻入：
+
+| 指標 | Monthly baseline | Daily event-driven | 差異 |
 |---|---:|---:|---:|
-| CAGR | +21.97% | **+19.46%** | **-2.51pp** ❌ |
-| Sortino | 1.302 | **1.021** | **-0.281** ❌ |
-| MDD | -43.90% | **-65.63%** | **-21.7pp** ❌ |
-| Sharpe | 0.881 | 0.714 | -0.167 |
+| CAGR | +21.97% | +19.46% | **-2.51pp** ❌ |
+| Sortino | 1.302 | 1.021 | **-0.281** ❌ |
+| MDD | -43.90% | -65.63% | **-21.7pp 惡化** ❌ |
 
-**為何退化**：
-1. Quality 條件是 quarterly data → 月內基本不變，daily re-screen 沒新資訊
-2. Daily mcap 排序變動 = momentum signal → daily 換股變成「追漲殺跌」
-3. Systematic crash 時被反覆洗倉 → MDD 大幅惡化 21.7pp
-4. Turnover cost（49 entries + 44 exits over 21y）累積拖累
+**為何退化**：Quality 條件是 quarterly data → 月內基本不變；daily mcap rank 變動 = momentum signal → 追漲殺跌；systematic crash 反覆洗倉。
 
-**結論**：Monthly fixed rebal 在 quality framework 內是最佳設計，不要改 daily event-driven。
+**程式**：[`research/strat_lab/iter_13_event_full.py`](../research/strat_lab/iter_13_event_full.py)
 
-**驗證程式**：[`research/strat_lab/iter_13_event_full.py`](../research/strat_lab/iter_13_event_full.py) — 可直接重跑驗證。
+#### B. Monthly entry + 7 種 intra-month exit layer（exit-only ablation）
 
-**真正的 quality event 應該是「季報新公布」**（每季 4 次 + 個股 stop-loss event）— 但季報事件已隱含在 monthly screen（每月 PIT-safe quarter 切換），daily monitoring 沒邊際效益。
+固定 monthly entry（baseline），加各種 intra-month exit trigger：
+
+| Variant | CAGR | Sortino | MDD | Triggers (21y) | 結論 |
+|---|---:|---:|---:|---:|---|
+| **baseline (monthly re-rank only)** ★ | **+22.10%** | **1.310** | **-43.7%** | — | 最佳 |
+| fixed_15 (-15% 固定移動止損) | +21.29% | 1.267 | -43.7% | 120 | -0.043 退化 |
+| **atr (ATR trailing 3× clip [10%,25%])** | +20.95% | 1.246 | -48.6% | 212 | -0.064 退化，MDD 惡化 |
+| qual_fade (ROA TTM < 8% 立刻出) | +22.14% | 1.314 | -43.7% | 47 | +0.004 持平（噪音內）|
+| **rev_neg (月營收 YoY < 0% 立刻出)** | +18.55% | 1.059 | -54.1% | 378 | **-0.251 大幅退化** |
+| atr + qual_fade | +20.92% | 1.245 | -48.6% | 246 | -0.065 退化 |
+| atr + rev_neg | +17.65% | 1.016 | -54.1% | 509 | -0.294 大幅退化 |
+| atr + qual_fade + rev_neg | +18.64% | 1.079 | -51.0% | 542 | -0.231 大幅退化 |
+
+**結論：所有 intra-month exit layer 都退化或持平**。Monthly re-rank 是 Quality 池最佳設計。
+
+#### 為何 ATR trailing 對 Catalyst work 但 Quality fail？
+
+| 池 | 持股特性 | 日 vol (ATR/px) | trailing % | 結果 |
+|---|---|---:|---|---|
+| Quality | 大型股 (TSMC、聯發科等) | 1-2% | clip 到 10% 對大型股太緊 | ❌ 被日常震盪洗倉 |
+| Catalyst (iter_24) | 突破股 | 3-5% | ATR×3 = 9-15% 適中 | ✅ work |
+
+#### 為何「月營收 YoY 翻負」對 Quality 大幅惡化？
+
+半導體電子業月營收**有 cycle 性波動**（季節性 / 庫存週期）：
+- 2330 在 cycle 谷底偶而 yoy -10% 但長期持有反彈
+- 21 年觸發 378 次 → 被 false signal 反覆洗倉
+- 月營收 YoY 翻負對 Catalyst 是 entry 確認 / exit 訊號（catalyst 失效）；對 Quality 是 cycle noise
+
+#### 為何「ROA TTM 跌出 12%」幾乎沒效果？
+
+- Monthly quality screen 已捕捉這個訊號（PIT-safe quarter 切換時 re-screen）
+- 個股 ROA 跌出 12% 通常意味下個月初就會被剔除 → 加 intra-month event 沒邊際效益
+- 47 次觸發但對 NAV 影響極小
+
+**程式**：[`research/strat_lab/iter_13_exit_ablation.py`](../research/strat_lab/iter_13_exit_ablation.py) — 可直接重跑驗證
+
+**詳細結果**：`research/strat_lab/results/iter_13_exit_ablation_v8.csv`
+
+### 4.17 (續) — 為何 Quality 池本質上不需 intra-month exit
+
+理論解釋：
+1. **Quality 屬於 mean-reverting + low-frequency alpha** — 持倉股是大型穩定公司，alpha 主要來自市值集中 + quarterly fundamentals 篩選
+2. **Intra-month exit 都是 high-frequency signal** — 利用日級 noise，但 noise ≠ alpha
+3. **Monthly re-rank = 12-times-a-year filter** 已經是「足夠頻繁但又避開 noise」的最佳折衷
+
+對應 Catalyst 池（iter_24）：
+- Catalyst 屬於 momentum + breakout alpha — 進場時點關鍵，需要日級 entry/exit
+- Trailing stop 在 catalyst 後保護 trend reversal → ATR-based work
+
+**結構性結論**：不同 alpha 性質（mean-reverting vs momentum）需要不同 exit 設計。Quality monthly + Catalyst event-driven 是這個框架的最佳組合。
 
 ---
 
