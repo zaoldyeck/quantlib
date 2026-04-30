@@ -68,7 +68,7 @@ research/
 
 ### 跑主策略（執行手冊見 [`docs/strategy_ranking.md`](../docs/strategy_ranking.md)）
 ```bash
-# strict 5+5 NAV 85/15 with C+B ship-ready
+# Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) ship-ready
 uv run --project research python research/strat_lab/iter_13.py \
     --freq monthly --ranker mcap --universe twse_tpex --mode mcap
 uv run --project research python research/strat_lab/iter_24.py \
@@ -137,4 +137,4 @@ uv run --project research python research/cache_tables.py
 
 ---
 
-_最後更新：2026-04-30 — v6 全面重驗 + strict 5+5 NAV 85/15 with C+B ship verdict_
+_最後更新：2026-04-30 — v6 全面重驗 + Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) ship verdict_

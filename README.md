@@ -5,7 +5,7 @@
 1. **資料層 (Scala)** — 從 TWSE / TPEx / MOPS / TDCC 爬取股價、財報、籌碼、MOPS 結構化公告，存入 PostgreSQL
 2. **研究層 (Python)** — 在本地 DuckDB cache 上跑策略 backtest、OOS 驗證、event study
 
-**Ship-ready 主策略**：[`strict 5+5 NAV 85/15 with C+B`](docs/strategy_ranking.md)
+**Ship-ready 主策略**：[`Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)`](docs/strategy_ranking.md)
 - 子策略 A: iter_13 monthly mcap top 5 quality pool (TWSE+TPEx) — 5 檔
 - 子策略 B: iter_24 max=5 catalyst breakout + ATR trailing (TWSE+TPEx) — 5 檔
 - 持倉硬上限 = 10 檔（5+5），每年初 rebal 回 85/15
@@ -108,7 +108,7 @@ uv run --project research python research/cache_tables.py
 
 跳過 step 2 → Python 跑舊資料；跳過 step 1 → cache 灌過時 PG。
 
-### 2. 跑主策略（strict 5+5 NAV 85/15 with C+B）
+### 2. 跑主策略（Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)）
 
 ```bash
 # Step 1: 子策略 NAV 各自先跑
@@ -127,10 +127,10 @@ uv run --project research python research/strat_lab/sweep_hybrid.py
 uv run --project research python research/strat_lab/validate_hybrid.py --top 5
 ```
 
-期望輸出 5+5_w85_atr_mcap 為 **5/6 PASS borderline real alpha**：
+期望輸出 5+5_w85_atr_mcap 為 **6/6 PASS real alpha**：
 - CAGR retention ≥ 50% ✓ / Sharpe retention ≥ 70% ✓
 - Lo (2002) p < 0.05 ✓ / Bootstrap CAGR LB > 10% ✓
-- DSR > 0.95 ✓ / PBO < 0.5 ⚠️（single-config CSCV 過嚴 caveat）
+- DSR > 0.95 ✓ / PBO multi-config CSCV < 0.5 ✓ (0.408)
 
 ### 4. 單元測試
 

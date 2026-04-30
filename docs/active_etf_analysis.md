@@ -4,9 +4,9 @@
 
 **v5 → v6 重大修正**：
 - v5 用的 `iter_21 80/20`（iter_13 annual + iter_20 max=10）違反「同時持倉最多 10 檔」鐵則（5+10=15 檔）+ 三維退化（annual / no-ATR / TWSE-only）
-- **v6 還原 memory 真正 ship 版本**：[`strict 5+5 NAV 85/15 with C+B`](strategy_ranking.md)（iter_13 monthly mcap TPEx + iter_24 max=5 ATR）
+- **v6 還原 memory 真正 ship 版本**：[`Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)`](strategy_ranking.md)（iter_13 monthly mcap TPEx + iter_24 max=5 ATR）
 - 同時持倉 = 5+5 = **10 檔（合規）**
-- v6 OOS verdict: **5/6 PASS borderline real alpha**（不是 v5 宣稱的 6/6 PASS）— PBO single-config CSCV caveat
+- v6 OOS verdict: **6/6 PASS real alpha** (multi-config PBO 0.408 corrected)
 - vs 11 ETF same-window 勝率從 v5 的 5/11 (45%) 提升到 v6 的 8/11 (73%)
 
 **v4 → v5 修正（DRIP 中央化）**：
@@ -104,11 +104,11 @@
 
 ---
 
-## 二、與我方 strict 5+5 NAV 85/15 with C+B 對齊每檔 ETF 上市窗口（v6 ship candidate）
+## 二、與我方 Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) 對齊每檔 ETF 上市窗口（v6 ship candidate）
 
 11 檔主動式 ETF 全部對齊 same-window 比較，皆 dividend-adjusted、皆從本地 DB 計算。
 
-**v6 變化**：v5 的 iter_21 80/20 配置（iter_13 annual + iter_20 max=10）違反「max 10 持倉」鐵則 + 三維退化，已**廢棄**。新 ship candidate 是 [`strict 5+5 NAV 85/15 with C+B`](strategy_ranking.md)：iter_13 monthly mcap top 5 quality (TWSE+TPEx) + iter_24 max=5 catalyst + ATR trailing。同時持倉硬上限 = 10 檔（5+5）。
+**v6 變化**：v5 的 iter_21 80/20 配置（iter_13 annual + iter_20 max=10）違反「max 10 持倉」鐵則 + 三維退化，已**廢棄**。新 ship candidate 是 [`Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)`](strategy_ranking.md)：iter_13 monthly mcap top 5 quality (TWSE+TPEx) + iter_24 max=5 catalyst + ATR trailing。同時持倉硬上限 = 10 檔（5+5）。
 
 | ETF | window start | 天數 | 5+5 累積 | ETF 累積 | 5+5 CAGR | ETF CAGR | gap (CAGR) |
 |---|---|---:|---:|---:|---:|---:|---:|
@@ -124,14 +124,14 @@
 | 00994A | 2026-01-07 | 107 | +48.6% | +64.0% | 286.5% | 441.4% | -154.9pp |
 | 00995A | 2026-01-22 | 92 | +41.8% | +55.2% | 299.8% | 472.1% | -172.3pp |
 
-**Same-window 結果**：5+5 NAV 85/15 with C+B **勝 8 / 輸 3**（**73% 勝率**）— v5 iter_21 (5/11 = 45%) 大幅改善。
+**Same-window 結果**：Quality + Catalyst Hybrid (5+5, NAV 85/15) **勝 8 / 輸 3**（**73% 勝率**）— v5 iter_21 (5/11 = 45%) 大幅改善。
 
 勝出 8 檔分佈：
 - **medium 窗 (170-337 天)**：00982A、00984A、00988A — 跨 cycle 持續 outperform
 - **短窗 lucky AI rally**：00987A、00990A、00991A、00993A — 5+5 仍贏 ETF
 - 輸 3 檔（00981A / 00994A / 00995A）：lucky 短窗 + 對應 ETF 是規模特大或最新上市，AI rally 期間極端集中下擊敗 5+5 quality 偏向
 
-### 我方 strict 5+5 NAV 85/15 with C+B 完整 21 年基準（v6 重驗）
+### 我方 Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) 完整 21 年基準（v6 重驗）
 
 **21 年 in-sample**（dividend-adjusted backtest）：
 

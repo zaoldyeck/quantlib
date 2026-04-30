@@ -447,6 +447,8 @@ def run_backtest(start: date, end: date, capital: float,
 
 def main():
     global MAX_POSITIONS, USE_REGIME_GATE, USE_ATR_TRAILING
+    global BREAKOUT_LOOKBACK, VOL_MULTIPLIER, MIN_REV_YOY_ENTRY, MAX_REV_YOY_FADE
+    global ATR_MULTIPLIER, TRAILING_STOP
     ap = argparse.ArgumentParser(description="iter_24 catalyst breakout + pyramid scale-in")
     ap.add_argument("--start", default="2005-01-03")
     ap.add_argument("--end",   default="2026-04-25")
@@ -457,6 +459,19 @@ def main():
                     help="Enable bear-regime entry gate (default off; v6 試過反而傷害).")
     ap.add_argument("--atr-trailing", action="store_true",
                     help=f"Use ATR-relative trailing stop (clip [{TRAIL_PCT_MIN:.0%}, {TRAIL_PCT_MAX:.0%}] × {ATR_MULTIPLIER}) instead of fixed -{TRAILING_STOP:.0%}.")
+    # Phase B: entry/exit 參數 sweep flags
+    ap.add_argument("--breakout-lookback", type=int, default=BREAKOUT_LOOKBACK,
+                    help=f"Days for breakout high (default {BREAKOUT_LOOKBACK}).")
+    ap.add_argument("--vol-multiplier", type=float, default=VOL_MULTIPLIER,
+                    help=f"Volume must be > N × 60d avg vol (default {VOL_MULTIPLIER}).")
+    ap.add_argument("--yoy-entry", type=float, default=MIN_REV_YOY_ENTRY,
+                    help=f"Min monthly revenue YoY to enter (default {MIN_REV_YOY_ENTRY}%).")
+    ap.add_argument("--yoy-exit", type=float, default=MAX_REV_YOY_FADE,
+                    help=f"Exit if YoY drops below this (default {MAX_REV_YOY_FADE}%).")
+    ap.add_argument("--atr-mult", type=float, default=ATR_MULTIPLIER,
+                    help=f"ATR multiplier for trailing stop (default {ATR_MULTIPLIER}).")
+    ap.add_argument("--trailing-stop", type=float, default=TRAILING_STOP,
+                    help=f"Fixed trailing stop pct (used when --atr-trailing OFF, default {TRAILING_STOP:.0%}).")
     ap.add_argument("--out-suffix", default=None,
                     help="Output filename suffix (e.g. 'max5' → iter_24_max5_daily.csv). Default: max{N}[_atr].")
     args = ap.parse_args()
@@ -465,6 +480,12 @@ def main():
     MAX_POSITIONS = args.max_positions
     USE_REGIME_GATE = args.regime_gate
     USE_ATR_TRAILING = args.atr_trailing
+    BREAKOUT_LOOKBACK = args.breakout_lookback
+    VOL_MULTIPLIER = args.vol_multiplier
+    MIN_REV_YOY_ENTRY = args.yoy_entry
+    MAX_REV_YOY_FADE = args.yoy_exit
+    ATR_MULTIPLIER = args.atr_mult
+    TRAILING_STOP = args.trailing_stop
     default_suffix = f"max{MAX_POSITIONS}" + ("_atr" if USE_ATR_TRAILING else "")
     out_suffix = args.out_suffix or default_suffix
 

@@ -215,7 +215,7 @@ def hybrid_blend_rets(slot_a_csv: str | None, slot_b_csv: str | None,
 def validate_hybrid(slot_a: int, slot_b: int, w_a: float, atr: bool,
                      iter13_ranker: str = "mcap", verbose: bool = True) -> dict:
     """Run full validation on a hybrid config. Returns verdict dict."""
-    nav_a = RESULTS / f"iter_13_monthly_{iter13_ranker}_tpex_daily.csv" if slot_a > 0 else None
+    nav_a = RESULTS / f"iter_13_monthly_{iter13_ranker}_dual_daily.csv" if slot_a > 0 else None
     nav_b_suffix = f"max{slot_b}" + ("_atr" if atr else "")
     nav_b = RESULTS / f"iter_24_{nav_b_suffix}_daily.csv" if slot_b > 0 else None
 

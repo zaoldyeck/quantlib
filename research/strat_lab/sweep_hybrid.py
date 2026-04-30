@@ -1,7 +1,7 @@
 """Comprehensive hybrid strategy sweep — re-validates "5+5 is optimal" claim with prices.py.
 
 After 2026-04-30 prices.py refactor (DRIP back-adjust), all sub-strategy NAVs
-shifted. The previous ship verdict (5+5 NAV 80/20 with C+B) was based on raw
+shifted. The previous ship verdict (Quality + Catalyst Hybrid (5+5, NAV 80/20)) was based on raw
 daily_quote NAV — needs full re-validation.
 
 This script:

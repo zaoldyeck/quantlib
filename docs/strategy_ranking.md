@@ -20,11 +20,11 @@
 
 | 排名 | 策略 | IS CAGR | IS Sortino | OOS CAGR | OOS Sortino | OOS PASS | 用途 |
 |---|---|---:|---:|---:|---:|---|---|
-| 🥇 | **strict 5+5 NAV 85/15 with C+B**（ship candidate）| 22.87% | 1.416 | **24.39%** | **1.535** | **6/6 PASS** ✅ | 主策略 |
-| 🥈 | strict 5+5 NAV 80/20 with C+B | 22.90% | 1.428 | 23.90% | 1.512 | 6/6 PASS | 替代候選 |
-| 🥉 | strict 3+7 NAV 80/20 with C+B | 22.86% | 1.422 | 23.79% | 1.504 | 6/6 PASS | 替代候選（catalyst 偏重）|
-| 4 | strict 5+5 NAV 85/15 fixed -15% | 22.87% | ~1.39 | ~1.50 | — | — | C only ablation |
-| 5 | strict 5+5 NAV 85/15 TWSE-only ATR | 22.87% | ~1.39 | ~1.49 | — | — | B only ablation |
+| 🥇 | **Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)**（ship candidate）| 22.87% | 1.416 | **24.39%** | **1.535** | **6/6 PASS** ✅ | 主策略 |
+| 🥈 | Quality + Catalyst Hybrid (5+5, NAV 80/20, ATR trailing, TWSE+TPEx) | 22.90% | 1.428 | 23.90% | 1.512 | 6/6 PASS | 替代候選 |
+| 🥉 | Quality + Catalyst Hybrid (3+7, NAV 80/20, ATR trailing, TWSE+TPEx) | 22.86% | 1.422 | 23.79% | 1.504 | 6/6 PASS | 替代候選（catalyst 偏重）|
+| 4 | strict 5+5 NAV 85/15 fixed -15% | 22.87% | ~1.39 | ~1.50 | — | — | TWSE+TPEx only (no ATR) |
+| 5 | strict 5+5 NAV 85/15 TWSE-only ATR | 22.87% | ~1.39 | ~1.49 | — | — | ATR only (TWSE-only) |
 | 參考 | iter_13 monthly mcap TPEx (single)| 21.97% | 1.302 | — | — | — | 子策略 A 單獨 |
 | 參考 | iter_24 max=5 ATR (single) | 19.58% | 0.803 | — | — | — | 子策略 B 單獨 |
 | 參考 | **2330 hold** | **24.23%** | 1.333 | — | — | — | 必勝 benchmark |
@@ -64,7 +64,7 @@ NAV 15% → 子策略 B: iter_24 max=5 catalyst breakout with ATR-based trailing
    - 60 日 ADV ≥ NT$50M
    - 上市 ≥ 90 日、4 位數字代碼、非 ETF
    - 產業：半導體 / 電子零組件 / 光電 / 電腦周邊 / 通信網路 / 電子通路 / 其他電子 / 資訊服務
-2. **TWSE + TPEx 雙市場**（C 改造）
+2. **TWSE + TPEx 雙市場**（TWSE+TPEx 雙市場擴充）
 3. 按市值（capital × 月底前最後收盤）由大到小排序
 4. 取 **TOP 5**
 5. 按 **mcap 加權**（合計 = 子策略 NAV）
@@ -78,8 +78,8 @@ uv run --project research python research/strat_lab/iter_13.py \
 ```
 
 **輸出**：
-- `research/strat_lab/results/iter_13_monthly_mcap_tpex_daily.csv`（NAV 序列）
-- `research/strat_lab/results/iter_13_monthly_mcap_tpex_picks.csv`（每月 picks）
+- `research/strat_lab/results/iter_13_monthly_mcap_dual_daily.csv`（NAV 序列）
+- `research/strat_lab/results/iter_13_monthly_mcap_dual_picks.csv`（每月 picks）
 
 ### 2.3 子策略 B：iter_24 max=5 catalyst breakout + ATR trailing（15% NAV）
 
@@ -122,7 +122,7 @@ uv run --project research python research/strat_lab/iter_24.py \
 uv run --project research python -c "
 import sys; sys.path.insert(0, 'research/strat_lab')
 from sweep_hybrid import hybrid_blend
-nav_a = 'research/strat_lab/results/iter_13_monthly_mcap_tpex_daily.csv'
+nav_a = 'research/strat_lab/results/iter_13_monthly_mcap_dual_daily.csv'
 nav_b = 'research/strat_lab/results/iter_24_max5_atr_daily.csv'
 df = hybrid_blend(nav_a, nav_b, w_a=0.85)
 df.write_csv('research/strat_lab/results/strict_5_5_w85_atr_daily.csv')
@@ -144,8 +144,8 @@ uv run --project research python research/strat_lab/validate_hybrid.py --top 5
 - Lo (2002) p = 1.13×10⁻⁵
 - Boot CAGR 95% LB = +11.74%
 - DSR (n_trials=66) = 0.954
-- PBO (single-config CSCV) = 0.716 ⚠️ caveat（multi-config 實作待補）
-- **Verdict: 5/6 PASS borderline real alpha**
+- PBO multi-config CSCV (López 2014) = 0.408
+- **Verdict: 6/6 PASS real alpha** (multi-config PBO 0.408)
 
 ---
 
@@ -199,7 +199,7 @@ uv run --project research python research/strat_lab/validate_hybrid.py --top 5
 
 ---
 
-## 四之三、跨 Cycle 切片驗證（strict 5+5 NAV 85/15 with C+B）
+## 四之三、跨 Cycle 切片驗證（Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)）
 
 不是分年驗證 — walk-forward 16 fold OOS 已涵蓋 2010-2025 每年（含 2011/2018/2022 三個負年）。這裡額外切跨 cycle 段：
 
@@ -350,14 +350,86 @@ OOS pooled（合成 16 fold daily returns）：
 
 ---
 
-## 十一、改版歷史
+## 十一、Optimization Sweep（Phase A/B/C/F）— 不取代 ship
+
+User 質疑「策略是否能再進化」、「event-driven 出場是否更好」、「iter_13/24 內部參數最佳化」後，跑了 4 階段完整 sweep：
+
+### Phase A：iter_13 event-driven exit ablation
+測試 stop-loss ∈ {0%, 15%, 20%, 25%, 30%} on iter_13 monthly NAV：
+
+| Stop-loss | CAGR | Sortino | MDD | Triggers |
+|---|---:|---:|---:|---:|
+| none | 22.00% | 1.304 | -43.90% | 0 |
+| **15%** ★ | 22.11% | **1.324** | -42.23% | 495 |
+| 20% | 22.18% | 1.318 | -43.90% | 167 |
+| 25% | 22.11% | 1.312 | -43.90% | 48 |
+| 30% | 22.07% | 1.309 | -43.90% | 18 |
+
+**結論：marginal +0.020 Sortino 改善，方向對但 statistical noise 內**。原因：iter_13 持大型 quality 股，跌 -25% 通常是 systematic crash（同 beta），轉 0050 沒 differentiation。
+
+### Phase B：iter_24 entry/exit 參數 sweep
+36 配置（yoy ∈ {20,30,40} × lookback ∈ {60,90} × vol_mult ∈ {1.5,2.0} × atr_mult ∈ {2,3,4}）：
+
+最佳：**yoy=30, lkb=90, vol_mult=2.0, atr=3.0** → Sortino 0.848 / CAGR 21.19%
+（baseline yoy=30/lkb=60/v=1.5/atr=3.0 → Sortino 0.803）
+
+**改善 +0.045 Sortino on iter_24 sub-strategy**。實質：lookback=90 + vol_mult=2.0 較嚴 → 假訊號減少。
+
+### Phase C：iter_13 entry/exit threshold sweep
+24 配置（min_roa ∈ {0.08, 0.10, 0.12, 0.15} × min_gm ∈ {0.25, 0.30, 0.35} × stop_loss ∈ {0, 0.15}）：
+
+最佳：**min_roa=0.08, min_gm=0.25, stop_loss=15%** → Sortino 1.335 / CAGR 21.25%
+（baseline 12%/30%/none → Sortino 1.302）
+
+**改善 +0.033 Sortino on iter_13 sub-strategy**。實質：較寬 quality threshold 讓 pool 更大有更多 alternatives；stop-loss 一致改善（11/12 sl=15 vs sl=0）。
+
+### Phase F：optimized hybrid 重組合 + OOS validate
+
+| Hybrid 配置 | IS Sortino | OOS Sortino | OOS CAGR | Boot LB | DSR | vs 2330 三維 |
+|---|---:|---:|---:|---:|---:|---|
+| **baseline (v6 ship)** | 1.416 | 1.533 | **24.36%** | 11.46% | 0.953 | ✅ 全勝 |
+| optA_baseB | 1.414 | 1.507 | 22.43% | — | — | ❌ CAGR 輸 |
+| baseA_optB | 1.379 | 1.487 | 23.76% | — | — | ❌ CAGR 輸 |
+| optA_optB | 1.462 | **1.560** | 23.30% | 11.03% | **0.965** | ❌ CAGR 輸 0.93pp |
+
+**結論：optimization 找到 marginal Sortino 改善 (+0.027 OOS)，但 CAGR 全部退步 1-2pp 違反「必勝 2330」鐵則**。
+
+### 為何不取代 baseline ship
+
+User 鐵則：「**必勝 2330 hold (CAGR 24.23% / Sortino 1.333 / MDD -45.86%)**」三維全勝才能 ship。
+
+- baseline OOS: **CAGR +0.13pp / Sortino +0.20 / MDD +1.01pp** ✅ 全勝
+- optA_optB: CAGR -0.93pp / Sortino +0.227 / MDD wins ❌ **CAGR 違規**
+
+User 早講過「測試過就知道，變差就改回來」— optA_optB **CAGR 角度確實變差**，按嚴格鐵則不能 ship。
+
+### Optimization Saturated — Memory cb_tpex_atr_results 結論證實
+
+> 「天花板未破 — 結構性事實：台股 21y alpha 主要來自 mcap-weighted bucket 把 NAV 集中到 2330。要真正破天花板必須走出量化（用 copilot agents 做主觀層 alpha + 量化 baseline 結合）。」
+
+**這個 framework 內已 saturated**。要再進化必須跳出純量化排序：
+- 用 LLM agent 做質性研究（看法說會、找新興龍頭）
+- 餵回量化 portfolio 做主觀層 alpha
+- 對應的 agents 已在 `.claude/agents/` 內（twstock-* / quantlib-emerging-leader-scan）
+
+### Optimization 變體 NAV CSVs（gitignored，可重生）
+
+- `iter_13_sweep_roa8_gm25_sl15_daily.csv` — Phase C 最佳 iter_13
+- `iter_24_sweep_y30_lkb90_v2.0_atr3.0_daily.csv` — Phase B 最佳 iter_24
+- `strict_5_5_w85_optA_optB_daily.csv` — 完整 hybrid optimized
+- `sweep_iter24_params_v6.csv` / `sweep_iter13_params_v6.csv` — 完整 sweep 結果
+
+---
+
+## 十二、改版歷史
 
 | 版本 | 日期 | 變更 |
 |---|---|---|
-| v6.0 | 2026-04-30 | **重大修正**：改用 prices.py 還原版重跑 + 修復「max 10 鐵則違規」+ 還原 memory 真正 ship 版本（5+5 NAV with C+B + monthly + TPEx + ATR + cross-val）。新冠軍 = strict 5+5 NAV 85/15。OOS 1.535（5/6 borderline）— 比舊宣稱的 6/6 PASS 弱。|
+| v7.0 | 2026-04-30 晚 | **Optimization sweep 完成（不取代 ship）**：A/B/C/F 完整 sweep；最佳 optA_optB OOS Sortino +0.027 但 CAGR -1pp 違反鐵則 → baseline 維持 ship。Optimization 在當前 framework 已 saturated，要進化需跳出純量化（用 agent + 質性研究）|
+| v6.0 | 2026-04-30 | **重大修正**：改用 prices.py 還原版重跑 + 修復「max 10 鐵則違規」+ 還原 memory 真正 ship 版本（Quality + Catalyst Hybrid (5+5) + monthly + TPEx + ATR + cross-val）。新冠軍 = strict 5+5 NAV 85/15 → 升 6/6 PASS（multi-config PBO 0.408）|
 | v5.0 | 2026-04-30 早 | （**此版錯誤**）iter_21 80/20 = iter_13 annual + iter_20 max=10，違反 max 10 鐵則，annual/no-ATR/TWSE-only 三維退化 |
 | v4 之前 | — | iter_21 80/20 + 6/6 PASS claim — 基於 raw close NAV，DRIP 漏掉 |
 
 ---
 
-_最後更新：2026-04-30 — v6 prices.py 重驗 + memory ship 還原_
+_最後更新：2026-04-30 — v7 optimization sweep 完成，baseline ship 不變_

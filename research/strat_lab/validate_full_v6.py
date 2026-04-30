@@ -116,7 +116,7 @@ def walk_forward_per_year(rets: np.ndarray, dates: list[date]) -> dict[int, np.n
 
 def get_config_rets(slot_a: int, slot_b: int, w_a: float, atr: bool, ranker: str) -> tuple[np.ndarray, list[date]]:
     """Build daily returns for a hybrid config. Returns (None, None) if NAV files missing."""
-    nav_a = RESULTS / f"iter_13_monthly_{ranker}_tpex_daily.csv" if slot_a > 0 else None
+    nav_a = RESULTS / f"iter_13_monthly_{ranker}_dual_daily.csv" if slot_a > 0 else None
     suffix = f"max{slot_b}" + ("_atr" if atr else "")
     nav_b = RESULTS / f"iter_24_{suffix}_daily.csv" if slot_b > 0 else None
 
@@ -282,7 +282,7 @@ def main():
             print(f"  ✓ 5+5 結構分散有效 — alpha 真實性 confirmed")
 
     # ── 3. 2008-2009 GFC slice ──
-    print(f"\n[3] 2008-2009 GFC slice for strict 5+5 NAV 85/15 with C+B ...")
+    print(f"\n[3] 2008-2009 GFC slice for Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) ...")
     nav_path = RESULTS / "strict_5_5_w85_atr_daily.csv"
     if nav_path.exists():
         nav = pl.read_csv(nav_path, try_parse_dates=True).sort("date")

@@ -313,7 +313,7 @@ def main():
         ("BENCHMARK 2330 hold",              "research/strat_lab/results/benchmark_2330_daily.csv", "BENCHMARK"),
         ("BENCHMARK 0050 hold",              "research/strat_lab/results/benchmark_0050_daily.csv", "BENCHMARK"),
         ("BENCHMARK 0052 hold (科技 ETF)",   "research/strat_lab/results/benchmark_0052_daily.csv", "BENCHMARK"),
-        # === SHIP candidate（最新推薦，C+B combined）===
+        # === SHIP candidate（最新推薦，ATR + TWSE+TPEx combined）===
         ("CB slot 5+5 TPEx + ATR (combined)",            "research/strat_lab/results/slot5_5_tpex_atr_w80_daily.csv", "SHIP"),
 
         # === REAL_ALPHA — pure quality baselines ===
@@ -429,7 +429,7 @@ def main():
         ("strict 2+8 NAV 85/15", "research/strat_lab/results/slot2_8_w85_daily.csv", "REAL_ALPHA"),
         ("strict 2+8 NAV 90/10", "research/strat_lab/results/slot2_8_w90_daily.csv", "REAL_ALPHA"),
 
-        # === REAL_ALPHA — C+B ablation 變體 ===
+        # === REAL_ALPHA — ablation: ATR / TWSE+TPEx 變體 ===
         ("CB slot 5+5 baseline (TWSE only, fixed -15%)", "research/strat_lab/results/slot5_5_baseline_w80_daily.csv", "REAL_ALPHA"),
         ("CB slot 5+5 TPEx quality only",                "research/strat_lab/results/slot5_5_tpex_only_w80_daily.csv", "REAL_ALPHA"),
         ("CB slot 5+5 ATR trailing only",                "research/strat_lab/results/slot5_5_atr_only_w80_daily.csv", "REAL_ALPHA"),

@@ -48,13 +48,15 @@ VALID_FREQS   = ("monthly", "annual")
 
 
 def screen_pool(con, ref_year: int, ref_month: int = 12,
-                universe: str = "twse_tpex") -> pl.DataFrame:
+                universe: str = "twse_tpex",
+                min_roa: float = MIN_ROA_MEDIAN,
+                min_gm: float = MIN_GM_MEDIAN) -> pl.DataFrame:
     """Quality pool screening. ref point = end of (ref_year, ref_month).
 
     For monthly rebal we screen at end of prev month using last-completed quarter
     of fundamentals (so each rebal date 反映最近 PIT-safe 資料).
 
-    universe: 'twse_only' | 'twse_tpex'  (預設雙市場 — C 改造)
+    universe: 'twse_only' | 'twse_tpex'  (預設雙市場 TWSE+TPEx)
     """
     yq_start = (ref_year - TRAILING_YEARS_QUALITY) * 4 + 1
     # PIT-safe: 取截至 ref_month-3 月的最近 quarter (Q1 ≤ 5/22, Q2 ≤ 8/21, Q3 ≤ 11/21, Q4 ≤ 4/7 next yr)
@@ -163,8 +165,8 @@ def screen_pool(con, ref_year: int, ref_month: int = 12,
     LEFT JOIN rev_growth g USING (company_code)
     LEFT JOIN ind ON ind.company_code = q.company_code
     WHERE
-      q.med_roa  >= {MIN_ROA_MEDIAN}
-      AND q.med_gm   >= {MIN_GM_MEDIAN}
+      q.med_roa  >= {min_roa}
+      AND q.med_gm   >= {min_gm}
       AND q.recent_losses = 0
       AND a.adv60    >= {MIN_ADV}
       AND regexp_matches(q.company_code, '^[1-9][0-9]{{3}}$')
@@ -242,6 +244,8 @@ def adv_weighted_picks(pool: pl.DataFrame, topn: int) -> list[tuple[str, float]]
 def run_backtest(start: date, end: date, capital: float,
                   weight_mode: str = "mcap", ranker: str = "mcap",
                   freq: str = "monthly", universe: str = "twse_tpex",
+                  min_roa: float = MIN_ROA_MEDIAN,
+                  min_gm: float = MIN_GM_MEDIAN,
                   out_dir: str = "research/strat_lab/results",
                   out_suffix: str | None = None) -> dict:
     """
@@ -263,7 +267,8 @@ def run_backtest(start: date, end: date, capital: float,
     pool_sizes = {}
     for rd in rebal_dates:
         # screen at end of prev period
-        pool_raw = screen_pool(con, ref_year=rd.year, ref_month=rd.month, universe=universe)
+        pool_raw = screen_pool(con, ref_year=rd.year, ref_month=rd.month, universe=universe,
+                                  min_roa=min_roa, min_gm=min_gm)
         pool = rank_pool(pool_raw, ranker)
         pool_sizes[rd] = len(pool)
         if pool.is_empty():
@@ -396,7 +401,11 @@ def main() -> None:
     ap.add_argument("--freq", default="monthly", choices=list(VALID_FREQS),
                     help="Rebalance frequency (memory final ship = monthly)")
     ap.add_argument("--universe", default="twse_tpex", choices=["twse_tpex", "twse_only"],
-                    help="Universe: twse_tpex = C 改造（雙市場）, twse_only = legacy")
+                    help="Universe: twse_tpex = TWSE+TPEx 雙市場擴充, twse_only = legacy")
+    ap.add_argument("--min-roa", type=float, default=MIN_ROA_MEDIAN,
+                    help=f"Min 5y ROA TTM median (default {MIN_ROA_MEDIAN}).")
+    ap.add_argument("--min-gm", type=float, default=MIN_GM_MEDIAN,
+                    help=f"Min 5y GM TTM median (default {MIN_GM_MEDIAN}).")
     ap.add_argument("--suffix", default=None, help="Output filename suffix override")
     args = ap.parse_args()
 
@@ -413,6 +422,7 @@ def main() -> None:
     res = run_backtest(start, end, args.capital,
                         weight_mode=args.mode, ranker=args.ranker,
                         freq=args.freq, universe=args.universe,
+                        min_roa=args.min_roa, min_gm=args.min_gm,
                         out_suffix=args.suffix)
     print(f"\n--- iter_13 ({res['out_suffix']}) 結果 ---")
     print(f"  CAGR:        {res['CAGR']:+.2%}")
