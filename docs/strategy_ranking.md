@@ -20,9 +20,9 @@
 
 | 排名 | 策略 | IS CAGR | IS Sortino | OOS CAGR | OOS Sortino | OOS PASS | 用途 |
 |---|---|---:|---:|---:|---:|---|---|
-| 🥇 | **strict 5+5 NAV 85/15 with C+B**（ship candidate）| 22.87% | 1.416 | **24.39%** | **1.535** | 5/6 borderline ⚠️ | 主策略 |
-| 🥈 | strict 5+5 NAV 80/20 with C+B | 22.90% | 1.428 | 23.90% | 1.512 | 5/6 borderline | 替代候選 |
-| 🥉 | strict 3+7 NAV 80/20 with C+B | 22.86% | 1.422 | 23.79% | 1.504 | 5/6 borderline | 替代候選（catalyst 偏重）|
+| 🥇 | **strict 5+5 NAV 85/15 with C+B**（ship candidate）| 22.87% | 1.416 | **24.39%** | **1.535** | **6/6 PASS** ✅ | 主策略 |
+| 🥈 | strict 5+5 NAV 80/20 with C+B | 22.90% | 1.428 | 23.90% | 1.512 | 6/6 PASS | 替代候選 |
+| 🥉 | strict 3+7 NAV 80/20 with C+B | 22.86% | 1.422 | 23.79% | 1.504 | 6/6 PASS | 替代候選（catalyst 偏重）|
 | 4 | strict 5+5 NAV 85/15 fixed -15% | 22.87% | ~1.39 | ~1.50 | — | — | C only ablation |
 | 5 | strict 5+5 NAV 85/15 TWSE-only ATR | 22.87% | ~1.39 | ~1.49 | — | — | B only ablation |
 | 參考 | iter_13 monthly mcap TPEx (single)| 21.97% | 1.302 | — | — | — | 子策略 A 單獨 |
@@ -35,7 +35,9 @@
 - Sortino +0.20（1.535 vs 1.333）
 - MDD +0.86pp（-44.85% vs -45.86%，更淺）
 
-⚠️ **Verdict: 5/6 borderline real alpha**（不是 6/6 PASS confirmed）— PBO single-config CSCV 實作過嚴，multi-config 版 caveat 待跑。
+✅ **Verdict: 6/6 PASS real alpha** — multi-config CSCV PBO（López 2014）正確實作後 = 0.408，IS-best config 在 OOS rank 高於中位數，未過擬合。
+
+舊 5/6 verdict 是基於我寫錯的 single-config CSCV PBO（0.716 過嚴）。修正後升級到 6/6 PASS。
 
 ---
 
@@ -157,23 +159,65 @@ uv run --project research python research/strat_lab/validate_hybrid.py --top 5
 
 ---
 
-## 四、Cross-validation（5+5_w80_atr 換 ranker，alpha 真實性檢驗）
+## 四、Cross-validation（5+5_w85_atr 換 5 個 ranker，alpha 真實性檢驗）
 
-| ranker | OOS CAGR | OOS Sortino | 結論 |
-|---|---:|---:|---|
-| **mcap** ★ | 23.90% | **1.512** | 最佳（仍有 mcap dominance）|
-| roa_recent | 27.23% | 1.306 | 次佳，CAGR 高但 vol 也高 |
-| rev_cagr5y | 20.69% | 0.992 | borderline |
-| roa_med | 14.41% | 0.635 | 弱（短期 ROA 比歷史中位數有效）|
+| ranker | OOS CAGR | OOS Sortino | OOS MDD | 結論 |
+|---|---:|---:|---:|---|
+| **mcap** ★ | 24.39% | **1.535** | -42.0% | 最佳（仍有 mcap dominance）|
+| roa_recent | 27.91% | 1.307 | -47.2% | 次佳，CAGR 高但 vol 高 |
+| rev_cagr5y | 20.97% | 0.979 | -59.8% | borderline |
+| roa_med | 14.06% | 0.602 | -51.6% | 弱（5y ROA 中位數對未來預測力差）|
+| **composite** ⚠️ | **-12.11%** | **-1.181** | -12.9% | **嚴重失敗**（naive z-score 等權合成）|
+
+**Composite outlier 解讀**：z(log_mcap) + z(roa_med) + z(rev_cagr5y) 等權加總在月度 small pool（~10-30 stocks）下 z-score 動盪 + 多面向 quality 訊號互相 distort。**單一 sensible ranker > naive 多面向 composite**。
+
+**4 sensible ranker 之間 max gap = 0.933**（mcap 1.535 vs roa_med 0.602）— 對比 1+9 NAV 75/25 結構的 1.759，5+5 結構成功降低 ranker 替換敏感度。
 
 **5+5 結構 vs 1+9 結構的 cross-val 對比**：
 
-| 結構 | mcap | roa_med | 差距 |
-|---|---:|---:|---:|
-| 1+9 NAV 75/25（memory） | 1.778 | 0.019 | **1.759（賭 TSMC）**|
-| **5+5 NAV 80/20（新）** | **1.512** | **0.635** | **0.877（5+5 分散有效）** |
+| 結構 | mcap | roa_med | 差距 | 解讀 |
+|---|---:|---:|---:|---|
+| 1+9 NAV 75/25（memory，已降級）| 1.778 | 0.019 | **1.759** | 賭 TSMC |
+| **5+5 NAV 85/15（新 ship）**| **1.535** | **0.602** | **0.933** | 5+5 分散有效 |
 
-**結論：5+5 結構成功降低對 mcap-TOP-1 的依賴，alpha 真實性 confirmed**（不是賭 TSMC，是 quality + scale 的真 alpha）。
+**結論：5+5 結構成功降低對 mcap-TOP-1 的依賴，alpha 真實性 confirmed**（不是賭 TSMC）。
+
+---
+
+## 四之二、PBO Multi-Config CSCV (López de Prado 2014)
+
+### 正確實作 vs 之前單 config 過嚴版本
+
+| 實作 | PBO | 含義 | Verdict |
+|---|---:|---|---|
+| Single-config CSCV（先前版本，過嚴）| 0.716 | 把同一 config 的 16 fold 隨機拆 IS/OOS 半比較 — sample 太小 | ❌ FAIL |
+| **Multi-config CSCV (López 2014)** ★ | **0.408** | 對所有 sweep configs 在 IS/OOS half-split 找 IS-best 排名 | ✅ **PASS** |
+
+正確的 PBO 是「多 config 比較」而非「單 config 內年度比較」。修正後 verdict 從 5/6 → **6/6 PASS real alpha**。
+
+詳細：26 sweep configs × 16 OOS years × 1000 random splits → IS-best 在 OOS rank 高於中位數的機率 = 1 - 0.408 = **59.2%**（隨機是 50%）。
+
+---
+
+## 四之三、跨 Cycle 切片驗證（strict 5+5 NAV 85/15 with C+B）
+
+不是分年驗證 — walk-forward 16 fold OOS 已涵蓋 2010-2025 每年（含 2011/2018/2022 三個負年）。這裡額外切跨 cycle 段：
+
+| 切片 | 天數 | CAGR | Sortino | MDD | 解讀 |
+|---|---:|---:|---:|---:|---|
+| 2005-2007 pre-GFC bull | 742 | +17.19% | 1.199 | -20.6% | 牛市跟得上 |
+| **2008 GFC year** | 249 | **-23.91%** | **-1.233** | **-40.9%** | 系統性熊市無解（同 2330 結構性風險）|
+| 2009 recovery | 252 | +27.08% | 1.633 | -14.3% | 跌深反彈接住 |
+| **2008-2009 GFC full** | 501 | **-1.60%** | -0.141 | -40.9% | 雙年合計幾乎打平（reverberance OK）|
+| 2011 EU debt crisis | 247 | -4.97% | -0.417 | -18.9% | 中度熊市可控 |
+| 2018 trade war | 247 | -3.96% | -0.279 | -18.5% | 同上 |
+| **2022 growth crash** | 246 | **-27.90%** | **-1.685** | **-42.0%** | 跟 GFC 同級慘 |
+
+**關鍵洞察**：
+- 4 個負年（2008/2011/2018/2022）= 系統性熊市
+- 但 GFC 雙年（2008+2009）合計只 -1.60%，反彈接住跌幅
+- **2022 -27.90%/Sortino -1.685 是策略歷史最慘**（不是 GFC）
+- 跟 2330 hold 一樣承受 mcap-weighted 大型科技股的市場 beta — 不是策略特定缺陷
 
 ---
 
@@ -214,13 +258,14 @@ OOS pooled（合成 16 fold daily returns）：
 ## 七、Paper trading 執行建議
 
 ### 7.1 啟動條件
-- ⚠️ 5/6 OOS PASS borderline（不是 6/6）
+- ✅ **6/6 OOS PASS real alpha**（multi-config PBO 修正後）
 - ✅ Bootstrap CAGR LB > 10%（11.74%）
-- ✅ Cross-validation 證實非賭 TSMC
+- ✅ Cross-validation 證實非賭 TSMC（4 sensible ranker gap < 1.0）
+- ✅ 跨 cycle 切片：2008-09 GFC 雙年合計 -1.60%（反彈接住）
 - ⏳ 在永豐 Shioaji API 建立 paper portfolio
 
 ### 7.2 資金分配
-- **初始 paper 資金：可動用資金 ≤ 5%**（PBO caveat → 比之前更保守）
+- **初始 paper 資金：可動用資金 ≤ 10%**（6/6 PASS confirmed → 比 5/6 borderline 標準放寬）
 - 85% 配到 iter_13 monthly TPEx mcap 池（每月初 rebal）
 - 15% 配到 iter_24 max=5 ATR catalyst pool（盤後每日掃 entry/exit）
 - 預留現金 buffer（cash → 0050）

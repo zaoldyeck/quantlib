@@ -14,7 +14,8 @@
 - Lo p=1.13e-5、Boot CAGR LB +11.74%、DSR 0.954
 - **三維全勝 2330 hold**（CAGR +0.16pp / Sortino +0.20 / MDD +0.86pp）
 - Cross-validation 證實非賭 TSMC（mcap 1.512 vs roa_med 0.635 合理差距）
-- ⚠️ Verdict: 5/6 OOS PASS borderline（PBO single-config CSCV caveat）
+- ✅ Verdict: 6/6 OOS PASS real alpha（multi-config PBO 0.408 < 0.5）
+- ✅ 跨 cycle 切片驗證：2008 GFC -23.9% / 2009 +27.1% / 雙年合計 -1.6%（系統性熊市 vs 反彈互抵）
 
 ---
 
