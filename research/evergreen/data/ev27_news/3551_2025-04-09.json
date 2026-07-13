@@ -1,0 +1,72 @@
+[
+  {
+    "date": "2025-04-02",
+    "source": "經濟日報 / 白宮",
+    "url": "https://money.udn.com/money/story/124512/8651421",
+    "title": "川普對等關稅大砲開轟！台灣被課32%比日韓更重",
+    "excerpt": "川普 4/2『解放日』宣布對等關稅，台灣被課 32%。全球股災引信。此為全市場衝擊事件，非世禾個股消息。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "鏡週刊 / 經濟日報",
+    "url": "https://money.udn.com/money/story/124512/9232466",
+    "title": "台股崩跌2065點(-9.7%) 1702家跌停 台積電跌停 史上最慘",
+    "excerpt": "清明連假後首個交易日台股無量崩跌 2065 點(-9.7%)，收 19,232;上市櫃跌停 1702 家史上最多，台積電開盤跳空跌停。世禾與全市場同步遭系統性殺盤，跌至超賣區。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-09",
+    "source": "維基百科 2025年股災 / 客新聞",
+    "url": "https://zh.wikipedia.org/zh-hant/2025%E5%B9%B4%E8%82%A1%E7%81%BD",
+    "title": "川普宣布對等關稅暫緩90天(中國除外) 台股落底",
+    "excerpt": "4/9 川普宣布除中國外關稅降至 10% 並暫緩 90 天，市場落底反轉。t0=4/9 為世禾此波起漲點，本質是全市場對等關稅капитуляция低點，非世禾個股催化。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-10",
+    "source": "客新聞 HakkaNews",
+    "url": "https://hakkanews.tw/2025/04/10/191852/",
+    "title": "台股創史上最大漲點 大漲1608點(+9.25%) 1389家漲停 收復19000",
+    "excerpt": "關稅暫緩激勵，台股 4/10 大漲 1608 點(+9.25%)史上最大漲點、1389 家漲停。世禾隨高 beta 半導體設備股強彈，為 60 日漲勢啟動的市場引擎。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-30",
+    "source": "MoneyDJ / 產業報導(彙整)",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=979ce30c-55fb-4315-903d-5c4c14effdfe",
+    "title": "世禾受惠台積電先進製程/先進封裝擴產 清洗再生需求成長",
+    "excerpt": "世禾為半導體零件潔淨再生龍頭，半導體占比升至 78%;受惠台積 N2/N3、CoWoS 擴產，清洗頻次與單價雙升(N2 清洗單價較 N3 高逾 10%)。此成長題材於 t0 前已存在且持續，屬醞釀型基本面，非 4/9 當日新聞。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-05-05",
+    "source": "cmoney 延伸閱讀(彙整)",
+    "url": "https://readmo.cmoney.tw/article/1c696a4c-b8da-438f-8af4-d20b2db4482e",
+    "title": "世禾強勢突破:半導體清洗設備需求",
+    "excerpt": "相較 4/30 收盤 195 元，近四交易日漲逾 10.25%;市場重新聚焦 2nm 放量與 CoWoS 帶動的清洗商機。反映 t0 後題材接棒(關稅反彈→半導體基本面再定價)。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2026-01-01",
+    "source": "IEK產業情報網(後續佐證)",
+    "url": "https://ieknet.iek.org.tw/ieknews/news_open.aspx/news_more.aspx?actiontype=ieknews&indu_idno=1&nsl_id=b6faae8d4ea94543b535c4e339527400",
+    "title": "世禾:2026年業績可望優於今年 半導體業驅動",
+    "excerpt": "2025 全年營收 29.92 億(+16.2%)、稅後純益 4.79 億(+28.5%)、EPS 8.36 元皆創新高;產能利用率 85-90%，2026 新增 1 座廠。為 t0 後才確認的營運兌現，佐證成長方向正確。",
+    "pit": "post_t0",
+    "pricing_state": "人盡皆知",
+    "used": false
+  }
+]

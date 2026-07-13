@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2024-01-17 (t0 背景)",
+    "source": "公司屬性 / Win投資 5386",
+    "url": "https://winvest.tw/Stock/Symbol/Comment/5386",
+    "title": "青雲(5386)=記憶體模組/通路商,美光Micron及Crucial台灣主要代理商",
+    "excerpt": "青雲國際科技(5386,1984成立)為記憶體模組/通路商,自有品牌RAM/SSD、代理宏碁週邊,並為美國美光(Micron)及旗下品牌Crucial的台灣主要代理商,另做伺服器記憶體模組。股價高度連動DRAM/NAND報價與記憶體族群情緒。此為t0前既存業務屬性——青雲是memory報價的高槓桿純代理股。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知(公司背景/族群連動股)",
+    "used": true
+  },
+  {
+    "date": "2023-Q4 ~ 2024-Q1 (報價循環)",
+    "source": "TrendForce 集邦 / DRAM價格趨勢",
+    "url": "https://www.trendforce.com.tw/price",
+    "title": "DRAM/NAND合約價2023下半年落底、Q1 2024起翻揚,記憶體進入報價反轉期",
+    "excerpt": "三大原廠(美光/三星/SK海力士)2023年減產去化庫存,DRAM/NAND合約價於2023下半年落底、2024年第一季起明顯翻揚(PC/伺服器DRAM合約價季增雙位數),記憶體進入報價反轉的復甦第一段。t0(2024-01-17)正落在此報價反轉點——memory族群(南亞科/華邦電/威剛/宇瞻/十銓/宜鼎/青雲)跌深後隨報價回升領漲。此為t0前已成形、可事前識別的產業催化。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(報價反轉,族群同步)",
+    "used": true
+  },
+  {
+    "date": "2024-01-10/11",
+    "source": "美國SEC / 加密貨幣事件",
+    "url": "https://www.trendforce.com.tw/price/dram/dram_spot",
+    "title": "美國SEC核准比特幣現貨ETF,加密貨幣走揚→顯示卡/記憶體需求題材增溫",
+    "excerpt": "2024-01-10/11美國SEC核准首批比特幣現貨ETF,BTC走揚帶動顯示卡/挖礦與記憶體(GDDR/DRAM)需求想像。此為t0(1/17)前一週的題材面助攻(macro),與memory報價反轉共振,墊高族群情緒。屬旁證級題材,非青雲個股硬消息。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材助攻,旁證)",
+    "used": true
+  },
+  {
+    "date": "2024全年 (事後基本面)",
+    "source": "財報狗 5386 EPS",
+    "url": "https://statementdog.com/analysis/5386/eps",
+    "title": "(事後)青雲2024年EPS約3.31元、Q4 2024單季EPS 1.83元(季增368%),獲利逐季爬升",
+    "excerpt": "(事後)青雲2024全年EPS約3.31元,2024Q4單季EPS 1.83元(季增368%),顯示memory復甦下獲利逐季走高——但2024全年仍屬『復甦』量級,非爆發量級。t0(1/17)當下市場定價的是這條逐季回升的復甦曲線,而非後來的超級循環數字。",
+    "pit": "post_t0",
+    "pricing_state": "事後(2024復甦基本面兌現)",
+    "used": true
+  },
+  {
+    "date": "2026-01 (遠晚於t0,超級循環)",
+    "source": "CMoney投資網誌 / ETtoday財經雲",
+    "url": "https://cmnews.com.tw/article/newsyoudeservetoknow-481d8bf7-1629-11f1-b388-5df33be5db4e",
+    "title": "(遠晚事後,勿混淆)青雲『1月EPS 6.92元、營收24.61億、年增1300%』為2026年1月數據,非2024",
+    "excerpt": "(重要PIT警示,勿混淆)網路上『青雲1月稅後2.49億、EPS 6.92元、營收24.61億創新高、年增逾1300%』『4倍妖股』等聳動數字,來自2025-2026年AI記憶體超級循環(2026Q1 EPS高達43元/季),為t0(2024-01)之後兩年的事件,不得用於2024-01暴漲的歸因。2024-01的驅動是memory報價反轉第一段,不是超級循環。",
+    "pit": "post_t0",
+    "pricing_state": "事後(2026超級循環,PIT警示不可用於2024)",
+    "used": false
+  }
+]

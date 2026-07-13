@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2022-06-29",
+    "source": "TechNews 科技新報",
+    "url": "https://finance.technews.tw/2022/06/29/foreign-investment-supports-asmedia/",
+    "title": "600系列晶片組沒有延遲出貨跡象,外資給祥碩目標價2,050元",
+    "excerpt": "祥碩(5269)為 AMD 全系列 600 晶片組獨家設計/代工廠,2022 Q2 起量產出貨。6/29 外資報告給目標價 2,050 元,看好 AM5 平台放量。t0(12/13)前半年,AM5 晶片組成長故事與樂觀評價已充分建立、非新消息。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知:AM5獨家代工題材與高目標價早於 t0 半年建立",
+    "used": true
+  },
+  {
+    "date": "2022-09-27",
+    "source": "udn 科技玩家",
+    "url": "https://udn.com/news/story/7086/6574631",
+    "title": "AMD揭曉Ryzen 7000系列處理器、600系列晶片組主機板 9月27日上市",
+    "excerpt": "AMD AM5 平台(Ryzen 7000 + 600 系列晶片組)2022/9/27 上市,X670/X670E 先行、B650 系列 10 月跟進。祥碩獨家代工 600 晶片組,平台上市直接對應其晶片組出貨。此為 t0 前的產品排程里程碑,惟屬預期內事件。",
+    "pit": "pre_t0",
+    "pricing_state": "已知排程:AM5平台上市為預期內里程碑",
+    "used": true
+  },
+  {
+    "date": "2022-12-13",
+    "source": "研究者判讀(宏觀)/美國勞工部CPI",
+    "url": "https://www.cnyes.com/twstock/5269",
+    "title": "t0=12/13正是美國11月CPI公布日,通膨低於預期觸發全球風險資產急彈",
+    "excerpt": "t0(12/13)恰為美國 11 月 CPI 公布日,數據低於預期、市場押注 Fed 放緩升息,全球科技/成長股當日大漲。祥碩為高 beta、外資重倉的高速傳輸 IC 龍頭,2022 遭殺估值後在此宏觀轉折點強力反彈。研判 t0 由『宏觀貨幣政策轉折的資金行情』點火,而非個股突發利多。",
+    "pit": "pre_t0",
+    "pricing_state": "宏觀點火:CPI轉折資金行情,個股題材屬醞釀已久",
+    "used": true
+  },
+  {
+    "date": "2022-11(Q3財報,約11/10前)",
+    "source": "公司月營收/季報(Goodinfo)",
+    "url": "https://goodinfo.tw/tw/ShowSaleMonChart.asp?STOCK_ID=5269",
+    "title": "祥碩2022逆PC下行維持高成長(AM5晶片組+USB/PCIe內容增長)",
+    "excerpt": "2022 全球 PC/主機板衰退,惟祥碩靠 AM5 晶片組獨家代工放量 + USB/PCIe 主控滲透率提升,營收獲利逆勢創高(2022 為當時歷史高峰年)。Q3 財報約 11 月初公布,提供 t0 前的基本面韌性底料。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀:逆勢成長的基本面韌性於 t0 前已知",
+    "used": true
+  },
+  {
+    "date": "註記(排除)",
+    "source": "經濟日報(2025 法說)",
+    "url": "https://money.udn.com/money/story/5710/9132924",
+    "title": "USB4/PCIe Switch/AI伺服器爆發為2024-2026敘事,非2022 t0驅動",
+    "excerpt": "祥碩 USB4 放量、PCIe Packet Switch、AI 伺服器、蘇姿丰/AMD 最強夥伴等爆發性敘事屬 2024-2026(2025 Q3 單季 EPS 21.21 元)。不可回溯用於 2022-12 之 t0。2022 t0 驅動為 AM5 醞釀題材 + 12/13 CPI 宏觀資金行情。",
+    "pit": "post_t0",
+    "pricing_state": "排除項:2024-26 AI高速傳輸爆發,非本次 t0 驅動",
+    "used": false
+  }
+]

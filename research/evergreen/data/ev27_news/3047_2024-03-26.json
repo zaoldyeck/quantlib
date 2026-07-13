@@ -1,0 +1,32 @@
+[
+  {
+    "date": "背景(公司)",
+    "source": "鉅亨網/公司簡介",
+    "url": "https://www.cnyes.com/twstock/intro.aspx?code=3047",
+    "title": "[背景] 訊舟 EDIMAX 為自有品牌網通廠(WiFi/交換器/IoT/工業級閘道)+ ODM,低價股(~16 元)",
+    "excerpt": "訊舟(3047)電子-通信網路族群,自有品牌 EDIMAX/COMTREND 兼 ODM,產品涵蓋無線基地台、網卡、企業/工業級交換器與工業閘道,長線受惠 5G/物聯網頻寬升級。股價長期在 15-25 元低價區間,屬小型低價網通股。",
+    "pit": "pre_t0",
+    "pricing_state": "背景公司屬性(非事件)",
+    "used": true
+  },
+  {
+    "date": "查無",
+    "source": "多次定向搜尋(cnyes/moneydj/goodinfo/EDIMAX IR)",
+    "url": "https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=3047",
+    "title": "[重要空白] 查無 2024-03 訊舟個股級催化消息;月營收當時仍年減",
+    "excerpt": "以『訊舟 2024 年 3 月 漲停/WiFi7/新品/財報/減資/董事會/營收』等多角度搜尋,t0(2024-03-26)前後無法找到任何訊舟個股級題材或訂單利多;且當時月營收仍呈年減,顯示上漲非營收改善驅動。可得的『低價股輪動/股東會紀念品題材/外資主力買超』敘事均為 2025 年中素材,與 2024-03 t0 無關。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股消息(誠實記錄空白)",
+    "used": true
+  },
+  {
+    "date": "2025(事後·性質參考)",
+    "source": "CMoney 研究員 / 投資網誌",
+    "url": "https://cmnews.com.tw/article/cmoneyairesearcher-a1537e02-5e3f-11f1-96d4-6badda5bc944",
+    "title": "[事後·性質旁證] 訊舟後續行情被歸因『低價股輪動 + 股東會紀念品題材 + 外資主力買超』",
+    "excerpt": "2025 年 CMoney 對訊舟另一波上漲的歸因為:低價股輪動與股東會紀念品題材發酵、外資與主力連續加碼的籌碼結構,並直言『基本面月營收仍年減,上漲主要由題材與籌碼動能驅動,而非營收實質改善』。此為 2025 事後素材,但可佐證訊舟屬『籌碼/題材資金行情』的一貫性質,支持 2024-03 t0 亦為純資金動能。",
+    "pit": "post_t0",
+    "pricing_state": "事後(2025);性質旁證:籌碼/題材驅動",
+    "used": false
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2022-09-15",
+    "source": "國際科技/加密貨幣產業",
+    "url": "",
+    "title": "以太坊The Merge完成、GPU挖礦需求終結（顯卡股利空背景）",
+    "excerpt": "以太坊於2022-09-15完成合併(The Merge)轉為PoS，GPU挖礦需求歸零；疊加2022上半加密貨幣崩盤、通路顯卡庫存高漲，AIB板卡廠(含撼訊)股價自年初重挫、進入深度超跌。t0(10/13)前撼訊本業能見度低，屬跌深、低基期狀態。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀（超跌背景、利空出盡）",
+    "used": true
+  },
+  {
+    "date": "2022-10-13前後",
+    "source": "台股大盤背景",
+    "url": "",
+    "title": "台股加權指數10月中旬築底反彈起點",
+    "excerpt": "加權指數2022年10月下探約12,600點後落底反彈，跌深電子/題材股同步彈升。撼訊t0(10/13)與大盤落底時點吻合，反彈初期資金/籌碼成分高，尚無公司特定利多見報。",
+    "pit": "pre_t0",
+    "pricing_state": "資金面（大盤落底反彈）",
+    "used": true
+  },
+  {
+    "date": "2022年市場預期",
+    "source": "產業預期",
+    "url": "",
+    "title": "AMD RDNA3新一代顯卡預計2022年底發表（市場既有預期）",
+    "excerpt": "AMD全年多次預告RDNA3新架構將於2022年底推出，市場對新品週期、板卡ASP回升早有預期。t0前此為『廣為人知的日程』，尚未有確定發表日；撼訊為AMD授權AIB夥伴，受惠新品循環。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀（題材預期、無確定日期）",
+    "used": true
+  },
+  {
+    "date": "2022-10-20",
+    "source": "AMD IR（官方新聞稿）",
+    "url": "https://ir.amd.com/news-events/press-releases/detail/1096/amd-to-host-livestream-event-to-unveil-amd-rdna-3-graphics",
+    "title": "AMD宣布11/3舉辦『together we advance_gaming』直播發表RDNA3",
+    "excerpt": "AMD於2022-10-20正式宣布將於11/3(PDT)舉辦直播發表會揭曉RDNA3世代Radeon顯卡。此為t0(10/13)後7日的確定催化，將『年底發表』的模糊預期轉為明確日程。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認（明確催化落地）",
+    "used": true
+  },
+  {
+    "date": "2022-11-03/04",
+    "source": "AMD / 巴哈姆特 gamer.com.tw",
+    "url": "https://gnn.gamer.com.tw/detail.php?sn=240719",
+    "title": "AMD發表Radeon RX 7900系列（RDNA3小晶片設計）",
+    "excerpt": "AMD 11/3-11/4發表RX 7900 XTX/XT，全球首款chiplet設計遊戲顯卡，4K原生效能較前代最高1.7倍；12/13起上市，撼訊等夥伴12月中開賣。",
+    "pit": "post_t0",
+    "pricing_state": "事後（產品揭曉）",
+    "used": true
+  },
+  {
+    "date": "2022-11-04",
+    "source": "Yahoo奇摩股市/經濟日報",
+    "url": "https://tw.stock.yahoo.com/news/%E8%B6%85%E5%BE%AErx7900%E7%B3%BB%E5%88%97%E9%A1%AF%E5%8D%A1%E6%96%B0%E5%93%81%E5%B0%87%E4%B8%8A%E5%B8%82-%E6%9C%89%E5%88%A9%E6%9D%BF%E5%8D%A1%E6%A5%AD%E8%80%85asp%E5%9B%9E%E5%8D%87-043014913.html",
+    "title": "超微RX7900系列顯卡新品將上市 有利板卡業者ASP回升",
+    "excerpt": "12月中包含華擎、華碩、映泰、技嘉、微星、撼訊等協力廠陸續開賣，將有助板卡業者ASP回升；業界看好Q4隨新品上市整體ASP較Q3回升。",
+    "pit": "post_t0",
+    "pricing_state": "事後（基本面利多見報）",
+    "used": true
+  }
+]

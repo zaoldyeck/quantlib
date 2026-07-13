@@ -1,0 +1,52 @@
+[
+  {
+    "date": "背景 (無單一日期)",
+    "source": "公司概況/MoneyDJ",
+    "url": "https://www.moneydj.com/kmdj/wiki/wikiviewer.aspx?keyid=b6602e36-7792-4afc-87f8-b51e7fbc6e63",
+    "title": "榮創(AOT,3437)=鴻海集團 LED 封裝廠,由背光轉型車用 Mini LED、AR/VR 光機、感測、矽光子發光源",
+    "excerpt": "榮創能源(AOT,3437)為鴻海集團旗下 LED 晶粒/封裝廠,積極由傳統背光轉型至車用 Mini LED、AR/VR 光學模組、感測(VCSEL/IR)及矽光子發光源;並與鴻海轉投資夏普 eLux 合作 Micro LED。屬鴻海系 + 車用 Mini LED + 次世代光學題材股。t0 前既存轉型故事。",
+    "pit": "pre_t0",
+    "pricing_state": "公司背景(車用 Mini LED/矽光子轉型故事,長線題材)",
+    "used": true
+  },
+  {
+    "date": "2023-11 (t0 前,法說預告)",
+    "source": "MOPS 公開資訊觀測站 / 榮創",
+    "url": "https://www.aot.com.tw/",
+    "title": "榮創於 MOPS 預告 11/22 法人說明會(法說日期為 t0 前公開資訊)",
+    "excerpt": "榮創於 t0 前依規定在公開資訊觀測站預告將於 2023-11-22 召開法人說明會(法說日期屬事前公開資訊)。市場常於法說前對轉型題材股(車用 Mini LED)預期性卡位。t0(11/16)起漲正是法說前一週的卡位買盤。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(法說前題材卡位)",
+    "used": true
+  },
+  {
+    "date": "2023-11-01 ~ 2023-11-16 (查證)",
+    "source": "研究者查證(Google 日期區間搜尋)",
+    "url": "https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=3437",
+    "title": "t0 前兩週查無榮創個股 discrete 新聞/公告——起漲為題材 + 法說卡位,非單一利多",
+    "excerpt": "對 2023-11-01~11-16 做日期區間查證,未見榮創個股 discrete 利多新聞/訂單公告。研判 t0 起漲主因為:(1)車用 Mini LED / 矽光子長線題材醞釀,(2)11/22 法說前預期卡位,(3)LED 族群輪動,而非某條可事前識別的新聞點火。",
+    "pit": "pre_t0",
+    "pricing_state": "查無 discrete 新聞(題材+法說卡位驅動)",
+    "used": true
+  },
+  {
+    "date": "2023-11-22",
+    "source": "榮創 AOT 官網法說簡報 (PDF, 事後)",
+    "url": "https://www.aot.com.tw/",
+    "title": "(事後)榮創 11/22 法說:2023 全球車用照明市場產值上看 343.1 億美元、年增 4%;車用/Mini LED/感測占比提升",
+    "excerpt": "(事後)2023-11-22 榮創法說簡報:2023 全球車用照明市場產值有望達 343.1 億美元、年增 4%;強調車用 Mini LED、感測、矽光子等新品占比提升、營運逐季改善。此法說(t0 後 6 日)把 t0 前市場預期的車用 Mini LED 轉型故事正式做實。",
+    "pit": "post_t0",
+    "pricing_state": "事後(題材兌現/前瞻,做實 t0 前卡位)",
+    "used": true
+  },
+  {
+    "date": "2023-12-07",
+    "source": "社群/盤面彙整 (事後)",
+    "url": "https://www.cmoney.tw/forum/stock/3437",
+    "title": "(事後)榮創與富采、豪勉等 LED 股同日漲停,11 月底至 12 月初 LED 族群一波輪動",
+    "excerpt": "(事後)2023-12-07 盤面彙整顯示榮創(3437)與富采(3714)、豪勉(6218)等 LED 股同日漲停,顯示 2023 年 11 月底至 12 月初有一波 LED 族群輪動行情延續 t0 漲勢。屬 t0 後族群延續,非 t0 前可得。",
+    "pit": "post_t0",
+    "pricing_state": "事後(LED 族群輪動延續)",
+    "used": true
+  }
+]

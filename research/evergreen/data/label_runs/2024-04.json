@@ -1,0 +1,25 @@
+{
+ "month": "2024-04",
+ "labels": [
+  {
+   "code": "2408",
+   "name": "南亞科",
+   "theme": "記憶體循環報價反轉",
+   "signal_type": "產業循環/報價反轉",
+   "event": "DRAM合約價2023H2落底、1Q24翻揚(+13~18%);南亞科3月營收年增+58%,YoY自2023-10 -4%逐月加速(+32→+51→+58%),2024-04-10公布;t0前股價按兵不動(近60日-5%),題材已公開但個股尚未定價,為DRAM純龍頭中彈性最高、卻唯一未漲者",
+   "evidence": "MOPS月營收2024-04-10:南亞科3月+58%YoY且逐月加速(cache operating_revenue,PIT);TrendForce DRAM合約價2023H2落底、1Q24翻揚(PIT);本地cache收盤近60日-5%(PIT定價狀態)。0403地震僅一次性spot擾動、非結構催化,已排除",
+   "invalidation": "DRAM合約價轉跌或需求疲弱致Q2-Q3月營收YoY動能中斷(TrendForce已示警2H24 durability);或南亞科月營收YoY掉頭向下",
+   "conviction": 4
+  },
+  {
+   "code": "3665",
+   "name": "貿聯-KY",
+   "theme": "GB200機櫃電源供應鏈",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "NVIDIA GTC 2024(2024-03-18)發表GB200 NVL72、揭48V高功率busbar配電架構;貿聯為既有busbar/power-whip電源連接器franchise、busbar連接器全球僅2家(唯數家能供上游卡位);t0前股價flat(近60日-3%)、當期營收年減-7%=題材已公開個股未定價,屬醞釀待發",
+   "evidence": "NVIDIA GTC keynote 2024-03-18(公開事件,直接供應鏈read-through);貿聯busbar/電源連接器既有業務(pre-2024公開);本地cache近60日-3%、MOPS 3月營收-7%(PIT)。註:貿聯GB200認證新聞發佈於2024-06-10晚於t0,已排除、不作事前依據",
+   "invalidation": "貿聯未進入GB200 NVL72電源BOM或busbar socket輸給競爭對手;或GB200量產遞延至2025後段使前瞻落空",
+   "conviction": 4
+  }
+ ]
+}

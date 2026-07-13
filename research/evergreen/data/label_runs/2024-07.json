@@ -1,0 +1,55 @@
+{
+ "month": "2024-07",
+ "labels": [
+  {
+   "code": "3680",
+   "name": "家登",
+   "theme": "先進封裝載具chokepoint",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "台積電CoWoS產能2024擴1.5-2倍(Computex 6/2錨定NVIDIA AI capex);家登光罩盒/EUV/FOUP載具直接受惠,6月營收+103%加速(4/5月+76/+62,published~7/10)",
+   "evidence": "cache 6月營收YoY+103%(published~7/10);cnyes6035898/財報狗9146/blog.fugle gudeng—家登光罩盒全球85%市佔EUV載具壟斷級;cache股價7/11+46%YTD/60d+19%較同鏈未擁擠",
+   "invalidation": "CoWoS擴產放緩或台積電下修先進封裝capex;FOUP/光罩盒訂單被砍;月營收轉連續衰退",
+   "conviction": 4
+  },
+  {
+   "code": "2059",
+   "name": "川湖",
+   "theme": "AI伺服器滑軌chokepoint",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "AI伺服器/機櫃高密度化(GB200 NVL72)推升滑軌價值,CSP capex結構需求;川湖6月營收+101%強加速(4/5月+80/+94,published~7/10)",
+   "evidence": "cache 6月營收YoY+101%(published~7/10);天下5141020/blog.fugle king-slide—川湖伺服器滑軌全球>30%市佔+毛利率69%(pricing power=瓶頸);cache股價7/11 60d-2.2%近期盤整未追/+43%YTD",
+   "invalidation": "AI伺服器/CSP機櫃訂單放緩;滑軌市占被搶或毛利率崩(失pricing power);月營收轉衰退",
+   "conviction": 4
+  },
+  {
+   "code": "6515",
+   "name": "穎崴",
+   "theme": "AI測試介面chokepoint",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "Nvidia/AMD AI GPU最終封裝測試需求;穎崴6月營收拐點+13.1%(自5月-8.9%回升,published~7/10);近端觸發TSMC 7/18法說+Q2財報季",
+   "evidence": "cache 6月營收YoY+13.1%拐點(published~7/10);winwayglobal新聞稿/blog.fugle winway-report—穎崴全球測試座第1,Nvidia/AMD AI GPU同軸測試座耗材;cache股價7/11+25%YTD moderate",
+   "invalidation": "AI GPU測試需求不如預期或同軸測試座被客戶in-source;月營收拐點證伪(續為負);HPC營收佔比下滑",
+   "conviction": 4
+  },
+  {
+   "code": "5274",
+   "name": "信驊",
+   "theme": "伺服器BMC近壟斷chokepoint",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "Computex 6/2摩根士丹利點名14家台廠之一;AI伺服器放量帶動BMC需求,信驊6月營收+123%強加速(published~7/10),BMC受惠全部伺服器非GB200-specific",
+   "evidence": "cache 6月營收YoY+123%(4/5月+82/+93,published~7/10);wistock/udn—信驊高階BMC全球市占>70%近壟斷,每台伺服器必備;MS Computex 6/2點名;cache股價7/11 60d+66%已延伸(soft leg)",
+   "invalidation": "定價已完全反映利多出盡(財報符預期卻現賣壓);一般伺服器復甦不如預期;BMC ASP走弱",
+   "conviction": 4
+  },
+  {
+   "code": "6274",
+   "name": "台燿",
+   "theme": "AI高速CCL次族群",
+   "signal_type": "族群龍頭外溢至直接次族群",
+   "event": "AI伺服器高階CCL(M8)供不應求;台燿為台光電龍頭外溢之直接次族群且自身6月營收+61%再加速(4/5月+51/+44,published~7/10),已打入AWS AI專案M8",
+   "evidence": "cache 6月營收YoY+61%再加速(published~7/10)vs台光電降速(80→63→62.6);stockfeel/blog.fugle—台燿高速CCL切入AI伺服器/800G/ASIC直接環節;cache股價7/11+38%YTD/60d+10%較台光電未擁擠",
+   "invalidation": "台光電擠壓次族群空間或M8認證被卡;月營收再降速;AWS ASIC材料專案delay",
+   "conviction": 4
+  }
+ ]
+}

@@ -1,0 +1,105 @@
+{
+ "month": "2023-12",
+ "labels": [
+  {
+   "code": "2408",
+   "name": "南亞科",
+   "theme": "記憶體報價反轉",
+   "signal_type": "產業循環/報價反轉",
+   "event": "2023H2原廠減產、DRAM報價Q4落底;TrendForce預測1Q24 DRAM合約價季增13-18%;美光FQ1財報排定2023-12-20(近端具日期觸發);2023為虧損谷底年、低基期",
+   "evidence": "TrendForce 2023H2減產/報價落底報告(trendforce.com.tw);美光12/20排定財報;記憶體谷底年族群名單WebSearch核實",
+   "invalidation": "1Q24合約價未如預測翻揚或原廠復產致報價再跌、Q4/Q1營收未見月增加速",
+   "conviction": 5
+  },
+  {
+   "code": "2344",
+   "name": "華邦電",
+   "theme": "記憶體報價反轉",
+   "signal_type": "產業循環/報價反轉",
+   "event": "DRAM+利基型記憶體報價2023 Q4落底、1Q24翻揚;純DRAM/Flash原廠、谷底低基期,報價反轉直接受惠",
+   "evidence": "TrendForce 2023H2報價落底/1Q24翻揚(trendforce.com.tw);記憶體谷底虧損年(WebSearch綜合,南亞科/華邦電/旺宏名單)",
+   "invalidation": "報價未翻揚或再跌、利基記憶體出貨與營收未見月增加速",
+   "conviction": 4
+  },
+  {
+   "code": "8299",
+   "name": "群聯",
+   "theme": "記憶體報價反轉",
+   "signal_type": "產業循環/報價反轉",
+   "event": "NAND合約價2023 Q4落底、1Q24翻揚(季增10-15%);NAND控制IC龍頭,報價反轉+近端獲利直接受惠",
+   "evidence": "TrendForce NAND 1Q24合約價季增10-15%(trendforce.com.tw,2023H2);NAND控制族群名單核實",
+   "invalidation": "NAND報價未翻揚、控制IC出貨/獲利未見加速",
+   "conviction": 4
+  },
+  {
+   "code": "3260",
+   "name": "威剛",
+   "theme": "記憶體報價反轉",
+   "signal_type": "產業循環/報價反轉",
+   "event": "DRAM/NAND報價Q4落底1Q24翻揚;記憶體模組龍頭,spot/合約上行→庫存重估直接挹注獲利(最直接近端P&L槓桿)",
+   "evidence": "TrendForce報價反轉(2023H2);模組廠庫存重估機制、模組族群名單(WebSearch綜合)",
+   "invalidation": "報價再跌致庫存重估轉負、模組營收未見月增加速",
+   "conviction": 4
+  },
+  {
+   "code": "3131",
+   "name": "弘塑",
+   "theme": "CoWoS先進封裝設備",
+   "signal_type": "結構轉型/收成年再評價",
+   "event": "輝達急單追加1萬片CoWoS wafer、台積電月產能僅8-9k片供不應求需擴產;弘塑濕製程設備直接受惠、2024營運看增",
+   "evidence": "cnyes id/5202529(2023-06-05,WebFetch核實)台積電CoWoS擴產、弘塑設備鏈;辛耘2024展望創高(庫ev27)",
+   "invalidation": "台積電CoWoS擴產放緩/設備訂單遞延、先進封裝營收占比未提升",
+   "conviction": 4
+  },
+  {
+   "code": "3583",
+   "name": "辛耘",
+   "theme": "CoWoS先進封裝設備",
+   "signal_type": "結構轉型/收成年再評價",
+   "event": "台積電CoWoS擴產capex;辛耘(代理+自製設備+晶圓再生)三大業務齊揚、2024營運估創歷史新高;2024年初族群資金行情",
+   "evidence": "cnyes id/5202529(2023-06-05)CoWoS設備鏈點名辛耘;辛耘2024創高展望(庫ev27 3583)",
+   "invalidation": "CoWoS擴產遞延、2024三大業務未齊揚/營運未創高",
+   "conviction": 4
+  },
+  {
+   "code": "6187",
+   "name": "萬潤",
+   "theme": "CoWoS先進封裝設備",
+   "signal_type": "結構轉型/收成年再評價",
+   "event": "台積電CoWoS擴產;萬潤點膠/AOI檢測設備為先進封裝直接環節,受惠擴產capex放量",
+   "evidence": "cnyes id/5202529(2023-06-05,WebFetch核實)點名萬潤(點膠+AOI)為CoWoS設備鏈",
+   "invalidation": "CoWoS設備訂單遞延、點膠/檢測設備需求未放量",
+   "conviction": 4
+  },
+  {
+   "code": "1608",
+   "name": "華榮",
+   "theme": "台電強韌電網-電纜",
+   "signal_type": "地緣/政策供給衝擊再定價",
+   "event": "台電強韌電網5645億(2022-09);2023H2首波標案逾200億;華榮345kV超高壓電纜(瓶頸)在手訂單逾百億、能見度看至2033;大選2024-01-13能源政策延續二次點火",
+   "evidence": "台電計畫2022-09;2023H2標案逾200億、華榮訂單百億能見度2033(庫ev27 1608);大選1/13排定",
+   "invalidation": "台電標案發包遞延、訂單認列跳票、大選後能源政策生變",
+   "conviction": 4
+  },
+  {
+   "code": "1609",
+   "name": "大亞",
+   "theme": "台電強韌電網-電纜",
+   "signal_type": "地緣/政策供給衝擊再定價",
+   "event": "台電強韌電網5645億;大亞得標、在手線纜訂單逾50億;龍頭華城/中興電已點火,電纜為落後直接環節;大選1/13催化",
+   "evidence": "台電計畫2022-09;台電H2標案逾200億、大亞在手50億(庫ev27 1609);大選1/13排定",
+   "invalidation": "台電標案/認列遞延、大選後政策生變、Q1營收未見成長",
+   "conviction": 4
+  },
+  {
+   "code": "4945",
+   "name": "陞達科",
+   "theme": "AI伺服器散熱IC",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "AI伺服器散熱/液冷需求(GB200);陞達科為亞洲最大伺服器散熱風扇馬達驅動控制IC廠,2024高階48V風扇驅動IC逐季放量,結構定位未反映",
+   "evidence": "cnyes(2023-11-27)陞達科48V IC 2024放量;亞洲最大伺服器散熱驅動IC廠結構定位(庫ev27 4945)",
+   "invalidation": "48V IC未見逐季放量、AI伺服器散熱訂單遞延、液冷族群beta退潮",
+   "conviction": 4
+  }
+ ]
+}

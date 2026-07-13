@@ -1,0 +1,122 @@
+[
+ {
+  "date": "2024-07-10",
+  "source": "本地cache operating_revenue(6月營收,published~7/10 PIT-safe)",
+  "url": "local:research/cache.duckdb",
+  "title": "AI鏈候選股2024年4/5/6月營收YoY(近端催化硬數據,PIT≤7/11)",
+  "excerpt": "6月營收YoY(published~7/10):信驊5274 +123.0(4/5月+82/+93加速);世芯3661 +100.6(+54→+61→+100強加速);家登3680 +102.9(+76→+62→+103加速);雙鴻3324 +99.1;志聖2467 +121.9;台光電2383 +62.7(略降);台燿6274 +61.0;辛耘3583 +57.9;群聯8299 +55.9;金像電2368 +38.3(降速);南亞科2408 +36.8(降速);智邦2345 +17.7(自+35降);奇鋐3017 +18.6;穎崴6515 +13.1(自5月-8.9拐點回升);健策3653 +14.1;華邦2344 +5.6(弱);弘塑3131 -1.6(轉負背離);動力6591 -16.4(背離);高力8996 -21.0(背離)。",
+  "used": true
+ },
+ {
+  "date": "2024-07-11",
+  "source": "本地cache daily_quote(收盤價,PIT≤7/11)",
+  "url": "local:research/cache.duckdb",
+  "title": "AI鏈候選股定價狀態(60日/YTD報酬 as of 2024-07-11)",
+  "excerpt": "格式 60d%|YTD%:已大漲(利多出盡/背離risk)—志聖2467 +60|+230;辛耘3583 +63|+105;弘塑3131 +50|+128(rev轉負);雙鴻3324 +39|+126;奇鋐3017 +29|+112;高力8996 +56|+107(rev-21背離);華城1519 +77|+186;信驊5274 +66|+52(rev+123撐);健策3653 +31|+67。醞釀待發(未大漲+rev撐)—世芯3661 -31|-12(rev+100逆向背離,需查跌因);家登3680 +19|+46(rev+103);台燿6274 +10|+38(rev+61);穎崴6515 +34|+25(rev拐點);智邦2345 +14|+11(800G龍頭卻安靜);金像電2368 -15|+1(rev+38);台光電2383 +3|+31;南亞科2408 +5|-10(commodity DRAM);群聯8299 -3|+17。",
+  "used": true
+ },
+ {
+  "date": "2024-06-02",
+  "source": "WebSearch(商周3015762 / 經濟日報 money 8009818 / cnyes 5983574 / TNL 268143)",
+  "url": "https://money.udn.com/money/story/5612/8009818",
+  "title": "Computex 2024黃仁勳主題演講(6/2)—AI題材錨定事件PIT確認",
+  "excerpt": "2024/6/2晚黃仁勳台大體育館Computex keynote『加速一切』,6500+聽眾。揭次世代平台Rubin、AI PC、機器人、AI工廠;提43家台廠供應鏈名單(華碩/技嘉/英業達/和碩/緯創/緯穎等)。摩根士丹利點名14家台廠:台積電、京元電、信驊、緯創、鴻海、技嘉、廣達、華碩、緯穎、台達電等。三大投資主軸:水冷散熱、伺服器機殼、半導體設備;另CPO供應鏈被強打鎂光燈。判讀:AI compute題材2024/7/11處於主動點火(乘浪),Computex為近端錨定事件(5週前),非造浪。",
+  "used": true
+ },
+ {
+  "date": "2024(年度)",
+  "source": "WebSearch(cnyes 6035898 / 財報狗9146 / blog.fugle.tw gudeng-analysis / yahoo)",
+  "url": "https://blog.fugle.tw/post/gudeng-analysis",
+  "title": "家登(3680)光罩載具85%市佔 CoWoS帶動 先進封裝chokepoint",
+  "excerpt": "家登全球光罩載具市佔85%,EUV載具為先進製程關鍵耗材(壟斷級)。CoWoS產能2024大增1.5-2倍→晶圓/光罩載具需求暴衝。家登=CoWoS載具+清洗檢測一站式供應商,已打進台積電/日月光先進封裝產線。近端:FOUP/光罩盒受惠晶圓廠擴產(6月營收+103%已反映);CoWoS-specific載具經封測龍頭驗證但量產出貨落2025下半(>1年caveat)。定價狀態:股價7/11僅+19%(60d)/+46%(YTD)未過度擁擠。直接卡位=先進封裝上游耗材瓶頸。",
+  "used": true
+ },
+ {
+  "date": "2024-07-11",
+  "source": "WebSearch(cnyes 6513172盤中速報等,多為現價頁)",
+  "url": "https://news.cnyes.com/news/id/6513172",
+  "title": "世芯-KY 3661 跌因搜尋(第一次未果)",
+  "excerpt": "搜尋世芯6月股價下跌原因未surface明確PIT理由;結果多為現價/基本資料頁。已知:世芯=ASIC/SoC委託設計,終端HPC為主,北美市場為主(Amazon#1/Intel#2)。cache顯示股價自~4200(5月初)跌至2890(7/11)=-31%,惟6月營收+100.6%強加速(背離)。需再查客戶集中風險/ASIC族群評價修正是否為跌因,以判錯殺vs真問題。",
+  "used": false
+ },
+ {
+  "date": "2024-07(污染警示)",
+  "source": "WebSearch(yahoo/cnyes 6524261,含2026污染)",
+  "url": "https://news.cnyes.com/news/id/6524261",
+  "title": "智邦2345 6月營收—web摘要2026污染,以cache為準",
+  "excerpt": "WebSearch回傳『6月營收395.5億/+61.2%/連三月創高/H1 1656.6億』為2026數字污染(智邦2024月營收僅~70-90億,H1不可能1656億)。PIT-safe真相以本地cache為準:智邦2024/6營收YoY+17.7%,自5月+35.6%降速;股價7/11僅+13.8%(60d)/+10.5%(YTD)安靜。thesis(800G白牌交換器龍頭/1.6T)結構為真,但近端營收6月降速、無加速拐點→核心beta非醞釀待發。教訓:web摘要recency污染嚴重,cache為PIT ground truth。",
+  "used": true
+ },
+ {
+  "date": "2024(題材極早期)",
+  "source": "WebSearch(bnext 82171/經濟日報124512/7437332 等,多為2025-26)",
+  "url": "https://www.bnext.com.tw/article/82171/co-packaged-optics-explanation",
+  "title": "CPO/矽光子—2024-07-11屬造浪太早,排除",
+  "excerpt": "CPO(共同封裝光學)於Computex 2024被點名為未來主軸,但PIT判讀:台積電COUPE first-gen規格Q4 2024才確認/送樣,量產驗證2025-2026H2,商轉2026。台廠CPO 2024營收=0,兌現≥2年遠期TAM(MS估市場2023 $8M→2030 $9.3B)。依哲學判別#3兌現時程(≥2年本夢比)+#4題材動能(休眠造浪太早,無近端數字)→一票否決,排除,不標記。列長線watchlist。",
+  "used": true
+ },
+ {
+  "date": "2026(污染)",
+  "source": "WebSearch(vocus/sinotrade,全為2026法說)",
+  "url": "https://www.cmoney.tw/forum/article/177280363",
+  "title": "世芯3661跌因搜尋(第二次)—全2026污染無PIT解",
+  "excerpt": "再搜世芯6月跌因,結果全為2026/05/08法說污染(2026 Q1 EPS17.55、營收年減60%逆風、N3加速器Q3量產)—與2024-07-11無關。仍無PIT-safe跌因。改以cache peer-check(創意3443/智原3035/大盤)辨別世芯-31%為ASIC族群derating錯殺 vs 個股問題。",
+  "used": false
+ },
+ {
+  "date": "2024-07-11",
+  "source": "本地cache daily_quote peer-check(PIT-safe)",
+  "url": "local:research/cache.duckdb",
+  "title": "世芯3661 vs ASIC同業定價—company-specific非群體錯殺",
+  "excerpt": "近65交易日(4月初~7/11)報酬:世芯3661 -4.3%(2890,3月區間2890-3150,大跌發生於2-4月自股王~4200+回檔);創意3443 +20.8%(UP);智原3035 +4.1%;新唐4919 -3.1%;群聯8299 -17.5%(記憶體另因)。判讀:最近似ASIC同業創意逆勢+21%,世芯卻平盤偏弱,relative underperform ~25pp=個股特定弱勢(客戶集中Amazon#1/Intel#2,Intel 2024公開困境),非乾淨群體washout錯殺;且非新鮮急殺(3月區間盤整)。依哲學不符signal#7系統性落底,6月營收+100%撐但列watchlist(conviction 3)不標記。",
+  "used": true
+ },
+ {
+  "date": "2024(結構事實)",
+  "source": "WebSearch(winwayglobal新聞稿/blog.fugle.tw winway-report-2023/moneyweekly 135289/vocus)",
+  "url": "https://blog.fugle.tw/winway-report-2023/",
+  "title": "穎崴6515 全球測試座第一 Nvidia/AMD AI-GPU測試介面chokepoint",
+  "excerpt": "穎崴=全球測試座(Test Socket)世界第一大,含老化測試座全球第2。供應Nvidia探針卡/同軸測試座/溫控;Nvidia/AMD在AI GPU最終封裝階段大量使用穎崴同軸測試座。HPC&AI業務為營運主軸(佔比過半)。晶片進先進製程(3/2nm)+先進封裝(CoWoS/Chiplet/CPO)提升高頻高速測試需求。直接卡位=AI晶片出貨前測試介面耗材(每顆AI GPU必經)。cache:6月營收+13.1%(自5月-8.9%拐點回升),股價+34%(60d)/+25%(YTD)已動但未極端。近端觸發:TSMC 7/18法說+Q2財報季。",
+  "used": true
+ },
+ {
+  "date": "2024-07(污染警示)",
+  "source": "WebSearch(esunsec 258/356/statementdog,多為2026)",
+  "url": "https://www.esunsec.com.tw/article/post/356",
+  "title": "非AI題材掃描(軍工/無人機/低軌衛星/重電)—2024-07-11無乾淨近端firing",
+  "excerpt": "軍工/無人機:國防部500億大標案為2025-2026(post-PIT污染),第一波僅3600架~70億已決標(中光電5371/雷虎8033),第二波48750架兌現2026H2(兌現遠)。低軌衛星:華通2313為Starlink/Amazon Leo高頻PCB供應商(結構為真但近端營收未firing,漸進)。重電/電力:台電強韌電網capex真題材但龍頭華城1519(+186%YTD)/士電/亞力已大漲=利多出盡。判讀:非AI題材2024-07-11無『chokepoint+近端營收+未定價+firing』四合一者,多屬政策慢兌現/本夢比/已大漲。誠實排除,不硬標。",
+  "used": true
+ },
+ {
+  "date": "2024-07-11",
+  "source": "本地cache operating_revenue+daily_quote(PIT-safe)",
+  "url": "local:research/cache.duckdb",
+  "title": "追加chokepoint候選掃描(測試/ABF載板/滑軌/連接器/CCL)—6月rev YoY|60d%|YTD%",
+  "excerpt": "川湖2059(伺服器滑軌):rev+101%強加速(80→94→101)|-2.2%|+43%=醞釀待發(chokepoint+加速+近60d未追)。貿聯3665(連接器):rev-0.1%flat|+62%|+51%=背離排除。京元電2449(AI測試):rev+11%flat|+37%|+54%=已大漲+rev不加速。欣興3037(ABF):rev+7%降|+5%|+8%=laggard弱數字沒人要。南電8046(ABF):rev-11%|-11%|-26%=負成長falling knife。景碩3189(ABF):rev+19%|+13%|+9%=modest观望。聯茂6213(CCL):rev+48%|+27%|+36%=CCL次族群(與台燿同題材,redundant)。祥碩/穩懋/晶心科/環球晶:rev降或負,排除。",
+  "used": true
+ },
+ {
+  "date": "2024(結構事實)",
+  "source": "WebSearch(口袋學堂6420/DA Labs/天下5141020/blog.fugle.tw king-slide-analysis/民報15482)",
+  "url": "https://blog.fugle.tw/post/king-slide-analysis-250328",
+  "title": "川湖2059 伺服器滑軌全球龍頭>30%市佔 AI機櫃chokepoint",
+  "excerpt": "川湖(King Slide)=全球伺服器滑軌/導軌龍頭,全球市占>30%,高階客製化滑軌供Google/Amazon/Microsoft資料中心。天下:『1%的零件卡住伺服器命門...撐起AI時代重量』(chokepoint框架)。極高毛利(2023 Q2毛利率69.6%,近IC設計/軟體水準=pricing power/稀缺=瓶頸特徵)。NVIDIA次世代產品線滑軌市占估>70%。AI機櫃密度提高(GB200 NVL72)→滑軌價值/含量提升,CSP capex結構性需求。cache PIT:6月營收+101%強加速(80→94→101),股價7/11 -2.2%(60d近期盤整未追)/+43%(YTD未如散熱極端)。直接卡位=每台AI伺服器/機櫃必備滑軌瓶頸件。(2026 Q1數字為污染,不採)",
+  "used": true
+ },
+ {
+  "date": "2024(結構事實)",
+  "source": "WebSearch(stockfeel台燿6274/blog.fugle.tw taiwan-union-technology-analysis/uc913/DA Labs)",
+  "url": "https://blog.fugle.tw/post/taiwan-union-technology-analysis",
+  "title": "台燿6274 高速CCL 切入AI伺服器/800G/ASIC 台光電之次族群",
+  "excerpt": "台燿(TUC)=全球領先CCL/Prepreg製造商,切入AI伺服器(M8材料)/800G交換器/低軌衛星。定位:台光電為頂級AI平台/高階材料認證領先者,台燿在800G與ASIC AI伺服器材料為追趕卡位的直接次族群(打入AWS AI專案M8)。cache PIT:6月營收+61%再加速(51→44→61)vs台光電降速(80→63→62.6);股價7/11 +10%(60d)/+38%(YTD)較台光電未過度擁擠。判讀:signal#6族群龍頭外溢至『真直接環節+自身營收加速』次族群,非蹭貼。(前10月/AWS市占30-35%等為post-PIT,不採)",
+  "used": true
+ },
+ {
+  "date": "2024-07-11",
+  "source": "標記研究員最終決策(綜合cache PIT硬數據+結構事實)",
+  "url": "local:ev28_news/2024-07",
+  "title": "2024-07-11 Evergreen標記最終決策與紀律說明",
+  "excerpt": "regime:2024-07-11大盤處AI euphoria高檔(非washout/非早循環),故最強chokepoint一律封頂conviction 4(5分需regime支持或落底錯殺,均不滿足)。標記5檔(全4分,全為AI compute chain直接/瓶頸環節+6月營收近端加速+定價未過度反映):家登3680、川湖2059、穎崴6515、信驊5274、台燿6274。排除:背離(高力/動力/弘塑/貿聯 rev降價漲)、利多出盡(志聖+230%/辛耘/奇鋐/雙鴻/華城+186%/京元電/健策)、降速laggard(欣興/南電/景碩/金像電/台光電/智邦)、造浪太早(CPO兌現≥2年)、commodity間接(南亞科/華邦)、company-specific弱勢(世芯 vs 創意逆勢)、非AI慢兌現(軍工500億案2026/低軌衛星/重電已漲)。watchlist(3):世芯3661、智邦2345、金像電2368、台光電2383、聯茂6213。",
+  "used": true
+ }
+]

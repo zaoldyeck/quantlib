@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2025-02-15",
+    "source": "鉅亨網 cnyes",
+    "url": "https://news.cnyes.com/news/id/6251003",
+    "title": "CoWoS急單湧現 弘塑產能至少滿到明年上半年",
+    "excerpt": "受惠 AI/HPC，CoWoS 等先進封裝急單湧現，客戶所需機台量約為公司自製產能 2 倍，產能至少滿到 2026 上半年;近乎每週有急單追加、客戶無下修。弘塑為台積電後段濕製程設備龍頭。t0 前主題已高度成形、持續強化。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-03-20",
+    "source": "經濟日報 money.udn",
+    "url": "https://money.udn.com/money/story/5612/9188169",
+    "title": "台積電先進封裝大爆單 加速擴產及委外 帶旺弘塑、萬潤等設備鏈",
+    "excerpt": "台積電先進封裝爆單、加速擴產與委外，帶動弘塑、辛耘、萬潤等設備鏈。弘塑外包比重由 3 成拉高至 5 成因應急單。CoWoS 設備三傑論述。t0(3/31)前的核心產業催化，屬醞釀型且人盡皆知。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "經濟日報(市場事件)",
+    "url": "https://money.udn.com/money/story/124512/9232466",
+    "title": "川普對等關稅 台股4/7崩跌9.7% 4/9落底 4/10 V轉",
+    "excerpt": "t0=3/31 恰在對等關稅崩盤(4/7)前;弘塑亦隨大盤 4 月初回檔至低點後強彈。60 日 +89% 的路徑涵蓋關稅崩跌與 V 轉，起漲點被量化系統定於崩盤前的相對低。",
+    "pit": "post_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-06-30",
+    "source": "TechNews 科技新報",
+    "url": "https://technews.tw/2025/06/30/gptc/",
+    "title": "弘塑躍升台灣CoWoS設備王者之路",
+    "excerpt": "深度報導弘塑十年研究先進封裝、躍升 CoWoS 濕製程設備王者。發布於 60 日漲勢近尾聲，屬題材聲量放大的 t0 後材料。",
+    "pit": "post_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-08-18",
+    "source": "富果直送(後續佐證)",
+    "url": "https://blog.fugle.tw/post/earnings-call-3131-2025-08-18",
+    "title": "弘塑法說會:2025設備出貨170-200台 較2024成長70-100%",
+    "excerpt": "法說揭 2025 設備總出貨 170-200 台(年增 70-100%)、營收獲利創新高、能見度達 2026H1;香山二期廠 2026 投產產能倍增。t0 後才揭露的營運兌現，佐證急單題材為真。",
+    "pit": "post_t0",
+    "pricing_state": "人盡皆知",
+    "used": false
+  }
+]

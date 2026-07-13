@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2022(全年題材)",
+    "source": "網通產業",
+    "url": "https://cmnews.com.tw/article/star-c1d5af39-d8c8-11ef-8ce8-0c6a7b2f8588",
+    "title": "2022網通族群大多頭(缺料緩解+backlog出貨),兆勁為小型落後補漲",
+    "excerpt": "2022年網通族群受惠缺料緩解與積壓訂單(backlog)出貨大多頭,智易(3596)、中磊(5388)、明泰(3380)等領漲。兆勁為小型網通,約自22Q4進入營收爆發期,t0(9/28)前為族群題材+落後補漲背景,自身基本面尚未明顯放量。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(族群題材)",
+    "used": true
+  },
+  {
+    "date": "2022(前三季)",
+    "source": "CMoney 研究報告(回顧)",
+    "url": "https://cmnews.com.tw/article/star-c1d5af39-d8c8-11ef-8ce8-0c6a7b2f8588",
+    "title": "德國客戶因缺料改晶片設計,壓抑前三季營收;設計完成後22Q4起加速出貨",
+    "excerpt": "兆勁網通事業:2022缺料下德國客戶指定改用美系晶片、為此更改產品設計,導致前三季營收受壓抑;隨設計更動完成,自22Q4起加速出貨,且德國客戶新機種開發完成,訂單量顯著優於2022。英國客戶高階工業Wi-Fi 6打入Amazon供應鏈。t0 前基本面『轉機在即但未爆發』。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(轉機醞釀)",
+    "used": true
+  },
+  {
+    "date": "2022-10 / 2022-11",
+    "source": "月營收(公開資訊觀測站)",
+    "url": "https://www.wantgoo.com/stock/2444/financial-statements/monthly-revenue",
+    "title": "兆勁10-11月連兩月營收月增約3成,同業中最強",
+    "excerpt": "兆勁於2022年10~11月連續兩個月營收皆月增約3成,股價表現同業中最強。營收爆發(10月營收11月上旬公布)發生在 t0(9/28)之後,屬事後確認;t0 的噴出領先了營收放量約1-2個月。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認(營收放量)",
+    "used": true
+  },
+  {
+    "date": "2022(全年,事後)",
+    "source": "財報 / 研究報告",
+    "url": "https://statementdog.com/analysis/2444/eps",
+    "title": "兆勁2022 EPS估1.50元(年增1150%)、2023估2.06元",
+    "excerpt": "兆勁2022/2023 EPS估1.50/2.06元(YoY +1150%/+37.3%);網通/半導體/記憶體營收比95/3/2。全年獲利大增為事後確認,印證 t0 前的轉機押注。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認",
+    "used": false
+  }
+]

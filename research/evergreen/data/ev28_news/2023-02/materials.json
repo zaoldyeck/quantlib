@@ -1,0 +1,90 @@
+[
+  {
+    "date": "2022-11-30",
+    "source": "OpenAI",
+    "url": "https://openai.com/blog/chatgpt",
+    "title": "OpenAI 推出 ChatGPT，生成式 AI 進入大眾視野",
+    "excerpt": "ChatGPT 2022-11-30 上線，兩個月內衝破 1 億月活(2023-02 初 UBS/路透報導)，為史上用戶成長最快的消費級應用。此為整條生成式 AI 題材之結構性起點——題材已完全公開，但台廠硬體受惠股在 t0(2023-02-13) 前尚未被重新定價。屬醞釀型再定價的『結構事實已公開、待觸媒』狀態。",
+    "used": true
+  },
+  {
+    "date": "2023-01-23",
+    "source": "Microsoft / 國際財經媒體",
+    "url": "",
+    "title": "微軟宣布對 OpenAI 追加投資，規模達 100 億美元",
+    "excerpt": "微軟 2023-01-23 宣布對 OpenAI 多年期數十億美元投資(市場普遍以 100 億美元計)，並將 ChatGPT 整合進 Azure/Bing/Office。此為生成式 AI 商業化的第一個重量級資本承諾，是點火『史上最大 AI 伺服器建置潮』敘事的關鍵觸媒之一，落在 t0 前三週。",
+    "used": true
+  },
+  {
+    "date": "2023-02-06 / 2023-02-07",
+    "source": "Google / Microsoft 發表會",
+    "url": "",
+    "title": "Google 發表 Bard(2/6)、微軟發表整合 ChatGPT 的新 Bing/Edge(2/7)",
+    "excerpt": "Google 2023-02-06 宣布 Bard、微軟 2023-02-07 發表整合 GPT 的新 Bing 與 Edge，搜尋引擎 AI 軍備競賽白熱化(百度文心一言亦於 2 月初預告)。密集大廠事件把生成式 AI 從單一產品推升為全產業競賽，直接強化『雲端大廠將狂建 AI 伺服器』的供應鏈傳導預期。全部落在 t0(2/13) 前一週。",
+    "used": true
+  },
+  {
+    "date": "2023-02-09",
+    "source": "工商時報 / 中時",
+    "url": "https://www.chinatimes.com/newspapers/20230209000129-260202",
+    "title": "ChatGPT 起風 16 檔概念股飆",
+    "excerpt": "2023-02-09 報導：ChatGPT 題材帶動台股 AI 概念股，點名台積電、技嘉、廣達、緯穎、信驊、祥碩、精測、譜瑞-KY、華碩、創意、智原、健策、零壹、凌群、承啟、矽力-KY 等 16 檔，其中創意、矽力-KY、凌群三檔攻上漲停。此為 t0 前四日的當代證據：題材正在主動點火、族群首波跳動(部分定價，非利多出盡)。",
+    "used": true
+  },
+  {
+    "date": "2023-02(約 2/11-2/13，載上週法人買超與 1 月營收)",
+    "source": "工商時報 ctee",
+    "url": "https://ctee.com.tw/news/stocks/806306.html",
+    "title": "ChatGPT 類股爆紅 資金簇擁這 10 檔",
+    "excerpt": "報導上週三大法人買超之 ChatGPT 概念股 10 檔：台積電、世芯-KY、技嘉、緯穎、信驊、京元電子、廣達、矽力-KY、巨有科技、零壹——題材面+資金面雙印證。並載世芯-KY 因 AI/高效運算占比高、受惠美系雲端客戶訂單爆量，1 月營收 16.32 億元、年增 86.58%,為近端已兌現之具體數字。(WebFetch 遭 403,內容取自搜尋摘要,數字另可由 MOPS 1 月營收公告核對)",
+    "used": true
+  },
+  {
+    "date": "2023-02-13(前，earnings calendar 已知)",
+    "source": "NVIDIA IR / 財報行事曆",
+    "url": "https://investor.nvidia.com/news/press-release-details/2023/NVIDIA-Announces-Financial-Results-for-Fourth-Quarter-and-Fiscal-2023/default.aspx",
+    "title": "NVIDIA 第四季暨 FY2023 財報排定 2023-02-22 公布(近端觸媒)",
+    "excerpt": "NVIDIA Q4 FY2023 財報日期 2023-02-22,於 t0(2/13) 前即由 earnings calendar 可知——此為對齊供應鏈的『具日期逼近觸發』。此外 GTC(約 3 月)、Computex(5 月下旬)接續。註:財報實際結果(資料中心 FY23 +41% 至 150.1 億美元、生成式 AI 展望)公布於 2/22,屬 t0 後,不得作為判斷依據;僅『事件日期已知』可用。",
+    "used": true
+  },
+  {
+    "date": "公開事實(先於 t0;NVIDIA DGX A100 2020、HGX H100 2022 發表)",
+    "source": "經理人 / 遠見 / 富果 AI 伺服器供應鏈報導",
+    "url": "https://www.gvm.com.tw/article/104491",
+    "title": "緯創=NVIDIA DGX/HGX 主力組裝與基板供應商;緯穎產 NVIDIA 版主機板",
+    "excerpt": "產業公開事實(先於 t0):緯創為 NVIDIA DGX A100(系統模組)與 HGX H100(次系統基板)主力供應商,涵蓋設計+系統整合;其子公司緯穎更早即生產『輝達版本』主機板。生成式 AI 點火直接重估此既有供應鏈定位——符合『辨識該股屬哪條主題供應鏈並對齊事件日曆,而非挖個股獨家新聞』。緯創 2022 AI 伺服器僅約占營收 1.5%,獲利槓桿大、尚未被定價。",
+    "used": true
+  },
+  {
+    "date": "公開事實(先於 t0)",
+    "source": "產業資料 / 富果 blog.fugle.tw",
+    "url": "https://blog.fugle.tw/post/ai-server-provider",
+    "title": "廣達=全球最大 AI 伺服器 ODM;信驊 BMC 管理晶片近獨佔",
+    "excerpt": "公開產業事實:廣達為全球 AI 伺服器 ODM 龍頭(供 Google/Meta/AWS,NVIDIA DGX/HGX 主機板);信驊(Aspeed)為伺服器 BMC 基板管理晶片近獨佔(約七成市占),每台伺服器(含 AI 伺服器)必用之瓶頸零件。此兩者為生成式 AI 伺服器建置潮之直接/瓶頸受惠環節,供 t0 圈選卡位真偽之依據。",
+    "used": true
+  },
+  {
+    "date": "日期不明(推測 2023 上半)",
+    "source": "Business Insider Taiwan",
+    "url": "https://www.businessinsider.tw/article/3243",
+    "title": "世芯-KY：搭上雲端巨頭 ASIC 軍備競賽",
+    "excerpt": "背景脈絡:世芯-KY 為雲端巨頭 AI/HPC 客製 ASIC 設計服務商,約八成 AI 晶片營收來自 HPC 專案。佐證世芯屬 AI 題材『直接環節+自身營收加速』而非蹭貼。確切日期未核實,僅作脈絡,不單獨作 t0 前兆(t0 前兆以 2/9 工商+2/11-13 ctee 之 1 月營收數字為準)。",
+    "used": false
+  },
+  {
+    "date": "2023-10-03",
+    "source": "數位時代 bnext",
+    "url": "https://www.bnext.com.tw/article/76027/wistron-ai-server",
+    "title": "緯創入手 NVIDIA 新訂單，明年首季顯著出貨",
+    "excerpt": "【逾 t0，排除】此文發佈於 2023-10-03,晚於 t0(2/13),依 PIT 鐵律不得作為判斷依據。緯創之 NVIDIA 定位改以『公開供應鏈事實(DGX/HGX 主供應商,先於 t0)』佐證,此文僅記錄以示已核日期並排除。",
+    "used": false
+  },
+  {
+    "date": "當代背景(2023-02 盤面主流題材掃描)",
+    "source": "經濟日報 / 天下 / 財報狗等(theme map)",
+    "url": "",
+    "title": "2023-02 台股題材地圖:除 AI 外之中國解封、重電/綠能/儲能、國防航太——本次判定為排除或觀察",
+    "excerpt": "PIT 題材地圖與棄權理由:(1)中國解封——12 月新十條後行情自 2022-12~2023-01 已跑,航空觀光大幅反彈,屬部分反應/人盡皆知,利多出盡風險→棄權;(2)重電/綠能/儲能——台電強韌電網計畫(2022-09,5645 億)為真結構題材,但 t0 時龍頭尚未主動點火(大行情在 2023 下半)→造浪太早,列觀察不標記;(3)國防航太特殊合金(俄烏週年 2/24)——精剛等已於 2022Q4~2023-01 反映,無乾淨未定價 PIT 標的→棄權;(4)記憶體/半導體循環——報價仍未止跌,逆循環太早→棄權。棄權即本次紀律的『排除偽形』表現。",
+    "used": true
+  }
+]

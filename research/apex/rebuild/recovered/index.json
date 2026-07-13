@@ -1,0 +1,2523 @@
+{
+ "b01a_rev_accel_solo": [
+  "002_b01a.py"
+ ],
+ "b01b_high52w_solo": [
+  "002_b01a.py"
+ ],
+ "b01c_rev_x_pos": [
+  "002_b01a.py"
+ ],
+ "b01d_tri_axis": [
+  "002_b01a.py"
+ ],
+ "b01e_tri_cfo_gate": [
+  "002_b01a.py"
+ ],
+ "b01f_tri_n20": [
+  "002_b01a.py"
+ ],
+ "b01g_fresh_event": [
+  "002_b01a.py"
+ ],
+ "b01h_rev_x_hvn": [
+  "002_b01a.py"
+ ],
+ "b02a_core": [
+  "003_b02a.py"
+ ],
+ "b02b_core_xr2": [
+  "003_b02a.py"
+ ],
+ "b02c_core_xr6": [
+  "003_b02a.py"
+ ],
+ "b02d_core_xr8": [
+  "003_b02a.py"
+ ],
+ "b02e_core_minhold10": [
+  "003_b02a.py"
+ ],
+ "b02f_core_trail35": [
+  "003_b02a.py",
+  "012_b02f.py",
+  "013_b02f.py"
+ ],
+ "b02g_hvn_core": [
+  "003_b02a.py"
+ ],
+ "b02h_4axis": [
+  "003_b02a.py"
+ ],
+ "b02i_core_n30": [
+  "003_b02a.py"
+ ],
+ "b02j_core_regime": [
+  "003_b02a.py"
+ ],
+ "b03a_t35_mh10": [
+  "004_b03a.py"
+ ],
+ "b03b_t45": [
+  "004_b03a.py"
+ ],
+ "b03c_no_trail": [
+  "004_b03a.py"
+ ],
+ "b03d_w211": [
+  "004_b03a.py"
+ ],
+ "b03e_w121": [
+  "004_b03a.py"
+ ],
+ "b03f_w112": [
+  "004_b03a.py"
+ ],
+ "b03g_dualgate": [
+  "004_b03a.py"
+ ],
+ "b03h_gate_p25": [
+  "004_b03a.py"
+ ],
+ "b03i_gate_p75": [
+  "004_b03a.py"
+ ],
+ "b03j_maxnew5": [
+  "004_b03a.py"
+ ],
+ "b04a_abs15": [
+  "006_b04a.py"
+ ],
+ "b04b_abs20": [
+  "006_b04a.py"
+ ],
+ "b04c_abs25": [
+  "006_b04a.py"
+ ],
+ "b04d_brake_v1": [
+  "006_b04a.py"
+ ],
+ "b04e_brake_v2": [
+  "006_b04a.py"
+ ],
+ "b04f_abs20_brake": [
+  "006_b04a.py"
+ ],
+ "b04g_halt_v1": [
+  "006_b04a.py"
+ ],
+ "b04h_ma200_halt": [
+  "006_b04a.py"
+ ],
+ "b05a_def_solo": [
+  "007_b05a.py"
+ ],
+ "b05b_main_def_8020": [
+  "007_b05a.py"
+ ],
+ "b05c_main_def_7030": [
+  "007_b05a.py"
+ ],
+ "b05d_main_def_6040": [
+  "007_b05a.py"
+ ],
+ "b05e_mega_solo": [
+  "007_b05a.py"
+ ],
+ "b05f_main_mega_8020": [
+  "007_b05a.py"
+ ],
+ "b05g_main_mega_7030": [
+  "007_b05a.py"
+ ],
+ "b05h_main_bench_7030": [
+  "007_b05a.py"
+ ],
+ "b06_revcycle_top10": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_revcycle_top20": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt12_e20": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt12_e60": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt15_e20": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt15_e60": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt18_e20": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt18_e60": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt21_e20": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b06_vt21_e60": [
+  "008_b06.py",
+  "009_b06.py"
+ ],
+ "b07a_v2_base": [
+  "011_b07a.py"
+ ],
+ "b07b_requal2n": [
+  "011_b07a.py"
+ ],
+ "b07c_requal4n": [
+  "011_b07a.py"
+ ],
+ "b07d_fresh6": [
+  "011_b07a.py"
+ ],
+ "b07e_n16": [
+  "011_b07a.py"
+ ],
+ "b07f_n24": [
+  "011_b07a.py"
+ ],
+ "b10_v1s26_dev": [
+  "014_b10.py"
+ ],
+ "b10_v1s26_val": [
+  "014_b10.py"
+ ],
+ "b11a_breakout": [
+  "017_b11a.py"
+ ],
+ "b11b_pattern_tail": [
+  "017_b11a.py"
+ ],
+ "b11c_seasonal": [
+  "017_b11a.py"
+ ],
+ "b11d_flow_contrarian": [
+  "017_b11a.py"
+ ],
+ "b11ef_rev_monthly_n10": [
+  "017_b11a.py"
+ ],
+ "b11ef_rev_monthly_n20": [
+  "017_b11a.py"
+ ],
+ "b11g_flow_momentum": [
+  "017_b11a.py"
+ ],
+ "b11h_price_tail": [
+  "017_b11a.py"
+ ],
+ "b12ab_tpex_only": [
+  "018_b12ab.py"
+ ],
+ "b12ab_twse_only": [
+  "018_b12ab.py"
+ ],
+ "b12c_minprice20": [
+  "018_b12ab.py"
+ ],
+ "b12d_fscore_gate": [
+  "018_b12ab.py"
+ ],
+ "b12e_revmonthly_abs20": [
+  "018_b12ab.py"
+ ],
+ "b12f_4axis_mom": [
+  "018_b12ab.py"
+ ],
+ "b12g_fresh_breakout": [
+  "018_b12ab.py"
+ ],
+ "b12h_revmonthly_d15": [
+  "018_b12ab.py"
+ ],
+ "b13_d11_dev": [
+  "020_b13.py"
+ ],
+ "b13_d11_val": [
+  "020_b13.py"
+ ],
+ "b14_v4_dev": [
+  "021_b14.py"
+ ],
+ "b14_v4_val_synth": [
+  "021_b14.py"
+ ],
+ "b15a_mom_sa": [
+  "022_b15a.py"
+ ],
+ "b15b_geometric": [
+  "022_b15a.py"
+ ],
+ "b15c_dualgate_ni": [
+  "022_b15a.py"
+ ],
+ "b15d_pos60": [
+  "022_b15a.py"
+ ],
+ "b15e_twostage": [
+  "022_b15a.py"
+ ],
+ "b15f_profit100": [
+  "022_b15a.py"
+ ],
+ "b15g_maxnew3": [
+  "022_b15a.py"
+ ],
+ "b15h_price15": [
+  "022_b15a.py"
+ ],
+ "ev4_h1c1A": [
+  "083_ev4.py"
+ ],
+ "ev4_h1c1AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h1c3A": [
+  "083_ev4.py"
+ ],
+ "ev4_h1c3AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h1c4A": [
+  "083_ev4.py"
+ ],
+ "ev4_h1c4AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h2c1A": [
+  "083_ev4.py"
+ ],
+ "ev4_h2c1AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h2c3A": [
+  "083_ev4.py"
+ ],
+ "ev4_h2c3AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h2c4A": [
+  "083_ev4.py"
+ ],
+ "ev4_h2c4AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h3c1A": [
+  "083_ev4.py"
+ ],
+ "ev4_h3c1AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h3c3A": [
+  "083_ev4.py"
+ ],
+ "ev4_h3c3AB": [
+  "083_ev4.py"
+ ],
+ "ev4_h3c4A": [
+  "083_ev4.py"
+ ],
+ "ev4_h3c4AB": [
+  "083_ev4.py"
+ ],
+ "ev5_n12-t35-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-t35-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-t35-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-t50-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-t50-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-t50-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-tx-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-tx-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-tx-l50-cw": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n12-tx-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-t35-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-t35-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-t35-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-t50-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-t50-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-t50-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-tx-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-tx-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n5-tx-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-t35-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-t35-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-t35-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-t50-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-t50-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-t50-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-tx-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-tx-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_n8-tx-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-t35-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-t35-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-t35-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-t50-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-t50-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-t50-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-tx-l30": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-tx-l50": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-tx-l50-cw": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-tx-l50-mn2": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-tx-l50-mn5": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5_nAll-tx-lx": [
+  "084_ev5.py",
+  "085_ev5.py",
+  "086_ev5.py",
+  "087_ev5.py",
+  "088_ev5.py"
+ ],
+ "ev5b_h2p1.0c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.0c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.0cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.0cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.5c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.5c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.5cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p1.5cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p2.0c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p2.0c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p2.0cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h2p2.0cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.0c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.0c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.0cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.0cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.5c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.5c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.5cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p1.5cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p2.0c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p2.0c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p2.0cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h3p2.0cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.0c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.0c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.0cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.0cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.5c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.5c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.5cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p1.5cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p2.0c0.12l30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p2.0c0.12l50": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p2.0cxl30": [
+  "085_ev5.py"
+ ],
+ "ev5b_h4p2.0cxl50": [
+  "085_ev5.py"
+ ],
+ "ev5c_h4fh120>0.7": [
+  "086_ev5.py"
+ ],
+ "ev5c_h4fh52>0.6": [
+  "086_ev5.py"
+ ],
+ "ev5c_h4fx": [
+  "086_ev5.py"
+ ],
+ "ev5c_h5fh120>0.7": [
+  "086_ev5.py"
+ ],
+ "ev5c_h5fh52>0.6": [
+  "086_ev5.py"
+ ],
+ "ev5c_h5fx": [
+  "086_ev5.py"
+ ],
+ "ev5c_h6fx": [
+  "086_ev5.py"
+ ],
+ "ev5d_t60p1.5c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t60p1.5c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t60p2.0c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t60p2.0c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t60p3.0c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t60p3.0c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t70p1.5c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t70p1.5c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t70p2.0c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t70p2.0c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t70p3.0c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t70p3.0c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t80p1.5c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t80p1.5c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t80p2.0c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t80p2.0c12": [
+  "087_ev5.py"
+ ],
+ "ev5d_t80p3.0c10": [
+  "087_ev5.py"
+ ],
+ "ev5d_t80p3.0c12": [
+  "087_ev5.py"
+ ],
+ "ev5e_LOO-bottleneck": [
+  "088_ev5.py"
+ ],
+ "ev5e_LOO-other": [
+  "088_ev5.py"
+ ],
+ "ev5e_LOO-rev_inflect": [
+  "088_ev5.py"
+ ],
+ "ev5e_LOO-theme": [
+  "088_ev5.py"
+ ],
+ "ev5e_LOO-transform": [
+  "088_ev5.py"
+ ],
+ "ev5e_champion(全類)": [
+  "088_ev5.py"
+ ],
+ "ev5e_lts20": [
+  "088_ev5.py"
+ ],
+ "ev5e_lts40": [
+  "088_ev5.py"
+ ],
+ "ev5e_＋trail35": [
+  "088_ev5.py"
+ ],
+ "ev6_champ月頻": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6_keep兩命脈": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6_vol加權": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6_週頻": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6_週頻+vol": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6_週頻+命脈": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6_雙週頻": [
+  "089_ev6.py",
+  "090_ev6.py"
+ ],
+ "ev6b_champ": [
+  "090_ev6.py"
+ ],
+ "ev6b_突破+遲滯0.55": [
+  "090_ev6.py"
+ ],
+ "ev6b_突破觸發": [
+  "090_ev6.py"
+ ],
+ "ev6b_遲滯0.55": [
+  "090_ev6.py"
+ ],
+ "ev6b_遲滯0.6": [
+  "090_ev6.py"
+ ],
+ "ev7_n10m2t25ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t25ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t25tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t25tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t35ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t35ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t35tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m2t35tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t25ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t25ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t25tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t25tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t35ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t35ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t35tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n10m3t35tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t25ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t25ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t25tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t25tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t35ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t35ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t35tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m2t35tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t25ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t25ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t25tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t25tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t35ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t35ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t35tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n5m3t35tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t25ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t25ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t25tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t25tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t35ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t35ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t35tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m2t35tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t25ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t25ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t25tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t25tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t35ts60l15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t35ts60l30": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t35tsxl15": [
+  "091_ev7.py"
+ ],
+ "ev7_n8m3t35tsxl30": [
+  "091_ev7.py"
+ ],
+ "ev8_conv*h52*mom(v2)|t60": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom(v2)|t70": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom(v2)|t80": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom*acc|t60": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom*acc|t70": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom*acc|t80": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom*vs|t60": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom*vs|t70": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52*mom*vs|t80": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52|t60": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52|t70": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*h52|t80": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*mom|t60": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*mom|t70": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv*mom|t80": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv2*h52*mom|t60": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv2*h52*mom|t70": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8_conv2*h52*mom|t80": [
+  "092_ev8.py",
+  "093_ev8.py",
+  "094_ev8.py"
+ ],
+ "ev8b_conv加權席位": [
+  "093_ev8.py"
+ ],
+ "ev8b_min_hold3": [
+  "093_ev8.py"
+ ],
+ "ev8b_min_hold5": [
+  "093_ev8.py"
+ ],
+ "ev8b_profit100": [
+  "093_ev8.py"
+ ],
+ "ev8b_uw_trail20": [
+  "093_ev8.py"
+ ],
+ "ev8b_uw_trail25": [
+  "093_ev8.py"
+ ],
+ "ev8b_v2基準": [
+  "093_ev8.py"
+ ],
+ "ev8b_弱勢+uw20": [
+  "093_ev8.py"
+ ],
+ "ev8b_池內弱勢出場": [
+  "093_ev8.py"
+ ],
+ "ev8c_p1.0w10-25": [
+  "094_ev8.py"
+ ],
+ "ev8c_p1.0w10-30": [
+  "094_ev8.py"
+ ],
+ "ev8c_p1.0w12-35": [
+  "094_ev8.py"
+ ],
+ "ev8c_p1.5w10-30": [
+  "094_ev8.py"
+ ],
+ "ev8c_p1.5w10-35": [
+  "094_ev8.py"
+ ],
+ "ev8c_p2.0w10-30": [
+  "094_ev8.py"
+ ],
+ "ev9_eligibility補丁": [
+  "095_ev9.py",
+  "096_ev9.py",
+  "097_ev9.py",
+  "098_ev9.py"
+ ],
+ "ev9_guard_0050MA120": [
+  "095_ev9.py",
+  "096_ev9.py",
+  "097_ev9.py",
+  "098_ev9.py"
+ ],
+ "ev9_guard_0050MA60": [
+  "095_ev9.py",
+  "096_ev9.py",
+  "097_ev9.py",
+  "098_ev9.py"
+ ],
+ "ev9_guard_池DD15": [
+  "095_ev9.py",
+  "096_ev9.py",
+  "097_ev9.py",
+  "098_ev9.py"
+ ],
+ "ev9_v3基準": [
+  "095_ev9.py",
+  "096_ev9.py",
+  "097_ev9.py",
+  "098_ev9.py"
+ ],
+ "ev9b_DD10": [
+  "096_ev9.py",
+  "097_ev9.py"
+ ],
+ "ev9b_DD15": [
+  "096_ev9.py",
+  "097_ev9.py"
+ ],
+ "ev9b_DD20": [
+  "096_ev9.py",
+  "097_ev9.py"
+ ],
+ "ev9b_v3基準": [
+  "096_ev9.py",
+  "097_ev9.py"
+ ],
+ "ev9b_法人淨賣出場": [
+  "096_ev9.py",
+  "097_ev9.py"
+ ],
+ "ev9c_v3基準": [
+  "098_ev9.py"
+ ],
+ "ev9c_回收100%賣50%": [
+  "098_ev9.py"
+ ],
+ "ev9c_回收150%賣50%": [
+  "098_ev9.py"
+ ],
+ "ev9c_回收60%賣33%": [
+  "098_ev9.py"
+ ],
+ "ev9c_回收60%賣50%": [
+  "098_ev9.py"
+ ],
+ "f01_AOI+donchian_60": [
+  "070_f01.py"
+ ],
+ "f01_AOI+dy": [
+  "070_f01.py"
+ ],
+ "f01_AOI+frn_60": [
+  "070_f01.py"
+ ],
+ "f01_AOI+fvg_20": [
+  "070_f01.py"
+ ],
+ "f01_AOI+hvn_dist": [
+  "070_f01.py"
+ ],
+ "f01_AOI+lowvol_60": [
+  "070_f01.py"
+ ],
+ "f01_AOI+range_pos_60": [
+  "070_f01.py"
+ ],
+ "f01_AOI+rev_yoy": [
+  "070_f01.py"
+ ],
+ "f01_AOI+updays_20": [
+  "070_f01.py"
+ ],
+ "f01_BASE_S": [
+  "070_f01.py"
+ ],
+ "f01_LOO-accel_rel": [
+  "070_f01.py"
+ ],
+ "f01_LOO-close_pos_20": [
+  "070_f01.py"
+ ],
+ "f01_LOO-high_52w": [
+  "070_f01.py"
+ ],
+ "f01_LOO-mom_126_5": [
+  "070_f01.py"
+ ],
+ "f01_LOO-rev_seq": [
+  "070_f01.py"
+ ],
+ "f01_LOO-rev_yoy_accel": [
+  "070_f01.py"
+ ],
+ "f02_CONT-brk": [
+  "071_f02.py"
+ ],
+ "f02_CONT-mom": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n4-t30": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n4-t35": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n4-t40": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n5-t30": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n5-t35": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n5-t40": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n6-t30": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n6-t35": [
+  "071_f02.py"
+ ],
+ "f02_S+up-n6-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-n4-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-n4-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-n4-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-n5-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-n5-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-n5-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-n6-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-n6-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-n6-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n4-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n4-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n4-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n5-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n5-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n5-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n6-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n6-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-rel+up-n6-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n4-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n4-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n4-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n5-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n5-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n5-t40": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n6-t30": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n6-t35": [
+  "071_f02.py"
+ ],
+ "f02_S-rel-n6-t40": [
+  "071_f02.py"
+ ],
+ "f02_fresh10-S-rel-n5-t35": [
+  "071_f02.py"
+ ],
+ "f02_fresh5-S-rel-n5-t35": [
+  "071_f02.py"
+ ],
+ "f03_S+up_fullspan": [
+  "072_f03.py"
+ ],
+ "f03_S-rel_fullspan": [
+  "072_f03.py"
+ ],
+ "f03_S_fullspan": [
+  "072_f03.py"
+ ],
+ "f04a_qtr_standalone": [
+  "073_f04a.py"
+ ],
+ "f04b_S_plus_gm": [
+  "073_f04a.py"
+ ],
+ "f05_CONT_precursor": [
+  "074_f05.py"
+ ],
+ "f05_S+consol": [
+  "074_f05.py"
+ ],
+ "f05_S_base": [
+  "074_f05.py"
+ ],
+ "f06_base(5M/10元/60根)": [
+  "078_f06.py"
+ ],
+ "f06_no_ADV": [
+  "078_f06.py"
+ ],
+ "f06_no_history": [
+  "078_f06.py"
+ ],
+ "f06_no_price": [
+  "078_f06.py"
+ ],
+ "f06_全移除": [
+  "078_f06.py"
+ ],
+ "f07_stale26": [
+  "079_f07.py",
+  "080_f07.py"
+ ],
+ "f07_stale28": [
+  "079_f07.py",
+  "080_f07.py"
+ ],
+ "f07_stale30": [
+  "079_f07.py",
+  "080_f07.py"
+ ],
+ "f07_stale32": [
+  "079_f07.py",
+  "080_f07.py"
+ ],
+ "f07b_stale26_modern": [
+  "080_f07.py"
+ ],
+ "f07b_stale28_modern": [
+  "080_f07.py"
+ ],
+ "fullspan_v3_n20": [
+  "030_fullspan.py"
+ ],
+ "fullspan_v3_n8": [
+  "030_fullspan.py"
+ ],
+ "g01_ML_W3": [
+  "075_g01.py"
+ ],
+ "g01_ML_fullOOS": [
+  "075_g01.py"
+ ],
+ "g01_S_W3": [
+  "075_g01.py"
+ ],
+ "g01_S_fullOOS": [
+  "075_g01.py"
+ ],
+ "g02_lambdarank_W3": [
+  "076_g02.py"
+ ],
+ "g02_lambdarank_fullOOS": [
+  "076_g02.py"
+ ],
+ "g02_rankmse_W3": [
+  "076_g02.py"
+ ],
+ "g02_rankmse_fullOOS": [
+  "076_g02.py"
+ ],
+ "g02_raw_W3": [
+  "076_g02.py"
+ ],
+ "g02_raw_fullOOS": [
+  "076_g02.py"
+ ],
+ "g03_a_geo_W3": [
+  "077_g03.py"
+ ],
+ "g03_a_geo_fullOOS": [
+  "077_g03.py"
+ ],
+ "g03_b_ext_W3": [
+  "077_g03.py"
+ ],
+ "g03_b_ext_fullOOS": [
+  "077_g03.py"
+ ],
+ "g03_c_expand_W3": [
+  "077_g03.py"
+ ],
+ "g03_c_expand_fullOOS": [
+  "077_g03.py"
+ ],
+ "holdout_v3_next_close": [
+  "024_holdout.py"
+ ],
+ "holdout_v3_next_mid": [
+  "024_holdout.py"
+ ],
+ "holdout_v3_next_open": [
+  "024_holdout.py"
+ ],
+ "matchwin_r06e_vs_00631L": [
+  "034_matchwin.py",
+  "036_matchwin.py"
+ ],
+ "matchwin_t35_vs_00631L": [
+  "034_matchwin.py",
+  "036_matchwin.py"
+ ],
+ "modern_r06e_geo_n8_t30": [
+  "033_modern.py",
+  "035_modern.py"
+ ],
+ "modern_r07d_revlevel": [
+  "033_modern.py",
+  "035_modern.py"
+ ],
+ "modern_r07f_t35": [
+  "033_modern.py",
+  "035_modern.py"
+ ],
+ "mom126_top10_monthly": [
+  "001_mom126.py"
+ ],
+ "n01_lb10s0n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb10s0n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb10s0n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb10s0n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb10s0n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb10s0n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb10s5n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb10s5n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb10s5n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb10s5n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb10s5n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb10s5n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb21s0n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb21s0n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb21s0n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb21s0n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb21s0n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb21s0n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb21s5n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb21s5n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb21s5n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb21s5n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb21s5n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb21s5n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb42s0n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb42s0n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb42s0n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb42s0n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb42s0n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb42s0n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb42s5n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb42s5n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb42s5n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb42s5n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb42s5n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb42s5n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb63s0n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb63s0n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb63s0n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb63s0n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb63s0n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb63s0n8b2": [
+  "081_n01.py"
+ ],
+ "n01_lb63s5n10b1": [
+  "081_n01.py"
+ ],
+ "n01_lb63s5n10b2": [
+  "081_n01.py"
+ ],
+ "n01_lb63s5n12b1": [
+  "081_n01.py"
+ ],
+ "n01_lb63s5n12b2": [
+  "081_n01.py"
+ ],
+ "n01_lb63s5n8b1": [
+  "081_n01.py"
+ ],
+ "n01_lb63s5n8b2": [
+  "081_n01.py"
+ ],
+ "n02_m42xConsol-n10": [
+  "082_n02.py"
+ ],
+ "n02_m42xConsol-n12": [
+  "082_n02.py"
+ ],
+ "n02_m42xCxH-n10": [
+  "082_n02.py"
+ ],
+ "n02_m42xCxH-n12": [
+  "082_n02.py"
+ ],
+ "n02_m42xH52-n10": [
+  "082_n02.py"
+ ],
+ "n02_m42xH52-n12": [
+  "082_n02.py"
+ ],
+ "n02_m63xConsol-n10": [
+  "082_n02.py"
+ ],
+ "n02_m63xConsol-n12": [
+  "082_n02.py"
+ ],
+ "oos_r03d_n8": [
+  "028_oos.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "069_oos.py",
+  "083_ev4.py"
+ ],
+ "oos_r03h_n10_momw75": [
+  "028_oos.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "069_oos.py",
+  "083_ev4.py"
+ ],
+ "oos_r06e_geo_n8_t30": [
+  "028_oos.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "069_oos.py",
+  "083_ev4.py"
+ ],
+ "oos_r07d_revlevel": [
+  "028_oos.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "069_oos.py",
+  "083_ev4.py"
+ ],
+ "oos_r07f_t35": [
+  "028_oos.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "069_oos.py",
+  "083_ev4.py"
+ ],
+ "oos_r08a_t35_revlevel": [
+  "028_oos.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "069_oos.py",
+  "083_ev4.py"
+ ],
+ "p02_fill_close_dev": [
+  "015_p02.py",
+  "016_p02.py"
+ ],
+ "p02_fill_close_val": [
+  "015_p02.py",
+  "016_p02.py"
+ ],
+ "p03_v3_dev": [
+  "019_p03.py"
+ ],
+ "p03_v3_val": [
+  "019_p03.py"
+ ],
+ "p05_v5_dev": [
+  "023_p05.py"
+ ],
+ "p05_v5_val": [
+  "023_p05.py"
+ ],
+ "r01a_52wh_top10": [
+  "025_r01a.py"
+ ],
+ "r01b_52wh_top20": [
+  "025_r01a.py"
+ ],
+ "r01c_52wh_t40": [
+  "025_r01a.py"
+ ],
+ "r01d_52wh_adv300": [
+  "025_r01a.py"
+ ],
+ "r01e_mom61_adv100": [
+  "025_r01a.py"
+ ],
+ "r01f_mom61_mega5": [
+  "025_r01a.py"
+ ],
+ "r01g_blend": [
+  "025_r01a.py"
+ ],
+ "r01h_52wh_cfo": [
+  "025_r01a.py"
+ ],
+ "r01i_52wh_revpos": [
+  "025_r01a.py"
+ ],
+ "r01j_v3_baseline": [
+  "025_r01a.py"
+ ],
+ "r01k_breakout_hold": [
+  "025_r01a.py"
+ ],
+ "r01l_frn_modern": [
+  "025_r01a.py"
+ ],
+ "r02a_52wh_tb": [
+  "026_r02a.py"
+ ],
+ "r02b_tb_halt": [
+  "026_r02a.py"
+ ],
+ "r02c_tb_derisk": [
+  "026_r02a.py"
+ ],
+ "r02d_tb_derisk_t25": [
+  "026_r02a.py"
+ ],
+ "r02e_tb_crashstate": [
+  "026_r02a.py"
+ ],
+ "r02f_mom61_derisk": [
+  "026_r02a.py"
+ ],
+ "r02g_v3_mom_5050": [
+  "026_r02a.py"
+ ],
+ "r02h_v3_mom_7030": [
+  "026_r02a.py"
+ ],
+ "r02i_tb_derisk_top5": [
+  "026_r02a.py"
+ ],
+ "r02j_tb_derisk_t35": [
+  "026_r02a.py"
+ ],
+ "r03a_n16": [
+  "027_r03a.py"
+ ],
+ "r03b_n12": [
+  "027_r03a.py"
+ ],
+ "r03c_n10": [
+  "027_r03a.py"
+ ],
+ "r03d_n8": [
+  "027_r03a.py",
+  "028_oos.py",
+  "029_r03d.py",
+  "031_r03d.py",
+  "032_r03d.py"
+ ],
+ "r03e_n16_t30": [
+  "027_r03a.py"
+ ],
+ "r03f_n10_t30": [
+  "027_r03a.py"
+ ],
+ "r03g_momw100": [
+  "027_r03a.py"
+ ],
+ "r03h_n10_momw75": [
+  "027_r03a.py",
+  "028_oos.py"
+ ],
+ "r04a_acc10_cap20": [
+  "029_r03d.py"
+ ],
+ "r04b_acc20_cap20": [
+  "029_r03d.py"
+ ],
+ "r04c_acc30_cap20": [
+  "029_r03d.py"
+ ],
+ "r04d_acc20_cap12": [
+  "029_r03d.py"
+ ],
+ "r04e_acc20_cap40": [
+  "029_r03d.py"
+ ],
+ "r04f_acc20_h90": [
+  "029_r03d.py"
+ ],
+ "r04g_acc20_p55": [
+  "029_r03d.py"
+ ],
+ "r04h_h95_acc0": [
+  "029_r03d.py"
+ ],
+ "r05a_n8_extend": [
+  "031_r03d.py"
+ ],
+ "r05b_n20_extend": [
+  "031_r03d.py"
+ ],
+ "r05c_n8_ind": [
+  "031_r03d.py"
+ ],
+ "r05d_n20_ind": [
+  "031_r03d.py"
+ ],
+ "r05e_n8_geo": [
+  "031_r03d.py"
+ ],
+ "r05f_n8_streak": [
+  "031_r03d.py"
+ ],
+ "r05g_n8_ind_extend": [
+  "031_r03d.py"
+ ],
+ "r05h_n12_ind": [
+  "031_r03d.py"
+ ],
+ "r06a_geo_n8": [
+  "032_r03d.py"
+ ],
+ "r06b_geo_n6": [
+  "032_r03d.py"
+ ],
+ "r06c_n6": [
+  "032_r03d.py"
+ ],
+ "r06d_n5": [
+  "032_r03d.py"
+ ],
+ "r06e_geo_n8_t30": [
+  "032_r03d.py",
+  "033_modern.py",
+  "034_matchwin.py"
+ ],
+ "r06f_n6_t30": [
+  "032_r03d.py"
+ ],
+ "r06g_geo_n5": [
+  "032_r03d.py"
+ ],
+ "r06h_n8_t30": [
+  "032_r03d.py"
+ ],
+ "r07a_exfin": [
+  "034_matchwin.py"
+ ],
+ "r07b_excon": [
+  "034_matchwin.py"
+ ],
+ "r07c_exboth": [
+  "034_matchwin.py"
+ ],
+ "r07d_revlevel": [
+  "034_matchwin.py",
+  "035_modern.py"
+ ],
+ "r07e_dualgate": [
+  "034_matchwin.py"
+ ],
+ "r07f_t35": [
+  "034_matchwin.py",
+  "035_modern.py"
+ ],
+ "r07g_mome75": [
+  "034_matchwin.py"
+ ],
+ "r07h_fresh6": [
+  "034_matchwin.py"
+ ],
+ "r08a_t35_revlevel": [
+  "036_matchwin.py",
+  "037_oos.py"
+ ],
+ "r08b_t40": [
+  "036_matchwin.py"
+ ],
+ "r08c_t35_fresh6": [
+  "036_matchwin.py"
+ ],
+ "r08d_t35_momw40": [
+  "036_matchwin.py"
+ ],
+ "r08e_t35_stale28": [
+  "036_matchwin.py"
+ ],
+ "r08f_t35_maxnew8": [
+  "036_matchwin.py"
+ ],
+ "r08g_t35_n7": [
+  "036_matchwin.py"
+ ],
+ "r08h_t35_pos15": [
+  "036_matchwin.py"
+ ],
+ "r09a_size50": [
+  "038_r09a.py"
+ ],
+ "r09b_size25": [
+  "038_r09a.py"
+ ],
+ "r09c_buyback": [
+  "038_r09a.py"
+ ],
+ "r09d_breadth_halt": [
+  "038_r09a.py"
+ ],
+ "r09e_rev_stability": [
+  "038_r09a.py"
+ ],
+ "r09f_yoy_cap150": [
+  "038_r09a.py"
+ ],
+ "r09g_frn20": [
+  "038_r09a.py"
+ ],
+ "r09h_low_margin_usage": [
+  "038_r09a.py"
+ ],
+ "r09i_lowvol5": [
+  "038_r09a.py"
+ ],
+ "r09j_size_bb": [
+  "038_r09a.py"
+ ],
+ "r10a_cap_t30": [
+  "039_r10a.py"
+ ],
+ "r10b_cap_stale21": [
+  "039_r10a.py"
+ ],
+ "r10c_momw60_t35": [
+  "039_r10a.py"
+ ],
+ "r10d_accel125": [
+  "039_r10a.py"
+ ],
+ "r10e_h52w125": [
+  "039_r10a.py"
+ ],
+ "r10f_pos75": [
+  "039_r10a.py"
+ ],
+ "r11a_pead_axis25": [
+  "040_r11a.py"
+ ],
+ "r11b_pead_axis50": [
+  "040_r11a.py"
+ ],
+ "r11c_pead_gate": [
+  "040_r11a.py",
+  "041_r11c.py"
+ ],
+ "r12a_tier_weight": [
+  "042_r12a.py"
+ ],
+ "r12b_score_weight": [
+  "042_r12a.py"
+ ],
+ "r12c_seq_axis": [
+  "042_r12a.py",
+  "043_r12c.py"
+ ],
+ "r12d_seq_replace": [
+  "042_r12a.py"
+ ],
+ "r12e_requal_exit": [
+  "042_r12a.py"
+ ],
+ "r12f_second_wave": [
+  "042_r12a.py"
+ ],
+ "r13a_rsv60_05": [
+  "046_r13a.py"
+ ],
+ "r13b_rsv60_10": [
+  "046_r13a.py"
+ ],
+ "r13c_rsv60_repl": [
+  "046_r13a.py"
+ ],
+ "r13d_rsv120_05": [
+  "046_r13a.py"
+ ],
+ "r13e_hi120_gate": [
+  "046_r13a.py"
+ ],
+ "r13f_donch_025": [
+  "046_r13a.py"
+ ],
+ "r13g_rsv_lowvol": [
+  "046_r13a.py"
+ ],
+ "r13h_rsv50_05": [
+  "046_r13a.py"
+ ],
+ "r14a_surge": [
+  "048_r14a.py"
+ ],
+ "r14b_samom": [
+  "048_r14a.py"
+ ],
+ "r14c_surge_swap": [
+  "048_r14a.py"
+ ],
+ "r14d_gridstack": [
+  "048_r14a.py"
+ ],
+ "r14e_a_plus_d": [
+  "048_r14a.py"
+ ],
+ "r14f_sixaxis": [
+  "048_r14a.py"
+ ],
+ "r14g_adv10": [
+  "048_r14a.py"
+ ],
+ "r14h_surge_adv10": [
+  "048_r14a.py"
+ ],
+ "r15a_adv10_stack": [
+  "049_r15a.py"
+ ],
+ "r15b_adv5": [
+  "049_r15a.py"
+ ],
+ "r15c_adv10_stack_t40": [
+  "049_r15a.py"
+ ],
+ "r15d_adv10_n6": [
+  "049_r15a.py"
+ ],
+ "r15e_adv10_stack_seq60": [
+  "049_r15a.py"
+ ],
+ "r15f_fullcycle_entry": [
+  "049_r15a.py"
+ ],
+ "r16a_adv3": [
+  "050_r16a.py"
+ ],
+ "r16b_adv5_n6": [
+  "050_r16a.py"
+ ],
+ "r16c_adv5_n10": [
+  "050_r16a.py"
+ ],
+ "r16d_adv5_t40": [
+  "050_r16a.py"
+ ],
+ "r16e_adv5_stack": [
+  "050_r16a.py"
+ ],
+ "r16f_adv5_maxnew8": [
+  "050_r16a.py"
+ ],
+ "r17a_adv5n6_pead": [
+  "051_r17a.py"
+ ],
+ "r17b_adv5_pead": [
+  "051_r17a.py"
+ ],
+ "r17c_adv5n6_t40": [
+  "051_r17a.py"
+ ],
+ "r17d_adv5n6_stack": [
+  "051_r17a.py"
+ ],
+ "r17e_adv5n6_pead_t40": [
+  "051_r17a.py"
+ ],
+ "r17f_adv5n6_seq60": [
+  "051_r17a.py"
+ ],
+ "r18a_n5": [
+  "052_r18a.py"
+ ],
+ "r18b_n4": [
+  "052_r18a.py"
+ ],
+ "r18c_n5_t40": [
+  "052_r18a.py"
+ ],
+ "r18d_n6_fresh4": [
+  "052_r18a.py"
+ ],
+ "r18e_n6_maxnew3": [
+  "052_r18a.py"
+ ],
+ "r18f_n5_true": [
+  "053_r18f.py"
+ ],
+ "r18g_n5_maxnew3": [
+  "053_r18f.py"
+ ],
+ "r18h_n6_maxnew2": [
+  "053_r18f.py"
+ ],
+ "r18i_n6_mn3_fresh6": [
+  "053_r18f.py"
+ ],
+ "r18j_n7_maxnew3": [
+  "053_r18f.py"
+ ],
+ "r19a_n6mn2f6": [
+  "054_r19a.py"
+ ],
+ "r19b_n5mn3f6": [
+  "054_r19a.py"
+ ],
+ "r19c_n5mn2f6": [
+  "054_r19a.py"
+ ],
+ "r19d_n6mn3f6_t40": [
+  "054_r19a.py"
+ ],
+ "r19e_n6mn3f6_s60": [
+  "054_r19a.py"
+ ],
+ "r19f_n6mn3f7": [
+  "054_r19a.py"
+ ],
+ "r20a_n4": [
+  "056_r20a.py"
+ ],
+ "r20b_n4_seq40": [
+  "056_r20a.py"
+ ],
+ "r20c_n4_fresh7": [
+  "056_r20a.py"
+ ],
+ "r20d_n4_s40_f7": [
+  "056_r20a.py",
+  "061_r20d.py"
+ ],
+ "r20e_n3": [
+  "056_r20a.py"
+ ],
+ "r20f_n3_s40_f7": [
+  "056_r20a.py"
+ ],
+ "r20g_n2": [
+  "056_r20a.py"
+ ],
+ "r20h_n4_mn3": [
+  "056_r20a.py"
+ ],
+ "r21a_n5_pxreact": [
+  "057_r21a.py",
+  "058_r21a.py"
+ ],
+ "r21b_n4_pxreact": [
+  "057_r21a.py",
+  "058_r21a.py"
+ ],
+ "r21c_n4_volreact": [
+  "057_r21a.py",
+  "058_r21a.py"
+ ],
+ "r21d_n4_both": [
+  "057_r21a.py",
+  "058_r21a.py"
+ ],
+ "r21e_n4_pxr_f7": [
+  "057_r21a.py",
+  "058_r21a.py"
+ ],
+ "r21f_n5_pxr100": [
+  "057_r21a.py",
+  "058_r21a.py"
+ ],
+ "r22a_rel_replace": [
+  "059_r22a.py"
+ ],
+ "r22b_rel_add": [
+  "059_r22a.py"
+ ],
+ "r22c_minrank": [
+  "059_r22a.py"
+ ],
+ "r22d_squeeze": [
+  "059_r22a.py"
+ ],
+ "r22e_trust": [
+  "059_r22a.py"
+ ],
+ "r22f_spread": [
+  "059_r22a.py"
+ ],
+ "r22g_rel_minrank": [
+  "059_r22a.py"
+ ],
+ "r22h_squeeze_n4": [
+  "059_r22a.py"
+ ],
+ "r23a_n4_rel05": [
+  "060_r23a.py"
+ ],
+ "r23b_n4_rel10": [
+  "060_r23a.py"
+ ],
+ "r23c_n4_relrepl": [
+  "060_r23a.py"
+ ],
+ "r23d_n5_rel05_f7": [
+  "060_r23a.py",
+  "061_r20d.py"
+ ],
+ "r23e_n5_rel075": [
+  "060_r23a.py"
+ ],
+ "r23f_n4_rel05_f6": [
+  "060_r23a.py"
+ ],
+ "r24_ensemble3": [
+  "061_r20d.py"
+ ],
+ "r25a_R3_abs20": [
+  "062_r25a.py"
+ ],
+ "r25b_R3_abs25": [
+  "062_r25a.py"
+ ],
+ "r25c_rel_abs20": [
+  "062_r25a.py"
+ ],
+ "r25d_rel_abs25": [
+  "062_r25a.py"
+ ],
+ "r25e_rel_trail30": [
+  "062_r25a.py"
+ ],
+ "r25f_rel_halt": [
+  "062_r25a.py"
+ ],
+ "r25g_rel_abs25_halt": [
+  "062_r25a.py"
+ ],
+ "r26b_skew": [
+  "063_r26b.py"
+ ],
+ "r26c_negdvol": [
+  "063_r26b.py"
+ ],
+ "r27_lts10": [
+  "064_r27.py"
+ ],
+ "r27_lts15": [
+  "064_r27.py"
+ ],
+ "r27_lts20": [
+  "064_r27.py"
+ ],
+ "r27_uw15": [
+  "064_r27.py"
+ ],
+ "r27_uw20": [
+  "064_r27.py"
+ ],
+ "r27_uw20_lts15": [
+  "064_r27.py"
+ ],
+ "r27_uw25": [
+  "064_r27.py"
+ ],
+ "r27_uw25_lts15": [
+  "064_r27.py"
+ ],
+ "r27_uw25_lts20": [
+  "064_r27.py"
+ ],
+ "r28_lts14": [
+  "066_r28.py"
+ ],
+ "r28_lts15_fresh6": [
+  "066_r28.py"
+ ],
+ "r28_lts15_trail30": [
+  "066_r28.py"
+ ],
+ "r28_lts16": [
+  "066_r28.py"
+ ],
+ "r28_uw30_lts15": [
+  "066_r28.py"
+ ],
+ "r28_uw35_lts15": [
+  "066_r28.py"
+ ],
+ "r29_S_nextday": [
+  "067_r29.py"
+ ],
+ "r29_S_sameday": [
+  "067_r29.py"
+ ],
+ "v01_dev_next_close": [
+  "005_v01.py"
+ ],
+ "v01_dev_next_open": [
+  "005_v01.py"
+ ],
+ "v01_val_next_close": [
+  "005_v01.py"
+ ],
+ "v01_val_next_open": [
+  "005_v01.py"
+ ],
+ "v02_dev_next_close": [
+  "009_b06.py",
+  "010_v02.py"
+ ],
+ "v02_dev_next_open": [
+  "009_b06.py",
+  "010_v02.py"
+ ],
+ "v02_val_next_close": [
+  "009_b06.py",
+  "010_v02.py"
+ ],
+ "v02_val_next_open": [
+  "009_b06.py",
+  "010_v02.py"
+ ],
+ "v6_dev": [
+  "044_v6.py"
+ ],
+ "全跨度14.5y_R3": [
+  "041_r11c.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py"
+ ],
+ "全跨度14.5y_S": [
+  "041_r11c.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py"
+ ],
+ "全跨度14.5y_v6": [
+  "041_r11c.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py"
+ ],
+ "正2全史同窗_R3": [
+  "034_matchwin.py",
+  "036_matchwin.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "068_正2全史同窗.py"
+ ],
+ "正2全史同窗_r08a": [
+  "034_matchwin.py",
+  "036_matchwin.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "068_正2全史同窗.py"
+ ],
+ "正2全史同窗_v6": [
+  "034_matchwin.py",
+  "036_matchwin.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "068_正2全史同窗.py"
+ ],
+ "現代era_R3": [
+  "025_r01a.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py",
+  "080_f07.py"
+ ],
+ "現代era_S": [
+  "025_r01a.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py",
+  "080_f07.py"
+ ],
+ "現代era_r08a": [
+  "025_r01a.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py",
+  "080_f07.py"
+ ],
+ "現代era_v6": [
+  "025_r01a.py",
+  "033_modern.py",
+  "035_modern.py",
+  "037_oos.py",
+  "041_r11c.py",
+  "044_v6.py",
+  "045_全跨度14.py",
+  "047_全跨度14.py",
+  "055_全跨度14.py",
+  "065_全跨度14.py",
+  "080_f07.py"
+ ]
+}

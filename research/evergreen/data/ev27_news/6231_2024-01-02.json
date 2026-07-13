@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2023-07-26",
+    "source": "Yahoo股市/焦點股",
+    "url": "https://tw.stock.yahoo.com/news/%E7%84%A6%E9%BB%9E%E8%82%A1-%E7%B3%BB%E5%BE%AE%E6%97%97%E4%B8%8B%E7%B3%BB%E7%B5%B1%E7%AE%A1%E7%90%86%E9%9F%8C%E9%AB%94%E8%A7%A3%E6%B1%BA%E6%96%B9%E6%A1%88%E5%85%A8%E9%9D%A2%E6%94%AF%E6%8F%B4%E8%BC%9D%E9%81%94-%E8%82%A1%E5%83%B9%E8%B7%B3%E7%A9%BA%E6%BC%B2%E5%81%9C-024412805.html",
+    "title": "焦點股：系微系統管理韌體全面支援輝達 股價跳空漲停",
+    "excerpt": "系微InsydeH2O UEFI BIOS及Supervyse OpenBMC韌體全面支援輝達Grace CPU和GH200 Grace Hopper超級晶片,滿足大規模AI/HPC需求,股價跳空漲停。此為AI伺服器BMC題材的核心催化,發生在t0前『5個多月』,漲停後股價持續墊高、全年累漲逾+143%。至t0(2024-01-02)該題材已是舊聞且股價已充分反映。",
+    "pit": "pre_t0",
+    "pricing_state": "題材已公開5個多月、股價已大漲逾143%充分定價",
+    "used": true
+  },
+  {
+    "date": "背景",
+    "source": "913理財估測站/七仔財經筆記",
+    "url": "https://uc913.com/stock-6231/",
+    "title": "系微：AI PC時代的韌體領導者",
+    "excerpt": "系微(Insyde)為全球筆電BIOS龍頭(市占逾50%),在Arm架構AI PC(WoA)市占達70%。題材:AI PC BIOS(高通Snapdragon X平台滲透率期待)+AI伺服器OpenBMC(Supervyse OPF支援Intel/AMD/NVIDIA)。惟系微為韌體授權/NRE模式、營收基數小,AI相關營收貢獻循序漸進,市場論述中真正的營收引擎落在『2026-2028』。本益比40+(高於同業31)。",
+    "pit": "pre_t0",
+    "pricing_state": "題材超前:營收引擎落在2026-2028、本夢比",
+    "used": true
+  },
+  {
+    "date": "背景(產業)",
+    "source": "產業觀察",
+    "url": "https://vocus.cc/article/69dcdac2fd897800019a5e3a",
+    "title": "AI PC實際出貨遞延、放量不如預期",
+    "excerpt": "2024年AI PC實際出貨/放量普遍不如2023年底的樂觀預期,滲透率與換機潮遞延至2025-2026。系微+143%的漲勢在2023年底把AI PC/伺服器BIOS的未來獲利大幅提前定價,2024年因基本面兌現落後預期而進入高檔震盪/回檔。",
+    "pit": "post_t0",
+    "pricing_state": "事後:AI PC放量遞延、基本面落後預期",
+    "used": true
+  }
+]

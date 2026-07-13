@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2025-04-22",
+    "source": "中央社 / TechOrange / iThome",
+    "url": "https://buzzorange.com/techorange/2025/04/22/gss-solutions-day/",
+    "title": "叡揚資訊 2025 GSS Solutions Day：聚焦AI、永續與資安韌性",
+    "excerpt": "2025年4月22日於TICC台北國際會議中心舉辦2025 GSS Solutions Day，逾400人與會，聚焦AI、永續發展與資安韌性；數位發展部資安署官員出席分享最新資安政策。屬公司年度行銷/品牌活動，強化『資安+AI』題材聯想，但非新訂單或財測。",
+    "pit": "pre_t0",
+    "pricing_state": "軟性題材(年度大會)：強化資安/AI聯想，非硬單，t0前8日發生",
+    "used": true
+  },
+  {
+    "date": "2025-04",
+    "source": "MoneyDJ 理財網",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=6db53d32-e42c-42ec-bf4e-ccff2f6aaf77",
+    "title": "企業端AI需求增 叡揚今年營收看增雙位數",
+    "excerpt": "企業端AI需求增溫，叡揚今年營收看增雙位數。公司為企業e化應用軟體開發與服務(GRC、資安、雲端CRM)領導廠商。成長路徑為穩定雙位數，非爆發式。",
+    "pit": "pre_t0",
+    "pricing_state": "穩健雙位數成長預期已是共識，題材re-rating已反映",
+    "used": true
+  },
+  {
+    "date": "2024",
+    "source": "Goodinfo / 財報狗",
+    "url": "https://goodinfo.tw/tw/StockBzPerformance.asp?STOCK_ID=6752",
+    "title": "叡揚為連年成長的資安/軟體績優股 2024全年EPS 4.11元",
+    "excerpt": "2024全年EPS 4.11元。公司獲利連年創高、屬穩定成長的軟體服務績優股。t0時市場以『資安法遵+企業AI+政府數位』題材給予估值提升，但基本面為穩定16-23%成長區間，缺乏單一爆發催化。",
+    "pit": "pre_t0",
+    "pricing_state": "優質穩定成長股，題材推升估值，天花板為成長率(非爆發)",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "維基百科 2025年股災",
+    "url": "https://zh.wikipedia.org/zh-hant/2025%E5%B9%B4%E8%82%A1%E7%81%BD",
+    "title": "關稅股災背景 t0(4/30)處反彈修復期 內需軟體股相對抗跌",
+    "excerpt": "叡揚為內需型軟體/資安服務，關稅曝險低，於4月股災中相對抗跌並在反彈中領先，形成+55%的相對強勢。但抗跌性≠爆發性。",
+    "pit": "pre_t0",
+    "pricing_state": "股災中的相對抗跌強勢股，reflect避險輪動而非新成長",
+    "used": true
+  },
+  {
+    "date": "2026",
+    "source": "旺得富 / 財報狗(事後)",
+    "url": "https://winvest.tw/Stock/Symbol/Comment/6752",
+    "title": "(事後)2025營收首破20億 年增16.33% EPS 7.41元創高",
+    "excerpt": "事後：2025全年營收首破20億大關、年增16.33%，EPS 7.41元、續創新高(累計至第3季EPS 5.04、年增23%)。基本面確實優異，但為穩定成長，t0後60日僅+10%，印證『好但不夠猛』。",
+    "pit": "post_t0",
+    "pricing_state": "事後：財報優異但穩定成長，難支撐>20%的再噴出",
+    "used": true
+  }
+]

@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2025-03 (Q4 2024 法說)",
+    "source": "優分析 UAnalyze / 鉅亨 cnyes",
+    "url": "https://uanalyze.com.tw/articles/5816351067",
+    "title": "貿聯總座鄧劍華：AI 新客戶及訂單持續湧入，全年逐季成長展望正向",
+    "excerpt": "貿聯-KY Q4 2024 法說(約 2025-03)：AI 及高速運算產品除既有客戶新訂單外亦有新客戶加入，全年朝逐季成長；AI 基礎設施從伺服器時代轉向機架時代。t0 前 AI 互連題材已確立。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(AI題材已知)",
+    "used": true
+  },
+  {
+    "date": "2024-2025Q1",
+    "source": "優分析 / cnyes 6456563",
+    "url": "https://news.cnyes.com/news/id/6456563",
+    "title": "貿聯 AI 伺服器線束/連接器/電源/光通訊整櫃解方，HPC 占比持續攀升",
+    "excerpt": "貿聯-KY 為 AI 伺服器高速互連(cable/connector)+電力分配(bus bar/HVDC)+光學(Fiber Array)整櫃供應商，HPC+半導體營收占比朝 5 成邁進。t0 前為市場熟知的 AI 互連題材股。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-02",
+    "source": "經濟日報 / ey.gov.tw",
+    "url": "https://money.udn.com/money/story/124512/9232466",
+    "title": "川普對等關稅台灣 32%(4/9 生效)",
+    "excerpt": "貿聯-KY 為高 beta AI 名且具 KY 海外/美國出口曝險，對關稅最敏感，4/7 隨大盤重挫。",
+    "pit": "pre_t0",
+    "pricing_state": "利空點火",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "客新聞 / 鏡週刊",
+    "url": "https://hakkanews.tw/2025/04/07/191027/",
+    "title": "台股史上最大崩盤 -9.7%，1702 檔跌停(貿聯 t0 當日)",
+    "excerpt": "貿聯 t0=4/7 即崩盤當日收盤(底部)。60 日 +83% 自此超跌底起算，宏觀成因為關稅恐慌超跌。",
+    "pit": "pre_t0",
+    "pricing_state": "利空恐慌底部",
+    "used": true
+  },
+  {
+    "date": "2025-04-09 / 04-11",
+    "source": "永豐豐雲學堂",
+    "url": "https://www.sinotrade.com.tw/richclub/hotstock/67fca900facf9628fc8af323",
+    "title": "關稅暫緩 90 天 + 電子豁免 → 反彈",
+    "excerpt": "4/9 暫緩、4/11 電子豁免，貿聯 t0 後強彈，超跌反彈+AI 互連基本面延續。",
+    "pit": "post_t0",
+    "pricing_state": "事後-宏觀反彈觸媒",
+    "used": true
+  },
+  {
+    "date": "2025-05-20~23 (COMPUTEX)",
+    "source": "優分析 2625351693 / 鉅亨 6487275",
+    "url": "https://uanalyze.com.tw/articles/2625351693",
+    "title": "貿聯 COMPUTEX 秀 AI 伺服器整櫃解方(電源/線束/光通訊 Fiber Array)",
+    "excerpt": "COMPUTEX 2025 貿聯展出 AI 伺服器整櫃 power solution、高彈性矽膠線、flexible bus bar、Fiber Array(FA)光通訊。強化 AI 題材，為 t0 後 60 日窗內助漲事件。",
+    "pit": "post_t0",
+    "pricing_state": "事後-題材加溫",
+    "used": true
+  }
+]

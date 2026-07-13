@@ -1,0 +1,75 @@
+{
+ "month": "2023-05",
+ "labels": [
+  {
+   "code": "3231",
+   "name": "緯創",
+   "theme": "AI伺服器供應鏈",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "NVIDIA DGX/HGX主力組裝+基板廠;2022 AI僅占營收約1.5%獲利槓桿尚未定價;Computex 5/30黃仁勳keynote(4/13公告)+NVIDIA 5/24財報為具日期逼近觸發",
+   "evidence": "ev28 2023-02供應鏈定位(富果blog,公開事實)+GTC 2023-03-20台廠背板股(statementdog)+Computex PRNewswire 2023-04-13",
+   "invalidation": "股價已充分反映AI伺服器獲利槓桿;財報/keynote後利多出盡不漲",
+   "conviction": 5
+  },
+  {
+   "code": "6669",
+   "name": "緯穎",
+   "theme": "AI伺服器供應鏈",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "hyperscaler純ODM、產NVIDIA版主機板、AI純度最高;2月列ChatGPT概念+法人買超;Computex 5/30逼近觸發",
+   "evidence": "ev28 2023-02(緯穎NVIDIA版主機板+2/9工商16檔+2/11-13法人買超10檔,ctee)+Computex 2023-04-13",
+   "invalidation": "雲端capex放緩;已充分定價利多出盡",
+   "conviction": 4
+  },
+  {
+   "code": "2382",
+   "name": "廣達",
+   "theme": "AI伺服器供應鏈",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "全球最大AI伺服器ODM(供Google/Meta/AWS,NVIDIA DGX/HGX主機板);Computex 5/30+NVIDIA 5/24雙逼近觸發",
+   "evidence": "ev28 2023-02供應鏈定位(富果blog)+GTC 2023-03-20台廠背板+Computex 2023-04-13",
+   "invalidation": "龍頭最人盡皆知已partial re-rate;AI伺服器毛利率不如預期",
+   "conviction": 4
+  },
+  {
+   "code": "3661",
+   "name": "世芯-KY",
+   "theme": "AI ASIC設計服務",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "雲端巨頭AI/HPC客製ASIC,8成AI晶片營收來自HPC;1月營收+86.58%自身加速;ASIC三劍客(大摩4/7)",
+   "evidence": "ev28 2023-02(世芯1月營收16.32億+86.58%,ctee)+ev27 3035(ASIC三劍客大摩2023-04-07)",
+   "invalidation": "客戶晶片遞延雜音兌現;Q1營收季減證動能轉弱",
+   "conviction": 4
+  },
+  {
+   "code": "2376",
+   "name": "技嘉",
+   "theme": "AI伺服器供應鏈",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "NVIDIA認證HGX H100 8-GPU整機廠、AI純度最高之一;Computex 5/30+NVIDIA 5/24逼近觸發",
+   "evidence": "ev27 2376(HGX H100整機,iThome/官網+NVIDIA 2/22+GTC 3/21)+Computex 2023-04-13",
+   "invalidation": "自3/08起漲2月最extended利多出盡風險高;PC本業去庫存拖累",
+   "conviction": 4
+  },
+  {
+   "code": "3443",
+   "name": "創意",
+   "theme": "AI ASIC設計服務",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "台積電轉投資ASIC設計龍頭、AI/HPC客製晶片直接環節;2月列ChatGPT概念股(2/9攻漲停);Computex逼近",
+   "evidence": "ev28 2023-02(創意列2/9工商16檔且攻漲停,ctee)+Computex 2023-04-13",
+   "invalidation": "NRE/量產動能不如預期;已充分定價",
+   "conviction": 4
+  },
+  {
+   "code": "5274",
+   "name": "信驊",
+   "theme": "伺服器BMC瓶頸",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "伺服器BMC近獨佔~70%、每台(含AI)伺服器必用瓶頸零件;2月ChatGPT概念+法人買超;Computex逼近",
+   "evidence": "ev28 2023-02(信驊BMC~70%獨佔瓶頸,富果blog+2/9工商+2/11-13法人買超)+Computex 2023-04-13",
+   "invalidation": "BMC屬通用非AI專屬(AI增量稀釋)、一般伺服器疲軟則承壓;已充分定價",
+   "conviction": 4
+  }
+ ]
+}

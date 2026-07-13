@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2024-03-18~21",
+    "source": "NVIDIA GTC 2024 / 產業",
+    "url": "https://www.nvidia.com/gtc/",
+    "title": "NVIDIA GTC 2024 發表 Blackwell GB200 / NVL72 機櫃架構,點燃 AI 伺服器電力傳輸題材",
+    "excerpt": "2024-03 GTC 黃仁勳發表 Blackwell GB200 與 GB200 NVL72 整櫃系統,功耗大增使『機櫃級電力傳輸(busbar/power whip/HVDC)』成為新瓶頸。貿聯(3665)為 NVIDIA 直接開案的 Tier 1 電源連接夥伴——48V/600A 直流匯流排連接器全球僅貿聯與另一國際大廠能供。GTC 為 t0(4/19)前一個月的產業級點火事件,確立 AI 電源線束主題,惟正式認證尚未公告,屬供應鏈預期階段。",
+    "pit": "pre_t0",
+    "pricing_state": "題材點火、市場部分反應(認證未定,供應鏈預期)",
+    "used": true
+  },
+  {
+    "date": "2024-04-19(macro)",
+    "source": "市場事件(地緣)",
+    "url": "https://ec.ltn.com.tw/article/breakingnews/5462798",
+    "title": "[背景] 2024 年 4 月中東地緣風險(以色列 4/19 空襲伊朗)引發台股急跌波段低點",
+    "excerpt": "2024-04 中旬以巴/以伊衝突升溫,以色列 4/19 對伊朗發動空襲,全球風險趨避、台股 AI 供應鏈同步急跌。貿聯 t0=2024-04-19 恰落在此波washout低點附近,屬『超跌反彈 × 最強題材領漲』型態:AI 電源主題最硬的貿聯在恐慌低點止跌後領先反攻。此為時點背景,非個股利多。",
+    "pit": "pre_t0",
+    "pricing_state": "非個股消息;washout低點(技術面)",
+    "used": true
+  },
+  {
+    "date": "2024-06-10",
+    "source": "鉅亨網 (id 5593524)",
+    "url": "https://news.cnyes.com/news/id/5593524",
+    "title": "[事後·確認] 貿聯-KY 通過輝達認證 成 GB200 首批受惠者",
+    "excerpt": "2024-06-10 鉅亨:貿聯匯流排連接器與 Busbar 通過輝達認證,成 GB200 首批受惠者;48V/600A 直流匯流排連接器技術門檻高,僅貿聯與另一國際大廠供應。去年 HPC 營收占比 12%、今年首季升至 14%,今年可望達 20%+;鴻佰 NVL36 已小量出貨,NVL72 預計 Q3 下旬至 Q4 出貨。此為 t0(4/19)後約 7 週的正式認證確認,將 GTC 期間的預期落地。",
+    "pit": "post_t0",
+    "pricing_state": "事後:正式認證確認、題材落地",
+    "used": true
+  },
+  {
+    "date": "2024-05(4 月營收)",
+    "source": "公司月營收 / 產業",
+    "url": "https://tw.stock.yahoo.com/quote/3665.TW/revenue",
+    "title": "[事後] 貿聯 4 月合併營收 73.83 億元 月增 5.3%、年增 18.5%,前 4 月累計年增 25.4%",
+    "excerpt": "貿聯 4 月營收 73.83 億(+18.5% YoY),累計前 4 月 282.4 億(+25.4%),AI 伺服器電源線束/Busbar 需求快速成長,法人估電源傳輸/AEC 未來 2 年 CAGR 分別 80%/50%+。4 月營收於 5/10 才公告,屬 t0 後之基本面兌現訊號。",
+    "pit": "post_t0",
+    "pricing_state": "事後:營收兌現(5 月公告)",
+    "used": true
+  },
+  {
+    "date": "2024-08(Q2 法說)",
+    "source": "法說會 / 券商",
+    "url": "https://uanalyze.com.tw/articles/9356551497",
+    "title": "[事後] 貿聯 Q2 法說:淨利年增 128%、EPS 6.13,大摩等調升目標價",
+    "excerpt": "貿聯 2024 Q2 營收 129.8 億、毛利率 28.11%(+6.19pp)、淨利 10.02 億(+128%)、EPS 6.13;策略『架構中立』同步布局銅纜/光學/電源三層,AEC 與 800V HVDC Power Whip 下半年放量。屬 t0 後之連續確認,非事前可見。",
+    "pit": "post_t0",
+    "pricing_state": "事後:獲利與展望確認",
+    "used": true
+  }
+]

@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2022 (全年常態)",
+    "source": "鉅亨/CMoney 公司簡介 + 2022 年報",
+    "url": "https://www.cnyes.com/twstock/8467/company/profile",
+    "title": "波力-KY 為全球最大碳纖維冰上曲棍球桿製造商",
+    "excerpt": "波力環球，主業碳纖維複材用品，2022 年碳纖複材佔產品結構 97%,冰球桿 OEM/ODM 佔 85-88%,自有品牌 Bonny 羽拍 12-15%。冰球桿客戶需求強勁帶動出貨大幅成長,擴大產能於浙江桐鄉建第二生產基地。屬 KY(中國生產基地),受中國 2022 零 COVID 封控牽動。",
+    "pit": "pre_t0",
+    "pricing_state": "題材已知的成長股本質",
+    "used": true
+  },
+  {
+    "date": "2022-08-10 (7 月營收公告)",
+    "source": "Yahoo 股市營收表",
+    "url": "https://tw.stock.yahoo.com/quote/8467.TW/revenue",
+    "title": "波力-KY 2022 年 7 月營收年增 +4.05%",
+    "excerpt": "2022 上半年至 7 月營收維持正成長(7 月 YoY +4.05%),延續 2021 冰球復甦動能。此為 t0(9/5)前市場可見的最後一筆月營收(8 月營收 9/10 才公告),支撐 +60% momentum 段的基本面基礎。",
+    "pit": "pre_t0",
+    "pricing_state": "真實成長但已反映於 +60% 漲幅",
+    "used": true
+  },
+  {
+    "date": "2022-09-10 (8 月營收)",
+    "source": "Yahoo 股市營收表",
+    "url": "https://tw.stock.yahoo.com/quote/8467.TW/revenue",
+    "title": "8 月營收 YoY +36.11%(t0 後 5 日才公告)",
+    "excerpt": "8 月 +36.11%、9 月 +14.98%、10 月 +1.61%、11 月 +6.02%、12 月 +54.90%——2022 全年月營收皆正成長,基本面直到年底仍熱。但股價 9/5 見高後不再跟漲,顯示價格領先基本面反轉。",
+    "pit": "post_t0",
+    "pricing_state": "基本面續強但股價已見頂(價領先基本面)",
+    "used": true
+  },
+  {
+    "date": "2023-02-10 (2023 年 1 月營收)",
+    "source": "Yahoo 股市營收表",
+    "url": "https://tw.stock.yahoo.com/quote/8467.TW/revenue",
+    "title": "2023 年 1 月營收 YoY -45.41% 需求斷崖",
+    "excerpt": "2022/12 營收還 +54.90%(可能為 2023 前拉貨/最後出貨),2023/01 驟降至 -45.41%。印證運動用品後疫情通路去化 + 中國封控後的需求斷崖。市場在 2022Q3 已提前反映此下行,故 9/5 後股價不漲。",
+    "pit": "post_t0",
+    "pricing_state": "利多出盡/需求斷崖(事後印證)",
+    "used": true
+  },
+  {
+    "date": "2025-01 (參考,無關 t0)",
+    "source": "優分析 UAnalyze",
+    "url": "https://uanalyze.com.tw/articles/6144214521",
+    "title": "波力航太佈局(空巴座椅碳纖零件)為 2025 新動能",
+    "excerpt": "2025Q1 起量產航空座椅碳纖零件供應空中巴士次結構件——此為 2025 年題材,與 2022 t0 無關,僅供辨識勿誤植。",
+    "pit": "post_t0",
+    "pricing_state": "無關 t0",
+    "used": false
+  }
+]

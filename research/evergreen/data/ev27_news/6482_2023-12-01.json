@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2023-09(1-8月營收累計)",
+    "source": "CMoney (月營收公告) / statementdog",
+    "url": "https://www.cmoney.tw/notes/note-detail.aspx?nid=712523",
+    "title": "弘煜科2023年營收衰退中(1-8月累計年減4.94%、8月單月年減41.48%)",
+    "excerpt": "弘煜科2023年8月合併營收1,850萬元,累計1-8月營收約2.4億元、較去年同期年減4.94%,8月單月年減41.48%。基本面衰退中,遊戲營收青黃不接。t0前的漲勢並非建立在當期營收成長。",
+    "pit": "pre_t0",
+    "pricing_state": "當期基本面衰退/與漲勢背離",
+    "used": true
+  },
+  {
+    "date": "2023-11-14(約, Q3財報)",
+    "source": "財報狗 (statementdog)",
+    "url": "https://statementdog.com/analysis/6482/eps",
+    "title": "弘煜科2023 Q3 EPS 0.51元 季減16.39% 年減56.03%",
+    "excerpt": "弘煜科2023年第3季EPS 0.51元,季增-16.39%,近四季EPS 2.1元;Q3 EPS年增率-56.03%,近四季EPS年增率-25.4%。t0(12/1)前最近一次財報顯示獲利年減逾5成,漲勢與獲利趨勢明顯背離。",
+    "pit": "pre_t0",
+    "pricing_state": "最近財報獲利年減56%/漲勢與基本面背離",
+    "used": true
+  },
+  {
+    "date": "2023(全年)",
+    "source": "財報狗 / MoneyDJ",
+    "url": "https://statementdog.com/analysis/6482",
+    "title": "風色幻想IP授權陸廠、H2預計推2-3款新遊戲",
+    "excerpt": "弘煜科將旗下經典IP《風色幻想》授權陸廠,授權金挹注營收;展望下半年預計推出2-3款新遊戲。2023全年營收4.35億、EPS 1.65。漲勢主要靠『新遊戲pipeline+授權金』的遠期題材,而非已落地的產品收入。",
+    "pit": "pre_t0",
+    "pricing_state": "遠期題材(新遊戲pipeline)/授權金一次性",
+    "used": true
+  },
+  {
+    "date": "2025-04-24(遠post)",
+    "source": "鉅亨網 / 巴哈姆特",
+    "url": "https://news.cnyes.com/news/id/5948447",
+    "title": "旗艦新作《風色幻想NeXus》遲至2025-04-24才上市",
+    "excerpt": "智冠攜弘煜科《風色幻想NeXus》4/24上市(智冠子公司遊戲新幹線代理台港澳),事前預約60萬,結合台灣頂流VTuber,預期2025貢獻約4億營收。關鍵:被市場當作漲勢想像的旗艦新作,實際上線在t0(2023-12)之後約1.5年,2023的漲勢是遠期題材提前反映。",
+    "pit": "post_t0",
+    "pricing_state": "題材兌現遠在t0後1.5年",
+    "used": true
+  },
+  {
+    "date": "2023(產業背景)",
+    "source": "ETtoday財經雲 / 理財周刊",
+    "url": "https://finance.ettoday.net/news/2762083",
+    "title": "2023遊戲業『正要過冬』疫情紅利結束",
+    "excerpt": "2023年台灣遊戲業處於下行循環,『疫情紅利結束、遊戲業正要過冬』。弘煜科為薄股本上櫃小型文創股,在產業逆風下仍逆勢大漲,屬題材+籌碼面投機而非族群基本面驅動。",
+    "pit": "pre_t0",
+    "pricing_state": "產業逆風/小型股投機",
+    "used": false
+  }
+]

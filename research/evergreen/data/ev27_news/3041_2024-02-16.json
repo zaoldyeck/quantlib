@@ -1,0 +1,52 @@
+[
+  {
+    "date": "背景(轉型題材,2023-2024 持續)",
+    "source": "鉅亨網 / 七仔財經 / cmoney 投資網誌",
+    "url": "https://7evenguy.com/what-is-3041-doing/",
+    "title": "揚智由數位機上盒 SoC 轉型 AI ASIC 設計服務,鎖定東南亞新興市場客戶",
+    "excerpt": "揚智為全球知名數位機上盒 SoC 設計廠,近年積極轉型 ASIC 設計服務並布局邊緣 AI/多媒體。市場對 t0(2024-02-16)前的漲勢解讀為『持續反應公司切入 ASIC 設計服務、搭配智慧機上盒與多媒體需求,帶動營運轉型想像』。核心是『轉型想像』,而非已兌現的獲利。",
+    "pit": "pre_t0",
+    "pricing_state": "轉型想像(未兌現)",
+    "used": true
+  },
+  {
+    "date": "2024-02(t0 當期)",
+    "source": "cmoney 投資網誌 / 盤中速報",
+    "url": "https://www.cmoney.tw/notes/note-detail.aspx?nid=1172301",
+    "title": "揚智亮燈漲停:ASIC 與機上盒題材點火 + 突破前高區吸引短線買盤",
+    "excerpt": "急攻主因 ASIC/機上盒題材點火,加上技術面突破前高吸引短線資金;近期月營收連續兩個月 YoY 成長、營收動能『由衰轉穩』提供題材支撐。特徵:題材 + 技術突破 + 營收剛止穩,而非訂單或法說釋出的實質大單。",
+    "pit": "pre_t0",
+    "pricing_state": "題材+技術面(基本面剛止穩)",
+    "used": true
+  },
+  {
+    "date": "背景(獲利狀態)",
+    "source": "鉅亨網 / 財報狗",
+    "url": "https://www.cnyes.com/twstock/3041",
+    "title": "揚智仍處虧損收斂階段:2023 EPS -8.75(含轉投資減損),2024 EPS 縮小至 -2.41",
+    "excerpt": "2023 年因轉投資減損等每股淨損 8.75 元;2024 年虧損逐季縮減,全年 EPS 仍為 -2.41(Q3 單季稅後虧損縮至 3288.5 萬)。2024 毛利率因高毛利 ASIC 占比提升+28nm 轉換升至 29%,但公司整體『仍在虧損』。t0 時買的是『虧損收斂+轉型』的想像,實質獲利尚未到位。",
+    "pit": "pre_t0",
+    "pricing_state": "仍虧損(想像超前獲利)",
+    "used": true
+  },
+  {
+    "date": "2024-04-28",
+    "source": "913 理財估測站 uc913",
+    "url": "https://uc913.com/stock-3041/",
+    "title": "【事後】揚智 3.0 分[題材]↘市場氣氛觀望,成長動能全失(04/28 評)",
+    "excerpt": "t0 後約兩個月的評語:題材評分下滑、市場觀望、成長動能全失。印證前期漲勢的『轉型想像』在缺乏季度數字兌現下退燒。此為 t0 後才出現的觀察,標明事後。",
+    "pit": "post_t0",
+    "pricing_state": "事後:動能消退",
+    "used": true
+  },
+  {
+    "date": "2025(事後)",
+    "source": "鉅亨網",
+    "url": "https://news.cnyes.com/news/id/6507732",
+    "title": "【事後 2025】TinyML/邊緣 AI 商機浮現,揚智布局 AI ASIC(與 Ceva 合作 NeuPro NPU 整合 VDSS)",
+    "excerpt": "2025 年報導:揚智與美國 AI 處理器 IP 大廠 Ceva 合作,將 NeuPro-Nano/NeuPro-M NPU 整合至新一代影音顯示子系統平台(VDSS)。此為 t0 之後的進展,顯示 ASIC/edge AI 故事延續但兌現緩慢,不能作為 2024-02 的事前證據。",
+    "pit": "post_t0",
+    "pricing_state": "事後題材延續",
+    "used": false
+  }
+]

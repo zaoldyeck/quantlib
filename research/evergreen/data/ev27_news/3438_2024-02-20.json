@@ -1,0 +1,32 @@
+[
+  {
+    "date": "背景(公司業務)",
+    "source": "玩股網 / 富聯網 money-link(產品結構)",
+    "url": "https://ww2.money-link.com.tw/TWStock/StockBasic.aspx?TWMId=Basic_sal02&SymId=3438",
+    "title": "類比科(台灣類比科技):電源管理 IC、磁場感測及馬達驅動 IC、微控制器 IC 專業設計",
+    "excerpt": "類比科資本額約 4.71 億,屬半導體/類比 IC 設計,產品為電源管理 IC、磁場感測與馬達驅動 IC、MCU;下游偏消費性/工業。屬中小型類比 IC 設計股。",
+    "pit": "pre_t0",
+    "pricing_state": "背景",
+    "used": true
+  },
+  {
+    "date": "2024-02(t0 當期)",
+    "source": "cmoney 投資網誌 / 鉅亨網盤中",
+    "url": "https://cmnews.com.tw/article/cmoneyairesearcher-55d71181-ce64-11f0-b34d-7c3f8b2dc506",
+    "title": "類比 IC / IC 設計族群點火、外資回補,帶動類比科短線動能轉強",
+    "excerpt": "t0 前後的漲勢解讀為『市場資金迴流類比 IC 及 IC 設計題材、外資連兩日大舉回補、IC 設計族群點火』。是半導體庫存去化後的循環『復甦預期』與族群輪動(beta)帶動,而非類比科接到具體大單。",
+    "pit": "pre_t0",
+    "pricing_state": "族群輪動+復甦預期(beta)",
+    "used": true
+  },
+  {
+    "date": "背景(基本面/估值)",
+    "source": "財報狗 statementdog / Win 投資",
+    "url": "https://statementdog.com/analysis/3438",
+    "title": "營收仍處 YoY 衰退區間、本益比偏高定調成長股;2024 全年 EPS 約 1.51",
+    "excerpt": "t0 時類比科月營收雖月增,但年成長仍在『衰退區間』,營運尚在調整;本益比偏高、市場定調成長型個股。即基本面尚未實質落底轉強,+34%(本批最小前期漲幅之一)主要由族群情緒與估值撐起。族群熱度退潮後缺個股獨立利多支撐。",
+    "pit": "pre_t0",
+    "pricing_state": "營收仍年減+高估值",
+    "used": true
+  }
+]

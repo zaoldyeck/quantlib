@@ -1,0 +1,52 @@
+[
+  {
+    "date": "背景 (結構,2023-04 已首波)",
+    "source": "DA Labs / 優分析",
+    "url": "https://dalabs.org/guide/tw-stock-guide/what-is-wanrun-6187-doing/",
+    "title": "萬潤=CoWoS 先進封裝設備 (點膠/貼合/AOI),台積電合格供應鏈,半導體設備占營收 8-9 成;2023-04 已首波 re-rating",
+    "excerpt": "萬潤產品線含點膠、貼合、自動化、散熱、AOI,為台積電封裝合格供應鏈,半導體封測設備占營收 8-9 成。此檔 2023-04 已因 GTC 後 AI 先進封裝題材首波起漲 (見 6187_2023-04-18);2024-06 為 CoWoS 兌現加速的第二段行情。t0 前結構已知。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (2023 已首波,CoWoS 持續兌現)",
+    "used": true
+  },
+  {
+    "date": "2024 上半年 (持續)",
+    "source": "產業 / 台積電 capex",
+    "url": "https://news.cnyes.com/news/id/5494861",
+    "title": "2024 上半 AI/CoWoS capex 爆發,台積電 CoWoS 產能大擴、資本支出上修 → 萬潤設備需求兌現中",
+    "excerpt": "2024 年 AI 需求帶動台積電 CoWoS 產能大幅擴充、資本支出上修 (至 300-320 億美元),先進封裝設備需求爆發。萬潤月營收 2024 上半逐月墊高,CoWoS 相關點膠/AOI 設備出貨加速。t0 (6/19) 前此兌現趨勢已成形,屬醞釀→兌現。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應→兌現中 (CoWoS 擴產)",
+    "used": true
+  },
+  {
+    "date": "2024-06-02~07",
+    "source": "COMPUTEX 2024",
+    "url": "https://www.computextaipei.com.tw/",
+    "title": "COMPUTEX 2024 (黃仁勳 6/2 keynote) 推升 AI 供應鏈氛圍,先進封裝設備為受惠環節",
+    "excerpt": "2024-06-02 起 COMPUTEX,黃仁勳 keynote 強化 AI 伺服器與先進封裝敘事,台股 AI 供應鏈氛圍升溫。萬潤 t0 (6/19) 落在 COMPUTEX 後、AI 設備族群強勢的窗口,構成近端題材動能。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (COMPUTEX 氛圍)",
+    "used": true
+  },
+  {
+    "date": "2024-07-18 (事後)",
+    "source": "台積電 Q2 法說 / 優分析",
+    "url": "https://uanalyze.com.tw/articles/722905768",
+    "title": "(事後) 台積電 Q2 法說:CoWoS 供不應求要到 2026 才緩解、capex 上修 — 驗證萬潤設備長線需求",
+    "excerpt": "(事後) 優分析 2024-07-28 引台積電 Q2 法說 (7/18):CoWoS 供不應求可能要到 2026 才緩解,資本支出由 280-320 上修至 300-320 億美元。此為 t0 (6/19) 後對萬潤 CoWoS 設備需求的驗證與加碼,屬事後。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (台積電法說驗證)",
+    "used": true
+  },
+  {
+    "date": "2024 下半~2025 (事後)",
+    "source": "經濟日報 / 優分析",
+    "url": "https://money.udn.com/money/story/11074/9233121",
+    "title": "(事後) 萬潤 2024 營收/EPS 創高,訂單能見度延伸 2025-2026,外資調升目標價",
+    "excerpt": "(事後) 2024 下半起萬潤營收/EPS 續創新高,訂單能見度延伸至 2025-2026,外資重申優於大盤並調升目標價。此為 t0 後兌現,屬事後。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (基本面續創高)",
+    "used": true
+  }
+]

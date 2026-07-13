@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2023-05-24 ~ 06-02(t0 前的外部題材引爆)",
+    "source": "宏觀事件(NVIDIA FY24 Q1 財報 + Computex 2023)",
+    "url": "https://www.cmoney.tw/forum/article/178951529",
+    "title": "NVIDIA 5/24 blowout + Computex 引爆 AI 伺服器供應鏈,PCB 族群為核心受惠",
+    "excerpt": "NVIDIA 於 2023-05-24(美)公布資料中心財測 blowout,Computex(5/30-6/2)黃仁勳演講,引爆台股 AI 伺服器供應鏈。AI 伺服器層數升至 34~50 層、導入 M8/M9 高階 CCL,PCB 需求激增。健鼎(3044)為全球前十大 PCB 廠、掌握四大 CSP 訂單,被歸為 AI 伺服器 PCB 核心供應商。此外部題材於 t0(6/20)前 3-4 週引爆,是起漲的主催化。",
+    "pit": "pre_t0",
+    "pricing_state": "反應中(AI 伺服器題材席捲 PCB 族群)",
+    "used": true
+  },
+  {
+    "date": "背景(2023 健鼎本身基本面實為 PCB 產業修正年)",
+    "source": "產業事實 / 公司年報回顧",
+    "url": "https://uc913.com/stock-3044/",
+    "title": "健鼎 2023 全年營收實為下滑(PCB 產業調整),當年漲勢主由題材而非自身訂單",
+    "excerpt": "2023 為全球 PCB 市場調整年,健鼎營收年減。AI 伺服器 PCB 對健鼎的實質營收貢獻、四大 CSP/GB200 訂單放量,主要是 2024-2025 才顯著。故 t0=6/20 的翻倍漲勢,主由『AI 伺服器 PCB 概念』的族群 beta + 外資買超推動,個股基本面利多滯後。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材先行,基本面滯後)",
+    "used": true
+  },
+  {
+    "date": "查無(2023-06 健鼎個股獨家 AI 訂單硬公告)",
+    "source": "WebSearch 多輪",
+    "url": "https://www.cnyes.com/twstock/3044",
+    "title": "查無 t0 當時健鼎個股獨家 AI 伺服器訂單硬公告——為 PCB 族群齊漲的一員",
+    "excerpt": "查無 t0(6/20)當時健鼎專屬的 AI 伺服器訂單硬公告。研判為 AI 伺服器/PCB 族群整體重估下的齊漲(大型權值 PCB 廠罕見 60 日 +88%,凸顯題材動能之強),而非公司獨家利多事件。健鼎具體 AI 伺服器/CSP 訂單見報密集期在 2024 年之後。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股獨家催化(族群 beta 為主)",
+    "used": true
+  },
+  {
+    "date": "2024-2025(事後,基本面兌現)",
+    "source": "經濟日報 / 聯合新聞網",
+    "url": "https://udn.com/news/story/7253/9445710",
+    "title": "[事後] 健鼎切入四大 CSP、GB200 訂單在手,伺服器/網通首成最大營收來源",
+    "excerpt": "健鼎後續(2024-2025)成功切入四大 CSP 供應鏈、GB200 訂單在手、GB300 研發中,伺服器/網通板占比升至逾 31% 首度成為最大營收來源,法人調高財測與目標價。此為 t0 後逾一年的基本面兌現,回頭印證 2023 題材方向正確但領先基本面甚多。",
+    "pit": "post_t0",
+    "pricing_state": "事後(基本面遲至 2024+ 兌現)",
+    "used": true
+  }
+]

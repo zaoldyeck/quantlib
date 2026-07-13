@@ -1,0 +1,58 @@
+[
+  {
+    "date": "2024-04-04",
+    "source": "TrendForce 集邦 (via 經濟日報/媒體轉述, PIT)",
+    "url": "https://money.udn.com/money/story/5612/9230863",
+    "title": "0403花蓮地震對記憶體/半導體影響:DRAM現貨價短期或小漲,但需求疲弱使延續性存疑;晶圓廠石英爐管損耗為復工關鍵",
+    "excerpt": "TrendForce於地震後(4/3-4/4)評估:可能出現DRAM現貨價短期小幅上漲,但因持續需求疲弱,趨勢延續性存不確定性。南亞科表示極少部分機台當機、陸續復機,災損仍在確認。判讀:地震屬一次性供給擾動,非記憶體結構催化——不得作為南亞科的二次點火依據;memory case須回歸合約價循環+營收兌現本身。",
+    "used": true
+  },
+  {
+    "date": "2024-03-18~04(GTC後,認證新聞待核日期)",
+    "source": "CMoney / 鉅亨網 cnyes (待核PIT日期)",
+    "url": "https://news.cnyes.com/news/id/5593524",
+    "title": "貿聯-KY(3665)通過輝達認證、成GB200首批受惠者:台灣唯一高階配電匯流排(Busbar)與電源鞭線(power whip)獨家供應商,busbar連接器全球僅貿聯+一家",
+    "excerpt": "貿聯與NVIDIA直接協同設計GB200關鍵電源傳輸產品(power whip/rack busbar/busbar connector),獲輝達認證為GB200關鍵/首批供應商;busbar連接器技術門檻高,全球僅貿聯與另一國際廠兩家可供(唯數家能供上游卡位)。GB200相關營收預期2024Q4起貢獻、2025Q1顯著放量。注:認證新聞確切發佈日待WebFetch核對是否≤2024-04-11。",
+    "used": true
+  },
+  {
+    "date": "2024-06-10 (POST-t0, 排除為事前依據)",
+    "source": "鉅亨網 cnyes (WebFetch核實發佈日=2024-06-10)",
+    "url": "https://news.cnyes.com/news/id/5593524",
+    "title": "[PIT核實] 貿聯GB200認證新聞發佈日=2024-06-10,晚於標記日2024-04-11——不得作事前前兆",
+    "excerpt": "WebFetch核實:此篇『貿聯48V/600A直流busbar連接器與機架式電源Busbar通過NVIDIA認證、開始小量出貨』發佈於2024-06-10,晚於t0(2024-04-11)約2個月。依PIT鐵律,此認證確認新聞不得作為2024-04-11標記的事前證據(回溯貼標防範)。惟其落點(t0+2月)正是醞釀期『確認消息落t0後1-3月、價格領先確認』的典型——供2-6月forward窗內的觸媒對照,非事前依據。NVL36已小量、NVL72預計Q3末-Q4小量、2025放量。",
+    "used": true
+  },
+  {
+    "date": "2024-03 (Q4'23法說,PIT待核精確日)",
+    "source": "CMoney投資網誌 / 貿聯法說整理 (2024全年guidance)",
+    "url": "https://www.cmoney.tw/notes/note-detail.aspx?nid=823347",
+    "title": "貿聯-KY 2024全年guidance(Q4'23法說):全年逐季成長、H2優於H1,AI/HPC線束+11%、電器+8%、工業+7%、車用-5%,毛利率+1.6pp",
+    "excerpt": "貿聯於Q4 2023法說(約2024-03)指2024全年營收逐季成長、下半年優於上半年,動能來自AI/HPC/熱泵/高階家電/半導體設備;AI伺服器線束+11%、車用因高利率+競爭-5%、電器+8%、工業+7%;高階產品組合優化+不再提列庫存損失→毛利率+1.6pp。判讀:此為貿聯自身2024 guidance,AI harness成長明確但溫和(+11%),GB200 busbar大kicker在此guide之外(Q4'24-Q1'25);故2024-04-11時貿聯屬GTC read-through+既有busbar franchise的醞釀前瞻,當期營收仍年減(-7% Mar)。",
+    "used": true
+  },
+  {
+    "date": "2024-04-11 (PIT價格cache,自建定價狀態濾網)",
+    "source": "本地DuckDB cache daily_quote (PIT trailing return)",
+    "url": "research/cache.duckdb",
+    "title": "定價狀態濾網:重電/散熱/AI伺服器複合體近60日已大漲→追高一票否決排除",
+    "excerpt": "以2024-04-11 PIT trailing return核定價狀態:重電華城1519 r60+159%/士電1503+162%/亞力1514+92%/中興電1513+63%;散熱雙鴻3324+128%/奇鋐3017+83%;連接器嘉澤3533+52%/CCL台燿6274+48%;群聯8299+45%。皆已大漲反映、人盡皆知→觸發哲學『招牌利多已見報且股價已大漲/追高』一票否決,整組排除。倖存(flat未定價):南亞科2408 r60-5%、貿聯3665 r60-3%、華邦電2344 r60-6%。",
+    "used": true
+  },
+  {
+    "date": "2024-04-10 (MOPS 3月營收,PIT)",
+    "source": "MOPS月營收 (cache operating_revenue)",
+    "url": "https://mops.twse.com.tw/mops/web/t21sc03_ifrs",
+    "title": "成衣/紡織回補題材:儒鴻1476 3月+18%、聚陽1477+12%——復甦為真但幅度溫和,列watchlist不標記",
+    "excerpt": "成衣庫存回補題材Q2訂單滿載、能見度至6月(產業訪查PIT),但個股月營收年增溫和:儒鴻3月+18%(Feb+9)、聚陽+12%(Feb+3),均未達強兌現門檻(+25%);台南1473 Feb+73/Mar+52%較強但屬深度去庫低基期效應且無PIT結構驅動(查無不編)、且流動性薄。依哲學兌現時程/一次性濾網:溫和循環復甦=conviction 3 watchlist,不標記。",
+    "used": false
+  },
+  {
+    "date": "2024-04-11 (PIT完整性screen,自建)",
+    "source": "本地cache 完整性screen(flat價格×3月營收加速)",
+    "url": "research/cache.duckdb",
+    "title": "完整性screen:全市場flat+營收加速名單無遺漏更乾淨題材;南亞科為唯一(負r60×+58%加速)最強real-body",
+    "excerpt": "掃全市場ADV≥1億、近60日-12~+18%(未延伸)、3月YoY≥25%且未大幅減速者47檔:多為(a)一次性(新光金+665%避險基期、中裕生技lumpy)、(b)已持有記憶體(十銓/威剛)、(c)已知/中段AI-semi(台光電+66% r240+118%、信驊+59%)。無更乾淨的『未定價×直接卡位×題材主動』遺漏。南亞科2408為全表唯一同時負r60(-5%)且營收加速(+58%),定價狀態real-body最純。光通訊laggard華星光4979(r60-10%,+67%)屬延伸族群落後空補漲風險、無確認design-win→不標記。",
+    "used": true
+  }
+]

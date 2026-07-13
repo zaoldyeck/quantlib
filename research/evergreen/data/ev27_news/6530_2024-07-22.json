@@ -1,0 +1,52 @@
+[
+  {
+    "date": "背景 (公司體質)",
+    "source": "nStock / 財報狗",
+    "url": "https://www.nstock.tw/%E5%89%B5%E5%A8%81%E5%81%9A%E4%BB%80%E9%BA%BC.html",
+    "title": "創威=光收發模組/光學次模組微型廠 (資本額 3.37 億、年營收約 3 億,2018 上櫃),資料中心/電信/工控應用",
+    "excerpt": "創威 (6530) 為固定式與熱插拔光收發模組及光學次模組廠,2018 年上櫃,資本額僅 3.37 億、年營收約 3 億,屬極微型股,籌碼易受主力拉抬。應用於資料中心、電信、工控、影音。t0 前此體質已知。",
+    "pit": "pre_t0",
+    "pricing_state": "已知 (微型光通訊股)",
+    "used": true
+  },
+  {
+    "date": "2024 上半~年中 (題材)",
+    "source": "玉山證券 / 產業",
+    "url": "https://www.esunsec.com.tw/article/post/346",
+    "title": "AI 資料中心光通訊需求 (400G/800G) 結構性成長,COMPUTEX 2024 (6 月) 展示高速光模組 → 光通訊族群題材升溫",
+    "excerpt": "2024 年 AI 資料中心加速建置,帶動高速光收發模組 (400G/800G) 結構性需求;COMPUTEX 2024 (6 月) 展示 400G/800G/1.6T 高速光模組。光通訊族群題材於 2024 年中升溫。創威 t0 (7/22) 落在此 AI 光通訊題材窗口,為醞釀型題材受惠標的。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀型題材 (AI 光通訊/800G 需求)",
+    "used": true
+  },
+  {
+    "date": "2024 (基本面)",
+    "source": "財報狗",
+    "url": "https://statementdog.com/analysis/6530/income-statement",
+    "title": "創威 2024 基本面改善:2024 Q3 稅後 1443 萬、2024 全年配息 1.55 元 (配發率 94.5%)",
+    "excerpt": "創威 2024 年營運改善,2024 Q3 營收 7258 萬、稅後淨利 1443 萬,2024 全年配發現金股利 1.55 元 (配發率 94.5%)。基本面自谷底回穩,為 t0 起漲的背景支撐,但非單一點火事件。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (基本面回穩)",
+    "used": true
+  },
+  {
+    "date": "2024-07 (查核)",
+    "source": "市場結構觀察",
+    "url": "https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=6530",
+    "title": "查無創威 7/22 個股硬新聞;微型光通訊股於 AI 光模組題材下受主力/資金拉抬",
+    "excerpt": "遍查未見創威 2024-07-22 有法說、大單、認證、私募等個股硬新聞。t0 暴漲判定為 AI 光通訊 (400G/800G) 醞釀型題材 + 極微型股籌碼/資金拉抬合流,非公司自身重大事件點火。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股硬點火 (題材+微型股資金)",
+    "used": true
+  },
+  {
+    "date": "2025-2026 (事後)",
+    "source": "數位時代 / 財報狗",
+    "url": "https://www.bnext.com.tw/article/91166/silicon-photonics-2026-mass-production-nvidia-cpo-tsmc-coupe-taiwan-stocks",
+    "title": "(事後) 矽光子/CPO 題材大爆發 (2026=矽光子元年),創威被歸類 CPO 概念 — 屬事後 retroactive framing",
+    "excerpt": "(事後) 矽光子/CPO 於 2025-2026 才成為明確熱門族群 (台積電 COUPE、2026 矽光子元年),創威被歸類為 CPO 概念股。此『矽光子/CPO』框架為 t0 (2024-07) 之後的 retroactive 貼標,t0 當時驅動實為較廣義的 AI 光模組需求 + 微型股資金,不宜以 2025-2026 的 CPO 敘事回溯解釋 7 月起漲。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (CPO 貼標 retroactive)",
+    "used": true
+  }
+]

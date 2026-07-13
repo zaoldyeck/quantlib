@@ -1,0 +1,72 @@
+[
+  {
+    "date": "2025-01",
+    "source": "經濟日報 money.udn 8942745 / 各媒體",
+    "url": "https://money.udn.com/money/story/12040/8942745",
+    "title": "Google 以 2.5 億美元收購 HTC 部分 XR 團隊，助 HTC 終結連 6 年虧損",
+    "excerpt": "2025 年初 Google 支付 2.5 億美元收購 HTC 部分 XR 工程團隊。此業外收益(+處分土地)使 HTC 2025 全年轉盈(EPS 7.21)，但本業仍營業淨損 34.5 億。強化 HTC 與 Google/Android XR 的連結敘事。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025H1 (megatrend)",
+    "source": "Smart 自學網 6020235 / 各媒體",
+    "url": "https://smart.businessweekly.com.tw/Reading/IndepArticle.aspx?id=6020235",
+    "title": "AI 智慧眼鏡 megatrend：Meta Ray-Ban 2025H1 銷量 +3 倍、累計逾 200 萬支",
+    "excerpt": "Meta Ray-Ban 智慧眼鏡 2025 上半年銷量年增逾 3 倍、累計逾 200 萬支，AI 眼鏡成 Apple/Google/Amazon/小米/三星/阿里新戰場。此 megatrend 為 HTC 重評價的題材底盤(t0 前已知)。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材發酵中)",
+    "used": true
+  },
+  {
+    "date": "2025-05 (大摩報告)",
+    "source": "Smart 自學網 6020235(引大摩)",
+    "url": "https://smart.businessweekly.com.tw/Reading/IndepArticle.aspx?id=6020235",
+    "title": "摩根士丹利《AI 眼鏡—聚焦亞洲供應鏈》：2028 全球 AI 眼鏡 3500 萬副、CAGR 96%",
+    "excerpt": "大摩 5 月發布《AI 眼鏡—聚焦亞洲供應鏈》，預估 2028 全球 AI 眼鏡出貨 3500 萬副、CAGR 96%，點名台廠供應鏈。法人研究點火，t0 前的題材催化。",
+    "pit": "pre_t0",
+    "pricing_state": "市場開始定價(法人點火)",
+    "used": true
+  },
+  {
+    "date": "2025-05-20",
+    "source": "經濟日報 money.udn 9188225 / 各媒體",
+    "url": "https://money.udn.com/money/story/11162/9188225",
+    "title": "Google I/O 發表 Android XR + Gemini 上眼鏡，HTC 為 Android XR 最具指標台廠",
+    "excerpt": "Google I/O(2025-05-20)發表 Android XR 生態與 Gemini 上智慧眼鏡。HTC 長期與 Google/Qualcomm 合作，為 Android XR 生態最具指標的台廠。此為 t0 前臨門催化。",
+    "pit": "pre_t0",
+    "pricing_state": "市場開始定價",
+    "used": true
+  },
+  {
+    "date": "2025-06-02 ~ 06-05",
+    "source": "Smart 自學網 6020235 / 台灣好新聞 1138208",
+    "url": "https://www.taiwanhot.net/news/1138208/",
+    "title": "宏達電宣布加入 AI 眼鏡大戰(VIVE Eagle，9 月上市)，股價爆量近漲停",
+    "excerpt": "宏達電正式宣布加入 AI 眼鏡戰場，推 HTC VIVE Eagle(採開放式 AI 架構，可串接 Google Gemini 與 OpenAI GPT，9 月上市，台灣首款支援中文 AI 語音)。6/2 盤中暴衝 9.34%、近漲停、外資買超。此即 t0 的主催化點火。",
+    "pit": "post_t0",
+    "pricing_state": "點火(主催化，t0 當口)",
+    "used": true
+  },
+  {
+    "date": "2025-06",
+    "source": "鉅亨 cnyes 6510731 / 民眾網",
+    "url": "https://news.cnyes.com/news/id/6510731",
+    "title": "VIVE Eagle AI Lounge 快閃體驗空間(三創，至 6/28)",
+    "excerpt": "宏達電於三創推期間限定 VIVE Eagle AI Lounge 快閃體驗(至 6/28)，正式發表前的預熱。t0 後題材延續。",
+    "pit": "post_t0",
+    "pricing_state": "事後-題材延續",
+    "used": true
+  },
+  {
+    "date": "2025-08-14 ~ 08 下旬",
+    "source": "數位時代 bnext 84304 / 今周刊 202508210014",
+    "url": "https://www.bnext.com.tw/article/84304/htc-vive-eagle-ai-glasses-interview-deepdive",
+    "title": "VIVE Eagle 正式發表(8/14，NT$15,600，9/1 開賣)，股價連拉 4 根漲停、6 天漲 4 成上 60 元",
+    "excerpt": "8/14 VIVE Eagle 正式發表(N3萬價位;售價 NT$15,600、9/1 開賣)，8 月下旬股價連 4 根漲停、6 日漲 4 成站上 60 元。此為 t0(6/5)後 60 日窗內推升 +86% 的主升段。",
+    "pit": "post_t0",
+    "pricing_state": "事後-主升段(產品落地)",
+    "used": true
+  }
+]

@@ -1,0 +1,65 @@
+{
+ "month": "2023-04",
+ "labels": [
+  {
+   "code": "3443",
+   "name": "創意",
+   "theme": "AI ASIC設計服務",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "大摩ASIC三劍客題材點火(2023-04-07,點名智原/世芯/晶心科),創意為同族群台積電轉投資ASIC領導廠;創意Q1營收年增63%、3月年增33.5%(2023-04-10前公布)自身催化坐實;乘ChatGPT後CSP自研晶片/AI加速器需求浪",
+   "evidence": "工商時報大摩三劍客報告2023-04-07;自由財經創意Q1營收年增63%/3月年增33.5%(stock.ltn.com.tw,2023-04-10前公布)",
+   "invalidation": "Q2營收轉年減/CSP ASIC訂單能見度下修/三劍客題材資金退潮無新單接棒",
+   "conviction": 5
+  },
+  {
+   "code": "3661",
+   "name": "世芯-KY",
+   "theme": "AI ASIC設計服務",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "大摩ASIC三劍客(2023-04-07)點名世芯-KY為北美CSP AI加速器ASIC台廠純受惠龍頭;ChatGPT(2022-11-30)後CSP自研晶片結構題材,4月AI題材族群點火之上游設計服務環節,真直接環節+真實CSP訂單",
+   "evidence": "工商時報/FB LinsanityStock大摩ASIC三劍客2023-04-07(經ev27庫3035 file佐證世芯為三劍客成員)",
+   "invalidation": "北美CSP AI加速器ASIC專案遞延或流失/法說下修全年展望/Q2營收年減無改善",
+   "conviction": 4
+  },
+  {
+   "code": "2382",
+   "name": "廣達",
+   "theme": "AI伺服器",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "NVIDIA GTC『AI的iPhone時刻』(2023-03-21)點燃AI server供應鏈,廣達為NVIDIA HGX/DGX直接ODM;廣達3月營收3628億年增88.4%(2023-04-10前)坐實AI server需求;近端NVIDIA財報(約5月下旬)+Computex(5月底)為事件錨",
+   "evidence": "Inside/ev27庫GTC 2023-03-21;經濟日報月營收廣達3月3628億年增88.4%(2023-04-10前公布)",
+   "invalidation": "AI server訂單能見度下修/CoWoS瓶頸致出貨遞延/後續月營收年增動能急墜",
+   "conviction": 4
+  },
+  {
+   "code": "3231",
+   "name": "緯創",
+   "theme": "AI伺服器",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "NVIDIA GTC(2023-03-21)點燃AI server族群,緯創為NVIDIA AI server直接ODM且外資重壓;緯創3月營收3330億年增117.7%(2023-04-10前)為ODM最強成長;近端NVIDIA財報+Computex(5月底)事件錨",
+   "evidence": "Inside/ev27庫GTC 2023-03-21;月營收緯創3月3330億年增117.7%(2023-04-10前公布)",
+   "invalidation": "AI server份額被搶/月營收高成長無法延續/外資由買轉賣",
+   "conviction": 4
+  },
+  {
+   "code": "2329",
+   "name": "華泰",
+   "theme": "記憶體落底+AI伺服器",
+   "signal_type": "產業循環/報價反轉",
+   "event": "三星等三大廠齊減產(2023-04-07)點燃記憶體封測落底反彈;華泰NAND封測(約53%營收,客戶金士頓/群聯)直接受惠,另具美超微Supermicro AI server EMS第二引擎;t0前(4/11)尚未起漲(spike起4/26)屬未定價雙題材",
+   "evidence": "工商時報三星減產2023-04-07;ev27庫2329 file(華泰NAND封測占約53%+美超微Supermicro伺服器EMS雙引擎)",
+   "invalidation": "記憶體現貨價續跌無落底/Supermicro EMS訂單縮減/NAND封測稼動未回升",
+   "conviction": 4
+  },
+  {
+   "code": "8299",
+   "name": "群聯",
+   "theme": "記憶體落底",
+   "signal_type": "產業循環/報價反轉",
+   "event": "三星繼美光/SK海力士齊減產(2023-04-07)點燃NAND/DRAM落底供需再平衡預期;群聯為NAND flash controller全球龍頭(真環節非beta),記憶體族群反攻漲停落於4/20-4/26,t0(4/11)屬落底未定價卡位窗",
+   "evidence": "工商時報/經濟日報三星減產2023-04-07;群聯NAND controller全球龍頭(結構事實);ev27庫5386 file(記憶體股4/20後才reprice)",
+   "invalidation": "DRAM/NAND現貨價續探底逾Q3無反轉/群聯月營收續年減/減產效益無法傳導至controller需求",
+   "conviction": 4
+  }
+ ]
+}

@@ -1,0 +1,74 @@
+[
+  {
+    "date": "2023-04-13",
+    "source": "NVIDIA PRNewswire / TWTC COMPUTEX",
+    "url": "https://www.prnewswire.com/news-releases/nvidia-ceo-and-founder-jensen-huang-to-keynote-live-at-computex-2023-301814318.html",
+    "title": "NVIDIA 執行長黃仁勳確定於 COMPUTEX 2023 發表主題演講(5/30)",
+    "excerpt": "2023-04-13 公布:黃仁勳將於 COMPUTEX 2023(台北南港,5/30-6/2)親臨發表 keynote,排定 5/30 下午 2:30-3:00。觀察日(2023-05-11)前即由行事曆可知的國際大廠旗艦事件,對齊台廠 AI 伺服器/GPU 供應鏈,落在前瞻 2-6 個月窗口起點。事件日期已知可用;演講內容(觀察日後)不得作為判斷依據。",
+    "used": true
+  },
+  {
+    "date": "2023-03-20/2023-03-23",
+    "source": "財報狗 / NVIDIA GTC 2023 (ev27 2376 樣本轉引)",
+    "url": "https://statementdog.com/news/15988",
+    "title": "NVIDIA GTC 2023 黃仁勳 keynote,15 家台廠列『背板股』,台股逾 80 檔 AI 概念股漲停",
+    "excerpt": "GTC 2023(3/20-23)背板列出台積電、鴻海、廣達、緯創、華碩、技嘉、英業達等 15 家台廠,台股逾 80 檔 AI 概念股漲停。2023 上半 AI 伺服器題材『主動點火』最明確的宏觀證據,發生於觀察日(2023-05-11)前約 7 週,PIT 可用之題材點火事實。",
+    "used": true
+  },
+  {
+    "date": "公開事實(先於觀察日;富果 blog / 遠見 / 經理人)",
+    "source": "ev28 2023-02 materials 轉用 (供應鏈定位,公開事實)",
+    "url": "https://blog.fugle.tw/post/ai-server-provider",
+    "title": "AI 伺服器供應鏈直接/瓶頸環節定位(觀察日前公開事實)",
+    "excerpt": "廣達=全球最大 AI 伺服器 ODM(供 Google/Meta/AWS,NVIDIA DGX/HGX 主機板);緯創=NVIDIA DGX A100/HGX H100 主力組裝+基板供應商,2022 AI 僅占營收約 1.5%、獲利槓桿大且尚未被定價;緯穎(緯創子公司)產 NVIDIA 版主機板、hyperscaler 純度最高;信驊 Aspeed=伺服器 BMC 近獨佔(~70%),每台伺服器(含 AI)必用瓶頸零件。供圈選卡位真偽之 PIT 依據。",
+    "used": true
+  },
+  {
+    "date": "2023-02-09 / 2023-02-11~13",
+    "source": "ev28 2023-02 materials 轉用 (工商時報 / ctee)",
+    "url": "https://ctee.com.tw/news/stocks/806306.html",
+    "title": "ChatGPT 概念股點名清單 + 世芯 1 月營收 +86.58%(觀察日前既有題材熱度與自身加速)",
+    "excerpt": "2023-02-09 工商點名 16 檔 ChatGPT 概念股(含技嘉、廣達、緯穎、信驊、創意、世芯…),創意攻漲停;2/11-13 ctee 載三大法人買超 10 檔(台積電、世芯、技嘉、緯穎、信驊、廣達…)。世芯-KY 因 AI/HPC 占比高、美系雲端客戶訂單爆量,1 月營收 16.32 億元、年增 86.58%——近端已兌現具體數字。皆觀察日前 PIT 證據。",
+    "used": true
+  },
+  {
+    "date": "2023-04-07",
+    "source": "ev27 3035 樣本轉引 (工商時報 / FB LinsanityStock)",
+    "url": "https://www.ctee.com.tw/news/stocks",
+    "title": "大摩喊買智原,ASIC 設計服務『多頭三劍客』成形(世芯 3661 / 智原 3035 / 晶心科 6533)",
+    "excerpt": "2023-04-07 摩根士丹利初評智原『優於大盤』,加上世芯-KY、晶心科,ASIC 多頭三劍客成形,IP/ASIC 設計服務受 ChatGPT 後客製化 AI 晶片需求引領。觀察日前約 5 週外資點火。註:智原 Q2 財測偏弱(全年營收估年減 7-9%)構成當期背離,本次排除智原,僅取世芯/創意等自身動能較清楚者。",
+    "used": true
+  },
+  {
+    "date": "日期不明(長期定位,iThome / GIGABYTE 官網;ev27 2376 樣本轉引)",
+    "source": "ev27 2376 樣本轉引",
+    "url": "https://www.ithome.com.tw/review/158660",
+    "title": "技嘉為 NVIDIA 認證 HGX H100 8-GPU 伺服器整機廠(G593 系列),AI 純度最高之一",
+    "excerpt": "技嘉(及技鋼)為 NVIDIA 認證伺服器夥伴,提供 HGX H100 8-GPU 整機,台廠 AI 伺服器純度最高者之一,具名認證卡位。惟技嘉自身 t0 為 2023-03-08(GTC 前夕即起漲),至觀察日 5/11 已約 2 個月、屬本波最 extended,利多出盡風險相對高,conviction 降一級為 4。",
+    "used": true
+  },
+  {
+    "date": "context-搜尋佐證(觀察日前題材動能;ev27 2329 樣本轉引 陳重銘 FB 2023-05-03)",
+    "source": "多來源交叉",
+    "url": "",
+    "title": "2023-04 下旬台積電領軍 AI,台股單週大漲逾千點(觀察日前題材浪頭正起)",
+    "excerpt": "據 ev27 2329 樣本轉引(陳重銘 FB 2023-05-03):2023-04 下旬政策開綠燈+台積電因 AI 一飛衝天,帶動台股單週大漲 1,218 點。證實觀察日(5/11)前 AI 伺服器題材浪頭正起、資金明顯流入,支持乘浪型標記而非造浪太早。同時亦意味核心龍頭已 partial re-rate,故 conviction 多落在 4、僅獲利槓桿最未定價之緯創給 5。",
+    "used": true
+  },
+  {
+    "date": "context-非PIT(2024 天下 cw.com.tw 回溯,不作判斷依據)",
+    "source": "天下 CommonWealth / Morgan Stanley (回溯報導,晚於觀察日)",
+    "url": "https://english.cw.com.tw/article/article.action?id=3692",
+    "title": "[非PIT] 台廠占 NVIDIA 2023 GPU 伺服器出貨 >70%(鴻海24%/英業達22%/廣達15%/緯創5%/技嘉2%/緯穎1%)",
+    "excerpt": "此出貨市占數字係 2024 年天下回溯報導(引大摩),發佈晚於觀察日 2023-05-11,依 PIT 鐵律不得作為判斷依據,僅記錄佐證供應鏈結構理解並示已核日期後排除。標記所用卡位證據一律以觀察日前富果/工商/ev27 供應鏈定位為準。",
+    "used": false
+  },
+  {
+    "date": "abstain-note(觀察日題材地圖:排除/棄權)",
+    "source": "本次標記判斷 (PIT 題材地圖)",
+    "url": "",
+    "title": "觀察日 2023-05-11 排除/棄權清單與理由",
+    "excerpt": "(1)記憶體循環(三星 4/7 減產→青雲/華泰跌深反彈):報價未真反轉、當期數字背離、真兌現落 2024 超級循環,循環搶跑太早→棄權;(2)重電/綠能/儲能:Feb 已判造浪太早、大行情 2023 下半,觀察日仍早→觀察;(3)氫能(高力 8996):2 月已創天價利多出盡→棄權;(4)IC 設計復甦(聯陽 3014):族群 beta、個股消息稀薄→棄權;(5)ASIC 智原 3035:大摩升評但 Q2 財測年減 7-9% 背離→降級不標記;(6)散熱(奇鋐/雙鴻)/AI 網通(智邦)/伺服器 PCB(金像電):方向對但觀察日前 AI 卡位 live 證據無法乾淨 PIT 核實(WebSearch 多回 2024-26 GB200/Blackwell),查無不編→觀察不標記。",
+    "used": false
+  }
+]

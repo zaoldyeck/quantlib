@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2024 (在手訂單/backlog)",
+    "source": "鉅亨 cnyes 4937429 / Ocean Alexander 財報",
+    "url": "https://news.cnyes.com/news/id/4937429",
+    "title": "東哥遊艇訂單看到後年，全美前二大(市占 13%)，累計銷售逾 2000 艘",
+    "excerpt": "東哥(Ocean Alexander)為全球第 4 大豪華遊艇廠，70-120 呎、單價 650 萬-1600 萬美元；美國為主力市場、全美前二大(13%)。訂單能見度看到後年(多年 backlog)。2024 前三季營收 44.7 億(-4.7%)。此為 t0 前的基本面底盤(強 backlog)。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(backlog已知)",
+    "used": true
+  },
+  {
+    "date": "2025-04-02",
+    "source": "經濟日報 / ey.gov.tw",
+    "url": "https://money.udn.com/money/story/124512/9232466",
+    "title": "川普對等關稅台灣 32%，衝擊美國豪華遊艇出口",
+    "excerpt": "東哥主力銷美，32% 對等關稅被市場視為重大利空(奢侈品出口)，隨大盤 4/7 重挫。",
+    "pit": "pre_t0",
+    "pricing_state": "利空點火",
+    "used": true
+  },
+  {
+    "date": "2025-04-07 ~ 04-08",
+    "source": "聯合新聞網 udn 8657431 / 優分析 4638913460 / ETtoday 2938567",
+    "url": "https://udn.com/news/story/7238/8657431",
+    "title": "面對高關稅，東哥：已有應對機制、初期衝擊有限(FTZ 保稅區可規避)",
+    "excerpt": "東哥回應：美國營運據點位於外貿區(FTZ)，OA 遊艇自台進口至 FTZ 可暫免/延後繳稅，售出前不課稅；豪華遊艇買家可於境外註冊規避稅負，關稅新政初期衝擊有限。此為 t0(4/9)前的關鍵利空安撫。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(利空被安撫)",
+    "used": true
+  },
+  {
+    "date": "2025-04-09",
+    "source": "永豐豐雲學堂 / ey.gov.tw",
+    "url": "https://www.sinotrade.com.tw/richclub/hotstock/67fca900facf9628fc8af323",
+    "title": "川普暫緩對等關稅 90 天(t0 當日)",
+    "excerpt": "4/9(台北中午)川普暫緩對等關稅 90 天。東哥 t0=4/9 即此轉折日：超跌奢侈品出口名 + FTZ 利空安撫 + 關稅暫緩解除觀望，觸發報復性反彈。",
+    "pit": "post_t0",
+    "pricing_state": "事後-宏觀轉折觸媒",
+    "used": true
+  },
+  {
+    "date": "2025 全年 (後續)",
+    "source": "財報狗 statementdog 8478",
+    "url": "https://statementdog.com/analysis/8478",
+    "title": "高端遊艇需求韌性，羅德岱堡(Fort Lauderdale)船展持續斬獲訂單",
+    "excerpt": "高端豪華遊艇市場需求韌性，東哥於美國羅德岱堡船展有訂單斬獲，backlog 支撐基本面。事後確認需求未因關稅崩壞。",
+    "pit": "post_t0",
+    "pricing_state": "事後-基本面確認",
+    "used": true
+  }
+]

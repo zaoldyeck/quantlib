@@ -1,0 +1,42 @@
+[
+  {
+    "date": "日期不明(結構定位)",
+    "source": "鉅亨網 公司簡介 / CMoney",
+    "url": "https://www.cnyes.com/twstock/8227/company/profile",
+    "title": "巨有科技=台灣前十大 IC 設計服務廠(ASIC / SoC / IP & EDA)",
+    "excerpt": "巨有主力為特殊應用 IC(ASIC)、SoC 設計服務、IP & EDA 工具,同業對標世芯-KY、創意電子。股本輕、具題材性。此定位在 t0 前已存在,是 2023 年 AI ASIC 設計服務族群題材可附著的載體。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(結構定位)",
+    "used": true
+  },
+  {
+    "date": "2023-08-10(約,7 月營收公布)",
+    "source": "財報狗 / 巨有月營收",
+    "url": "https://www.cmoney.tw/forum/stock/8227?s=revenue",
+    "title": "巨有 2023 年月營收爆發式年增(7 月營收約 8/10 公布,動能貼近 t0)",
+    "excerpt": "巨有 2023 年營收爆發:8 月營收 1.04 億元、年增 129.16%、月增 7.87%(近 3 月新高);1-8 月累計約 6.58 億、年增 16.47%。7 月營收(約 8/10 公布)已顯強勁動能,貼近 t0(8/25)。此爆發式營收成長是 t0 暴漲最直接的基本面催化。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2023(全年,宏觀題材)",
+    "source": "市場題材(廣義) / 世芯創意領軍",
+    "url": "",
+    "title": "2023 年 AI ASIC 設計服務族群題材(世芯、創意領軍)",
+    "excerpt": "2023 年輝達 GPU 爆發下,雲端業者自研 AI ASIC 需求升溫,世芯-KY、創意電子成 2023 最強 AI ASIC 設計服務股。資金外溢至股本輕、具 AI/先進製程題材的小型設計服務股。巨有為此族群 beta 受惠股,t0(8/25)噴出與族群題材共振。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2023(全年結算)",
+    "source": "台視財經 / 巨有財報",
+    "url": "https://www.ttv.com.tw/finance/view/052026071024D672789A2E5242E3AB3FF8C528481ECCBD3D/587",
+    "title": "【事後】巨有 2023 全年營收約 11 億、EPS 4.29,創歷史最佳",
+    "excerpt": "【事後】巨有 2023 全年營收約 11 億元、EPS 4.29 元,為當時公司史上最佳,驗證 t0(8/25)時的營收爆發動能。後續 AI ASIC / CoWoS 高階封裝設計服務題材延燒至 2024-2026。此為 t0 後的基本面實現。",
+    "pit": "post_t0",
+    "pricing_state": "事後驗證",
+    "used": true
+  }
+]

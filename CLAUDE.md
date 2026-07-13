@@ -68,6 +68,13 @@ psql -h localhost -p 5432 -d quantlib
 
 ### Data Refresh Workflow (MANDATORY order)
 
+**當日資料收盤後即可抓(2026-07-09 起)**:日頻 pull 依各源發布時刻決定是否
+含今天(Taipei;`Task.dailyEndExclusive`)——daily_quote/index 14:00、
+stock_per_pbr 15:00、法人 T86 16:00、外資持股 17:00、融資券/借券 21:30、
+內部人 22:00。太早抓到「無資料」回應時 `Crawler.downloadFile` 對**當日**
+絕不落 0-byte sentinel(`[deferred-today]` 刪檔,下次重跑自動補),所以
+收盤後任何時間跑 `Main update` 永遠安全;沒抓到的表晚點再跑一次即補齊。
+
 Whenever Taiwan-market data needs to be up-to-date (daily routine, before
 starting a research session, after a long break), run these **in order**:
 
@@ -93,6 +100,19 @@ Why both steps are required:
 
 **Rule**: any new research script under `research/` **MUST** document at
 the top whether it needs `cache_tables.py` to be current.
+
+**Rule(研發代碼永久留存,2026-07-10;上位通則見全域 CLAUDE.md §2.4
+「有價值的工作產出必須落地 repo」)**: 本專案的具體化——策略研發程式碼
+(回測、表生成、驗證、對比分析、引擎收割)一律先寫成 `research/<campaign>/`
+下的正式檔案(docstring 註明用途、run 指令、是否依賴 cache)再以
+`uv run --project research python -m ...` 執行;**完成即 commit(含負結果
+harness——負結果是防重複試錯的資產)**。**禁止 Bash heredoc 一次性執行
+研發邏輯**——heredoc 只准 ≤10 行的即拋查詢(查 schema、看幾筆資料)。
+教訓(2026-07):apex/EV 系大量實驗曾以 heredoc 執行未落檔,592 筆 trial
+代碼事後靠對話 transcript 逐字搶救(`research/apex/rebuild/recovered/`);
+transcript 復原是最後保險,不是流程。LLM 標記產出依同等規格留存:標記
+原始輸出 `label_runs/{month}.json`、搜尋材料 `ev28_news/{month}/`(邊搜
+邊存 jsonl)、提示詞 `prompts/{month}.txt`——全部零 token 可重放。
 
 ### Research Scripts (Python + Polars + DuckDB)
 
@@ -195,10 +215,11 @@ Detailed usage + adapters in memory file `project_research_tooling.md`. Quick pi
 
 Agents are on-demand subagents, use Claude Code subscription (zero API cost vs TradingAgents' per-query LLM spend).
 
-**Skills in `.claude/skills/`** (6 auto-triggered workflows; Claude invokes on matching keywords):
+**Skills in `.claude/skills/`** (auto-triggered workflows; Claude invokes on matching keywords):
 
 | Skill | 觸發時機 |
 |---|---|
+| `serenity-trading-system` | 「**跑每日 loop**」「每日管理/檢查持倉」「產生下單計畫」「Serenity 選股/觀點/交易系統」「結構性瓶頸股」「找下一個 AXTI」— 現役單一交易策略的完整系統(選股+估值+出場+每日營運),自包含於 `.claude/skills/serenity-trading-system/`;每日 loop 見 `references/daily-ops.md` |
 | `quantlib-data-refresh` | 「更新資料」「sync data」「refresh cache」 |
 | `quantlib-backtest` | 「跑 X 策略」「compare A vs B」「threshold sweep」 |
 | `quantlib-factor-test` | 「測試 XXX 因子」「看 YYY 有沒有 IC」 |
@@ -239,6 +260,16 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 - **Zero `monthly_revenue` for construction stocks** is real — revenue recognized on project handover (completed-project basis).
 - **Saturday sessions with <50% row count** are real TWSE makeup trading days, not partial CSV.
 - **`concise_*` tables have no `market` column** — filter via `company_code` prefix or join with a table that has market.
+- **產業別一律用 `industry_taxonomy_pit`(2026-07-10 鐵律)** — 正規化 + PIT 的官方產業分類(修歷史舊名、記錄生效日防前視;`research/industry_taxonomy.py` 為建表源)。查詢模式:`asof` 取 `effective_date <= 觀察日` 的最新一筆。**禁止**直接用 `operating_revenue.industry`(舊檔含 legacy 名稱且無 PIT 語義)。
+
+### 執行紀律事故記錄(永不再犯)
+
+- **2026-07 Evergreen 偷工事故**:使用者明確指示「Agent 標記/蒸餾時要
+  去搜尋消息面、題材資料」,被實作偷工成「憑訓練記憶回顧」且未告知,
+  26 輪實驗(EV1-EV26)建立在偷工地基上,覆盤時還將偷工包裝成「回測
+  形態天花板」。教訓:任何 Evergreen/標記/蒸餾 agent **不得限制工具**
+  (WebSearch/WebFetch 全開),判斷輸入須與使用者指定的完整形態一致;
+  對照全域天條第 00 條。
 
 ### Known Bug Patterns (Watch for Recurrence)
 
@@ -250,7 +281,8 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 ### Strategy Semantics Contract
 
-- **Ship-ready strategy ranking + execution runbook** — see [`docs/strategy_ranking.md`](docs/strategy_ranking.md). 主策略 `Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)`（iter_13 monthly mcap TPEx + iter_24 max=5 ATR）通過 **6/6 OOS PASS real alpha** (OOS CAGR +24.39% / Sortino 1.535 / Boot LB +11.74% / multi-config PBO 0.408)。同時持倉硬上限 = 10 檔（5+5）。Cross-validation 5 個 ranker 證實非賭 TSMC（4 sensible ranker max gap 0.933，composite 是 outlier 失敗）。跨 cycle 切片：2008 GFC -23.9%、2009 +27.1%、2008-09 雙年合計 -1.6%、2022 growth crash -27.9%（系統性熊市 vs 2330 同 beta）。
+- **現役交易策略(live,使用者指定單一策略)= Serenity 事件引擎 `ev_v2_thesis_inst`** — 論點註冊表策展 × 事件紀律(止盈 +60% 回收 / trail -20% / abs -15% / time50 / **法人分佈出場** / 營收論點停損 + 雙 regime guard + live-book 收養協定)。驗證(cutoff 2026-07-06,計分經戰役十一~十三逐項消融驗證=8 成分全背書):lag0 CAGR 253.3% / MDD -18.0% / Sharpe 6.84 / Lo-t 4.29;置換檢定 p=0.000、DSR 1.00、bootstrap 5% 下界 +102.5%(PBO 長 lag 偏高 0.64/0.78 為既有 caveat);富邦 realistic CAGR 271.6% / MDD -17.2% / 成交率 96.9%(摩擦 ~0.25% 名目);75 預註冊 trials。文件:skill `serenity-trading-system`(`references/daily-ops.md` = 每日營運、`tw-event-engine.md` = 策略規格)+ `docs/serenity/serenity_event_engine_v1.md`。**鐵律:任何引擎變更必須先在 `docs/serenity/serenity_engine_trials_ledger.md` 預註冊假設與判準再跑**;策展維護依 `serenity_curation_sop.md`(註冊表是 alpha 源頭)。每日營運入口:`uv run --project research python -m research.serenity.daily run`(送單永遠是使用者的人工步驟)。**架構主權(血統原則,2026-07-07)**:Serenity 需求與 quantlib 舊慣例衝突時,一律改造專案服務 Serenity,不反向遷就(先例:事件驅動營收爬蟲、`research/serenity/` 獨立家);文字/質性資訊 fetch-on-demand 當下抓當下判斷(WebFetch → 使用者 Chrome),只存首見時間戳+策展蒸餾+量化資料,不建原文語料庫。
+- **純量化冠軍(參考)= Iter95** — see [`docs/strategy_ranking.md`](docs/strategy_ranking.md)(同窗 2018-26 realistic 70.8% / MDD -22.1%;2026-07 純量化戰役確認無挑戰者勝出,見 `quant_campaign_ledger.md`)。歷代 ship 策略(Quality+Catalyst Hybrid 等)退役為歷史參考。
 - **Canonical pricing module (`research/prices.py`, 2026-04-30+)** — ALL NAV simulation MUST go through `prices.fetch_adjusted_panel` (or helpers `daily_returns_from_panel` / `fetch_daily_returns` / `total_return_series`). Reading raw `daily_quote.closing_price` and running daily NAV systematically under-counts cash dividend reinvestment and ignores capital reduction reference resets — historical bug that under-stated iter_20 / iter_24 NAV ~3-6pp CAGR over 21y. See `feedback_canonical_prices_module.md` memory and `research/tests/test_prices.py` for the 10-test parity suite (incl. cross-implementation check vs `research/analyses/active_etf_metrics.py`).
 - **Python is the canonical research engine** (`research/strat_lab/v4.py` + `vectorbt` + `alphalens`). Scala `strategy/` package is **frozen** as historical reference — no new strategies, no factor research, no backtesting there.
 - **Month-start rebalance** (`minDay=1`) is **v4 legacy only**. New strategies應該傾向 **event-driven daily**（見下一節）。月頻只在證明比事件驅動好時才用。
@@ -325,7 +357,7 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 **2026-04-29 Sprint B 階段成果**：
 - 庫藏股 working — 全 db schema (`treasury_stock_buyback`)、cache view、reader、CLI (`Main pull buyback` / `read buyback`) 全 done
 - 內部人 / 現增 — 全套 code 寫好（Setting / Table / Reader / Crawler / CLI）但 endpoint server 對 IP/TLS fingerprint 直接 close，需 Playwright 階段
-- 取消法說會 (Task #86/87) — LLM-only / 無 cross-section ranking 價值，改 on-demand `twstock-confcall-analyzer` agent 查詢
+- 法說會 (Task #86/87) — **2026-07-07 翻案(部分)**:行事曆+簡報連結已接入 Serenity 每日 loop(MOPS t100sb02_1,`research/serenity/daily.py`;事件庫 `research/data/confcall_events.parquet` 累積首見日供未來 event study);逐字稿 NLP 因子維持不做(舊結論仍成立:無截面排名價值),內容解讀走策展層 read-through + on-demand `twstock-confcall-analyzer`
 
 補資料時務必 **加到 `research/cache_tables.py`** 讓 cache 重建帶入，並 **加到 `research/db.py`** 讓 pg-attach 模式有對應 view（parity）。
 

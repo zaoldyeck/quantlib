@@ -1,0 +1,52 @@
+[
+  {
+    "date": "長期(既有基本盤)",
+    "source": "公司/MoneyDJ",
+    "url": "https://www.moneydj.com/kmdj/wiki/wikiviewer.aspx?keyid=42a7acb6-9f51-4c02-9e81-ff5708b701bc",
+    "title": "桓達為製程自動化感測器隱形冠軍(液位/流量/壓力/溫度),全球前五、毛利約 50%",
+    "excerpt": "桓達(4549)自有品牌行銷全球,製程自動化感測器占營收約 89%,應用於食品飲料、水處理、造紙、化工;並打入半導體超純水/化學品管線監測(台積電供應鏈)。AI 伺服器浸沒式/液冷『冷卻液液位/流量感測』產品十年前已開發,惟 2024 前尚未放量。此為 t0(2024-03-08)前的既有基盤。",
+    "pit": "pre_t0",
+    "pricing_state": "尚未反應(液冷應用未放量)",
+    "used": true
+  },
+  {
+    "date": "t0 前(個股層面)",
+    "source": "研究判讀",
+    "url": "https://www.cnyes.com/twstock/4549",
+    "title": "t0(2024-03-08)前查無桓達 AI 液冷『個股層面』點火消息",
+    "excerpt": "回溯桓達所有 AI 液冷 / 半導體個股新聞,最早見報為 2024-05-28『桓達 瞄準 AI 商機』(工商時報),更早在 t0 前查無桓達具名的 AI 液冷訂單/認證消息。3/8 起漲屬『題材 + 資金提前押注』,個股 concrete 消息尚未出現。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股點火消息(題材提前反應)",
+    "used": true
+  },
+  {
+    "date": "2024-03-18~21(Nvidia GTC,t0 後 10 天)",
+    "source": "產業事件",
+    "url": "https://topic.ctee.com.tw/liquidcooling",
+    "title": "Nvidia GTC 2024 發表 GB200(液冷),AI 液冷散熱成為全市場主題",
+    "excerpt": "Nvidia GTC 2024(3/18-21)發表 GB200 機櫃採直接液冷(DLC),AI 伺服器液冷散熱一躍成為台股最強題材之一。桓達以『液冷感測器概念股』被資金放大押注——此事件在 t0(3/8)之後 10 天,是把 3/8 起漲行情延續放大的主催化 amplifier。",
+    "pit": "post_t0",
+    "pricing_state": "事後(題材點火放大)",
+    "used": true
+  },
+  {
+    "date": "2024-05-28",
+    "source": "工商時報",
+    "url": "https://www.ctee.com.tw/news/20240528700244-439901",
+    "title": "桓達 瞄準 AI 商機(個股 AI 敘事首度見報)",
+    "excerpt": "2024-05-28 工商時報『桓達 瞄準 AI 商機』——桓達 AI 液冷/半導體個股敘事首度正式見報,已在 t0(3/8)後近 3 個月、且在 60 日漲勢窗尾聲。屬事後確認,非 t0 前可見。",
+    "pit": "post_t0",
+    "pricing_state": "事後(個股敘事首見)",
+    "used": true
+  },
+  {
+    "date": "2024-11-03 起",
+    "source": "經濟日報/理財周刊/PTT",
+    "url": "https://money.udn.com/money/story/5607/8495131",
+    "title": "[t0 後 concrete 訂單] 桓達熱質流量計/光電開關獲鴻海認證,切入 GB200/GB300 液冷",
+    "excerpt": "2024-11 桓達三合一液冷感測器/熱質式流量計/光電開關獲鴻海認證,成為 AI 伺服器直接液冷散熱(DLC)關鍵零件、切入輝達 GB200/GB300 體系,2024-12 起小量出貨、2025 放量。此為 t0 後 8 個月才出現的 concrete 訂單消息,是市場記憶中的『桓達 AI 故事』真正落地點——但遠晚於 3/8 起漲。",
+    "pit": "post_t0",
+    "pricing_state": "事後(concrete 訂單落地)",
+    "used": false
+  }
+]

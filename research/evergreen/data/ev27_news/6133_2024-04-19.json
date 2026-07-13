@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2024-03-18",
+    "source": "NVIDIA GTC/科技媒體",
+    "url": "https://finance.technews.tw/2024/07/25/gb200-ai-server-brings-in-210-billion-in-revenue-a-year/",
+    "title": "輝達GTC 2024發表Blackwell/GB200(AI伺服器高速互連需求 sector催化)",
+    "excerpt": "輝達2024/3/18-21 GTC發表Blackwell架構與GB200 AI伺服器，帶動機櫃內高速互連(NVLink/銅纜/高速線材)需求爆發論述。金橋為高頻高速線材/AI伺服器與資料中心周邊線材廠，市場將其歸為AI伺服器線材供應鏈。此sector級催化在t0(4/19)前約1個月，為金橋起漲之題材背景(非公司專屬公告)。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2024(產品/背景)",
+    "source": "公司資料/CMoney readmo",
+    "url": "https://readmo.cmoney.tw/article/c4ac06b7-710b-40c3-b93d-d692d9f8d970",
+    "title": "金橋主攻高頻高速線材、AI伺服器/資料中心周邊線材",
+    "excerpt": "金橋為線材廠，四大產品：高頻高速線材、AI伺服器與資料中心周邊線材、車用線材、工業/醫療線材，主攻高速連接線組。隨PCIe演進、CPO/800G/1.6T導入，單機高速連接介面數量與ASP有提升空間。此為t0前後之產品定位與成長邏輯，無查得單一4月硬新聞催化。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2024-07(公佈)",
+    "source": "鉅亨網",
+    "url": "https://news.cnyes.com/news/id/5633608",
+    "title": "金橋2024年6月營收1.28億元 年增+55.98%",
+    "excerpt": "金橋2024年6月營收1.28億元(+55.98%)，1-6月累計5.75億(+14.44%)，反映AI伺服器/高速線材需求帶動營收加速。此數據約於7月初公佈(t0後)，屬事後確認之基本面提速。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認",
+    "used": true
+  },
+  {
+    "date": "2024-H2",
+    "source": "經濟日報/科技媒體",
+    "url": "https://money.udn.com/money/story/5612/8019247",
+    "title": "GB200下半年起放量出貨 AI伺服器鏈業績接棒(t0後)",
+    "excerpt": "GB200 AI伺服器自2024下半年起大量出貨，相關供應鏈營收逐季成長。屬t0後驅動金橋續強之產業實現。",
+    "pit": "post_t0",
+    "pricing_state": "事後驅動",
+    "used": false
+  }
+]

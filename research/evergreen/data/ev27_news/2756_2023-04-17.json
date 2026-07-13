@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2022-01-14",
+    "source": "台灣證券交易所 / Goodinfo",
+    "url": "https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=2756",
+    "title": "聯發國際(這一鍋餐飲集團)2022-01-14新上市",
+    "excerpt": "聯發國際餐飲(這一鍋餐飲集團)於2022-01-14上市,旗下五大品牌:這一鍋皇室秘藏鍋物、這一小鍋、燒肉同話、九初流心脆皮煎餃、韓啵韓式料理,全台約51家,展店目標每年3-5家。屬新上市成長股,以火鍋內用為主。",
+    "pit": "pre_t0",
+    "pricing_state": "新上市蜜月/成長股標籤",
+    "used": true
+  },
+  {
+    "date": "2023-Q1(解封題材)",
+    "source": "產業背景 (後疫情內用解封復甦)",
+    "url": "https://www.moneydj.com/kmdj/wiki/wikiviewer.aspx?keyid=30df00d4-062a-4f3c-bc14-7ca1a915c99d",
+    "title": "後疫情內用全面解封、餐飲復甦題材",
+    "excerpt": "2023年初台灣防疫全面鬆綁(口罩解禁、內用全面恢復),餐飲內用強勁復甦。聯發國際以火鍋內用為主,直接受惠。t0前的+71%漲勢主要為『內用解封復甦』這個人盡皆知的利多提前反映+新上市成長題材,屬已充分討論的解封受惠。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知解封利多/充分定價",
+    "used": true
+  },
+  {
+    "date": "2024-2025(post, 基本面續佳)",
+    "source": "winvest / 財報狗",
+    "url": "https://winvest.tw/Stock/Symbol/Comment/2756",
+    "title": "後續EPS續增(2024 EPS 2.41、2025 EPS 3.93)、配息穩健",
+    "excerpt": "聯發國際2023年配發現金股利4.5元;2024全年EPS 2.41元、2025全年EPS 3.93元,基本面持續成長。顯示公司體質不差——t0後60日的停滯屬『reopening利多實現、短線題材耗盡』而非結構性失敗;解封復甦已在+71%漲勢中提前定價,缺乏新增催化而整理。",
+    "pit": "post_t0",
+    "pricing_state": "利多出盡/基本面其實不差",
+    "used": true
+  }
+]

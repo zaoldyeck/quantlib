@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2022年全年主題",
+    "source": "半導體IP產業背景",
+    "url": "",
+    "title": "RISC-V崛起、ARM替代題材（Nvidia併購ARM破局、ARM擬IPO、地緣去美化）",
+    "excerpt": "2022-02 Nvidia併購ARM案破局、ARM中國經營權紛擾、ARM籌備IPO並調整授權模式，市場尋找ARM替代方案；美中晶片戰下中國加速採用開放指令集RISC-V。晶心科為RISC-V國際協會創始會員、全球RISC-V IP前三、市占約30%，成為題材核心標的，2022全年評價大幅重估。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀（結構題材、全年再評價）",
+    "used": true
+  },
+  {
+    "date": "2021年起（t0前已存在）",
+    "source": "H1'22法說揭露回溯 / 經濟日報",
+    "url": "https://money.udn.com/money/story/5710/7376893",
+    "title": "美國AI大客戶Meta採用晶心IP開發自研訓練/推論加速器晶片，2021年起挹注授權金",
+    "excerpt": "晶心科前十大客戶之首為美國AI客戶Meta，Meta採用晶心IP開發自研訓練與推論加速器晶片，2021年起貢獻授權金；上半年授權金約三成與AI相關。AI加速器+RISC-V雙題材是估值重估核心（此客戶關係t0前已存在，惟市場尚未完全定價其後續放量）。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應（前兆存在、潛力未完全定價）",
+    "used": true
+  },
+  {
+    "date": "2022-07-05至07-10（月營收公告窗口）",
+    "source": "月營收公告",
+    "url": "https://goodinfo.tw/tw/ShowSaleMonChart.asp?STOCK_ID=6533",
+    "title": "晶心科2022上半年營收動能延續、授權金占比高（6月營收於t0前後公告）",
+    "excerpt": "晶心科月營收於次月5-10日公告；t0(7/6)恰落在6月營收公告窗口。上半年營收4.04億元、年增15.1%，授權金占56%、量產權利金占24%，約七成營收由RISC-V架構產品貢獻，動能延續支撐題材。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應（營收動能背景）",
+    "used": true
+  },
+  {
+    "date": "2022-08（H1'22財報）",
+    "source": "公司財報",
+    "url": "https://statementdog.com/analysis/6533/e-report",
+    "title": "晶心科H1'22營收4.04億元年增15.1%、稅後淨損9651萬元（EPS -1.91元）",
+    "excerpt": "上半年合併營收4.04億、年增15.1%，歸屬母公司淨損9651.7萬、每股淨損1.91元。市場逆風致當期虧損，但股價暴漲由『未來RISC-V/AI放量』敘事驅動，非當期獲利；屬典型本夢比/題材再評價。",
+    "pit": "post_t0",
+    "pricing_state": "事後（財報揭示：虧損但題材優先）",
+    "used": true
+  },
+  {
+    "date": "2022-08-21",
+    "source": "PressPlay Academy",
+    "url": "https://www.pressplay.cc/project/C35C4E040F83E3B15643CA8D09B0EC77/articles/1A7C2C44AB7B3B9AE456AC11EC8FF062",
+    "title": "晶心科RISC-V架構打入車用電子市場？",
+    "excerpt": "分析晶心科RISC-V IP切入車用電子的進展與潛力，反映t0後市場對其應用範疇擴張（AI、車用、IoT）的持續追蹤與想像。",
+    "pit": "post_t0",
+    "pricing_state": "事後（題材延伸追蹤）",
+    "used": true
+  }
+]

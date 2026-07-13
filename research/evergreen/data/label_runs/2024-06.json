@@ -1,0 +1,75 @@
+{
+ "month": "2024-06",
+ "labels": [
+  {
+   "code": "2383",
+   "name": "台光電",
+   "theme": "AI伺服器高速CCL(GB200)",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "COMPUTEX 2024(6/4-7)+黃仁勳6/2 keynote錨定AI伺服器;GB200過熱驅動CCL材料M7→M8升級,台光電為全球高速/無鹵CCL龍頭直接受惠,GB200下半年放量為近端兌現",
+   "evidence": "cache 5月營收YoY+63%(published~6/10;Mar/Apr+66/+80持續);結構=高速CCL龍頭M7+佔逾6成(cnyes id6241907);價ytd+15%<大盤+21%明顯落後=未定價",
+   "invalidation": "5-6月營收YoY轉降破+40%,或GB200放量遞延,或M8轉單被生益/聯茂瓜分",
+   "conviction": 5
+  },
+  {
+   "code": "2368",
+   "name": "金像電",
+   "theme": "AI伺服器PCB(CSP ASIC)",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "AI伺服器規格升級→高層數PCB需求倍增(法人點名);金像電為伺服器PCB龍頭,供應AWS Trainium/Google TPU/Meta MTIA/MS Maia四大CSP自研ASIC平台PCB",
+   "evidence": "cache 5月營收YoY+46%(Mar/Apr+24/+24加速,published~6/10);客戶名單結構(cmoney note815106);價ytd-14%/r60-18%回檔=rev加速but價未動之醞釀",
+   "invalidation": "6月營收YoY轉弱/年減,或CSP ASIC PCB訂單被欣興/健鼎分食",
+   "conviction": 4
+  },
+  {
+   "code": "2345",
+   "name": "智邦",
+   "theme": "800G AI資料中心交換器",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "AI資料中心400G→800G→1.6T世代更替;智邦為全球白牌交換器(OCP/SONiC)龍頭直接環節,800G放量為下半年近端兌現",
+   "evidence": "cache 5月營收YoY+36%(Mar/Apr+4/+11明顯加速,published~6/10);結構=網通ODM/JDM白牌龍頭(口袋學堂/uc913);價ytd+7%/r60+14%仍安靜=龍頭未定價",
+   "invalidation": "800G放量遞延或6月營收動能回落,或CPO/Linear-drive路線稀釋白牌價值",
+   "conviction": 4
+  },
+  {
+   "code": "8299",
+   "name": "群聯",
+   "theme": "NAND控制IC/記憶體循環",
+   "signal_type": "產業循環/報價反轉",
+   "event": "NAND Flash報價2023年中落底、其後反彈逾60%;群聯為控制IC龍頭(缺貨中話語權)+企業級SSD,循環反轉高槓桿受惠",
+   "evidence": "cache 5月營收YoY+68%(Mar/Apr+73/+53,published~6/10);結構=NAND控制IC龍頭(vocus/理財周刊);價ytd+18%/r60+3%持平=循環early價未反映",
+   "invalidation": "NAND報價回跌/原廠復產壓價,或月營收YoY轉弱,或控制IC庫存跌價損失",
+   "conviction": 4
+  },
+  {
+   "code": "6187",
+   "name": "萬潤",
+   "theme": "CoWoS先進封裝設備",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "台積電CoWoS產能荒→擴產與委外;萬潤後段封裝設備(點膠/貼合/散熱)獨家供應部分關鍵機種給台積,交機高峰帶動營收創高",
+   "evidence": "cache 5月營收YoY+337%(Mar/Apr+281/+301)且絕對值歷史新高(published~6/10);結構獨家台積(cnyes id5718305);價ytd+89%(rev遠超價,非利多出盡but部分定價)",
+   "invalidation": "台積CoWoS擴產/委外放緩、設備交機遞延(營收lumpy),或+337%被證純低基期一次性次月斷崖",
+   "conviction": 4
+  },
+  {
+   "code": "3680",
+   "name": "家登",
+   "theme": "EUV Pod/CoWoS載具",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "CoWoS產能荒催生新載具需求;家登EUV光罩盒全球市佔逾80%(近獨佔瓶頸),切入台積/Amkor先進封裝CoWoS載具+清洗檢測,疊台積先進製程capex",
+   "evidence": "cache 5月營收YoY+62%(Apr+76,published~6/10);結構=EUV Pod>80%市佔、台積佔營收逾50%(財報狗/口袋學堂);價ytd+18%/r60+7%持平",
+   "invalidation": "台積先進製程/CoWoS capex放緩,或CoWoS載具貢獻(2-3年ramp)不如預期,或月營收波動轉負",
+   "conviction": 4
+  },
+  {
+   "code": "3661",
+   "name": "世芯-KY",
+   "theme": "AI ASIC設計服務",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "世芯為全球#2 ASIC設計(最大客戶Amazon);北美AI/hyperscale需求強,N3 AI加速器~6月起放量、Q3/Q4更強(Q1法說guidance);股價H1自高檔回檔超跌",
+   "evidence": "cache 5月營收YoY+61%(Mar/Apr+52/+54加速,當期數字不背離,published~6/10);結構=#2 ASIC house Amazon/Intel客戶;價ytd-22%/r60-22%超跌",
+   "invalidation": "Amazon N3放量遞延,或Intel(客戶)AI加速器訂單縮減/deferral確認,或6月營收YoY轉降坐實背離",
+   "conviction": 4
+  }
+ ]
+}

@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2022-11-30 起(廣義題材)",
+    "source": "市場題材(OpenAI ChatGPT)",
+    "url": "",
+    "title": "ChatGPT掀AI熱潮,台股AI/軟體概念股題材輪動",
+    "excerpt": "OpenAI ChatGPT於2022-11-30發表,2023 Q1台股AI概念股大漲。資金由硬體外溢至軟體/資訊服務股(AI導入、數位轉型、資料治理)。東捷資訊為資訊服務/ERP顧問股,是此波AI軟體題材輪動的落後補漲標的。t0(3/13)與AI題材資金輪動同步—此為主催化。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知(題材)",
+    "used": true
+  },
+  {
+    "date": "日期不明(長期定位)",
+    "source": "MoneyDJ 財經百科 / 公司資料",
+    "url": "https://www.moneydj.com/kmdj/wiki/wikiviewer.aspx?keyid=311677f4-8964-4ef7-9d9f-4ed61001974f",
+    "title": "東捷為東元集團子公司、SAP台灣最大合作夥伴、與研華合推智慧工廠",
+    "excerpt": "東捷資訊為東元集團旗下,主營ERP顧問(SAP台灣金級/最大夥伴)、系統開發、資安、雲端導入,2019年起與研華合推OT-to-IT智慧工廠。此『AI×ERP×智慧製造×數位轉型』定位在t0前即存在,是題材輪動時被點名的基本盤,屬醞釀中的定位。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2023-03-20",
+    "source": "PTT Stock",
+    "url": "https://www.ptt.cc/bbs/Stock/M.1679323312.A.EC9.html",
+    "title": "[標的] 6697東捷資訊(散戶多方論述:偏價值/填息)",
+    "excerpt": "t0後一週的散戶標的文,論點為:東元子公司、SAP台灣最大夥伴、與研華智慧工廠、111年EPS 2.04元、配息早、填息機會大、目標價70;第四季提列備抵2000萬單季虧損。值得注意:此文『未提AI』,而是價值/股利論述。顯示t0的驅動是外部AI題材輪動,個股層面的敘事仍是基本面/股利。",
+    "pit": "post_t0",
+    "pricing_state": "事後(retail thesis)",
+    "used": true
+  },
+  {
+    "date": "2023-03-27",
+    "source": "鉅亨網 cnyes",
+    "url": "https://news.cnyes.com/news/id/6392251",
+    "title": "東捷資訊除息2.6元(參考價42.2元)—股利/填息題材",
+    "excerpt": "【事後/參考,注意年份需再核】東捷除息2.6元、預估參考價42.2。除息填息是東捷散戶論述的一環。此類公告日期需再核實年度(cnyes近期報導多為2025+),僅供股利題材脈絡,不作t0前兆。",
+    "pit": "post_t0",
+    "pricing_state": "旁證(年份待核)",
+    "used": false
+  },
+  {
+    "date": "2025+(事後)",
+    "source": "經濟日報",
+    "url": "https://money.udn.com/money/story/11074/9579486",
+    "title": "東捷資訊搶AI商機、SAP 2027終止傳統ERP支援(升級轉換商機)",
+    "excerpt": "【事後】東捷搭AI商機推ERP上雲/智慧營運;SAP預計2027年底終止傳統ERP主流支援,身為SAP金級夥伴的東捷迎升級轉換潮。此敘事在t0後持續發酵,為長線基本面,非2023-03 t0的即時催化。",
+    "pit": "post_t0",
+    "pricing_state": "事後長線敘事",
+    "used": false
+  }
+]

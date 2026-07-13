@@ -1,0 +1,92 @@
+[
+  {
+    "date": "2022-11-30",
+    "source": "產業事件/OpenAI (背景)",
+    "url": "https://openai.com/blog/chatgpt",
+    "title": "ChatGPT 上線,生成式 AI 引爆高階/AI 伺服器需求想像",
+    "excerpt": "2022-11-30 OpenAI 推出 ChatGPT,2023 Q1 起市場快速形成『生成式 AI 需大量 GPU/高階伺服器算力』共識,台廠 AI 伺服器供應鏈(代工、機殼、散熱、PCB)成為題材源頭。勤誠為全球前三大伺服器機殼廠,被納入此敘事。此為 t0(3/22)前既存的宏觀題材背景。",
+    "pit": "pre_t0",
+    "pricing_state": "題材醞釀(市場開始注意 AI 伺服器鏈)",
+    "used": true
+  },
+  {
+    "date": "2023-03-06",
+    "source": "工商時報/Yahoo 股市",
+    "url": "https://tw.stock.yahoo.com/news/",
+    "title": "勤誠嘉義廠獲英國 LICC 倫敦國際創意競賽建築設計官方優選獎",
+    "excerpt": "2023-03-06 報導:勤誠(8210)以伺服器機殼外型啟發設計的嘉義製造中心榮獲 2022 LICC 建築設計優選獎。屬品牌/形象事件,非基本面利多,僅顯示 t0 前勤誠曝光度提高。",
+    "pit": "pre_t0",
+    "pricing_state": "中性(品牌事件,非基本面)",
+    "used": false
+  },
+  {
+    "date": "2023-03-15",
+    "source": "CMoney 理財寶",
+    "url": "https://readmo.cmoney.tw/article",
+    "title": "勤誠今日 6 家券商發布評等,5 家買進;多路並進含 AI 伺服器、ASIC、通用伺服器",
+    "excerpt": "2023-03-15:勤誠(8210)當日有 6 家券商發布績效評等,多數看多,其中 5 家評等『買進』;報告點名 AI 伺服器、ASIC 與通用伺服器多路並進的出貨節奏。法人在 t0 前一週集體翻多,AI 伺服器已入評等主敘事。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(法人集體上調/看多)",
+    "used": true
+  },
+  {
+    "date": "2023-03-16",
+    "source": "鉅亨網 cnyes",
+    "url": "https://news.cnyes.com/twstock/8210",
+    "title": "〈勤誠法說〉庫存調整比預期長,今年營收先蹲後跳拚續創高",
+    "excerpt": "2023-03-16 勤誠召開法說,執行長陳亞男:受大環境影響客戶庫存調整時程比預期長,預估下半年恢復拉貨力道,全年營收『先蹲後跳』拚續創高。短期偏保守,但釋出 H2 復甦 + AI 伺服器長線成長前瞻。t0(3/22)前 6 日的關鍵法說。",
+    "pit": "pre_t0",
+    "pricing_state": "短期偏保守但前瞻樂觀(AI 段市場尚未完全反應)",
+    "used": true
+  },
+  {
+    "date": "2023-03-17",
+    "source": "優分析 UAnalyze",
+    "url": "https://uanalyze.com.tw/articles",
+    "title": "勤誠:傳統伺服器轉 AI 伺服器後散熱需求變高、機殼設計難度提高,帶來長波段成長",
+    "excerpt": "2023-03-17:『未來當傳統伺服器都變成 AI 用伺服器之後,又會帶給勤誠一個長波段的成長機會,因為散熱需求變高了,機殼設計難度也會同步提高』,惟需等 2023 庫存去化。明確闡述 AI 機殼 ASP/難度提升的多頭論述。",
+    "pit": "pre_t0",
+    "pricing_state": "題材醞釀(AI 機殼 ASP 論述成形)",
+    "used": true
+  },
+  {
+    "date": "2023-03-18",
+    "source": "富果直送 Fugle (blog.fugle.tw)",
+    "url": "https://blog.fugle.tw/post/chenbro-2022-q4/",
+    "title": "ChatGPT 掀高階伺服器風潮!追蹤伺服器機殼供應商『勤誠』2022Q4",
+    "excerpt": "2023-03-18:『ChatGPT 掀高階伺服器風潮!追蹤伺服器機殼供應商勤誠』;勤誠為全球前三大伺服器機殼廠,業務含邊緣運算、高密度儲存、AI 運算機殼。市場已在 t0 前明確把 ChatGPT→勤誠連結,是題材點火前夕的關鍵中小型股深研。",
+    "pit": "pre_t0",
+    "pricing_state": "題材點火前夕(ChatGPT→勤誠連結被建立)",
+    "used": true
+  },
+  {
+    "date": "2023-03-20~21",
+    "source": "NVIDIA GTC 2023 / INSIDE / 摩根士丹利",
+    "url": "https://www.inside.com.tw/feature/nvidia-gtc-2023",
+    "title": "NVIDIA GTC 2023 黃仁勳『AI 的 iPhone 時刻』;大摩:台廠佔 NVIDIA GPU 伺服器出貨 >70%",
+    "excerpt": "2023-03-20~21 GTC 2023,黃仁勳稱『我們正處於 AI 的 iPhone 時刻』,發表 H100/DGX Cloud、與台積電/ASML/新思合作運算微影。同期摩根士丹利 AI 供應鏈報告指台廠佔 NVIDIA 全球 GPU 伺服器出貨逾七成。此為 t0(3/22)『前一日』的最強題材點火,勤誠起漲緊接 GTC。",
+    "pit": "pre_t0",
+    "pricing_state": "主催化(消息點火,市場開始追捧 AI 伺服器鏈)",
+    "used": true
+  },
+  {
+    "date": "2023-05-24",
+    "source": "NVIDIA 財報 (事後)",
+    "url": "https://nvidianews.nvidia.com/",
+    "title": "(事後)NVIDIA Q1 FY24 財測暴衝,AI 伺服器需求確立,機殼股再噴",
+    "excerpt": "(事後)2023-05-24 NVIDIA 公布遠超預期的下季財測(資料中心 AI 需求),坐實 AI 伺服器超級循環,勤誠等機殼/散熱股第二段大漲。此為 t0 後把 3 月題材做實的基本面確認,非 t0 前可得。",
+    "pit": "post_t0",
+    "pricing_state": "事後(基本面確認,行情延續)",
+    "used": true
+  },
+  {
+    "date": "2023 全年 (事後)",
+    "source": "法人研究報告 (事後)",
+    "url": "https://news.cnyes.com/twstock/8210",
+    "title": "(事後)勤誠 2023 AI 伺服器營收年增逾 100%,AI 機殼 ASP 為主流 1U 之 5 倍以上",
+    "excerpt": "(事後)研調與法人:勤誠 2023 AI 伺服器營收成長逾 100%,AI/高 U 數機殼 ASP 為主流 1U 規格 5 倍以上、超高 U 數達數十倍;TrendForce 估 2023 AI 伺服器出貨近 120 萬台、年增近 4 成。『先蹲後跳』兌現,驗證 t0 前的 AI 機殼論述。",
+    "pit": "post_t0",
+    "pricing_state": "事後(論述兌現)",
+    "used": true
+  }
+]

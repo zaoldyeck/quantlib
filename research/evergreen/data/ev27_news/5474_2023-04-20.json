@@ -1,0 +1,52 @@
+[
+  {
+    "date": "背景(2023 Q1 生成式 AI 狂潮,ChatGPT 於 2022-11-30 上線後)",
+    "source": "宏觀/主題事實",
+    "url": "https://tw.stock.yahoo.com/quote/5474.TWO",
+    "title": "ChatGPT 引爆 2023 Q1 AI 狂潮,聰泰以『影像擷取 + NVIDIA Jetson 邊緣 AI 轉型』成主題標的",
+    "excerpt": "ChatGPT 2022-11-30 上線後,2023 Q1 台股 AI 概念全面發酵。聰泰(5474)深耕影像擷取逾 30 年,近年以 NVIDIA Jetson 平台切入邊緣 AI、轉型『新型工業電腦』,被市場貼上 AI 邊緣運算/影像 AI 標籤。t0=4/20 落在此主題投機階段,先於實質營收(2023 全年營收實際年減約 17%)。",
+    "pit": "pre_t0",
+    "pricing_state": "尚未反應→反應中(主題投機,先於基本面)",
+    "used": true
+  },
+  {
+    "date": "2023-03-14 前後(Embedded World 2023,3/14-16 紐倫堡)",
+    "source": "聰泰(YUAN)官網新聞室",
+    "url": "https://www.yuan.com.tw/zh-tw/newscontent/34",
+    "title": "聰泰亮相 Embedded World 2023,展示最新嵌入式影像解決方案",
+    "excerpt": "聰泰於 2023 年 3 月 Embedded World 2023(國際嵌入式展)展示嵌入式/邊緣影像解決方案。此為 t0(4/20)前的品牌/技術定位事件,強化其邊緣 AI 敘事,但非訂單/財測硬消息,屬題材鋪墊。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(展會定位,非硬訂單)",
+    "used": true
+  },
+  {
+    "date": "查無(2023-04 聰泰個股訂單/財測硬催化)",
+    "source": "WebSearch 多輪",
+    "url": "https://www.cnyes.com/twstock/intro.aspx?code=5474",
+    "title": "查無 t0 前聰泰具體訂單/財測利多——2023 基本面實為衰退,漲勢靠 AI 主題想像",
+    "excerpt": "查無 t0(4/20)前聰泰的具體訂單、認證或財測上修。2023 年 1-11 月營收年減約 17%,基本面實為衰退。t0 起漲主由生成式 AI 主題 + NVIDIA 邊緣 AI 夥伴身分的『故事』驅動,實質開案爆發(逾 60 案/量產)遲至 2024-2025 才落地。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股硬催化(主題想像為主)",
+    "used": true
+  },
+  {
+    "date": "2023-05-30 ~ 06-02(事後,Computex 2023)",
+    "source": "聰泰官網 / Business Insider Taiwan",
+    "url": "https://www.yuan.com.tw/zh-tw/newscontent/41",
+    "title": "[事後] 聰泰參加 2023 Computex,展 3D 安防 AI、8K 直播、邊緣影像方案",
+    "excerpt": "聰泰於 2023 Computex(5/30-6/2)聚焦智慧驅動影像解決方案,展 AI 算力下放無人機/邊緣監控。此展會在 t0 後,強化 AI 邊緣運算題材、延續漲勢。",
+    "pit": "post_t0",
+    "pricing_state": "事後(展會強化主題)",
+    "used": true
+  },
+  {
+    "date": "2024-06-05(事後,基本面落地)",
+    "source": "Yahoo 新聞",
+    "url": "https://tw.news.yahoo.com/nvidia%E5%8A%A9%E6%94%BB-%E8%81%B0%E6%B3%B0%E7%9C%8B%E5%A5%BD%E7%94%9F%E6%88%90%E5%BC%8Fai%E6%87%89%E7%94%A8%E5%95%86%E6%A9%9F-111036764.html",
+    "title": "[事後] NVIDIA 助攻,聰泰生成式 AI 落地:SmartVDO Air 100 TOPS 邊緣運算盒",
+    "excerpt": "2024-06-05 Computex 2024:總經理林宏沛稱輝達強調生成式 AI 已落地,SmartVDO Air 以 100 TOPS 邊緣算力可裝下大語言模型,應用醫療/安防。此為 t0 後逾一年的基本面實現,回頭印證 2023 主題投機的方向,但落地遠晚於股價。",
+    "pit": "post_t0",
+    "pricing_state": "事後(基本面遲至 2024 落地)",
+    "used": true
+  }
+]

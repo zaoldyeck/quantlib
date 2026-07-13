@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2022-05-23",
+    "source": "鉅亨網 cnyes",
+    "url": "https://news.cnyes.com/news/id/4877507",
+    "title": "盛達進軍台電交易平台 儲能系統待建置訂單近50MW",
+    "excerpt": "盛達(3027)成功進軍台電電力交易平台，EMS待建置訂單近50MW，頻率橫跨dReg 0.25、dReg 0.5及E-dReg。前一年與SolarEdge建置首套2.5MW/1.65MWh電池櫃參與台電試行平台。預計每年以50MW為目標擴大台灣儲能規模，與中租合作台南仁德6MW dReg併網型儲能開工。同步拓展物聯網通訊（LTE路由器、車載、美國CBRS B48頻段）。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應（轉型題材成形）",
+    "used": true
+  },
+  {
+    "date": "2022-06",
+    "source": "理財周刊 moneyweekly",
+    "url": "https://www.moneyweekly.com.tw/ArticleData/Info/Article/123681",
+    "title": "5月營收強創歷史新高、年增率大幅跳升 法人看好盛達今年獲利可大成長近5倍",
+    "excerpt": "盛達5月營收創歷史新高、年增率大幅跳升，法人看好全年獲利可大成長近5倍。再生能源（含售電）已成營收主力（逾5成），儲能案場自建自營（單場建置成本3-4億），毛利結構優於傳統電源/通訊本業。（發佈約2022-06，報導5月營收）",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應（營收動能已被點名）",
+    "used": true
+  },
+  {
+    "date": "2022年上半",
+    "source": "盛達電業官網/billion-electric",
+    "url": "https://www.billion-electric.co.jp/bwnews/afc-regulation_reserve",
+    "title": "盛達第二座儲能系統通過台電AFC測試 盛齊成為首間AFC代理聚合商",
+    "excerpt": "盛達宜蘭頭城第二座2.3MW dReg儲能系統通過台電AFC通訊與執行能力測試，透過盛齊綠能以代表資源模式參與台電電力交易平台競標，成為國內首間聚合併網儲能資源提供者。2022年共7.65MW通過台電AFC調頻輔助服務測試並完成併網。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀（技術里程碑）",
+    "used": true
+  },
+  {
+    "date": "2022-10-20",
+    "source": "鉅亨網 cnyes",
+    "url": "https://news.cnyes.com/news/id/4983123",
+    "title": "盛達拿下新儲能大單 在手訂單近倍增衝上200MW",
+    "excerpt": "盛達近期再拿下能源轉移用E-dReg儲能設備大單，較現有在手訂單暴增超過8成，總量衝破200MW（其中120MW為dReg）。E-dReg電池儲存規模更大、電池需求量是dReg的3倍，營收貢獻更顯著。董事長陳忠廷表示，明年儲能業務進入認列高峰，營收可望較今年大成長、再創新高。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認（t0後22日訂單重定價）",
+    "used": true
+  }
+]

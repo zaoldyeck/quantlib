@@ -1,0 +1,42 @@
+[
+  {
+    "date": "背景(2023 已定價)",
+    "source": "Yahoo股市/焦點股 + 既有研究(6231_2024-01-02)",
+    "url": "https://uc913.com/stock-6231/",
+    "title": "[醞釀·舊題材] 系微 AI PC BIOS(高通 Snapdragon X 市占 70%)+ AI 伺服器 OpenBMC(Supervyse)為 2023 年即點火之題材",
+    "excerpt": "系微(Insyde)為全球筆電 BIOS 龍頭(市占逾 50%),AI PC BIOS 於 Arm/WoA 平台市占達 70%、ASP 為傳統 PC 2 倍;並拓 AI 伺服器 OpenBMC(Supervyse,支援 Intel/AMD/NVIDIA)。此題材 2023-07 起點火(系微韌體支援輝達 Grace/GH200 跳空漲停),2023 全年已大漲逾 143%。至 2024-04-12 二度起漲時,題材本身已非新聞、屬醞釀多時後的再定價。",
+    "pit": "pre_t0",
+    "pricing_state": "題材已公開逾半年、2023 已漲 143%(醞釀型)",
+    "used": true
+  },
+  {
+    "date": "2024-04-10(前後)",
+    "source": "公司月營收 / 產業",
+    "url": "https://tw.stock.yahoo.com/quote/6231.TWO/revenue",
+    "title": "[前兆·可能觸發] 系微 Q1 2024 營收約 3.71 億(370,893 千元),3 月營收於 ~4/10 公告",
+    "excerpt": "系微 2024 Q1 淨銷售額 370,893 千元(~3.71 億)。3 月/Q1 營收約於 2024-04-10 公告——恰在 t0(2024-04-12)前 2 個交易日。二度起漲最可能的近端觸發為:Q1 營收 + AI PC 換機潮(Computex 6 月前哨、高通 Snapdragon X AI PC 陸續發表)+ AI 伺服器供應鏈同步 re-rating。屬醞釀題材 + 營收節點的再定價,而非全新利多。",
+    "pit": "pre_t0",
+    "pricing_state": "營收節點(近端),題材再定價",
+    "used": true
+  },
+  {
+    "date": "2024-08-29",
+    "source": "優分析 UAnalyze",
+    "url": "https://uanalyze.com.tw/articles/626896218",
+    "title": "[事後·確認] 系微 Supervyse OpenBMC 通過 NVIDIA GH200 平台認證;下半年看 AI PC 換機潮",
+    "excerpt": "2024-08-29 優分析:系微 Supervyse OpenBMC 已於 NVIDIA GH200 Grace Hopper 平台通過認證;Q2 營收優於預期(BMC 相關 NRE 開案),BMC 佔比由 Q1 10% 升至 Q2 15%,Q2 合約負債超越過去數年。此為 t0 後約 4.5 個月的正式認證/兌現確認,非事前可見。",
+    "pit": "post_t0",
+    "pricing_state": "事後:NVIDIA 認證與 BMC 兌現確認",
+    "used": true
+  },
+  {
+    "date": "2025(事後·全年兌現)",
+    "source": "公司財報 / 產業",
+    "url": "https://news.cnyes.com/news/id/6026016",
+    "title": "[事後] 系微 2024 全年營收 16.15 億(+20.3%)創新高、EPS 7.37(+82%),AI PC 授權金翻倍",
+    "excerpt": "系微 2024 全年營收 16.15 億(+20.27%)創 25 年新高,稅後淨利 3.37 億(+82.16%),EPS 7.37;AI 筆電授權金翻倍、設計代工與伺服器韌體雙動能。此為 t0 後之全年基本面兌現,佐證題材有實質,但發生在漲勢之後。",
+    "pit": "post_t0",
+    "pricing_state": "事後:全年基本面兌現",
+    "used": false
+  }
+]

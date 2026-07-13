@@ -1,0 +1,52 @@
+[
+  {
+    "date": "日期不明(結構定位)",
+    "source": "財訊快報/豐雲學堂/DA Labs",
+    "url": "https://www.investor.com.tw/onlinenews/FreeColArticle.asp?articleNo=7070",
+    "title": "南俊國際=伺服器滑軌『第二供應商』,挑戰川湖龍頭;三年內奪美系兩大CSP訂單",
+    "excerpt": "南俊國際原為鎖具/五金廠,轉型高階伺服器滑軌,扮演『第二供應商』角色挑戰川湖(2059)龍頭。過去三年先後奪下美國兩家重量級雲端服務供應商(CSP)訂單。川湖、南俊、富世達為台灣滑軌三強。此定位在t0前已存在,是AI伺服器滑軌題材的載體。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(結構定位)",
+    "used": true
+  },
+  {
+    "date": "2025(H1題材)",
+    "source": "鉅亨網/豐雲學堂",
+    "url": "https://www.sinotrade.com.tw/richclub/industry/6982e0e121e4ba4b21ff7f9d",
+    "title": "AI伺服器機櫃放量(GB200/GB300),滑軌單櫃用量與規格升級,川湖領軍族群走強",
+    "excerpt": "AI伺服器機櫃(GB200/GB300)放量,單櫃滑軌用量與客製化規格升級,推升滑軌族群。龍頭川湖股價2024~2025大漲,資金外溢至第二供應商南俊。南俊為Nvidia GB200/GB300及後續Vera Rubin平台提供滑軌方案。此AI滑軌題材在t0前發酵。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材發酵中)",
+    "used": true
+  },
+  {
+    "date": "2025-05-10(約)",
+    "source": "公開資訊觀測站/月營收",
+    "url": "https://www.fugle.tw/ai/6584",
+    "title": "南俊國際2025年前4月營收年增顯著(全年累計動能強),伺服器滑軌佔比攀升",
+    "excerpt": "南俊國際2025年月營收維持雙位數~數十%年增,伺服器滑軌(含AI機櫃)佔營收比重持續攀升,累計營收年增幅顯著。約5月10日公布的4月營收動能,是t0(5/27)前的基本面佐證。(精確單月數字待核,避免與2026年民國115年數據混淆)",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-05-19~23",
+    "source": "NVIDIA/Computex",
+    "url": "https://events.computextaipei.com.tw/",
+    "title": "Computex 2025(5/20~23)+輝達keynote(5/19),AI伺服器供應鏈全面升溫",
+    "excerpt": "Computex 2025(展期5/20~23)+黃仁勳5/19 keynote,AI伺服器機櫃供應鏈(電源、BBU、滑軌、散熱)全面升溫。t0(5/27)緊接Computex之後,南俊隨AI伺服器供應鏈題材被重新定價。",
+    "pit": "pre_t0",
+    "pricing_state": "題材點火(事件可事前預期)",
+    "used": true
+  },
+  {
+    "date": "2026(法說/展望)",
+    "source": "鉅亨網/BigGo/富果",
+    "url": "https://news.cnyes.com/news/id/6511666",
+    "title": "【事後】南俊下半年多款AI伺服器滑軌放量;重返輝達Vera Rubin NVL72供應鏈;2026Q1 EPS 3.37創高",
+    "excerpt": "【事後】南俊下半年多款AI伺服器滑軌新案放量,ASIC專案Q3出貨,GB300 H2出貨,重返輝達Vera Rubin NVL72供應鏈;2026年AI滑軌營收佔比目標20%;2026Q1 EPS 3.37元創高、伺服器滑軌佔營收74%。此為t0後基本面兌現與題材延伸(含股價一度漲停728元)。",
+    "pit": "post_t0",
+    "pricing_state": "事後驗證",
+    "used": true
+  }
+]

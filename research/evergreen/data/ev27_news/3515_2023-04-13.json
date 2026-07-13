@@ -1,0 +1,62 @@
+[
+  {
+    "date": "背景 (無單一日期)",
+    "source": "公司概況/七仔財經筆記",
+    "url": "https://7evenguy.com/what-is-3515-doing/",
+    "title": "華擎(3515)=和碩集團板卡廠(主機板/顯卡/迷你PC)+ 子公司永擎(ASRock Rack,7711)伺服器/IPC",
+    "excerpt": "華擎由華碩分割、屬和碩集團,主業主機板、顯示卡、迷你 PC;子公司永擎(ASRock Rack)切入資料中心/HPC 伺服器與工業電腦。此雙引擎(板卡復甦 + 永擎 AI 伺服器)是 2023 年被重新定價的基礎。屬 t0 前既存結構。",
+    "pit": "pre_t0",
+    "pricing_state": "公司背景(板卡為主、永擎伺服器為選擇權)",
+    "used": true
+  },
+  {
+    "date": "2023-03-09",
+    "source": "自由財經 ec.ltn.com.tw",
+    "url": "https://ec.ltn.com.tw/",
+    "title": "華擎首季估個位數衰退,顯卡助攻全年雙位數成長",
+    "excerpt": "2023-03-09:板卡廠華擎(3515)召開法說,總經理許隆倫:今年『顯卡成長力道最強』,其次主板,顯示器、伺服器、工業電腦三者成長幅度相似;Q1 個位數衰退、全年拚雙位數成長。t0 前近端主敘事是『顯卡復甦』,AI 伺服器尚未成主角。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(顯卡復甦為主,AI 伺服器為潛在題材)",
+    "used": true
+  },
+  {
+    "date": "2023-03-15",
+    "source": "CMoney 理財寶",
+    "url": "https://readmo.cmoney.tw/article",
+    "title": "華擎屬 AMD 概念股,隨 AMD CPU 市佔提升受惠,靠伺服器+工業電腦分散營運",
+    "excerpt": "2023-03-15:『華擎(3515)屬於 AMD 概念股,近年隨 AMD CPU 市佔率提升而受惠,並透過伺服器與工業電腦業務分散營運結構』。t0 前華擎被定位為 AMD 平台復甦 + 業務多元化標的。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(AMD 平台/業務多元敘事)",
+    "used": true
+  },
+  {
+    "date": "2023-03-21 ~ 2023-04 (macro)",
+    "source": "NVIDIA GTC 2023 + 台股 AI 伺服器族群",
+    "url": "https://www.inside.com.tw/feature/nvidia-gtc-2023",
+    "title": "GTC 2023 點燃台股 AI 伺服器族群,4 月廣達/緯創/技嘉/華擎等全面噴發",
+    "excerpt": "GTC 2023(3/21)黃仁勳『AI 的 iPhone 時刻』後,台股 AI 伺服器供應鏈(廣達、緯創、技嘉、華擎等)於 3 月底至 4-5 月族群式大漲。華擎因永擎(ASRock Rack)為直接 AI 伺服器機廠被納入概念。t0(4/13)正處族群題材點火段,非華擎個股單一利多。",
+    "pit": "pre_t0",
+    "pricing_state": "主催化(族群題材點火,AI 伺服器概念)",
+    "used": true
+  },
+  {
+    "date": "2023-05-22",
+    "source": "鉅亨網 Anue (事後)",
+    "url": "https://news.cnyes.com/twstock/3515",
+    "title": "(事後)伺服器需求超預期爆發,永擎董座樂觀看第二季獲利與毛利表現",
+    "excerpt": "(事後)2023-05-22:『伺服器需求超預期爆發,永擎董座樂觀看第二季獲利與毛利表現』。華擎的 AI 伺服器貢獻(經永擎)在 t0 後才獲公司端明確確認,反證 t0(4/13)起漲是題材/族群領先,個股基本面確認落在其後。",
+    "pit": "post_t0",
+    "pricing_state": "事後(永擎 AI 伺服器貢獻確認)",
+    "used": true
+  },
+  {
+    "date": "2023-05-30",
+    "source": "Computex 2023 / Cool3c (事後)",
+    "url": "https://www.cool3c.com/article/194091",
+    "title": "(事後)Computex 2023:NVIDIA 發表 MGX 模組化伺服器架構,永擎為採用夥伴之一",
+    "excerpt": "(事後)2023-05-30 Computex,NVIDIA 公布 MGX 模組化伺服器架構,永擎(ASRock Rack)與華碩、技嘉、和碩、廣達、美超微同列採用夥伴,可縮短 2/3 開發時間。強化華擎 AI 伺服器能見度,屬 t0 後的產品/訂單催化。",
+    "pit": "post_t0",
+    "pricing_state": "事後(產品架構/訂單能見度)",
+    "used": true
+  }
+]

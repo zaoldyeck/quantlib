@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2023 全年 (背景)",
+    "source": "公司結構 / 產業共識",
+    "url": "https://www.cnyes.com/twstock/2317",
+    "title": "鴻海=全球最大 AI 伺服器組裝廠,輝達 HGX/DGX 主力代工,AI server 題材自 2023 醞釀",
+    "excerpt": "鴻海為全球最大伺服器 ODM,亦是輝達 AI 伺服器 (HGX/DGX 系列) 的主力組裝與零組件供應商,自 2023 年 5 月輝達市值首破兆美元後,『鴻海 AI server 受益』即為市場既存題材。t0 前此為已知結構,但 EPS 上修幅度尚未定價。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (題材已知,EPS 上修未定價)",
+    "used": true
+  },
+  {
+    "date": "2024-02-21 (美) / 02-22 (台反應)",
+    "source": "NVIDIA IR / 全球財經媒體",
+    "url": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-fourth-quarter-and-fiscal-2024",
+    "title": "輝達 FY24 Q4 財報大爆發 (營收 $22.1B +265% YoY,資料中心 $18.4B),隔日股價 +16%,點燃全球 AI 行情",
+    "excerpt": "2024-02-21 輝達公布 FY24 Q4 財報,營收 221 億美元年增 265%,資料中心營收 184 億美元創高,遠優於預期,隔日股價暴漲逾 16%、單日市值增幅史上最大。此為 2024 年 2 月底全球暨台股 AI 供應鏈 re-rating 的點火事件——鴻海為輝達 AI 伺服器最大組裝受益者,順勢在 2/29 附近起漲。",
+    "pit": "pre_t0",
+    "pricing_state": "市場開始 re-rating (AI 全鏈點火)",
+    "used": true
+  },
+  {
+    "date": "2024-02 下旬",
+    "source": "鉅亨網 / Yahoo 股市",
+    "url": "https://tw.stock.yahoo.com/quote/2317.TW",
+    "title": "台股 AI 供應鏈 (鴻海、緯創、廣達、技嘉) 隨輝達財報同步大漲,法人調升鴻海目標價",
+    "excerpt": "輝達財報後,台股老 AI 伺服器族群 (鴻海 2317、緯創 3231、廣達 2382、技嘉 2376) 同步走強,法人以 AI server 出貨與 EPS 上修為由調升鴻海目標價。鴻海 2 月營收與 AI 佔比提升的敘事在此時被重新定價,構成 t0 (2/29) 的近端動能。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (法人上修中)",
+    "used": true
+  },
+  {
+    "date": "2024-03-14 (事後)",
+    "source": "鴻海法說 / 經濟日報",
+    "url": "https://money.udn.com/money/story/5612",
+    "title": "(事後) 鴻海 Q4 2023 法說:2024 AI 伺服器強勁展望,強化起漲後續動能",
+    "excerpt": "(事後,t0 之後) 鴻海約 3 月中召開法說,對 2024 年 AI 伺服器展望樂觀。屬 t0 (2/29) 之後對起漲的延續驗證,非事前可得。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (法說驗證)",
+    "used": true
+  },
+  {
+    "date": "2024-03-18~21 (事後)",
+    "source": "NVIDIA GTC 2024",
+    "url": "https://www.nvidia.com/gtc/",
+    "title": "(事後) 輝達 GTC 發表 Blackwell B200/GB200 → 鴻海 GB200 主要組裝廠題材接棒",
+    "excerpt": "(事後) GTC 2024 (3/18 keynote) 發表 Blackwell 平台 (B200/GB200),鴻海被定位為 GB200 機櫃主要組裝廠,推升起漲後第二段行情。屬 t0 之後的題材加碼。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (GB200 題材接棒)",
+    "used": true
+  },
+  {
+    "date": "2024-10-08 (事後)",
+    "source": "鴻海科技日 / 經濟日報",
+    "url": "https://money.udn.com/money/story/5612/8277380",
+    "title": "(事後) 鴻海科技日:劉揚偉宣布『全球首家出貨 GB200』、墨西哥建全球最大 GB200 廠",
+    "excerpt": "(事後,遠晚於 t0) 2024-10-08 鴻海科技日,劉揚偉宣布鴻海將是全球第一個出貨輝達 GB200 AI 伺服器者,並將在墨西哥建全球最大 GB200 產線,可掌握 GB200 八至九成零組件。此為 t0 (2 月) 半年後的兌現事件,常被誤植為 2 月起漲原因,務必區分。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (GB200 出貨兌現)",
+    "used": true
+  }
+]

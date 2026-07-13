@@ -1,0 +1,62 @@
+[
+  {
+    "date": "背景 (結構,2023-04 已首波)",
+    "source": "DA Labs / 優分析",
+    "url": "https://dalabs.org/guide/tw-stock-guide/what-is-wanrun-6187-doing/",
+    "title": "萬潤=CoWoS 先進封裝設備 (點膠/貼合/AOI),台積電合格供應鏈,半導體設備占營收 8-9 成;此檔 2023-04、2024-06 已兩度暴漲,2025-04 為第三段",
+    "excerpt": "萬潤產品含點膠、貼合、自動化、散熱、AOI,為台積電封裝合格供應鏈,半導體封測設備占營收 8-9 成。此檔 2023-04 (GTC 後 AI 先進封裝首波)、2024-06 (CoWoS 兌現) 已兩度 re-rating;2025-04 為第三段。CoWoS 結構+新增 CPO 敘事,t0 前結構已充分知曉。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (CoWoS 結構已知,第三段)",
+    "used": true
+  },
+  {
+    "date": "2025-01-16",
+    "source": "旺得富 / 經濟日報 / 財報狗",
+    "url": "https://wantrich.chinatimes.com/news/20250116900155-420101",
+    "title": "大摩『CPO 元年』報告 (1/16):點名 6 台廠 (台積電/日月光/京元電/上詮/萬潤/致茂),萬潤目標價 450→688;CoWoS 估占萬潤 2026 營收 76%",
+    "excerpt": "2025-01-16 摩根士丹利發布『今年是 CPO 發展元年』報告,台股最看好 6 檔:台積電、日月光、京元電、上詮、萬潤、致茂;上詮 415→708 (+70%)、萬潤目標價 450→688。預估 CoWoS 相關營收占萬潤 2026 年約 76%,且有望拓展台積電以外客戶。此為 t0=4/8 前約三個月的 CPO 題材點火與外資背書。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (CPO 題材+外資目標價)",
+    "used": true
+  },
+  {
+    "date": "2025-03-18 ~ 03-21",
+    "source": "NVIDIA GTC 2025 / 產業",
+    "url": "https://news.cnyes.com/news/id/6472074",
+    "title": "NVIDIA GTC 2025 (3/18-21) 發表 Spectrum-X/Quantum-X 矽光子 CPO 交換器→矽光子/先進封裝供應鏈題材升溫,萬潤已打入 NVIDIA CPO (FAU 耦合/AOI)",
+    "excerpt": "NVIDIA 於 GTC 2025 (3/18-21) 發表 Spectrum-X 與 Quantum-X 矽光子 CPO 交換器,拉升矽光子/先進封裝供應鏈氛圍。萬潤已打入 NVIDIA CPO 供應鏈 (供 FAU 光學引擎耦合與 FAU AOI 設備)。此為 t0 前約三週的題材強化事件。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (GTC 題材強化)",
+    "used": true
+  },
+  {
+    "date": "2025-04-07 ~ 04-09",
+    "source": "維基百科 2025 股災 / 經濟日報",
+    "url": "https://zh.wikipedia.org/zh-hant/2025%E5%B9%B4%E8%82%A1%E7%81%BD",
+    "title": "川普對等關稅崩跌:4/7 台股 -9.7% 史上最慘、4/9 90 天暫緩 V 轉;t0=4/8 為關稅崩跌底部",
+    "excerpt": "川普 4/2 對等關稅 (台灣 32%),4/7 加權 -2065 點 (-9.7%) 史上最慘、半導體設備股同殺,4/9 暫緩 90 天全球 V 轉。萬潤 t0=4/8 精準落在關稅崩跌底部:暴漲起點=超跌反彈+CoWoS/CPO 結構題材再定價,4/8 本身無個股專屬新聞。",
+    "pit": "pre_t0",
+    "pricing_state": "全市場 (關稅崩跌底部 beta)",
+    "used": true
+  },
+  {
+    "date": "~2025-04-17 (事後,窗內)",
+    "source": "Yahoo 股市 / 經濟日報",
+    "url": "https://udn.com/news/story/7254/9530383",
+    "title": "(事後) 台積電 CoWoS 擴產訂單挹注,美系外資重申『優於大盤』、目標價 1280 元,萬潤攻漲停創高、訂單能見度達 2027",
+    "excerpt": "(事後,t0 後約 9 日、窗內) 受台積電 CoWoS 擴產訂單挹注,美系外資重申優於大盤、上修目標價至 1280 元,萬潤攻漲停創新高,訂單能見度達 2027 年。此為 t0 後外資加碼與能見度確認,推動反彈延伸。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (窗內外資加碼、能見度 2027)",
+    "used": true
+  },
+  {
+    "date": "2025 中後 (事後)",
+    "source": "vocus 首席分析師追蹤 / X",
+    "url": "https://vocus.cc/article/69db5bd2fd8978000127125e",
+    "title": "(事後) 萬潤 CPO 耦合設備 2026/2027 出貨預估由『雙位數台』上修『三位數台』;資金由 CoWoS 紅利跨向 2027 CPO 爆發定價",
+    "excerpt": "(事後) 供應鏈通路調查確認萬潤 CPO 耦合設備 2026/2027 出貨由雙位數台上修三位數台;市場資金由『反映 2026 CoWoS 擴產紅利』跨向『提前定價 2027 CPO 爆發』。屬 t0 後題材縱深延伸,部分數據跨至 2026,列事後。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (CPO 縱深延伸)",
+    "used": false
+  }
+]

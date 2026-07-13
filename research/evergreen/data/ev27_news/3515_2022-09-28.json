@@ -1,0 +1,62 @@
+[
+  {
+    "date": "背景",
+    "source": "七仔財經筆記/公司概況",
+    "url": "https://7evenguy.com/what-is-3515-doing/",
+    "title": "華擎(3515)做什麼?主機板/顯卡/迷你PC + 伺服器(永擎 ASRock Rack)/工業電腦",
+    "excerpt": "華擎 2002 年由華碩分割成立,主業主機板、顯示卡、迷你PC,並經子公司永擎(ASRock Rack)切入伺服器、工業電腦(IPC)。2020-21 宅經濟+挖礦帶動板卡/顯卡大爆發,FY2021 為獲利高峰年;連 20 年配息、近 5 年均現金殖利率約 4.9%,屬高股息+淨現金體質。",
+    "pit": "pre_t0",
+    "pricing_state": "公司背景:板卡/顯卡為主、伺服器IPC轉型中、高股息淨現金",
+    "used": true
+  },
+  {
+    "date": "2022-09-15",
+    "source": "TechNews/產業共識(以太坊 The Merge)",
+    "url": "https://technews.tw/",
+    "title": "以太坊9/15完成The Merge轉PoS,GPU挖礦需求終結,顯卡去化雪上加霜",
+    "excerpt": "2022/9/15 以太坊 The Merge 轉權益證明,終結 GPU 挖礦,顯卡二手洪流+新卡滯銷。對華擎顯卡業務為明確利空。t0(9/28)前兩週的產業重大利空,說明 t0 起漲並非顯卡基本面轉好。",
+    "pit": "pre_t0",
+    "pricing_state": "利空:顯卡挖礦需求終結,t0 前已知",
+    "used": true
+  },
+  {
+    "date": "2022(下半年)",
+    "source": "DigiTimes",
+    "url": "https://www.digitimes.com.tw/tech/dt/n/shwnws.asp?id=0000656528_LAP6VAP11BUFYL93SYM9R",
+    "title": "台主機板2022出貨崩跌逾千萬片;Intel 10月調漲CPU報價衝擊DIY",
+    "excerpt": "2022 全球 PC DIY 崩弱,主機板出貨較前一年崩跌逾千萬片,客戶 2020-21 囤貨過高需兩年去化;Intel 10 月調漲處理器報價、CPU 缺貨+顯卡貴,重擊 DIY。華擎 2022 大幅衰退。t0 前後基本面消息面全為利空。",
+    "pit": "pre_t0",
+    "pricing_state": "利空:板卡去庫存、DIY 崩弱,t0 前已充分反映(超跌)",
+    "used": true
+  },
+  {
+    "date": "2022-09-27",
+    "source": "udn 科技玩家",
+    "url": "https://udn.com/news/story/7086/6574631",
+    "title": "AMD AM5(Ryzen 7000+600晶片組)9月27日上市",
+    "excerpt": "AMD AM5 平台 9/27 上市,華擎為 AMD 主機板主要夥伴,理論上受惠新平台換機。惟 2022 板卡市場低迷、換機動能有限,此為 t0 前一日的中性偏微正事件,難構成暴漲主因。",
+    "pit": "pre_t0",
+    "pricing_state": "中性偏微正:AM5 上市但板卡買氣低迷,力度有限",
+    "used": true
+  },
+  {
+    "date": "2022-09-28(t0)",
+    "source": "研究者判讀(宏觀+估值)",
+    "url": "https://goodinfo.tw/tw/ShowSaleMonChart.asp?STOCK_ID=3515",
+    "title": "查無正向點火消息;t0 為超跌反彈 + 高息防禦價值重估(市場落底beta)",
+    "excerpt": "遍查 t0 前後未見華擎個股正向利多;消息面全為板卡/顯卡利空。t0(9/28)恰處台股與硬體族群落底區,華擎因深度超跌、淨現金、FY2021 大額配息造就的高殖利率,成為市場落底時的『高息防禦+超跌反彈』標的。研判此檔為典型『查無(正向)消息之暴漲』——資金/估值面驅動,無事前可識別的基本面點火。",
+    "pit": "pre_t0",
+    "pricing_state": "查無正向消息:超跌反彈+高息防禦,估值/資金面驅動",
+    "used": true
+  },
+  {
+    "date": "2022-11(Q3財報)",
+    "source": "公司季報(context)",
+    "url": "https://www.cnyes.com/twstock/3515",
+    "title": "(事後)Q3/FY2022 獲利年減,坐實 2022 為衰退年",
+    "excerpt": "(事後)華擎 2022 全年獲利較 2021 高峰大幅衰退。股價自 9/28 反彈屬領先落底的資金行為,基本面直到 2023-24 才因 AI 伺服器(永擎)重啟成長。反證 t0 暴漲非基本面點火。",
+    "pit": "post_t0",
+    "pricing_state": "事後:基本面衰退確認,反彈為資金領先",
+    "used": true
+  }
+]

@@ -1,0 +1,32 @@
+[
+  {
+    "date": "2022-11起(題材背景)",
+    "source": "產業背景 (ChatGPT/AI伺服器題材萌芽)",
+    "url": "https://www.cnyes.com/twstock/3147",
+    "title": "大綜為系統整合小型股、掛AI/伺服器族群標籤",
+    "excerpt": "大綜為系統整合商(伺服器含AI伺服器、資料中心、資安、台積電海外廠IT建置)。ChatGPT於2022-11引爆AI題材,大綜被歸類AI/伺服器概念。但個股實質AI伺服器營收遲至2025才顯現(FY2025營收81.71億、年增64.3%)。2023-03-06前的+26%漲幅為題材過早的族群投機外溢。",
+    "pit": "pre_t0",
+    "pricing_state": "題材過早/無當期實質AI營收",
+    "used": true
+  },
+  {
+    "date": "2023-03-06前",
+    "source": "多次WebSearch查證 (Goodinfo/cnyes/nStock/CMoney)",
+    "url": "https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=3147",
+    "title": "查無 t0 前個股專屬催化消息",
+    "excerpt": "經多輪搜尋(關鍵字含2023-03、AI、資安、標案、伺服器、法說),查無大綜在2023-03-06前的個股專屬催化(無新增大單、無財報驚喜、無具體標案公告)。漲幅+26%屬低信心、族群題材帶動的小型股波動。誠實記錄:查無明確事前個股消息。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股催化/族群題材投機",
+    "used": true
+  },
+  {
+    "date": "2025-2026(遠post)",
+    "source": "vocus / CMoney (大綜法說解析)",
+    "url": "https://vocus.cc/article/69e60f8efd89780001cea2fb",
+    "title": "大綜AI伺服器爆發、台積電海外廠題材為2025-2026事件",
+    "excerpt": "大綜受惠AI伺服器需求爆發與海外市場擴展(為台積電美國亞利桑那、日本熊本廠提供IT基礎設施建置),營收獲利2025-2026才高成長。證實2023的AI題材遠早於實質營收兌現約2年。",
+    "pit": "post_t0",
+    "pricing_state": "題材兌現遠在t0後約2年",
+    "used": true
+  }
+]

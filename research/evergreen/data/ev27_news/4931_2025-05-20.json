@@ -1,0 +1,62 @@
+[
+  {
+    "date": "日期不明(結構定位)",
+    "source": "鉅亨網/StockFeel",
+    "url": "https://www.cnyes.com/twstock/4931",
+    "title": "新盛力=鋰電池模組廠,近年切入AI資料中心/伺服器BBU(電池備援)與UPS",
+    "excerpt": "新盛力原以電動工具、輕型電動車鋰電池模組為主,近年切入AI算力中心/伺服器用鋰離子電池備援系統(BBU)與不斷電系統(UPS)模組。BBU體積小、模組化、可即時供電,漸取代傳統UPS成AI機櫃備援標準。此轉型定位是t0前的載體。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(結構定位)",
+    "used": true
+  },
+  {
+    "date": "2025-05-10(約)",
+    "source": "理財周刊",
+    "url": "https://www.moneyweekly.com.tw/ArticleData/Info/Article/225722",
+    "title": "AI資料中心BBU需求點火!新盛力2025年4月營收3.03億元、年增97.38%(近翻倍)",
+    "excerpt": "『AI資料中心BBU需求點火』——新盛力4月營收衝上3.03億元、年增97.38%(近翻倍),受惠資料中心BBU與UPS出貨動能強勁。約5月10日公布,在t0(5/20)前一週,是最直接的基本面點火。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025(H1題材)",
+    "source": "鉅亨網/經濟日報",
+    "url": "https://news.cnyes.com/news/id/6132910",
+    "title": "輝達GB200/GB300導入BBU成標配,台廠BBU供應鏈爆發(AES-KY、順達、新盛力、興能高)",
+    "excerpt": "輝達GB200/GB300機櫃導入BBU成基本配置,法人估2025年GB200/GB300合計出貨2.7~2.8萬櫃、2026破5萬櫃,單櫃BBU規格上調至11~12kW。新盛力為『BBU四雄』之一,法人看好有機會取得輝達訂單。此AI BBU題材在t0前已成形。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材發酵中)",
+    "used": true
+  },
+  {
+    "date": "2025-05-19 / 05-20",
+    "source": "NVIDIA/Computex",
+    "url": "https://events.computextaipei.com.tw/",
+    "title": "輝達黃仁勳Computex 2025 keynote(5/19)與展期(5/20~23),AI機櫃供電/備援題材共振",
+    "excerpt": "黃仁勳5/19發表Computex keynote、展期5/20~23。t0(5/20)為Computex首日,AI伺服器機櫃(含BBU備援)題材在展會期間集中發酵。新盛力作為BBU概念股在此事件窗口被重新定價。",
+    "pit": "pre_t0",
+    "pricing_state": "題材點火(事件可事前預期)",
+    "used": true
+  },
+  {
+    "date": "2025-05-27",
+    "source": "工商時報",
+    "url": "https://www.ctee.com.tw/news/20250527700212-439901",
+    "title": "【事後/近t0】黃仁勳點火GB200、GB300,新盛力、興能高等『BBU四雄』展雄風",
+    "excerpt": "【近t0/略後】『黃仁勳點火GB200、GB300 新盛力、興能高等BBU四雄展雄風』(5/27),BBU概念股強漲、部分連續漲停。發佈日略晚於t0(5/20),但同屬Computex點火的同一題材波。",
+    "pit": "post_t0",
+    "pricing_state": "剛反應/題材延續",
+    "used": true
+  },
+  {
+    "date": "2025(下半年)",
+    "source": "Yahoo/公司公告",
+    "url": "https://tw.stock.yahoo.com/news/%E6%96%B0%E7%9B%9B%E5%8A%9B%E6%93%B4%E7%94%A2-%E5%A2%9E%E8%B3%87%E6%9C%AC%E6%94%AF%E5%87%BA-%E8%BF%8Ebbu-ups%E9%9C%80%E6%B1%82-022400141.html",
+    "title": "【事後】新盛力擴產/增資本支出迎BBU/UPS需求;2025全年EPS 3.13元、年增82%",
+    "excerpt": "【事後】新盛力宣布擴產、增資本支出以迎BBU/UPS需求;2025全年EPS 3.13元、年增82%,2026動能延續(1~5月累計+57%)。此為t0後基本面實現與產能驗證。",
+    "pit": "post_t0",
+    "pricing_state": "事後驗證",
+    "used": true
+  }
+]

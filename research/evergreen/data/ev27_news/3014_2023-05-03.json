@@ -1,0 +1,42 @@
+[
+  {
+    "date": "背景(2023 上半年 IC 設計族群觸底回升)",
+    "source": "宏觀/產業事實(半導體庫存週期)",
+    "url": "https://www.cnyes.com/twstock/3014/relation/overview",
+    "title": "IC 設計族群 2023 上半年走出 2022 庫存修正,聯陽為 NB EC 晶片全球龍頭(市占 35-40%)",
+    "excerpt": "聯陽(3014)為無晶圓廠 IC 設計商,主力 NB 內嵌控制晶片(EC)全球市占 35-40%、桌機 Super I/O 亦居前。2022 下半年 PC/NB 庫存修正見底後,2023 上半年 IC 設計族群(聯詠/瑞昱等)普遍反彈。t0=5/3 落在此族群回升波段,屬產業 beta 醞釀。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(族群觸底回升)",
+    "used": true
+  },
+  {
+    "date": "日期不明(2023,旁證)",
+    "source": "經濟日報 / MoneyDJ 標題轉述",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=39f905a2-a831-4df7-9047-d97600fd83d0",
+    "title": "聯陽『非 NB 產品調價、EC 新案量產出貨在即』(晶片醞釀漲價)",
+    "excerpt": "2023 期間見報標題顯示聯陽非 NB 產品調價、EC 新案量產出貨在即,反映庫存正常化後定價力回溫與新案動能。惟原文『無內文』、無精確日期,僅能作為 t0 前後產品面轉強的旁證,不足以作為 t0 前精確催化。",
+    "pit": "pre_t0",
+    "pricing_state": "旁證(日期不明,產品面轉強)",
+    "used": false
+  },
+  {
+    "date": "查無(2023-05 初 聯陽個股單一硬催化)",
+    "source": "WebSearch 多輪",
+    "url": "https://tw.stock.yahoo.com/quote/3014.TW",
+    "title": "查無 t0(5/3)當日對應的聯陽個股單一利多——起漲先於 Q1 財報與 NVIDIA 財報",
+    "excerpt": "t0=5/3 早於聯陽 Q1 財報/法說(約 5 月中)與 NVIDIA 5/24 blowout(引爆 AI 伺服器/AI PC)。查無 5 月初對應的單一個股訂單/認證/財測硬消息。研判 t0 起漲主由 IC 設計族群回升 + 半導體/AI 復甦 beta 推動,個股層級消息稀薄。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股單一催化(族群 beta 為主)",
+    "used": true
+  },
+  {
+    "date": "2023-05-24(事後,外部題材)",
+    "source": "宏觀事件(NVIDIA FY24 Q1 財報)",
+    "url": "https://www.cnyes.com/twstock/3014",
+    "title": "[事後] NVIDIA 5/24 資料中心財測 blowout,點燃 AI 伺服器與 AI PC 題材",
+    "excerpt": "NVIDIA 於 2023-05-24(美)公布 blowout 資料中心財測,加上 Computex(5/30-6/2)黃仁勳主題演講,引爆台股 AI 供應鏈。聯陽以 EC/PC 週邊晶片被納入『AI PC』延伸想像,此外部題材於 t0 後強化漲勢。AI PC/Windows 12 敘事更完整成形則到 2024。",
+    "pit": "post_t0",
+    "pricing_state": "事後(外部 AI 題材強化)",
+    "used": true
+  }
+]

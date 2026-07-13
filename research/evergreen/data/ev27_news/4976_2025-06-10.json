@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2025-06-10",
+    "source": "CNBC",
+    "url": "https://www.cnbc.com/2025/06/10/elon-musk-says-tesla-robotaxi-rides-in-austin-will-tentatively-begin-june-22.html",
+    "title": "Elon Musk says Tesla robotaxi rides in Austin 'tentatively' set to begin June 22",
+    "excerpt": "Musk 於 X 貼文表示 Tesla Robotaxi 將於 6/22『暫定』在 Austin 上路。此為明確落地日期首度公布，點燃全球自駕/車用感測供應鏈行情。t0=6/10 與此消息日完全吻合。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-06-11",
+    "source": "經濟日報 money.udn",
+    "url": "https://money.udn.com/money/story/5607/8827459",
+    "title": "特斯拉Robotaxi點火！台鏈泛電車股催油門 這檔鎖漲停",
+    "excerpt": "Robotaxi 落地日期題材引爆台灣車用鏡頭供應鏈：亞光(3019,特斯拉主要車載鏡頭供應商)成交暴增逾1.5萬張、盤中漲逾8%，帶動佳凌(4976)、系統電(5309)同步大漲逾6%。佳凌以題材連動身分噴出。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-06-22",
+    "source": "TechCrunch / Fortune",
+    "url": "https://techcrunch.com/2025/06/22/tesla-launches-robotaxi-rides-in-austin-with-big-promises-and-unanswered-questions/",
+    "title": "Tesla launches robotaxi rides in Austin",
+    "excerpt": "Tesla Robotaxi 於 6/22 在 Austin 以限定形式(10-12 台、地理圍欄、$4.20 均一價)正式上路。事件如期兌現，供應鏈題材延燒至launch日，為佳凌 60 日漲勢的題材高潮段。",
+    "pit": "post_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-06-10",
+    "source": "公開資訊觀測站 / winvest 營收快訊",
+    "url": "https://winvest.tw/Stock/Symbol/Comment/4976",
+    "title": "佳凌 2025 年 5 月營收 8,411 萬元 月減 10.3% 年減 4.53%",
+    "excerpt": "佳凌 5 月營收 8,411 萬、月減 10.3%、年減 4.53%，前 5 月累計 4.33 億與去年持平。關鍵佐證:t0 當下基本面實為衰退,暴漲純由 Robotaxi 題材驅動,非營收驚喜。2024 年公司仍在虧損(Q3 2024 稅後 -2,707 萬)。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-09-18",
+    "source": "富果直送 / vocus",
+    "url": "https://blog.fugle.tw/post/earnings-call-4976-2025-09-18",
+    "title": "佳凌法說會重點內容備忘錄 20250918",
+    "excerpt": "法說揭 2025H1 車用光學鏡頭營收年增 22%、佔比 3-4 成為主要成長引擎;訂單能見度到 2026;點名 Tesla Robotaxi 可望進一步帶動車用鏡頭需求。屬 t0 後才揭露的基本面驗證。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-06-11",
+    "source": "理財周刊 moneyweekly",
+    "url": "https://www.moneyweekly.com.tw/ArticleData/Info/Article/183039",
+    "title": "特斯拉Robotaxi 6月22日上路！先進光、伯特光漲停，亞光還有機會上車",
+    "excerpt": "光學鏡頭族群多頭行情:亞光帶量大漲、先進光(3362)、伯特光(6859)漲停。佳凌屬同族群連動標的。反映題材由龍頭(亞光)擴散至二三線鏡頭股(佳凌、系統電)的資金外溢模式。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": false
+  }
+]

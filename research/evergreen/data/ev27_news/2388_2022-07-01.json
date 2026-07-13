@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2021-2022(結構題材)",
+    "source": "公司/產業",
+    "url": "https://dalabs.org/guide/tw-stock-guide/what-is-twstock-2388-doing/",
+    "title": "威盛由PC晶片組轉型嵌入式/車用(Mobile360 ADAS)/邊緣AI",
+    "excerpt": "威盛(2388)老牌IC設計,由PC晶片組轉型嵌入式系統、車載Mobile360智駕(ADAS/環景/駕駛行為)、邊緣AI;Mobile360導入全球商用車隊。營收沿季增軌道成長但仍虧損。車用/邊緣AI概念為 t0(7/1)前的結構性敘事(非事件)。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(概念敘事)",
+    "used": true
+  },
+  {
+    "date": "2021-12 / 2022(集團連動)",
+    "source": "威鋒電子(6756)",
+    "url": "https://tw.news.yahoo.com/news/%E5%A8%81%E9%8B%92%E9%9B%BB%E5%AD%90%E4%BB%8A%E5%B9%B4%E6%9C%89%E6%9C%9B%E8%B3%BA%E9%80%BE-%E5%80%8B%E8%82%A1%E6%9C%AC",
+    "title": "威盛持有威鋒電子(6756,USB4)多數股權,USB4於2022Q2量產",
+    "excerpt": "威盛持有子公司威鋒電子(6756,VIA Labs)約七成多股權;威鋒USB4晶片VL830(2021-09全球首顆)於2022Q2量產。威盛作為威鋒的低價『控股折價』代理,受集團USB4光環連動。此為題材/集團連動,非威盛自身事件催化。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(集團題材)",
+    "used": true
+  },
+  {
+    "date": "2022(前三季)",
+    "source": "季報 / Yahoo股市",
+    "url": "https://tw.stock.yahoo.com/news/%E5%A8%81%E7%9B%9B%E5%89%8D%E4%B8%89%E5%AD%A3%E6%AF%8F%E8%82%A1%E8%99%A71-1%E5%85%83-%E4%BC%B0q4%E7%87%9F%E6%94%B6%E7%B6%AD%E6%8C%81%E5%AD%A3%E5%A2%9E%E8%BB%8C%E9%81%93-083751899.html",
+    "title": "威盛2022前三季每股虧1.1元,估Q4營收維持季增軌道",
+    "excerpt": "威盛2022前三季每股淨損約1.1元(本業虧損),估Q4營收維持季增。基本面於暴漲期間仍為虧損,顯示 t0 前『查無明確基本面利多』,+93%漲勢主要由車用/邊緣AI概念+威鋒集團光環+低價小型股資金/籌碼推動。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認(仍虧損)",
+    "used": true
+  },
+  {
+    "date": "不明(旁證)",
+    "source": "市場結構",
+    "url": "https://www.cnyes.com/twstock/2388",
+    "title": "威盛為低價集團股,t0與晶睿/台林同為2022-07小型股資金輪動",
+    "excerpt": "威盛t0=2022-07-01與晶睿、台林同日,屬2022年7月台股空頭反彈中低價小型/集團股的資金輪動;缺乏可日期化的公司利多,判定為題材+資金行情主導的暴漲(消息面歸因:查無強催化)。",
+    "pit": "pre_t0",
+    "pricing_state": "旁證(資金/籌碼)",
+    "used": false
+  }
+]

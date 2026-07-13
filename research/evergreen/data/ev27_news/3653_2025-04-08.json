@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2025-03 (FY2024 法說/年報)",
+    "source": "財報狗 / HiStock / 口袋學堂 SCHOOL/6275",
+    "url": "https://statementdog.com/analysis/3653/eps",
+    "title": "健策 2024 全年 EPS 24.15 元，AI 均熱片龍頭地位確立",
+    "excerpt": "健策掌握精密鍛造技術，為 AI 伺服器均熱片(heat spreader/lid)龍頭。2024 EPS 24.15 元、營收年增顯著，散熱產品受 AI GPU/CPU 需求驅動。此為 t0 前已知的基本面底盤。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(AI題材已知)",
+    "used": true
+  },
+  {
+    "date": "2024H2-2025Q1 (題材醞釀)",
+    "source": "口袋學堂 SCHOOL/6817 / SCHOOL/6275",
+    "url": "https://www.pocket.tw/school/report/SCHOOL/6817/",
+    "title": "健策從 ILM 到水冷板(Cold Plate)切入 AI 液冷供應鏈",
+    "excerpt": "健策水冷板(Cold Plate)正朝 GPU 供應鏈開發，AI 液冷散熱題材醞釀。Micro Channel 技術可將 7000W 晶片降至 70 度。屬長線題材，t0 前市場已在追捧散熱三雄(奇鋐/雙鴻/健策)。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-02",
+    "source": "經濟日報 money.udn / ey.gov.tw 行政命令 NO.14257",
+    "url": "https://money.udn.com/money/story/124512/9232466",
+    "title": "川普宣布對等關稅，台灣被課 32%，4/9 生效",
+    "excerpt": "川普 4/2 對 185 國實施對等關稅，台灣 32%。清明連假(4/3-6)台股休市，錯過首波全球反應。健策為高 beta AI 散熱名，隨後在恐慌中重挫。",
+    "pit": "pre_t0",
+    "pricing_state": "利空點火(市場恐慌)",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "客新聞 HakkaNews / 鏡週刊 / StockFeel",
+    "url": "https://hakkanews.tw/2025/04/07/191027/",
+    "title": "台股史上最大單日崩盤 -2065.87 點 / -9.7%，1702 檔跌停",
+    "excerpt": "連假後首日台股暴跌 2065.87 點(-9.7%)創史上最大跌點/跌幅，1702 檔跌停，市值蒸發 7.26 兆。健策 t0=4/8 為此崩盤底部區。此為 t0 起漲點的宏觀成因(超跌底)。",
+    "pit": "pre_t0",
+    "pricing_state": "利空恐慌底部",
+    "used": true
+  },
+  {
+    "date": "2025-04-09 / 2025-04-11",
+    "source": "永豐豐雲學堂 / ey.gov.tw",
+    "url": "https://www.sinotrade.com.tw/richclub/hotstock/67fca900facf9628fc8af323",
+    "title": "川普暫緩對等關稅 90 天(4/9)+ 電子產品豁免清單(4/11)",
+    "excerpt": "川普 4/9(台北時間中午)宣布對等關稅暫緩 90 天，4/11 再發電子產品關稅豁免清單，半導體/電子業被視為受惠，t0 後出現報復性反彈。健策 +80% 主體為此超跌反彈+AI 基本面延續。",
+    "pit": "post_t0",
+    "pricing_state": "事後-宏觀反彈觸媒",
+    "used": true
+  },
+  {
+    "date": "2025 全年 (2026 初公布)",
+    "source": "鉅亨 cnyes / 豐雲學堂",
+    "url": "https://www.cnyes.com/twstock/3653",
+    "title": "健策 2025 全年營收 202.76 億 +42%、EPS 36.75 元(歷史新高)",
+    "excerpt": "2025 全年營收 202.76 億元(+42%)、毛利率 41.6%、EPS 36.75 元改寫新高；水冷模組年增 48%，Q4 啟動高階散熱元件小量出貨 GPU 供應鏈。事後確認 AI 散熱動能，非 t0 前可見。",
+    "pit": "post_t0",
+    "pricing_state": "事後-基本面確認",
+    "used": true
+  }
+]

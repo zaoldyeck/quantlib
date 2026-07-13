@@ -1,0 +1,65 @@
+{
+ "month": "2024-08",
+ "labels": [
+  {
+   "code": "6515",
+   "name": "穎崴",
+   "theme": "AI/HPC半導體測試介面",
+   "signal_type": "系統性落底超跌修復",
+   "event": "8/5台股史上最大崩跌(日圓套利平倉)高beta同遭錯殺;8/10公布7月營收+124.5%YoY(5月-8.9%→拐點),8/9股價仍低於崩盤前8%、YTD僅+17%,強論點錯殺未修復",
+   "evidence": "月營收(cache,7月published 8/10)+124.5%;CMoney/udn(7240/9526612):測試座全球第1、AI/HPC占37%且成長;崩盤中央社2024/8/5(cna afe/202408050135)",
+   "invalidation": "8月營收年增大幅回落或AI/HPC占比停滯;AI晶片測試訂單能見度縮短",
+   "conviction": 4
+  },
+  {
+   "code": "3680",
+   "name": "家登",
+   "theme": "先進封裝載具/EUV光罩盒",
+   "signal_type": "族群龍頭外溢至直接次族群",
+   "event": "台積電2024 CoWoS產能倍增(Q2 12k→Q4 2-2.5萬片)+嘉義先進封裝新廠(3/23),家登為CoWoS載具/FOUP直接供應環節;7月營收+73.5%YoY(6月+102.9%)",
+   "evidence": "月營收7月+73.5%;uanalyze(983185374):光罩載具市占70%/EUV光罩盒85%、FOUP今年最大動能;台積電CoWoS擴產(NTDTV 20240323/money.udn 124512)",
+   "invalidation": "FOUP/CoWoS載具拉貨不如預期、月營收年增回落至個位數;先進封裝擴產遞延",
+   "conviction": 4
+  },
+  {
+   "code": "5274",
+   "name": "信驊",
+   "theme": "伺服器BMC遠端管理晶片",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "AI伺服器大出貨帶動BMC(每台伺服器必備)需求爆發,7月營收+159.4%YoY(5-7月+92.9/+123.0/+159.4%加速);受惠所有伺服器非GB200-specific,不受Blackwell延遲衝擊",
+   "evidence": "月營收7月+159.4%;wistock/DA Labs/money.udn(11074/9479259):高階BMC市占>70%近壟斷;Blackwell延遲(SiliconANGLE 8/4)不影響通用/Hopper伺服器BMC",
+   "invalidation": "BMC出貨/ASP走弱、月營收年增顯著回落;一般伺服器復甦停滯",
+   "conviction": 4
+  },
+  {
+   "code": "3661",
+   "name": "世芯-KY",
+   "theme": "雲端CSP自研AI ASIC",
+   "signal_type": "系統性落底超跌修復",
+   "event": "8/5崩盤高beta錯殺;世芯YTD-35%、8/9仍低於崩盤前15%,惟7月營收+116.3%YoY加速(6月+100.6%),價-數字強背離;Blackwell 8/4傳延遲反成custom ASIC(去輝達化)催化",
+   "evidence": "月營收7月+116.3%;bnext(79113):ASIC龍頭、Amazon最大客戶、HPC占97%(Q3'24);SiliconANGLE 2024/8/4 Blackwell延遲(利去輝達化)",
+   "invalidation": "Amazon Trainium拉貨放緩或Intel ASIC專案確認取消/延遲;毛利率結構惡化",
+   "conviction": 4
+  },
+  {
+   "code": "2383",
+   "name": "台光電",
+   "theme": "AI伺服器高速CCL材料",
+   "signal_type": "結構轉型/收成年再評價",
+   "event": "高階AI CCL(M8/M9無鹵)收成,7月營收+58.6%YoY(5-7月連三月~+60%);為AI伺服器/800G交換器上游材料直接環節,台積電CoWoS/AI capex擴產帶動",
+   "evidence": "月營收5/6/7月+63.2/+62.7/+58.6%;vocus/CMoney:全球無鹵高階CCL龍頭、AI伺服器關鍵材料;台積電嘉義先進封裝廠(NTDTV 2024/3/23)",
+   "invalidation": "月營收年增跌破+30%或高階材料占比停滯;AI伺服器拉貨遞延",
+   "conviction": 4
+  },
+  {
+   "code": "6274",
+   "name": "台燿",
+   "theme": "AI伺服器/800G高速CCL次族群",
+   "signal_type": "族群龍頭外溢至直接次族群",
+   "event": "CCL龍頭(台光電)走強外溢,台燿為高速低損CCL直接環節且自身加速:7月營收+65.2%YoY(5-7月+43.9/+61.0/+65.2%);8/9股價仍低於崩盤前4%,錯殺未修復",
+   "evidence": "月營收5/6/7月+43.9/+61.0/+65.2%;stockfeel/fugle:高速低損CCL(AI伺服器M8+800G+低軌衛星)、打入AWS AI專案;崩盤2024/8/5",
+   "invalidation": "月營收年增回落或M8/高速占比停滯;高速交換器/AI伺服器拉貨遞延",
+   "conviction": 4
+  }
+ ]
+}

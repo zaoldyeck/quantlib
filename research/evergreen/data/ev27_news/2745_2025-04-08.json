@@ -1,0 +1,72 @@
+[
+  {
+    "date": "2025-04-02",
+    "source": "經濟日報 / 白宮",
+    "url": "https://money.udn.com/money/story/124512/8651421",
+    "title": "川普對等關稅開轟 台灣被課32%",
+    "excerpt": "全球股災引信。對觀光/旅遊股而言，關稅本身衝擊有限，但市場系統性殺盤仍將五福拖至超賣。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "鏡週刊",
+    "url": "https://www.mirrormedia.mg/external/amp/mirrordaily_65670",
+    "title": "台股崩跌2694點(盤中) 264家跌停殺出熊市",
+    "excerpt": "4/7 台股史上最慘單日崩跌。五福 t0=4/8 為崩跌尾端、絕對低點(4/9)前一日，本質是全市場капитуляция低點附近的起漲。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-10",
+    "source": "客新聞 HakkaNews",
+    "url": "https://hakkanews.tw/2025/04/10/191852/",
+    "title": "台股大漲1608點(+9.25%)史上最大漲點 1389家漲停",
+    "excerpt": "關稅暫緩激勵台股 V 轉。五福隨大盤自 4/8 低點強彈，展開 60 日 +89% 行情的起點動能。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-01-10",
+    "source": "工商時報",
+    "url": "https://www.ctee.com.tw/news/20250110701714-430201",
+    "title": "五福旅行社2024年營收75.64億元 創新高(年增51.9%)",
+    "excerpt": "2024 全年營收 75.64 億、年增 51.9% 創新高。境外旅遊(尤其日本線)強勁復甦。此為 t0 前早已公開、持續數季的成長趨勢——醞釀型基本面。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-02-10",
+    "source": "聯合新聞網 udn",
+    "url": "https://udn.com/news/story/7254/8539425",
+    "title": "五福1月營收7.02億、年增41.93% 創同期新高",
+    "excerpt": "2025/1 月營收年增 41.93% 創同期新高;春季賞櫻、立山黑部、大阪世博(4/13 開幕)房源預訂、企業獎勵旅遊旺季訂單能見度到 6 月。基本面動能於 t0 前已高度可見。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-04-13",
+    "source": "旅遊業/新聞(彙整)",
+    "url": "https://www.nstock.tw/%E4%BA%94%E7%A6%8F%E5%81%9A%E4%BB%80%E9%BA%BC.html",
+    "title": "2025 大阪世界博覽會開幕(4/13~10/13) 帶動關西旅遊需求",
+    "excerpt": "大阪世博 4/13 開幕，五福提早鎖定關西房源;日圓貶值+世博+賞櫻多重利多推升日本線。屬 t0 後(4/13)才正式開幕，但預期於 t0 前已被市場知悉。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-05-12",
+    "source": "財報狗 / nStock",
+    "url": "https://www.nstock.tw/stock_info?stock_id=2745&status=6",
+    "title": "五福 2025Q1 EPS 4.29元 年增37.94%；4月營收7.28億創8年同期新高",
+    "excerpt": "Q1 EPS 4.29 元(年增 37.94%);4 月營收 7.28 億(年增 13.94%)創 8 年單月同期新高。營收/獲利於 t0 後陸續公布，驗證旅遊復甦但 +89% 漲幅明顯超出基本面，隱含低流通籌碼的投機放大。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  }
+]

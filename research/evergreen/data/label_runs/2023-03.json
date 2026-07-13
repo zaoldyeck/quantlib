@@ -1,0 +1,55 @@
+{
+ "month": "2023-03",
+ "labels": [
+  {
+   "code": "3231",
+   "name": "緯創",
+   "theme": "AI 伺服器供應鏈 (ODM)",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "生成式 AI 點火(ChatGPT→NVIDIA 2/22 財報),首波 IP/ASIC 已大漲;緯創為 NVIDIA DGX/HGX 基板獨家代工(~90% DGX)卻仍在 NT$33.6 低基期未定價;GTC 2023(3/20-23,keynote 3/21)為逼近觸發,SVB 錯殺+3/12 BTFP 止血利於強論點反彈",
+   "evidence": "bnext/經理人:緯創供 NVIDIA DGX/HGX 基板、~90% DGX 代工、外資視獨家(2022 定位);2月營收 YoY-4.0%(自-17.9%改善);價 2022/12→3/13 僅+14.5%(daily_quote,PIT);GTC 3/20-23 已預告(NVIDIA newsroom)",
+   "invalidation": "GTC/NVIDIA 財測未確認 AI 伺服器擴產、緯創 AI 基板訂單落空、AI 伺服器營收占比停滯不前",
+   "conviction": 5
+  },
+  {
+   "code": "2382",
+   "name": "廣達",
+   "theme": "AI 伺服器供應鏈 (ODM)",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "廣達為 NVIDIA AI 伺服器主力 ODM(全球市占約 2 成),題材已公開但股價僅 NT$81(+12.9%)未定價;GTC 3/21 keynote 為逼近觸發,首波題材股已漲、資金外溢至組裝直接環節",
+   "evidence": "價 2022/12→3/13 +12.9%(daily_quote,PIT,未大漲);2月營收 YoY-8.1%(PC 谷底,AI ramp 落在 H2);GTC 2023 3/20-23 已預告(NVIDIA newsroom)",
+   "invalidation": "GTC/NVIDIA 財測未確認 AI 伺服器拉貨、廣達 AI 伺服器出貨遞延至 2024、PC 去庫存拖累延續壓抑重評",
+   "conviction": 4
+  },
+  {
+   "code": "6669",
+   "name": "緯穎",
+   "theme": "AI 伺服器供應鏈 (hyperscale)",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "緯穎為 hyperscale(微軟/Meta)伺服器 ODM、純 AI 曝險最高彈性;近端營收加速(1月+29%→2月+68%)但股價僅+14.8%未反映;GTC 3/21 逼近觸發",
+   "evidence": "2月營收 YoY+67.6% 且加速(MOPS 3/10 公告,PIT);價 2022/12→3/13 +14.8%(daily_quote);GTC 3/20-23 已預告",
+   "invalidation": "CSP 客戶砍單/資本支出下修、AI 伺服器需求遞延、月營收動能次月斷崖轉弱",
+   "conviction": 4
+  },
+  {
+   "code": "2345",
+   "name": "智邦",
+   "theme": "雲端資料中心交換器 400G→800G",
+   "signal_type": "結構轉型/收成年再評價",
+   "event": "智邦為全球白牌交換器龍頭,直供 Meta/Amazon;2022 法說 guide 2023 雙位數成長(400G 占比 10%→15%),近端營收加速(2月+64%),AI/雲端資料中心 capex 為順風;股價+28% 屬部分定價",
+   "evidence": "富果/2022 法說:400G 放量 guidance、直供 hyperscale CSP(結構定位);2月營收 YoY+64.3% 加速(MOPS,PIT);價 2022/12→3/13 +28%(daily_quote)",
+   "invalidation": "CSP 交換器資本支出下修、400G/800G 世代升級遞延、營收成長跌破雙位數 guidance",
+   "conviction": 4
+  },
+  {
+   "code": "2731",
+   "name": "雄獅",
+   "theme": "出境旅遊復甦 (解封收成年)",
+   "signal_type": "結構轉型/收成年再評價",
+   "event": "2023-01-08 邊境解封,出境旅遊龍頭雄獅營收井噴(1月+591%/2月+377%)但絕對值僅回到 2019 的 4-6 成、復甦未完成;股價僅+9.4%未反映;旺季+中國團客逐步開放為近端接棒",
+   "evidence": "2月營收 YoY+377%、絕對值(9.98 億)僅 2019 同月(26.1 億)的 38%(MOPS+cache,PIT);價 106→116 僅+9.4%(daily_quote);屬結構收成非一次性基期",
+   "invalidation": "出境旅遊復甦停滯、獲利無法轉正(薄利)、中國團客開放跳票、營收未續往 2019 靠攏",
+   "conviction": 4
+  }
+ ]
+}

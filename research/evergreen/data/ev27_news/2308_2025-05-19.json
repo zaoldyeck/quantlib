@@ -1,0 +1,62 @@
+[
+  {
+    "date": "日期不明(結構定位)",
+    "source": "財報狗/經濟日報",
+    "url": "https://statementdog.com/news/15549",
+    "title": "台達電=全球電源龍頭,AI伺服器電源/HVDC/液冷核心供應商",
+    "excerpt": "台達電為全球最大交換式電源供應商,AI資料中心電源(伺服器電源、HVDC高壓直流、液冷)核心受惠者,直接綁定輝達GB200/GB300機櫃電力升級。此龍頭定位在t0前已存在,是2025年最強AI基建題材的旗艦載體。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(結構定位)",
+    "used": true
+  },
+  {
+    "date": "2025-04-30",
+    "source": "Newtalk/StockFeel/FTNN",
+    "url": "https://www.stockfeel.com.tw/%E6%B3%95%E8%AA%AA%E6%9C%83-%E5%8F%B0%E9%81%94%E9%9B%BB-2025q1-0430/",
+    "title": "台達電2025Q1法說(4/30):EPS 3.94元創單季新高,稅後純益年增77.5%,AI比重升帶動毛利",
+    "excerpt": "2025Q1營收約1189億、EPS 3.94元創單季新高,稅後純益年增77.5%,受惠AI相關產品比重提高、毛利率提升,並喊話Q2營收有望比首季更好。此法說(4/30)在t0(5/19)前,是最直接的基本面點火。(註:市場常見的EPS 7.91元為2026Q1數據,勿混淆)",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-05-10(約)",
+    "source": "Yahoo/經濟日報",
+    "url": "https://money.udn.com/money/story/5607/9567464",
+    "title": "台達電2025年4月營收586.92億元、年增43.92%,單月歷史次高",
+    "excerpt": "4月營收586.92億元、年增43.92%,為單月歷史次高;累計前4月2180.44億、年增36.53%。約5月10日公布,在t0(5/19)前,強化AI電源動能。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-05-19",
+    "source": "NVIDIA/Computex/天下CW",
+    "url": "https://english.cw.com.tw/article/article.action?id=4124",
+    "title": "輝達黃仁勳Computex 2025開幕主題演講(5/19 11:00 台灣時間),AI Factory電力題材引爆",
+    "excerpt": "黃仁勳於2025/5/19(台灣時間11:00)發表Computex 2025開幕keynote,揭示AI Factory願景、Blackwell平台與NVLink Fusion,並宣布與鴻海、台積電及台灣政府合建大型AI超級電腦。Computex展期5/20~23。t0(5/19)正是keynote當日——AI基建電力題材的市場點火時刻,台達電為最大受惠旗艦。",
+    "pit": "pre_t0",
+    "pricing_state": "題材點火(事件可事前預期)",
+    "used": true
+  },
+  {
+    "date": "2025(全年題材)",
+    "source": "財報狗/CMoney",
+    "url": "https://statementdog.com/news/13940",
+    "title": "HVDC(高壓直流)改寫AI資料中心供電架構,台達電為關鍵供應商",
+    "excerpt": "AI機櫃功耗飆升,傳統交流供電轉向HVDC(±400V今年出貨、800V蓄勢2027放量),可降銅損/熱損並與液冷整合。台達電於HVDC獲大廠快速採用,大幅挹注AI伺服器電源營收。此供電架構轉型題材貫穿2025全年,t0前已在發酵。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材發酵中)",
+    "used": true
+  },
+  {
+    "date": "2025-06-10(約)",
+    "source": "Yahoo",
+    "url": "https://tw.stock.yahoo.com/news/%E7%9B%AE%E6%A8%99%E5%83%B9%E7%9B%B4%E8%A1%9D4500%E5%85%83-150000391.html",
+    "title": "【事後】台達電5月營收589.62億元、歷史次高;外資上修目標價,估AI產品營收CAGR高成長",
+    "excerpt": "【事後】5月營收589.62億(約6/10公布)、1~5月累計2770.06億、年增38%;外資上修目標價、看好電供/HVDC/液冷優勢。此為t0後對AI電源動能的驗證與延伸。",
+    "pit": "post_t0",
+    "pricing_state": "事後驗證",
+    "used": true
+  }
+]

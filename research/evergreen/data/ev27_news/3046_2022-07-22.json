@@ -1,0 +1,42 @@
+[
+  {
+    "date": "2021-11 / 2022",
+    "source": "美國IIJA / NEVI 政策",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=598fb33a-ffb5-4110-a12a-4e9ab593831e",
+    "title": "美國基建法編列50億美元建置50萬個充電樁",
+    "excerpt": "美國基礎建設法(IIJA)下NEVI計畫編列50億美元、目標建置50萬個充電樁,為北美充電樁供應鏈政策順風。建碁近兩年陸續取得美國、歐洲充電樁控制主機訂單。政策為公開背景,t0(7/22)前已知。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(政策公開)",
+    "used": true
+  },
+  {
+    "date": "2022-H1",
+    "source": "月營收(公開資訊觀測站)/ MoneyDJ",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=598fb33a-ffb5-4110-a12a-4e9ab593831e",
+    "title": "建碁上半年淨利年增逾3倍、營收動能強;數位看板隨Google重新聚焦回溫",
+    "excerpt": "建碁2022上半年稅後淨利0.97億(較去年同期成長逾3倍);工控/數位看板業務緊抓Google重新聚焦電子數位看板商機,並有充電樁控制主機訂單加持。6月營收於7月上旬公布,恰在 t0(7/22)前,月營收momentum為 t0 前可見的核心訊號。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(月營收/獲利可見)",
+    "used": true
+  },
+  {
+    "date": "2022-09-27",
+    "source": "MoneyDJ 理財網",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=598fb33a-ffb5-4110-a12a-4e9ab593831e",
+    "title": "建碁今年營運看高成長;後市充電樁接單可期",
+    "excerpt": "2022-09-27:建碁前8月累計營收21.97億(年增48.06%);獲美國、歐洲充電樁控制主機訂單;數位看板應用餐飲零售、教育、交通;預估下半年營運穩健,獲利挑戰2004年來新高。此文在 t0 後,確認 t0 前即在發酵的營運趨勢。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認(趨勢延續)",
+    "used": true
+  },
+  {
+    "date": "2022(全年)",
+    "source": "財報(事後)",
+    "url": "https://statementdog.com/analysis/3046",
+    "title": "建碁2022全年EPS 3.03元(年增66%)、營收33.3億(年增29%)",
+    "excerpt": "2022全年EPS 3.03元(YoY+66%)、營收33.3億(YoY+29%)、稅後淨利2.166億(YoY+66%)。全年數字為事後確認,印證充電樁+數位看板+工控回流的轉機成真。",
+    "pit": "post_t0",
+    "pricing_state": "事後確認",
+    "used": false
+  }
+]

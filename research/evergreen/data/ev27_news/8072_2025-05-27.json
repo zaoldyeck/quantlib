@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2025-04",
+    "source": "CMoney 投資快訊",
+    "url": "https://cmnews.com.tw/article/cmoneyairesearcher-f6bb6dd2-2176-11f0-b07a-58ab0172d26c",
+    "title": "陞泰：安全監控及半導體代理龍頭 股價逆勢漲停",
+    "excerpt": "台股關稅股災震盪期間，陞泰『逆勢漲停』。定位為安全監控(DVR)及半導體零組件代理龍頭。屬現金充沛、高殖利率的防禦型標的，在市場恐慌期成為避險資金去處。(UUID 11f0=2025年)",
+    "pit": "pre_t0",
+    "pricing_state": "股災期避險買盤：現金多、殖利率高的資產股re-rating，非成長題材",
+    "used": true
+  },
+  {
+    "date": "2025-05",
+    "source": "CMoney 投資快訊",
+    "url": "https://cmnews.com.tw/article/cmoneyairesearcher-68836bf7-20aa-11f0-8239-f7f0a412bf34",
+    "title": "陞泰：穩健轉型 銷售強勁帶動股價上揚",
+    "excerpt": "陞泰積極轉型，重心移向半導體零組件代理，該業務目前已佔營收約八成，已從安控系統製造轉向半導體代理。券商估全年網路攝影機銷量升至6萬台、年增明顯。營運持穩，股價偏低位階、可能被低估。",
+    "pit": "pre_t0",
+    "pricing_state": "轉型敘事(半導體代理占8成)驅動價值重評，但代理業毛利低、非高成長",
+    "used": true
+  },
+  {
+    "date": "2025-05-13",
+    "source": "鉅亨網 / CMoney",
+    "url": "https://news.cnyes.com/news/id/5976411",
+    "title": "陞泰(8072)大漲7.02%報50.3元 / 營運持穩股價上揚9.8%報50.4元",
+    "excerpt": "2025年5月股價上漲至約50.3-50.4元(單日+7~9.8%)。CMoney研究員：營運持穩、股價上揚。屬既有轉型與價值題材延續，t0(5/27)為此波re-rating末段。",
+    "pit": "pre_t0",
+    "pricing_state": "價值/轉型re-rating已接近合理價，t0處漲勢末段",
+    "used": true
+  },
+  {
+    "date": "2025-04-18",
+    "source": "Goodinfo / 公司公告",
+    "url": "https://goodinfo.tw/StockInfo/StockDividendPolicy.asp?STOCK_ID=8072",
+    "title": "陞泰股利政策：現金股利1元(殖利率約2-3.4%) 除息交易日4/18 股東會6/18",
+    "excerpt": "配發現金股利1元，除息交易日2025-04-18，股東會2025-06-18。帳面價值每股約28元、現金殖利率2-3.4%，屬高淨值/高現金、穩定配息的資產型標的。",
+    "pit": "pre_t0",
+    "pricing_state": "配息與淨值題材，屬資產股定價，天花板為合理殖利率",
+    "used": true
+  },
+  {
+    "date": "2025-06",
+    "source": "CMoney 投資快訊(事後)",
+    "url": "https://cmnews.com.tw/article/cmoneyairesearcher-cc81a47f-401f-11f0-838a-c4801a51a9a4",
+    "title": "(t0後)陞泰：營運持穩 股價上揚9.8%",
+    "excerpt": "t0後CMoney續發同質快訊，內容仍為『營運持穩、DVR龍頭、半導體代理』既有敘事。同一題材反覆貼標，無新增催化，股價僅+8%即熄火。",
+    "pit": "post_t0",
+    "pricing_state": "事後：同質題材反覆，無新催化，漲勢無以為繼",
+    "used": false
+  }
+]

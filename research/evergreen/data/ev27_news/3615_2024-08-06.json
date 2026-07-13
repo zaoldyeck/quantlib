@@ -1,0 +1,42 @@
+[
+  {
+    "date": "背景(2007起)",
+    "source": "MoneyDJ/公司資料",
+    "url": "https://www.moneydj.com/kmdj/wiki/wikiviewer.aspx?keyid=0d88d308-2c59-4140-a066-b925a02130ad",
+    "title": "安可為錸德集團分割公司，具ITO導電玻璃+藍寶石PSS+半導體級玻璃鍍膜/TGV能力",
+    "excerpt": "安可光電2007年由錸德科技分割設立(錸德仍為最大股東)，本業ITO導電玻璃、藍寶石基板圖案化(PSS)，發展手機/平板LCD鍍膜、OLED鍍膜、車用顯示器鍍膜玻璃。其對玻璃『微結構加工』(玻璃蝕刻、真空濺鍍金屬層)可延伸至TGV(玻璃穿孔)/半導體級玻璃基板鍍膜代工。此技術底蘊為後續AI玻璃基板題材之根，t0前即存在但尚未被主流定價。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(題材萌芽)",
+    "used": true
+  },
+  {
+    "date": "2024-08-06",
+    "source": "中央社(市場事件)",
+    "url": "https://www.cna.com.tw/news/afe/202408050135.aspx",
+    "title": "t0(8/6)緊接台股8/5歷史崩盤底部 —— 市場V型反彈起點",
+    "excerpt": "台股2024/8/5暴跌-8.35%創史上最大跌點(收19830)，8/6起強力反彈。安可t0(8/6)恰為崩盤翌日之反彈起點，故其60日+81%含顯著『市場反彈beta』，疊加自身AI玻璃基板/先進封裝題材之初升段。t0當下無查得安可個股專屬硬新聞，屬市場反彈+題材醞釀。",
+    "pit": "pre_t0",
+    "pricing_state": "市場系統性事件",
+    "used": true
+  },
+  {
+    "date": "2024(全年)",
+    "source": "財報狗",
+    "url": "https://statementdog.com/analysis/3615",
+    "title": "安可2024為獲利谷底年(AI題材尚未轉化為EPS)",
+    "excerpt": "2024年安可歸屬母公司稅後淨利大幅萎縮(年減一度近100%)，受消費電子庫存調整+研發投入雙壓。顯示t0(2024/8)時AI玻璃基板純屬未來預期、尚未反映於損益。",
+    "pit": "pre_t0",
+    "pricing_state": "基本面谷底",
+    "used": true
+  },
+  {
+    "date": "2025~2026",
+    "source": "理財周刊/CMoney",
+    "url": "https://www.moneyweekly.com.tw/ArticleData/Info/Article/230937",
+    "title": "AI玻璃基板/TGV題材主流化重定價(2025 Q3 EPS轉正+644%，2026續噴)",
+    "excerpt": "安可2025 Q3 EPS轉正、年增644%，2026年1月營收噴發(車載訂單回籠+玻璃基板/先進封裝新應用放量)，股價2026/6一度攻54.8元創波段高。此為t0後1-2年AI玻璃基板題材主流化之重定價，印證t0(2024/8)時題材尚在極早期。",
+    "pit": "post_t0",
+    "pricing_state": "事後驅動",
+    "used": true
+  }
+]

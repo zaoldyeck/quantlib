@@ -1,0 +1,146 @@
+[
+  {
+    "date": "2026-06-01",
+    "source": "經理人 managertoday",
+    "url": "https://www.managertoday.com.tw/articles/view/72268",
+    "title": "黃仁勳 GTC Taipei 端出3道新菜:AI PC(RTX Spark)、Vera Rubin量產、Vera CPU 台廠供應鏈名單",
+    "excerpt": "GTC Taipei 2026(6/1-6/4,黃仁勳6/1 keynote)。Vera Rubin『已全面量產,供應鏈從試產進入量產』。受惠環節:先進封裝設備(志聖2467/均豪5443/均華6640/東捷8064)、IC封裝測試(京元電/矽品)、散熱電源(台達電/光寶/勤誠)。錨定事件落在cutoff前10日=活題材、即點即燃供應鏈read-through的起點。",
+    "used": true
+  },
+  {
+    "date": "2026-06-01",
+    "source": "工商時報 ctee",
+    "url": "https://www.ctee.com.tw/news/20260601700045-439901",
+    "title": "黃仁勳GTC Taipei開講 從Vera Rubin到N1X AI PC 受惠台鏈大點兵",
+    "excerpt": "黃仁勳宣布Vera Rubin全面進入量產、台灣150家供應商。受惠段:CoWoS-L先進封裝、HBM4、全液冷、高壓供電、CPO矽光子、高速交換器。台廠受惠已從台積電先進製程+封裝+伺服器組裝,擴及散熱/電源/PCB/連接器/機構件/資料中心基礎設施。『台灣供應鏈下半年會很忙碌』——H2 2026 量產爬坡=近端結構驅動。",
+    "used": true
+  },
+  {
+    "date": "2026-06(約6/初,5月營收速報)",
+    "source": "鉅亨網 cnyes 台股營收",
+    "url": "https://news.cnyes.com/news/id/6488909",
+    "title": "營收速報-穎崴(6515)5月營收10.73億元 年增率高達119.79%",
+    "excerpt": "穎崴6515 2026年5月營收10.73億、YoY+119.79%、MoM+8.48%,創單月次高、歷年同期新高。工控/AI測試介面(彈簧針/測試座/探針卡/溫控)。近端月營收年增加速=營收拐點確認型的核心證據,且屬VOLUME結構驅動(測試時間拉長→介面需求乘數),非報價windfall。標記基礎。",
+    "used": true
+  },
+  {
+    "date": "2026-05-29",
+    "source": "vocus 法說筆記 / 口袋學堂",
+    "url": "https://vocus.cc/article/6a167420fd897800019dd87c",
+    "title": "6515穎崴 2026-05-29法說會:1Q26 EPS19.54創高、AI/HPC佔68%、先進封裝測試時間拉長→測試介面乘數爆發",
+    "excerpt": "穎崴5/29法說(台北W飯店):1Q26營收獲利創新高,AI/HPC佔比達68%,受惠先進封裝(CoWoS/HBM)測試時間拉長,測試介面需求呈乘數爆發。法人估6月續揚挑戰單月新高,全年拚破百億、季季高。直接環節+自身營收加速+具日期法說錨=結構瓶頸利基寡占卡位。標記基礎(6515)。",
+    "used": true
+  },
+  {
+    "date": "2026-03-31",
+    "source": "時報資訊 chinatimes / 旺得富",
+    "url": "https://www.chinatimes.com/realtimenews/20260331003049-260410",
+    "title": "《半導體》旺矽訂單暢旺 2026營收逐季揚拚連9高",
+    "excerpt": "旺矽6223 3/30法說:探針卡交期達半年、部分產品訂單能見度2年;2026營收逐季成長、拚連9年創高。VPC/MEMS探針卡今年擴產+50%。2025營收133.71億+31.45%、EPS33.49、GM55.55%(近20年高)。2026為HBM4關鍵年,堆疊層數↑→測試接點指數增→探針卡精度需求升。2年能見度=結構durability,答『明年營收還在嗎=是』。標記基礎(6223)。",
+    "used": true
+  },
+  {
+    "date": "2024全年/2025-03法說(本地卷宗,結構定位)",
+    "source": "ev27本地卷宗 6223_2025-04-08.json / 口袋學堂",
+    "url": "https://www.pocket.tw/school/report/SCHOOL/6433/",
+    "title": "旺矽 AI/HPC 探針卡龍頭,全球前五大(VPC/MEMS),非記憶體探針卡營收+47%YoY升全球第4",
+    "excerpt": "旺矽為全球前五大探針卡廠,VPC/CPC市占稱冠台廠,拓展MEMS。非記憶體探針卡2024+47%YoY遠超Technoprobe(9%)/FormFactor(13%),排名第5→4。唯數家能供的上游測試瓶頸=哲學最佳卡位archetype。本地224樣本卷宗(歷史暴漲樣本),佐證結構瓶頸身分。",
+    "used": true
+  },
+  {
+    "date": "2026-01(TrendForce/野村/瑞銀,產業backdrop)",
+    "source": "永豐 esunsec / Threads carl_investment(UBS/野村引述)",
+    "url": "https://www.esunsec.com.tw/article/post/623",
+    "title": "記憶體超級循環:HBM短缺推升DRAM/NAND,瑞銀稱近30年最強,DRAM缺到2027Q1、NAND至少到2026Q3",
+    "excerpt": "記憶體超級循環:HBM短缺,瑞銀『近30年最強漲價週期』,DRAM供給短缺延續到2027Q1、NAND至少2026Q3。野村定義DRAM+NAND+HBM『三重循環』。伺服器DDR庫存僅11週。=HBM4測試瓶頸(旺矽/穎崴)的結構需求後盾;亦說明記憶體題材本身活but直接DRAM股已中後段。",
+    "used": true
+  },
+  {
+    "date": "2026(探針卡產業,HBM4定調)",
+    "source": "槓桿學院 leveragetw",
+    "url": "https://leveragetw.com/probe-card-industry-trends/",
+    "title": "探針卡2026產業趨勢與概念股(旺矽/精測/穎崴):HBM4更高層堆疊使測試接點指數增",
+    "excerpt": "2026為HBM4與更高層數堆疊記憶體關鍵年,堆疊層數越多測試接點越多,對探針卡精度要求指數級上升。台廠三雄:旺矽6223(探針卡龍頭)、穎崴6515(測試介面)、精測6510。測試瓶頸TIGHTENING(與CoWoS產能easing相反)。佐證6223/6515標記theme。",
+    "used": true
+  },
+  {
+    "date": "2026-06-10",
+    "source": "工商時報 ctee / 財報狗 statementdog",
+    "url": "https://www.ctee.com.tw/news/20260610701008-430201",
+    "title": "SemiAnalysis:CPO量產恐遞延至2028-2029 光通訊族群跌停 聯亞/全新等約10檔摔停",
+    "excerpt": "2026-06-10 SemiAnalysis看空報告(依Computex 2026業界交流):光學引擎連接良率瓶頸、ASIC整合難、成本結構三致命傷,2027 CPO出貨恐遠低預期,大規模量產推遲2028甚至2029。台股矽光子:光聖/華星光/波若威/全新/上詮/聯亞等約10檔跌停,最慘-17%。cutoff前1日的題材反轉=已浮現反向風險。一票否決CPO/矽光子做多。",
+    "used": true
+  },
+  {
+    "date": "2026-05-08(三讀)/2026-05-11(股價)",
+    "source": "自由財經 ltn / 公視 pts",
+    "url": "https://ec.ltn.com.tw/article/breakingnews/5432584",
+    "title": "國防特別預算砍至7800億(自1.25兆) 5/8三讀 5/11雷虎跌停 軍工股跳水",
+    "excerpt": "立法院5/8三讀通過在野黨7800億版軍購特別條例,較行政院1.25兆砍約4700億;國內委製5大案(強弓飛彈/各類無人機/自殺無人艇)共2500億預算全遭刪。5/11雷虎8033開低即跌停143.5,漢翔2634/寶一8222跌逾6%、亞航2630跌逾9%、龍德6753摔9%。cutoff前1月的負催化=軍工/無人機題材反轉。一票否決國防做多。",
+    "used": true
+  },
+  {
+    "date": "2026-06(約6/初,5月營收/公告)",
+    "source": "Yahoo股市 / CMoney(公告)",
+    "url": "https://tw.stock.yahoo.com/news/%E5%85%AC%E5%91%8A-%E4%B8%96%E8%8A%AF-ky-2026%E5%B9%B45%E6%9C%88%E5%90%88%E4%BD%B5%E7%87%9F%E6%94%B619-35%E5%84%84%E5%85%83-090707638.html",
+    "title": "世芯-KY(3661)5月營收19.35億 年增-33.45%(累計前5月-50.05%)",
+    "excerpt": "世芯-KY 3661 2026年5月營收19.35億、YoY-33.45%、MoM-9.26%,前5月累計82.55億、YoY-50.05%。雖1Q26 GM 50.16%創高、EPS17.55,但當期營收年減、『H2 N3 AI加速器放量』屬未來式。價高but當期營收年減=典型背離。一票否決世芯/ASIC設計做多(排除依據)。",
+    "used": true
+  },
+  {
+    "date": "2026-06-01",
+    "source": "今周刊 businesstoday",
+    "url": "https://www.businesstoday.com.tw/article/category/183008/post/202606010033/",
+    "title": "華邦電/威剛/南亞科/旺宏漲停還有幾根?記憶體目標價揭 6/2威剛亮燈漲停469.5、旺宏南亞科創新高",
+    "excerpt": "6/2威剛3260亮燈漲停469.5、旺宏2337+5%站新高180、南亞科2408破新高417.5。華邦電4月獲利年增216倍、旺宏4月+8倍。TrendForce上調2026記憶體市場5516→8893億美元、2027看1.28兆。大摩調升南亞科/華邦電/力積電/旺宏/愛普目標價全『加碼』。漲停潮+新高+全面上修=人盡皆知/中後段訊號→直接DRAM股排除做多(watchlist,非標記)。",
+    "used": true
+  },
+  {
+    "date": "2026(CoWoS供需,產業)",
+    "source": "富途 futunn / DigiTimes(引述設備業者)",
+    "url": "https://news.futunn.com/hk/post/74602482/ai-computing-capacity-bottleneck-easing-report-taiwan-semiconductor-s-cowos",
+    "title": "台積電CoWoS缺口將從20%降至10% 2026供需從極度緊繃走向逐步平衡 設備廠苦等訂單分配",
+    "excerpt": "2026為CoWoS供需轉折年,從『極度緊繃』走向『逐步平衡』,缺口傳20%→10%;設備廠『苦等台積訂單分配完畢』。CoWoS月產能2025 7萬→2026底11-13萬→2027 20萬片。=先進封裝設備(弘塑3131/志聖2467/均華6640)題材動能EASING、訂單lull,弘塑僅+15%YoY非加速拐點→設備股列watchlist不標記(避免追高)。AI產能題材第3道裂縫。",
+    "used": true
+  },
+  {
+    "date": "2026(約6/初,5月營收速報)",
+    "source": "鉅亨網 cnyes 營收速報",
+    "url": "https://news.cnyes.com/news/id/6486488",
+    "title": "營收速報-宜鼎(5289)5月營收75.65億 年增640.8%(1-5月累計+493.92%)",
+    "excerpt": "宜鼎5289 5月營收75.65億、YoY+640.8%、MoM+13.4%,連11月創高;工控DDR4出貨佔比破5成,Q3價格續漲更明確。近端confirmation極強but:6/2群組漲停潮(中後段訊號)+ +640%屬DDR4報價windfall(判別6『明年還在嗎』存疑,YoY基期不可持續)+ 6/5股價1755已大漲。多腳偏軟→conviction 3列watchlist,非標記。",
+    "used": true
+  },
+  {
+    "date": "2026-06(6月底股價,cutoff後·僅供定價狀態參考)",
+    "source": "鉅亨/玩股網(6月底報價)",
+    "url": "https://www.cnyes.com/twstock/6223",
+    "title": "[cutoff後·禁作依據] 旺矽6/底觸7250新天價、5.5個月漲2.58倍",
+    "excerpt": "PIT稽核用:旺矽6223 6月底觸7250元、5.5個月漲2.58倍。此為cutoff(6/11)後價格,禁作判斷依據,僅記錄以理解6223屬高延展(extended)標的——標記conviction已因此docked至4(非5),invalidation含『AI複合股自高檔反轉則追高失效』。",
+    "used": false
+  },
+  {
+    "date": "2026-06-15 / 2026-07(cutoff後,禁用)",
+    "source": "工商時報 20260615 / 豐雲學堂7月",
+    "url": "https://www.ctee.com.tw/news/20260615700083-439901",
+    "title": "[cutoff後·禁用] 輝達800V HVDC提前上陣 台達電/光寶/松川/朋程 供電革命",
+    "excerpt": "PIT稽核用:800V HVDC供電(Rubin,機櫃600kW唯一解)大眾媒體點火落在6/15+及7月(cutoff後),量產放量2027H2-2028。結構事實雖2025-09即公開(休眠),但『個股再定價』ignition在cutoff後、且volume兌現遠(2027-28本夢比)→6/11時列watchlist不標記(造浪太早/兌現遠)。禁作前兆依據。",
+    "used": false
+  },
+  {
+    "date": "2026-06-22~06-30(cutoff後,禁用)",
+    "source": "永豐 sinotrade / vocus / 工商時報",
+    "url": "https://www.ctee.com.tw/news/20260704700103-439901",
+    "title": "[cutoff後·禁用] 記憶體Q3漲幅收斂;台股6/23盤中ATH 48218後6/24-6/26急殺(6/26 -1683)AI退潮",
+    "excerpt": "PIT稽核用(全數cutoff後):6/22-7/4集邦/工商『DRAM/NAND Q3漲幅大幅收斂(季增<2成 vs 上季5-6成)』;台股6/23盤中創ATH 48218後翻黑,6/24 -1057、6/26 -1683(史上第3大跌點)AI退潮防禦戰。驗證6/11euphoric-top+外資分佈的regime判讀正確,但一律禁作6/11標記依據。",
+    "used": false
+  },
+  {
+    "date": "2026-06第二週(外資分佈,cutoff邊界·保守禁用具體數字)",
+    "source": "vocus 台股週報",
+    "url": "https://vocus.cc/article/6a2d3266fd897800010a035a",
+    "title": "[cutoff邊界·稽核用] 外資台指期淨空65039口、投信連11買1051億 資金撤大型股輪動中小型",
+    "excerpt": "PIT邊界(6月第二週~6/8-6/12,具體65039口數字可能as-of≥6/12):外資重砲提款+台指期淨空攀升、投信連11買抵抗=euphoric-top的分佈(distribution)徵兆;資金從大型股撤、湧入具結構題材/籌碼集中中小型,深掘AI『物理極限→規格升級』二三線瓶頸股。regime色彩(佐證選擇性/排除偏向),但具體空單數字保守標used=false不作標記量化依據。",
+    "used": false
+  }
+]

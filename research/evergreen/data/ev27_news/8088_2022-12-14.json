@@ -1,0 +1,32 @@
+[
+  {
+    "date": "背景 (結構)",
+    "source": "七仔財經筆記 / 口袋學堂 / MoneyDJ",
+    "url": "https://7evenguy.com/what-is-8088-doing/",
+    "title": "品安=記憶體模組廠(DRAM UDIMM/SODIMM、NAND SSD/隨身碟/讀卡機)+被動元件集團(華容 2413、凱美 5317)雙軌;金士頓系背景 EMS 代工",
+    "excerpt": "品安主業為記憶體模組(DRAM 模組、NAND 轉 SSD/記憶卡/隨身碟),延伸工控/車用利基,並透過集團(華容 2413、凱美 5317)涉足被動元件。財務深受記憶體產業循環左右:需求熱、報價漲則獲利大放異彩,修正期則獲利受壓甚至低谷虧損。",
+    "pit": "pre_t0",
+    "pricing_state": "結構背景 (循環股,獲利隨報價擺盪)",
+    "used": true
+  },
+  {
+    "date": "2022-Q4 (產業)",
+    "source": "產業常識 (TrendForce/DRAMeXchange 語境)",
+    "url": "https://www.nstock.tw/%E5%93%81%E5%AE%89%E5%81%9A%E4%BB%80%E9%BA%BC.html",
+    "title": "2022 下半年~2022Q4:DRAM/NAND 現貨與合約價持續崩跌、記憶體嚴重供過於求,產業處於下行谷底(近況與股價反彈背離)",
+    "excerpt": "2022 下半年記憶體(DRAM/NAND)報價因供過於求持續崩跌,模組廠營運與獲利同步探底,2023 上半年跌勢延續至年中才落底。品安在此下行循環中屬近況惡化——t0(12/14)股價卻反彈 +29%,與基本面明顯背離,屬低基期投機/超跌反彈而非基本面轉強。",
+    "pit": "pre_t0",
+    "pricing_state": "近況惡化 (報價崩跌,漲勢逆基本面)",
+    "used": true
+  },
+  {
+    "date": "查無",
+    "source": "WebSearch 多輪 (cnyes/goodinfo/cmoney/moneydj)",
+    "url": "https://www.cnyes.com/twstock/8088",
+    "title": "查無 t0(2022-12)前後品安任何個股層級硬催化(無接單/擴產/認證/財測上修/併購/經營權等公告)",
+    "excerpt": "經多輪搜尋(鉅亨、Goodinfo、CMoney、MoneyDJ、七仔、口袋學堂),t0(2022-12-14)前後未見品安任何個股層級的實質催化:無接單/新客戶、無擴產、無認證、無財測上修、無併購或經營權事件。前期 +29% 缺乏可辨識的消息基礎,研判為記憶體谷底低基期+大盤反彈+被動元件集團連動的籌碼投機。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股催化 (純籌碼/低基期投機)",
+    "used": true
+  }
+]

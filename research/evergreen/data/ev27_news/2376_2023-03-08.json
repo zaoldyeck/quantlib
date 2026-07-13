@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2022-11-30",
+    "source": "OpenAI / 全球科技媒體",
+    "url": "https://openai.com/blog/chatgpt",
+    "title": "ChatGPT 問世,點燃生成式 AI 浪潮",
+    "excerpt": "ChatGPT 於 2022/11/30 上線,引爆生成式 AI 需求,連帶帶動矽智財、晶片組、載板、電源、散熱、主機板、伺服器、AI PC 全供應鏈想像。此為技嘉 t0(2023/03/08)前最上游的宏觀題材點火源。ChatGPT 本身人盡皆知,但『AI 伺服器整機供應鏈受惠』在 2022 年底~2023 年初仍未被完整定價——技嘉 2022 年仍處 PC 去庫存衰退,市場尚未把它重定價為 AI 股。",
+    "pit": "pre_t0",
+    "pricing_state": "宏觀人盡皆知/個股尚未反應",
+    "used": true
+  },
+  {
+    "date": "2023-02-22",
+    "source": "NVIDIA FY4Q23 財報 / 財經媒體",
+    "url": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-fourth-quarter-and-fiscal-2023",
+    "title": "輝達 FY4Q23 財報,資料中心/AI 展望強勁,台股 AI 供應鏈啟動",
+    "excerpt": "輝達 2023/02/22 公布財報,黃仁勳大談生成式 AI 與資料中心動能,市場開始把台廠 AI 伺服器供應鏈(組裝廠技嘉、緯創、廣達等)視為受惠者。此為 t0(3/08)前約兩週的近端催化,把 AI 敘事從『概念』推向『台股供應鏈定價』,屬部分反應。技嘉為 NVIDIA 認證 HGX H100 8-GPU 伺服器整機廠,AI 純度高。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "日期不明(長期定位)",
+    "source": "iThome / GIGABYTE 官網",
+    "url": "https://www.ithome.com.tw/review/158660",
+    "title": "技嘉為 NVIDIA 認證 AI 伺服器整機廠(HGX H100 8-GPU / G593 系列)",
+    "excerpt": "技嘉(及子公司技鋼)長期為 NVIDIA 認證伺服器夥伴,提供採用 HGX H100 8-GPU 的 5U 伺服器,是台廠中 AI 伺服器『純度』最高者之一。此定位在 t0 前即存在,但 2022 年公司仍受 PC 週期拖累衰退,AI 轉機尚未被市場定價。屬 t0 時被重新發現的隱性題材。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未反應(個股)",
+    "used": true
+  },
+  {
+    "date": "2023-03-21",
+    "source": "財報狗 / NVIDIA GTC 2023",
+    "url": "https://statementdog.com/news/15988",
+    "title": "【事後】輝達 GTC keynote,15 家台廠入列『背板股』,台股逾 80 檔漲停",
+    "excerpt": "【t0 後 2 週】NVIDIA GTC 2023(3/20-23)黃仁勳主題演講背板列出台積電、鴻海、廣達、緯創、華碩、技嘉、英業達等 15 家台廠,台股逾 80 檔 AI 概念股漲停。這是 t0(3/08)點火後、把 AI 伺服器題材推向全民狂熱的關鍵確認事件,技嘉為核心受惠股。",
+    "pit": "post_t0",
+    "pricing_state": "事後題材確認/加速",
+    "used": true
+  },
+  {
+    "date": "2023-05-24",
+    "source": "NVIDIA FY1Q24 財報 / 財經媒體",
+    "url": "https://nvidianews.nvidia.com/news/nvidia-announces-financial-results-for-first-quarter-fiscal-2024",
+    "title": "【事後】輝達財報財測炸裂,AI 伺服器需求爆發確認,技嘉續飆",
+    "excerpt": "【事後】輝達 2023/05/24 公布遠超預期的資料中心財測,AI 伺服器需求爆發正式確認,帶動台股 AI 伺服器族群第二段噴出。技嘉 2023 全年上漲約 264%(廣達 +296%、緯創 +457%)。此事件落在 t0(3/08)+60 日窗口尾段,是把技嘉 +81% 漲勢推到滿檔的事後驅動。",
+    "pit": "post_t0",
+    "pricing_state": "事後基本面爆發確認",
+    "used": true
+  }
+]

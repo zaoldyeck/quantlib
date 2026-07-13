@@ -1,0 +1,42 @@
+[
+  {
+    "date": "背景 (公司體質)",
+    "source": "財報狗 / 鉅亨",
+    "url": "https://www.cnyes.com/twstock/intro.aspx?code=8440",
+    "title": "綠電=太陽能電廠營運/售電 (綠能環保族群),2024 全年營收 9.71 億、EPS 0.54 元 (基本面平淡)",
+    "excerpt": "綠電 (8440) 主業為太陽能電廠營運與售電,屬綠能環保族群。2024 全年營收約 9.71 億、EPS 僅 0.54 元,基本面平淡、成長性有限。t0 前公司體質無顯著轉折,起漲非基本面驅動。",
+    "pit": "pre_t0",
+    "pricing_state": "已知 (基本面平淡)",
+    "used": true
+  },
+  {
+    "date": "2024 上半年 (族群)",
+    "source": "Yahoo 股市 / 產業",
+    "url": "https://tw.stock.yahoo.com/quote/6806.TW",
+    "title": "綠能族群 mania:森崴能源 (6806) 2024 上半狂飆、7 月見 192 元 ATH,帶動太陽能/綠電族群資金行情",
+    "excerpt": "2024 上半年台股綠能族群出現 mania,龍頭森崴能源 (6806) 股價狂飆,2024 年 7 月見 192 元歷史天價 (其後基本面崩壞、2026 下市)。綠電 (8440) t0 (6/4) 落在此綠能族群資金行情高峰前段,屬族群 sympathy move。",
+    "pit": "pre_t0",
+    "pricing_state": "族群題材 (綠能 mania 資金行情)",
+    "used": true
+  },
+  {
+    "date": "2023-12-14 (政策背景)",
+    "source": "經濟部 / 綠電交易制度",
+    "url": "https://www.businessweekly.com.tw/carbon-reduction/blog/3011181",
+    "title": "政策背景:經濟部開放第二/三型電廠透過售電業賣綠電,台積電等 RE100 綠電需求升溫",
+    "excerpt": "2023-12-14 經濟部宣布第二、三型電廠可透過再生能源售電業將綠電賣給台電以外用戶;台積電購買約 99% 直轉供憑證,企業 RE100 綠電需求升溫。此為綠能族群的政策背景 (非綠電 8440 個股點火),支撐族群估值想像。",
+    "pit": "pre_t0",
+    "pricing_state": "已知政策 (族群背景)",
+    "used": true
+  },
+  {
+    "date": "2024 (查核)",
+    "source": "money-link 個股新聞 / 董事會",
+    "url": "https://ww2.money-link.com.tw/TWStock/StockNews.aspx?SymId=8440",
+    "title": "查無綠電 8440 於 2024 年 5-6 月的個股點火新聞 (無得標、增資、併購、私募等)",
+    "excerpt": "遍查未見綠電 8440 於 2024 年 5-6 月有電廠得標、增資、私募、併購或法說等個股點火事件 (董事會僅設永續/風險委員會等例行事項)。t0 (6/4) 暴漲判定為綠能族群 mania 的 sympathy 資金行情,消息面查無明確個股前兆。",
+    "pit": "pre_t0",
+    "pricing_state": "查無個股點火 (族群資金行情)",
+    "used": true
+  }
+]

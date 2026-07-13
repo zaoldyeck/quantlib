@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2025-04-09",
+    "source": "維基百科 2025年股災",
+    "url": "https://zh.wikipedia.org/zh-hant/2025%E5%B9%B4%E8%82%A1%E7%81%BD",
+    "title": "川普對等關稅暫緩90天 台股4/9落底、4/10史上最大漲點V轉",
+    "excerpt": "南電 t0=4/21 落在關稅暫緩(4/9)後、大盤自低點回升的延續段。載板/PCB 高 beta 股於反彈中補漲。市場低點反轉為 t0 的宏觀背景。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-24",
+    "source": "理財周刊 / cmoney(彙整)",
+    "url": "https://www.moneyweekly.com.tw/ArticleData/Info/Article/222584/",
+    "title": "南電盤中攻上874元漲9.94% 前一交易日爆天量246.8億",
+    "excerpt": "4/24 南電盤中漲 9.94% 至 874，前一交易日成交 246.8 億爆量換手創波段天量。AI 伺服器/ASIC/800G 交換器需求帶動高階 ABF 載板由供過於求轉向缺口。t0 後數日的資金點火與量能確認。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-03-18",
+    "source": "產業報導(ABF載板背景彙整)",
+    "url": "https://www.pocket.tw/school/report/SCHOOL/7419/",
+    "title": "AI帶動高階ABF載板需求回溫 載板三雄(欣興/南電/景碩)",
+    "excerpt": "AI 伺服器與 NVIDIA 新平台(Rubin 導入更大面積載板)推升高階 ABF 需求，載板由谷底轉正。此為 t0 前已在市場流傳的醞釀型主題，南電為網通載板要角並啟動漲價策略。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-05-10",
+    "source": "公開資訊觀測站 / winvest",
+    "url": "https://winvest.tw/Stock/Symbol/MonthlyRevenue/8046",
+    "title": "南電 2025年4月營收31.91億 月增3.41% 年增19.26%",
+    "excerpt": "4 月營收 31.91 億(年增 19.26%)於 5/10 左右公布，屬 t0 後才揭露的營收改善佐證。反映載板需求回溫但尚未進入 2026 的爆發式漲價週期。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2026-06-30",
+    "source": "工商時報(遠期對照,非本次t0驅動)",
+    "url": "https://www.ctee.com.tw/news/20260630700893-430201",
+    "title": "南電漲停創天價1185元 本土外資法人齊喊買",
+    "excerpt": "2026/6 南電因 ABF 超級缺貨+AI 定價上升週期漲停創歷史新高 1185、周漲近 29%、晉升千金股，法人目標價上看 1500。此為 2026 年的第二波、規模更大的行情;與 2025/4 的 t0 明確區分——2025 僅為題材初升與關稅反彈，真正爆發在一年後。",
+    "pit": "post_t0",
+    "pricing_state": "人盡皆知",
+    "used": false
+  }
+]

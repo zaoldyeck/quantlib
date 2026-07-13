@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2025-05-07",
+    "source": "vocus 個股筆記",
+    "url": "https://vocus.cc/article/681cb9bdfd897800019a3c65",
+    "title": "定穎投控 2025/05/07 法說會內容",
+    "excerpt": "定穎於 5/7 舉行 Q1 2025 法說會。t0=5/5 為法說前 2 交易日的預期性起漲。法說主軸:泰國廠高階製程 AI 產品(GPU/ASIC/Switch)下半年陸續量產、AI 伺服器/網通/儲存板轉型。市場提前卡位法說利多。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-10",
+    "source": "客新聞 HakkaNews",
+    "url": "https://hakkanews.tw/2025/04/10/191852/",
+    "title": "台股關稅暫緩後 V 轉大漲(+9.25%)",
+    "excerpt": "4/10 起台股自關稅低點強彈。定穎 t0=5/5 落在大盤反彈中後段，屬關稅反彈延伸+AI 伺服器 PCB 題材接棒的復合行情。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-03-15",
+    "source": "DA Labs / 7evenguy(產業背景彙整)",
+    "url": "https://dalabs.org/guide/tw-stock-guide/what-is-3715-doing/",
+    "title": "定穎投控:車用PCB龍頭轉戰AI伺服器 泰國廠卡位AI商機",
+    "excerpt": "定穎為全球車用 PCB 重要供應商;泰國廠 2024Q3 量產，鎖定 AI 算力擴產，最大年產值目標 300 億(2027)。HDI 占比升至 37%。轉型故事於 t0 前已成形——醞釀型主題。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知",
+    "used": true
+  },
+  {
+    "date": "2025-06-15",
+    "source": "風傳媒 storm.mg / cmoney",
+    "url": "https://www.storm.mg/article/11115210",
+    "title": "AI伺服器訂單發威！定穎投控獲外資升評 目標價上看215元",
+    "excerpt": "美系外資(BoFA)升評/首評買進、目標價 215 元;2025-2028 淨利 CAGR 預估 135%、AI 伺服器營收占比 2028 拉升至 60%。屬 t0 後行情發展中的法人加碼與評價重估。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-08-01",
+    "source": "CMoney 研究員即時新聞",
+    "url": "https://cmnews.com.tw/article/cmoneyairesearcher-e5007a48-7269-11f0-add5-9665a1607a7b",
+    "title": "定穎投控攻上漲停 主力與法人同步加碼 AI伺服器題材點火PCB族群",
+    "excerpt": "AI 伺服器題材點火 PCB 族群、定穎漲停，主力法人同步加碼。t0 後題材延燒、籌碼輪動助攻的續航段。",
+    "pit": "post_t0",
+    "pricing_state": "部分反應",
+    "used": false
+  },
+  {
+    "date": "2026-05-07",
+    "source": "富果直送(後續佐證)",
+    "url": "https://blog.fugle.tw/post/earnings-call-3715-2026-05-07",
+    "title": "定穎投控 2025 全年營收195億創新高 連3年正成長",
+    "excerpt": "2025 全年營收 195 億(+9.4%)、稅後淨利 7.49 億、EPS 2.7;毛利率降至 19.3%(泰國廠初期成本+CCL 漲價)。AI 產品 2026 放量。屬 t0 後長期兌現，佐證轉型方向但初期獲利承壓。",
+    "pit": "post_t0",
+    "pricing_state": "人盡皆知",
+    "used": false
+  }
+]

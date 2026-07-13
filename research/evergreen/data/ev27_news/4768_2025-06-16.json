@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2024-2025 (題材底盤)",
+    "source": "MoneyDJ / Threads @ricktorichy",
+    "url": "https://www.moneydj.com/kmdj/wiki/wikiviewer.aspx?keyid=1286f195-dc7f-45f6-9ee3-cbe68b1c4ac5",
+    "title": "晶呈科技=半導體特殊氣體隱形冠軍(C4F6/C4F8)，受惠 3D NAND/HBM 需求 + DRAM 漲價循環",
+    "excerpt": "晶呈(4768，上櫃)主攻半導體特殊氣體(C4F6/C4F8)、濕式化學品、再生晶圓。C4F6 為關鍵蝕刻材料，受惠 3D NAND flash 與 HBM 強勁需求，DRAM 進入漲價循環、日韓客戶重啟拉貨。半導體材料/記憶體復甦題材，t0 前已成形。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(題材醞釀)",
+    "used": true
+  },
+  {
+    "date": "2025-06-05~10 (前 5 月營收公布)",
+    "source": "聯合新聞網 udn 9558127 / 永豐豐雲學堂",
+    "url": "https://udn.com/news/story/7254/9558127",
+    "title": "晶呈前 5 月營收 7.13 億、年增 145.47%(5 月 9761 萬、年增 64.24%，月減因戰爭船班)",
+    "excerpt": "晶呈 2025 年 1-5 月累計營收 7.13 億元、年增 145.47%；5 月 9761 萬元、年增 64.24%(月減 43.8% 係戰爭不可抗力影響船班+韓國客戶排程)。爆發性 YoY 營收動能，t0(6/16)前已可見(6 月上旬公布)。",
+    "pit": "pre_t0",
+    "pricing_state": "市場開始定價(營收動能)",
+    "used": true
+  },
+  {
+    "date": "2025-06 (研究報告)",
+    "source": "Threads @ricktorichy",
+    "url": "https://www.threads.com/@ricktorichy/post/DWgEuMQkdIA/",
+    "title": "市場出現晶呈研究報告，帶動股價約兩週漲 26% 至目標價",
+    "excerpt": "投研社群發布晶呈基本面報告(特殊氣體隱形冠軍)，貼文稱『不到兩週就漲了 26% 到目標價』。顯示 t0 前後有券商/投研覆蓋催化的成分(散戶追捧小型股)。日期為概略，列為旁證。",
+    "pit": "pre_t0",
+    "pricing_state": "市場開始定價(覆蓋催化)",
+    "used": true
+  },
+  {
+    "date": "2025-06 (半導體/記憶體 macro)",
+    "source": "TrendForce/產業報導(綜合)",
+    "url": "https://www.cnyes.com/twstock/4768",
+    "title": "記憶體(DRAM/NAND)進入漲價循環、HBM 需求續強，帶動上游材料補庫存",
+    "excerpt": "2025 年中記憶體現貨/合約價轉強、HBM 需求續強，晶圓廠/封測廠對蝕刻氣體等前段材料補庫存，利多特殊氣體廠。題材面驅動小型材料股重評價。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(產業題材)",
+    "used": true
+  },
+  {
+    "date": "2025-07 上旬 (後續)",
+    "source": "經濟日報 money.udn 9618165 / 富聯網",
+    "url": "https://money.udn.com/money/story/5607/9618165",
+    "title": "晶呈 6 月營收 1.08 億、年增 115.89%；上半年 8.21 億、年增 141.1%",
+    "excerpt": "6 月營收 1.08 億元、年增 115.89%、月增 11.35%；上半年 8.21 億、年增 141.1%。事後確認營收動能(7 月初公布)，非 t0 前可見。頭份三廠 C4F6 一級合成廠延至 2025Q4 試量產。",
+    "pit": "post_t0",
+    "pricing_state": "事後-基本面確認",
+    "used": true
+  }
+]

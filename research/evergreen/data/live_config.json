@@ -1,0 +1,27 @@
+{
+ "refit_date": "2026-07-13",
+ "train_window": [
+  "2023-07-11",
+  "2026-07-09"
+ ],
+ "config": {
+  "gate": "inst5",
+  "score": "xadv_inv",
+  "pool_months": 2,
+  "h120": 0.0,
+  "trail": 0.4,
+  "lts": 45,
+  "n_slots": 5,
+  "max_new": 1
+ },
+ "train_kpi": {
+  "cagr": 3.163982392064261,
+  "mdd": -0.44054472187877025,
+  "martin": 37.32872456118774,
+  "p5": 1.5050277434826855
+ },
+ "selection_metric": "p5(EV44 裁決,KPI v3 主尺)",
+ "validation": "EV40 borderline(perm p=0.000 / PBO 0.30 ✓;bootstrap 下界 / DSR ✗)——倉位上限 25% NAV(EV41 配置)",
+ "next_refit_due": "2027-01(半年)或 2027-07(一年)",
+ "grid_frozen": "EV38∪EV42 存活軸;變更須重過兩折 walk-forward"
+}

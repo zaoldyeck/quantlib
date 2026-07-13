@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2024-04-11 (t0 背景)",
+    "source": "公司屬性 / treelazy 3581 / MoneyDJ",
+    "url": "https://treelazy.com/stock/3581",
+    "title": "博磊(3581)=小型半導體封測設備/治具廠:記憶體測試治具、晶圓/LED切割機、BGA植球機、面板級扇出切割",
+    "excerpt": "博磊(3581,1999成立)為半導體封裝測試設備/治具專業廠,產品含記憶體Memory測試治具、晶圓/LED切割機(Dicing/Singulation Saw)、BGA植球機,近年聚焦AI相關高階測試介面與面板級扇出(Panel Fan-Out)切割設備。屬電子-半導體中後段製程與測試設備供應商,直接受惠AI/高階記憶體/先進封裝擴產。市值小、股本薄,籌碼易動。此為t0前既存屬性。",
+    "pit": "pre_t0",
+    "pricing_state": "人盡皆知(公司背景/薄籌碼小型設備股)",
+    "used": true
+  },
+  {
+    "date": "2023-2024 (產業趨勢)",
+    "source": "產業趨勢(CoWoS/HBM/NVIDIA)",
+    "url": "https://3dfabric.tsmc.com/english/dedicatedFoundry/technology/cowos.htm",
+    "title": "AI先進封裝(CoWoS/HBM)資本支出爆發:台積電CoWoS產能自2023底約13k wpm大幅擴張,NVIDIA投片拉動後段封測需求",
+    "excerpt": "2023-2024年AI晶片(NVIDIA B/GB系列、AMD MI系列)帶動台積電CoWoS先進封裝產能自2023年底約13k wpm朝十倍以上擴張,HBM高階記憶體與先進封裝投資同步升溫,後段封測/測試設備需求水漲船高。博磊作為封測設備/測試治具小廠,是此結構題材的高彈性標的。t0(2024-04-11)正落在AI封裝擴產題材發酵期。屬醞釀型產業題材,非博磊個股硬消息。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(AI封裝題材,族群性)",
+    "used": true
+  },
+  {
+    "date": "2024 (產品驗證進度)",
+    "source": "公司產品線 / 財報狗 3581",
+    "url": "https://statementdog.com/analysis/3581",
+    "title": "博磊AI測試介面與面板級扇出(Panel Fan-Out)切割設備進入客戶驗證,預計下半年放量出貨",
+    "excerpt": "博磊多項AI測試介面與面板級扇出型封裝(Panel Fan-Out)切割設備進入客戶驗證階段,預計上半年完成驗證、自第三季起逐步放量出貨。此『驗證中→下半年放量』的成長預期於t0前後為市場想像來源,但屬尚未兌現的訂單能見度(彼時基本面仍小,獲利微薄)。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(產品驗證中,能見度未兌現)",
+    "used": true
+  },
+  {
+    "date": "2024-06-25 (事後)",
+    "source": "CMoney 投資快訊",
+    "url": "https://www.cmoney.tw/notes/note-detail.aspx?nid=837986",
+    "title": "(事後)博磊股價飆升,封測族群優於台積電,鎖定輝達大單;近5日+12.63%、外資買超",
+    "excerpt": "(事後,2024-06-25)CMoney報導『博磊股價飆升,封測族群優於台積電,鎖定輝達大單』:NVIDIA大量投片台積電先進製程→後段封測需求增長,同業京元電獲輝達新單、預估Q4訂單較Q3暴增一倍,博磊測試產線產能利用率高、近5日漲12.63%、外資買超133張。此為t0(4/11)後對封測題材與資金流的事後確認。",
+    "pit": "post_t0",
+    "pricing_state": "事後(封測題材+資金流確認)",
+    "used": true
+  },
+  {
+    "date": "2025-2026 (遠晚事後,勿混淆)",
+    "source": "時報資訊 / CMoney",
+    "url": "https://www.chinatimes.com/realtimenews/20260504002424-260410",
+    "title": "(遠晚事後,勿混淆)博磊2026年4-5月連拉漲停、近1月飆漲逾2倍、股價達252元為另一獨立事件",
+    "excerpt": "(PIT警示)博磊2026年4-5月『連拉3根漲停、近1月飆漲近2.05倍、股價252元』受記憶體擴產+封測題材帶動,為t0(2024-04)之後兩年的另一次獨立暴漲,不得用於2024-04的歸因。2024-04屬AI封裝題材第一波薄籌碼行情,量級與驅動皆不同。",
+    "pit": "post_t0",
+    "pricing_state": "事後(2026獨立事件,PIT警示)",
+    "used": false
+  }
+]

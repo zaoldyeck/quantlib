@@ -1,0 +1,52 @@
+[
+  {
+    "date": "背景 (2022 起轉型)",
+    "source": "優分析 UAnalyze",
+    "url": "https://uanalyze.com.tw/articles/3750112290",
+    "title": "宇隆=汽車精密零件廠 (噴油嘴等),2022 起推自有品牌 TUF One 行星減速機,由車用往機器人關節/自動化延伸",
+    "excerpt": "宇隆為精密金屬零件加工廠 (汽車噴油嘴等),2022 年成功開發第一個自有品牌 TUF One 行星減速機,積極開發諧波、RV 減速機,朝機器人關節與自動化延伸。t0 前『減速機轉型』故事已存在,為機器人供應鏈的潛在受惠者。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (減速機轉型故事)",
+    "used": true
+  },
+  {
+    "date": "2024-06 (產能)",
+    "source": "MoneyDJ / 優分析",
+    "url": "https://www.moneydj.com/kmdj/news/newsviewer.aspx?a=c4698d57-18de-4724-895d-c93980f683e9",
+    "title": "2024-06 宇隆台中新廠啟用 (斥資 10 億,產能 3x),為 TUF One 減速機主要研發生產基地",
+    "excerpt": "2024 年 6 月宇隆台中港科技產業園區新廠正式啟用,斥資 10 億、佔地 1.2 公頃,可提高產能 3 倍,為自有品牌 TUF One 行星減速機主要研發生產基地。此為 t0 (10/9) 前的產能與轉型鋪陳,強化減速機/機器人供應鏈定位。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應 (新廠/產能鋪陳)",
+    "used": true
+  },
+  {
+    "date": "2024-10-10 (美) / 10-11 (台)",
+    "source": "特斯拉 We, Robot / 維基",
+    "url": "https://zh.wikipedia.org/zh-tw/Optimus_(%E6%A9%9F%E5%99%A8%E4%BA%BA)",
+    "title": "特斯拉 'We, Robot' 發表會 (Optimus 人形機器人) 點火全球機器人供應鏈,宇隆 (減速機) 於 10/9 提前起漲 front-run",
+    "excerpt": "2024-10-10 (美西晚間)/10-11 (台) 特斯拉舉行 'We, Robot' 發表會,展示 Optimus 人形機器人、Cybercab、Robovan。事件點燃全球人形機器人供應鏈行情。宇隆作為減速機 (機器人關節核心) 廠,於 t0 (10/9) 事件前 1-2 日提前起漲,為典型 robot 供應鏈 front-run/搶跑。",
+    "pit": "pre_t0",
+    "pricing_state": "尚未反應→點火 (Tesla 事件搶跑)",
+    "used": true
+  },
+  {
+    "date": "2024-10 (族群)",
+    "source": "經濟日報",
+    "url": "https://money.udn.com/money/story/11162/9265985",
+    "title": "人形機器人供應鏈題材:上銀、大銀、和大、宇隆等減速機/傳動廠齊漲,準備出貨",
+    "excerpt": "特斯拉 Optimus 帶動下,台股人形機器人供應鏈 (上銀 2049、大銀 4576、和大 1536、宇隆 2233 等減速機/傳動廠) 齊漲。宇隆以減速機切入機器人關節,隨族群同步走強。此為 t0 附近的族群共振,支持 Tesla 事件為主催化的判讀。",
+    "pit": "pre_t0",
+    "pricing_state": "尚未反應→部分 (族群共振)",
+    "used": true
+  },
+  {
+    "date": "2025 (事後)",
+    "source": "優分析 / 民視 / 經濟日報",
+    "url": "https://www.ftvnews.com.tw/news/detail/2026318W0266",
+    "title": "(事後) 宇隆深化人形機器人:諧波/RV 減速機、Tesla Optimus BOM 想像、信邦 MOU、UQD 液冷 — 深度敘事為 2025 事後",
+    "excerpt": "(事後) 2025 起宇隆深化人形機器人敘事:諧波減速機 4Q25 推出、Tesla Optimus Gen-3 減速機用量 (諧波 12→54)、與信邦 (3023) 簽 MOU 攻美系人形機器人、UQD 液冷快接頭通過輝達 GB300 認證。這些深度 humanoid/Optimus BOM 與液冷敘事均為 t0 (2024-10) 之後的 2025 事後演繹,t0 當時驅動為 Tesla 事件 + 既有減速機故事的搶跑。",
+    "pit": "post_t0",
+    "pricing_state": "事後 (humanoid 深度敘事 2025)",
+    "used": true
+  }
+]

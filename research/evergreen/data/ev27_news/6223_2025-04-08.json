@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2024 全年 / 2025-03 法說",
+    "source": "口袋學堂 SCHOOL/6433 / vocus 法說筆記",
+    "url": "https://www.pocket.tw/school/report/SCHOOL/6433/",
+    "title": "旺矽 AI/HPC 探針卡龍頭，2024 非記憶體探針卡營收 +47% YoY，升全球第 4",
+    "excerpt": "旺矽為全球前五大探針卡廠(VPC/MEMS)。2024 非記憶體探針卡營收 +47% YoY，遠超 Technoprobe(9%)/FormFactor(13%)，排名由第 5 升第 4；毛利率 2024 達 55%、2025Q1 57%。AI/HPC 測試需求強勁，t0 前基本面已確立。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(AI題材已知)",
+    "used": true
+  },
+  {
+    "date": "2024-2025Q1 (題材醞釀)",
+    "source": "vocus 法說 / 槓桿學院",
+    "url": "https://vocus.cc/article/6984af4ffd89780001a3932b",
+    "title": "旺矽領先佈局 CPO 共封裝光學雙面測試系統",
+    "excerpt": "旺矽開發 CPO(共同封裝光學)雙面測試系統，卡位矽光子測試；VPC 垂直探針卡受 AI ASIC 需求驅動。屬長線題材，t0 前已在 AI 供應鏈題材清單中。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-04-02",
+    "source": "經濟日報 / ey.gov.tw",
+    "url": "https://money.udn.com/money/story/124512/9232466",
+    "title": "川普對等關稅台灣 32%(4/9 生效)",
+    "excerpt": "對等關稅點燃恐慌，旺矽為高 beta AI 半導體設備名，隨大盤重挫至 4/7-4/8 底部區。",
+    "pit": "pre_t0",
+    "pricing_state": "利空點火",
+    "used": true
+  },
+  {
+    "date": "2025-04-07",
+    "source": "客新聞 / StockFeel",
+    "url": "https://hakkanews.tw/2025/04/07/191027/",
+    "title": "台股史上最大崩盤 -9.7%，1702 檔跌停",
+    "excerpt": "旺矽 t0=4/8 位於此崩盤底部區，起漲點的宏觀成因為超跌底。",
+    "pit": "pre_t0",
+    "pricing_state": "利空恐慌底部",
+    "used": true
+  },
+  {
+    "date": "2025-04-09 / 04-11",
+    "source": "永豐豐雲學堂",
+    "url": "https://www.sinotrade.com.tw/richclub/hotstock/67fca900facf9628fc8af323",
+    "title": "關稅暫緩 90 天 + 電子/半導體豁免 → 反彈",
+    "excerpt": "4/9 暫緩、4/11 電子豁免，半導體被視為最大受惠，旺矽 t0 後強彈。+80% 主體為超跌反彈+AI 測試基本面延續。",
+    "pit": "post_t0",
+    "pricing_state": "事後-宏觀反彈觸媒",
+    "used": true
+  },
+  {
+    "date": "2025H2 (後續確認)",
+    "source": "poorstock / vocus 2026-03 法說",
+    "url": "https://poorstock.com/earningcall/6223",
+    "title": "VPC 自 2025H2 持續滿載，能見度達 2026Q3；MEMS 產能 2026Q1 倍增；2025 EPS 33.49",
+    "excerpt": "VPC 垂直探針卡 2025 下半年起滿載、能見度直達 2026Q3；MEMS 月產能 2026Q1 倍增以應付 AI/HPC ASIC 訂單；2025 全年 EPS 33.49(+31.5%)。事後確認，非 t0 前可見。",
+    "pit": "post_t0",
+    "pricing_state": "事後-基本面確認",
+    "used": true
+  }
+]

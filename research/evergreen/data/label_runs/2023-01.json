@@ -1,0 +1,75 @@
+{
+ "month": "2023-01",
+ "labels": [
+  {
+   "code": "1513",
+   "name": "中興電",
+   "theme": "重電/台電強韌電網計畫",
+   "signal_type": "地緣/政策供給衝擊再定價",
+   "event": "台電10年5645億『強韌電網計畫』2022-09啟動並持續釋單，中興電為GIS(氣體絕緣開關)龍頭、電力系統工程直接受惠；2023年初台股自2022-10低點反彈、重電族群領漲(乘浪起點)，2022在手訂單2023年起營收兌現。",
+   "evidence": "台電官方2022-09(service.taipower.com.tw/tpcjournal/5772)；重電族群直接受惠+台電訂單(MoneyDJ/ev27樣本1529, 2022)；2023展望法人首推半導體+重電(天下雜誌2023-01)。",
+   "invalidation": "台電招標延宕或取消、中興電月營收未於H1-2023加速兌現、或股價已完成主升段利多出盡。",
+   "conviction": 4
+  },
+  {
+   "code": "1519",
+   "name": "華城",
+   "theme": "重電/電網(台電+美國外銷)",
+   "signal_type": "地緣/政策供給衝擊再定價",
+   "event": "台電5645億電網計畫(2022-09)＋美國電網升級雙引擎；華城為變壓器龍頭、美國外銷比重最高，低基期、2022訂單2023年起出貨兌現，2023年初重電族群點火領漲。",
+   "evidence": "台電官方2022-09；重電五雄華城1519變壓器+美國外銷比重最高(商周『重電4雄』；ev27樣本1529, 2022)；2023法人top pick(天下雜誌2023-01)。",
+   "invalidation": "台電或美國變壓器訂單遞延、月營收未加速兌現、或股價已大漲充分反映(利多出盡)。",
+   "conviction": 4
+  },
+  {
+   "code": "1503",
+   "name": "士電",
+   "theme": "重電/電網+儲能",
+   "signal_type": "地緣/政策供給衝擊再定價",
+   "event": "台電5645億電網計畫(2022-09)受惠變壓器擴產；士電另有峰谷電價差驅動的表後儲能新動能，屬同一政策題材的直接環節，2023年起兌現。",
+   "evidence": "台電官方2022-09；重電五雄士電1503變壓器+儲能(商周『重電4雄』, 2022)；2023法人首推半導體+重電(天下雜誌2023-01)。",
+   "invalidation": "台電訂單遞延或儲能案場進度落後、月營收未加速、或股價已充分反映。",
+   "conviction": 4
+  },
+  {
+   "code": "2382",
+   "name": "廣達",
+   "theme": "AI伺服器/生成式AI",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "ChatGPT(2022-11-30)＋傳微軟投OpenAI 100億美元(2023-01-10)點燃生成式AI；廣達為全球最大AI伺服器ODM(建NVIDIA HGX)，硬體個股尚未定價，觸媒NVIDIA FY23Q4財報2/22、GTC約3/21落在2-6月窗內。",
+   "evidence": "ChatGPT(OpenAI 2022-11-30)；微軟$10B(TechNews 2023-01-10)；廣達=最大AI伺服器ODM、台股AI鏈2/22啟動(ev27樣本2376，先於t0公開定位)。",
+   "invalidation": "NVIDIA 2/22財報AI/資料中心展望落空、AI伺服器read-through未落單、或當期NB/一般server衰退主導行情。",
+   "conviction": 4
+  },
+  {
+   "code": "3231",
+   "name": "緯創",
+   "theme": "AI伺服器/生成式AI",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "生成式AI題材點火(ChatGPT 2022-11-30／傳微軟投OpenAI $10B 2023-01-10)；緯創為NVIDIA DGX/HGX主力組裝與基板供應商，硬體尚未重定價，觸媒NVIDIA 2/22、GTC 3/21在窗內。",
+   "evidence": "微軟$10B(TechNews 2023-01-10)；緯創=NVIDIA DGX/HGX組裝+基板供應商(ev27樣本2376/2023-02材料；HGX H100 2022發表之公開事實)。",
+   "invalidation": "NVIDIA 2/22展望落空、AI伺服器未轉單、或當期NB/一般server弱勢主導使AI貢獻遞延。",
+   "conviction": 4
+  },
+  {
+   "code": "6669",
+   "name": "緯穎",
+   "theme": "AI伺服器/生成式AI",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "生成式AI點火(ChatGPT／傳微軟投OpenAI $10B 2023-01-10)；緯穎為純hyperscale/雲端伺服器ODM、產NVIDIA版主機板(AI純度最高、無NB稀釋)，硬體尚未定價，觸媒NVIDIA 2/22、GTC 3/21在窗內。",
+   "evidence": "微軟$10B(TechNews 2023-01-10)；緯穎產NVIDIA版主機板、hyperscale server ODM(ev27樣本2376/2023-02材料，先於t0公開定位)。",
+   "invalidation": "NVIDIA 2/22展望落空、或雲端capex縮手使AI伺服器需求遞延。",
+   "conviction": 4
+  },
+  {
+   "code": "2376",
+   "name": "技嘉",
+   "theme": "AI伺服器/生成式AI",
+   "signal_type": "國際大廠旗艦事件供應鏈傳導",
+   "event": "生成式AI點火(ChatGPT／傳微軟投OpenAI $10B 2023-01-10)；技嘉為NVIDIA認證AI伺服器整機廠(HGX H100 8-GPU/G593)，硬體尚未定價，觸媒NVIDIA 2/22財報、GTC 3/21落在2-6月窗內。",
+   "evidence": "微軟$10B(TechNews 2023-01-10)；技嘉=NVIDIA認證AI整機HGX H100/G593(ev27樣本2376，先於t0之長期公開定位)。",
+   "invalidation": "NVIDIA 2/22展望落空、或顯卡(後挖礦去化)當期弱勢不敵AI整機成長。",
+   "conviction": 4
+  }
+ ]
+}

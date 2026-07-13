@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2025Q1-Q2 (轉型國防)",
+    "source": "優分析 UAnalyze 5123723166 / 口袋學堂 SCHOOL/5993",
+    "url": "https://uanalyze.com.tw/articles/5123723166",
+    "title": "雷虎由 RC 模型轉型軍用無人載具(FPV 無人機 + USV 無人艇)，Q1 2025 獲利創同期新高",
+    "excerpt": "雷虎聚焦軍用無人載具供應商：FPV 自殺攻擊無人機、USV 無人快艇(SeaShark 海鯊)。取得美國防部 Blue UAS 認證(全球僅 5 家具 FPV 量產)。Q1 2025 獲利創同期新高。無人機國家隊 + 政策利多醞釀。t0 前題材已成形。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(國防題材醞釀)",
+    "used": true
+  },
+  {
+    "date": "2025-04-25",
+    "source": "自由軍武頻道 def.ltn 5022952",
+    "url": "https://def.ltn.com.tw/article/breakingnews/5022952",
+    "title": "雷虎自殺式無人快艇 SeaShark 800 亮相/報名中科院快奇專案，宣稱 3 特點超出中科院要求",
+    "excerpt": "雷虎旗艦 USV『海鯊號 SeaShark 800』正式報名中科院『快奇專案』攻擊型無人艇性能測試(6 月於宜蘭蘇澳外海)，並進行海域公開測試，宣稱 3 項特點超出中科院要求。此為 t0(5/20)前的明確催化事件。",
+    "pit": "pre_t0",
+    "pricing_state": "市場尚未充分反應(具體催化)",
+    "used": true
+  },
+  {
+    "date": "2025Q2 (4-6 月)",
+    "source": "優分析 / 經濟日報 money.udn 9499481",
+    "url": "https://money.udn.com/money/story/5612/9499481",
+    "title": "雷虎攜美國防科技業(Auterion)導入自主駕駛於海鯊號；FPV 自殺無人機自 Q2 起大量交貨",
+    "excerpt": "雷虎與美國 Auterion 合作將自主駕駛系統導入海鯊號 USV，並推新世代 AI 攻擊型無人機 EXPORT 計畫進軍軍用市場；自製 FPV 自殺無人機及零組件自 2025Q2 起大量交貨，供國內外(取得歐美軍工大廠訂單)。t0 前進入實質接單。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應",
+    "used": true
+  },
+  {
+    "date": "2025-05 (t0 起漲)",
+    "source": "CMoney 股市爆料同學會 / 玩股網 wantgoo 8033",
+    "url": "https://www.cmoney.tw/forum/stock/8033",
+    "title": "無人機國家隊題材延燒，主力/法人同步加碼，雷虎進入處置股",
+    "excerpt": "t0=5/20 前後：無人機國家隊/國防政策題材延燒，近十日三大法人買超約 2 萬張，主力同步加碼，股價急拉、成交量放大成為處置股。題材+籌碼共振，啟動 60 日 +83% 的噴發。",
+    "pit": "pre_t0",
+    "pricing_state": "點火中(題材+籌碼)",
+    "used": true
+  },
+  {
+    "date": "2025-06",
+    "source": "自由財經 / 優分析",
+    "url": "https://uanalyze.com.tw/articles/5123723166",
+    "title": "快奇專案 USV 測試(蘇澳)、FPV 無人機出貨、股價續創新高",
+    "excerpt": "2025-06 中科院快奇專案 USV 性能測試於蘇澳外海舉行，海鯊號通過並超越要求(60 公里長距離+通訊+AI 避障);FPV 無人機正式出貨。股價續創新高。事後驗證題材。",
+    "pit": "post_t0",
+    "pricing_state": "事後-題材驗證",
+    "used": true
+  },
+  {
+    "date": "2026 (後續-非 t0)",
+    "source": "ETtoday 3192820 / 今周刊 / 經濟日報 9456165",
+    "url": "https://finance.ettoday.net/news/3192820",
+    "title": "(2026 事件,非本次 t0)國防自主無人載具採購條例朝野版預算上看 2400 億、美國防部 DDP 標案、1520 架訂單",
+    "excerpt": "注意年份:國防採購條例 2400 億、政院 2100 億採購案、美國防部 1520 架訂單/DDP 10 億美元等,多為 2026 年事件,非 2025-05 本次 t0 的催化。存檔供區分,避免污染 pre_t0。",
+    "pit": "post_t0",
+    "pricing_state": "事後-他期事件(2026)",
+    "used": false
+  }
+]

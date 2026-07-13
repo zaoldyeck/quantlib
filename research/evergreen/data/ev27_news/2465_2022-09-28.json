@@ -1,0 +1,62 @@
+[
+  {
+    "date": "2022-09-20",
+    "source": "NVIDIA GTC 2022 秋季主題演講(國際大廠發表)",
+    "url": "https://nvidianews.nvidia.com/news/nvidia-ada-lovelace",
+    "title": "NVIDIA GTC 發表 Ada Lovelace 架構、GeForce RTX 40 系列與 RTX 6000 Ada 工作站繪圖卡/L40 資料中心 GPU",
+    "excerpt": "2022-09-20 NVIDIA 於 GTC 發表新一代 Ada Lovelace 架構,含 GeForce RTX 40 系列(RTX 4090/4080)、專業工作站卡 RTX 6000 Ada Generation 及資料中心 L40 GPU。麗臺為 NVIDIA 台灣專業繪圖(Quadro/RTX)與工作站/AI 產品核心夥伴,直接受惠新品出貨換代。此國際大廠發表在 t0(9/28)前 8 日,為可事前識別的供應鏈 read-through 主催化。",
+    "pit": "pre_t0",
+    "pricing_state": "市場開始反應(供應鏈 read-through)",
+    "used": true
+  },
+  {
+    "date": "背景(公司,2022 下半年趨勢)",
+    "source": "鉅亨網/Yahoo 股市(公司業務)",
+    "url": "https://news.cnyes.com/news/id/5413556",
+    "title": "麗臺以 NVIDIA GPU 專業繪圖卡/工作站為主力,Quadro 搭 AI 趨勢,業績自 2022 年 9 月起逐步成長",
+    "excerpt": "麗臺董事長盧崑山表示,以 NVIDIA GPU 架構為主的專業繪圖卡及工作站等 AI 產品需求強勁,Quadro 系列搭上 AI 趨勢,業績『從 2022 年 9 月開始逐步成長』;並自 2022 下半年積極布局 AI 與 IoT、提供工作站/伺服器/專案服務。此確認 9 月為營運轉折起點,與 t0(9/28)吻合。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(營運轉折起點)",
+    "used": true
+  },
+  {
+    "date": "日期不明(疑 2022-09,403 未取得)",
+    "source": "工商時報",
+    "url": "https://ctee.com.tw/news/stocks/917827.html",
+    "title": "輝達推全新工作站繪圖卡,麗臺股價飆漲停(標題疑對應 RTX 6000 Ada,惟日期未能確認)",
+    "excerpt": "工商時報標題『輝達推全新工作站繪圖卡 麗臺股價飆漲停』,內容契合 2022-09-20 RTX 6000 Ada 工作站卡發表帶動麗臺漲停的情境。惟該頁 WebFetch 回 403、發佈日期無法確認,不排除為後續年度同類事件,故列為日期不明旁證,不作前兆定論。",
+    "pit": "pre_t0",
+    "pricing_state": "定價狀態不明(日期無法確認)",
+    "used": false
+  },
+  {
+    "date": "2023-01(反映 2022-12 及全年)",
+    "source": "鉅亨網/Yahoo 股市",
+    "url": "https://tw.stock.yahoo.com/news/%E9%A1%AF%E5%8D%A1-ai%E5%88%A9%E5%A4%9A%E5%8A%A0%E6%8C%81-%E9%BA%97%E8%87%BA-%E7%87%9F%E9%81%8B%E6%8B%9A%E5%9B%9E%E6%AD%B8%E6%88%90%E9%95%B7-201000486.html",
+    "title": "顯卡+AI 利多加持,麗臺 2022 全年營收 53.11 億(近 15 年次高);12 月營收月增逾 4 成回彈至 4.99 億",
+    "excerpt": "麗臺 2022 全年營收 53.11 億元(年減 39.8% 但為近 15 年次高);受 NVIDIA RTX 40 系列出貨與 AI 伺服器需求回溫,2022 年 12 月營收月增逾 4 成回彈至 4.99 億。此為 t0 後的基本面續強確認(2023-01 公布)。",
+    "pit": "post_t0",
+    "pricing_state": "事後基本面確認",
+    "used": true
+  },
+  {
+    "date": "日期約 2022 下半年~2023",
+    "source": "鉅亨網",
+    "url": "https://news.cnyes.com/news/id/5413556",
+    "title": "AI 需求強勁 + 泛美超微(Supermicro)合作效益顯,麗臺明年獲利看增、拚轉虧為盈",
+    "excerpt": "麗臺與超微(Supermicro)合作、NVIDIA 工作站/AI 伺服器專案遞延收入入帳,董座看好隔年營運優於今年並轉虧為盈。屬 AI 伺服器轉型敘事在 t0 後的延伸,支撐續航。",
+    "pit": "post_t0",
+    "pricing_state": "事後題材延伸",
+    "used": true
+  },
+  {
+    "date": "2025-10-10(非 2022,日期陷阱警示)",
+    "source": "鉅亨網",
+    "url": "https://news.cnyes.com/news/id/6185421",
+    "title": "[2025 事件,勿混淆] 麗臺認列中國移動 NVIDIA HGX A800 伺服器專案(200 台/約 12 億),9 月營收 14.26 億創高、單周飆 3 根漲停",
+    "excerpt": "此文發佈 2025-10-10,講 2025 年 9 月麗臺認列中國移動 200 台 NVIDIA HGX A800(約人民幣 2.79 億/新台幣 12 億)資料中心專案、9 月營收 14.26 億創新高、單周 +32%。A800 為 2022-10 美國出口管制後才推出的中國特供版,此訂單屬 2025 事件,與 2022-09 t0 無關,特別存檔以防日期混淆。",
+    "pit": "post_t0",
+    "pricing_state": "無關(後續年度事件/日期陷阱)",
+    "used": false
+  }
+]

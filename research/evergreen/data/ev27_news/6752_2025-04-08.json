@@ -1,0 +1,52 @@
+[
+  {
+    "date": "2025-04-02 ~ 2025-04-09",
+    "source": "宏觀事件(川普對等關稅)",
+    "url": "https://zh.wikipedia.org/zh-hant/2025%E5%B9%B4%E8%82%A1%E7%81%BD",
+    "title": "[t0 觸發-宏觀] 川普對等關稅崩盤:台股 4/7 -9.7%,4/8-4/9 見底反彈;軟體/內需股相對抗關稅",
+    "excerpt": "2025-04-02 川普對等關稅,4/7 台股 -9.7%(史上最大),4/9 90 天暫緩引爆反彈。t0=2025-04-08 為崩盤底部區。叡揚為純內需企業軟體/資安服務商,營收以國內為主、幾乎無關稅出口曝險,屬崩盤中相對抗跌、反彈時受青睞的『抗關稅內需 + AI 軟體』避風港。t0 觸發為市場超跌反彈 + 資金轉入內需軟體。",
+    "pit": "pre_t0",
+    "pricing_state": "市場超跌 + 內需避風港輪動",
+    "used": true
+  },
+  {
+    "date": "2025 Q1(t0 前後)",
+    "source": "財報狗/MoneyDJ",
+    "url": "https://statementdog.com/analysis/6752/revenue-growth-rate",
+    "title": "[前兆-基本面] 叡揚 2025 Q1 營收年增約 21.6%、3 月營收年增 34%,成長回溫",
+    "excerpt": "t0 前後基本面:叡揚 2025 Q1 營收約 4.57 億、年增約 21.61%;3 月營收 1.84 億(月增 28.13%、年增 34.06%,於 4/10 公告)。展望樂觀,看回到過往雙位數成長。相對其他七檔,叡揚的基本面在 t0 有實質改善支撐(非純資金),但成長溫和。",
+    "pit": "pre_t0",
+    "pricing_state": "部分反應(溫和成長、追蹤度低)",
+    "used": true
+  },
+  {
+    "date": "背景(2024-2025)",
+    "source": "GSS 官網/TechOrange",
+    "url": "https://buzzorange.com/techorange/2025/04/22/gss-solutions-day/",
+    "title": "[結構題材] 叡揚深耕企業 AI + 資安:約 20% 產品含 AI 元素、政府覆蓋率極高(行政院部會 97%)",
+    "excerpt": "叡揚(GSS)為 30+ 年企業 e 化/資安/智慧維運廠,生成式 AI 走入企業核心流程(知識協作、營運管理、資安治理)。已有近 20% 產品含 AI 元素,推 InsAI 智慧辨識(VDU+LLM)、引進 Mend.io AI 資安。政府市場高覆蓋(行政院及部會 97%、縣市 82%)。訂閱制 + AI 雙引擎為 2025 再評價題材。",
+    "pit": "pre_t0",
+    "pricing_state": "醞釀(AI 軟體/資安再評價題材)",
+    "used": true
+  },
+  {
+    "date": "2025-04-22(t0 後)",
+    "source": "中央社/TechOrange",
+    "url": "https://www.cna.com.tw/postwrite/chi/399745",
+    "title": "[事後] 2025 GSS Solutions Day(4/22):聚焦 AI、永續與資安韌性",
+    "excerpt": "事後:叡揚 2025-04-22 舉辦 GSS Solutions Day,聚焦 AI 落地、AI 治理、資安韌性與數位韌性。屬 t0 後兩週的品牌/產品事件,強化 AI 軟體題材氛圍。",
+    "pit": "post_t0",
+    "pricing_state": "事後(題材氛圍強化)",
+    "used": true
+  },
+  {
+    "date": "2025(事後-全年)",
+    "source": "多家媒體",
+    "url": "https://statementdog.com/analysis/6752",
+    "title": "[事後] 叡揚 2025 全年營收首破 20 億(年增約 16.33%)",
+    "excerpt": "事後:叡揚 2025 全年營收首度突破 20 億元、年增約 16.33%。溫和成長,說明 +81%(本批最小漲幅)主要來自關稅底部反彈 + AI 軟體/內需避風港再評價,而非爆發性基本面。",
+    "pit": "post_t0",
+    "pricing_state": "事後",
+    "used": false
+  }
+]
