@@ -1,5 +1,5 @@
 {
- "as_of": "2026-07-13",
+ "as_of": "2026-07-14",
  "positions": {
   "2059": {
    "qty": 1,
@@ -9,14 +9,6 @@
    "source": "adopted",
    "vetted": true,
    "thesis_note": "ai_server_mech(註冊表 conviction 5)。瓶頸:伺服器導軌/滑軌全球市佔 60-70%,GB200/300 機櫃化導軌規格升級單價倍增,rack 級安規認證鎖定、12 個月內無可替代者——通過瓶頸簽名四項。資料確認(6/11 計分):rank 6、score 97.7、5月營收 YoY +172%、yoy_3m +97%。判定:keep,按五規則管理(2026-07-07 判斷層檢核)"
-  },
-  "2344": {
-   "qty": 1,
-   "anchor": 173.5,
-   "peak": 176.5,
-   "entry_date": "2026-07-09",
-   "source": "engine",
-   "vetted": true
   },
   "2383": {
    "qty": 1,
@@ -30,7 +22,7 @@
   "2408": {
    "qty": 2,
    "anchor": 421.0,
-   "peak": 435.5,
+   "peak": 448.0,
    "entry_date": "2026-07-09",
    "source": "engine",
    "vetted": true
@@ -70,15 +62,6 @@
    "source": "adopted",
    "vetted": true,
    "thesis_note": "ccl_substrate(在冊)。高階 CCL 三強,800G 交換器材料;7-09 手動 lot @1660"
-  },
-  "8299": {
-   "qty": 1,
-   "anchor": 2215.0,
-   "peak": 2220.0,
-   "entry_date": "2026-07-09",
-   "source": "adopted",
-   "vetted": true,
-   "thesis_note": "nand_ctrl(在冊)。NAND 控制晶片雙寡占,企業級 SSD 導入;7-09 手動 lot @2215"
   }
  },
  "log": [
@@ -262,6 +245,16 @@
    "ts": "2026-07-14T12:43:59",
    "action": "closed",
    "code": "5289"
+  },
+  {
+   "ts": "2026-07-14T16:06:45",
+   "action": "closed",
+   "code": "2344"
+  },
+  {
+   "ts": "2026-07-14T16:06:45",
+   "action": "closed",
+   "code": "8299"
   }
  ]
 }
