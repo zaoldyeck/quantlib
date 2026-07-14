@@ -411,3 +411,20 @@ time{30,50,70} = **144 cells**,champion `ev_v2_thesis_inst` 其餘規則(guard/t
   進行(驗收標準:能否標出當時熱鬧、後來失敗的主題——倖存者偏誤檢驗),過關才擴
   全量;生產參數不變(tp 哲學之辨屬未來 walk-forward 戰役,需 4 年標記底料)。
   trials 82。
+
+## 新池驗證包(2026-07-14;戰役十五除名後 champion 體檢,零成本三件套之 1)
+
+44 檔池(反事實全歷史)× cutoff 2026-07-14,完整報告
+`serenity_event_engine_v1_validation_ev_v2_thesis_inst.md`(validate.py 已支援
+`--registry`,permutation 合格池與 NAV 同池):
+
+- 三窗 NAV:lag0 288.8% / Sortino 5.16 / MDD −16.9%;lag90 209.6%;lag180 167.2%
+- 置換檢定 p=0.000(200 次,perm 中位 146.7% / p95 195.6% vs 實際 289.7%)——
+  排序技能在新池成立;Lo-t 4.59/4.06/3.74 全顯著;DSR 1.00/1.00/0.9996(@82 trials);
+  bootstrap CAGR 5% 下界 +111.4%/+88.0%/+68.7%
+- **PBO 如實惡化:lag0 0.526(舊池 0.48 → 過 0.5 線)**,lag90/180 0.594/0.778 依舊高;
+  lag0 有一個 fold CAGR −28.2%(fold_pos_share 83%)。結構根因不變:quarterly folds
+  僅 6 個,PBO 在 fold 稀疏下不穩——**驗證窗深度是本系統驗證的最大結構弱點**,與戰役
+  十七 gate 結論收斂:回溯標記的核心價值 = 增加 fold(先導 10-15 萬待批)
+- mech 對照(無策展)21.1% / DSR 0.46 一如既往無 alpha;blend vs iter95 corr 0.62、
+  blend MDD −15.3%

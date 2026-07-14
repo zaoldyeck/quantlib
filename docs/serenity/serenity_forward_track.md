@@ -14,8 +14,9 @@
 - 回測基準(新池 44 檔反事實,cutoff 2026-07-13):lag0 CAGR 297.7% / Sortino 5.23 /
   MDD −16.9%——**點估計受排序敏感性影響,以「顯著跑贏 0050/2330 且 MDD 較淺」為
   合格線,不以點估計為目標**(ledger meta-caveat)。
-- 完整驗證包(置換/bootstrap/DSR/PBO @ 44 檔池)結果:見
-  `serenity_event_engine_v1_validation_ev_v2_thesis_inst.md`(戰役十五後重跑版)。
+- 完整驗證包(2026-07-14,44 檔池,cutoff 7-14):置換 p=0.000、Lo-t 4.59、DSR 1.00、
+  bootstrap 5% 下界 +111.4%;**PBO lag0 0.526(fold 稀疏 caveat,回溯標記先導待批)**。
+  全文 `serenity_event_engine_v1_validation_ev_v2_thesis_inst.md`。
 
 ## 月結協定
 

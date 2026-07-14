@@ -68,7 +68,16 @@ from `validate.py` battery on `ev_v2_thesis_inst`:
 Permutation p=0.000 (200 in-pool random draws, median 127.9%), bootstrap CAGR
 5% LB +102.5%, Lo-t 4.29, DSR 1.00 @**75 trials**. **PBO caveat**: <0.5 at lag0
 (healthy) but 0.64/0.78 at lag90/180 — quarterly folds are sparse; treat long-lag
-overfit probability as an open caveat. Expectation setting: 2025-26 magnitude is
+overfit probability as an open caveat.
+
+**Battle-15 pool (44 names, beneficiaries expelled) revalidation @2026-07-14
+cutoff**: lag0 288.8% / Sortino 5.16 / MDD −16.9%; permutation p=0.000 (median
+146.7% vs actual 289.7%), Lo-t 4.59, DSR 1.00 @82 trials, bootstrap CAGR 5% LB
++111.4%. **PBO honestly worsened: lag0 0.526 (crossed 0.5), lag90/180
+0.594/0.778** — 6 quarterly folds are too sparse for PBO to stabilize; window
+depth is the validation's structural weak point (backfill-labeling pilot
+pending user approval). Full report:
+`docs/serenity/serenity_event_engine_v1_validation_ev_v2_thesis_inst.md`. Expectation setting: 2025-26 magnitude is
 the AI supercycle; normal-cycle expectation ≈ beat 0050 by 6-14pp/yr with
 shallower MDD. 2020 covid-type short-window themes FAILED under lag stress —
 hence the ≥12-month duration admission rule.
