@@ -1,0 +1,267 @@
+{
+ "as_of": "2026-07-13",
+ "positions": {
+  "2059": {
+   "qty": 1,
+   "anchor": 8000.0,
+   "peak": 8250.0,
+   "entry_date": "2026-07-03",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "ai_server_mech(註冊表 conviction 5)。瓶頸:伺服器導軌/滑軌全球市佔 60-70%,GB200/300 機櫃化導軌規格升級單價倍增,rack 級安規認證鎖定、12 個月內無可替代者——通過瓶頸簽名四項。資料確認(6/11 計分):rank 6、score 97.7、5月營收 YoY +172%、yoy_3m +97%。判定:keep,按五規則管理(2026-07-07 判斷層檢核)"
+  },
+  "2344": {
+   "qty": 1,
+   "anchor": 173.5,
+   "peak": 176.5,
+   "entry_date": "2026-07-09",
+   "source": "engine",
+   "vetted": true
+  },
+  "2383": {
+   "qty": 1,
+   "anchor": 5465.0,
+   "peak": 5465.0,
+   "entry_date": "2026-07-09",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "ccl_substrate(在冊)。M8/M9 級 CCL 三強寡占之首,AI 加速卡低損耗材料代際鎖定;7-09 手動 lot @5465"
+  },
+  "2408": {
+   "qty": 2,
+   "anchor": 421.0,
+   "peak": 435.5,
+   "entry_date": "2026-07-09",
+   "source": "engine",
+   "vetted": true
+  },
+  "3006": {
+   "qty": 1,
+   "anchor": 235.5,
+   "peak": 237.0,
+   "entry_date": "2026-07-09",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "mem_niche(在冊)。利基型 DRAM/SLC NAND 設計,AI 邊緣裝置補庫存週期;7-09 手動 lot @235.5"
+  },
+  "6446": {
+   "qty": 1,
+   "anchor": 1265.0,
+   "peak": 1285.0,
+   "entry_date": "2026-07-09",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "drug_orphan(在冊)。P1101 罕藥自有藥證+產能,美國放量;7-09 手動 lot @1265"
+  },
+  "6223": {
+   "qty": 1,
+   "anchor": 7080.0,
+   "peak": 7080.0,
+   "entry_date": "2026-07-09",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "probe_card(在冊)。先進封裝測試探針卡,CoWoS 測試瓶頸受益;收養錨=7-09 收盤 7080(昨日成交價無從查證,filled_history 回空)"
+  },
+  "6274": {
+   "qty": 1,
+   "anchor": 1660.0,
+   "peak": 1660.0,
+   "entry_date": "2026-07-09",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "ccl_substrate(在冊)。高階 CCL 三強,800G 交換器材料;7-09 手動 lot @1660"
+  },
+  "8299": {
+   "qty": 1,
+   "anchor": 2215.0,
+   "peak": 2220.0,
+   "entry_date": "2026-07-09",
+   "source": "adopted",
+   "vetted": true,
+   "thesis_note": "nand_ctrl(在冊)。NAND 控制晶片雙寡占,企業級 SSD 導入;7-09 手動 lot @2215"
+  }
+ },
+ "log": [
+  {
+   "ts": "2026-07-07T04:52:48",
+   "action": "adopt",
+   "code": "2059",
+   "source": "adopted",
+   "anchor": 8000.0
+  },
+  {
+   "ts": "2026-07-07",
+   "action": "vet",
+   "code": "2059",
+   "verdict": "keep",
+   "by": "judgment-layer"
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "2344",
+   "source": "engine",
+   "anchor": 176.5
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "2383",
+   "source": "adopted",
+   "anchor": 5295.0
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "2408",
+   "source": "engine",
+   "anchor": 435.5
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "3006",
+   "source": "adopted",
+   "anchor": 237.0
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "6446",
+   "source": "adopted",
+   "anchor": 1285.0
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "4973",
+   "source": "engine",
+   "anchor": 166.5
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "5289",
+   "source": "adopted",
+   "anchor": 1530.0
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "6223",
+   "source": "adopted",
+   "anchor": 7080.0
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "6274",
+   "source": "adopted",
+   "anchor": 1570.0
+  },
+  {
+   "ts": "2026-07-09T16:47:29",
+   "action": "adopt",
+   "code": "8299",
+   "source": "adopted",
+   "anchor": 2220.0
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "2344",
+   "from": 176.5,
+   "to": 173.5,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "2383",
+   "from": 5295.0,
+   "to": 5465.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "2408",
+   "from": 435.5,
+   "to": 421.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "3006",
+   "from": 237.0,
+   "to": 235.5,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "4973",
+   "from": 166.5,
+   "to": 168.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "5289",
+   "from": 1530.0,
+   "to": 1545.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "6274",
+   "from": 1570.0,
+   "to": 1660.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "6446",
+   "from": 1285.0,
+   "to": 1265.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:47:52",
+   "action": "anchor_correction",
+   "code": "8299",
+   "from": 2220.0,
+   "to": 2215.0,
+   "reason": "manual lot with exact fill price (order_results 2026-07-09); lot convention anchor=fill"
+  },
+  {
+   "ts": "2026-07-09T16:50:09",
+   "action": "vet_batch",
+   "codes": [
+    "2383",
+    "3006",
+    "5289",
+    "6223",
+    "6274",
+    "6446",
+    "8299"
+   ],
+   "verdict": "keep(全部在冊、前 10 執行簿名單)",
+   "by": "judgment-layer"
+  },
+  {
+   "ts": "2026-07-14T12:43:59",
+   "action": "closed",
+   "code": "4973"
+  },
+  {
+   "ts": "2026-07-14T12:43:59",
+   "action": "closed",
+   "code": "5289"
+  }
+ ]
+}

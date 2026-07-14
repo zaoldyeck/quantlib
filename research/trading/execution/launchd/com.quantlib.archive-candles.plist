@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- 每個交易日 14:35 自動補存當日 1 分 K(富邦只給當日,漏日補不回)。
+       安裝(使用者自行執行):
+         cp research/trading/execution/launchd/com.quantlib.archive-candles.plist ~/Library/LaunchAgents/
+         launchctl load ~/Library/LaunchAgents/com.quantlib.archive-candles.plist
+       移除:launchctl unload ~/Library/LaunchAgents/com.quantlib.archive-candles.plist -->
+  <key>Label</key><string>com.quantlib.archive-candles</string>
+  <key>WorkingDirectory</key><string>/Users/zaoldyeck/Documents/scala/quantlib</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/bin/uv</string>
+    <string>run</string>
+    <string>--project</string>
+    <string>research</string>
+    <string>python</string>
+    <string>-m</string>
+    <string>research.trading.execution.archive_candles</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>14</integer><key>Minute</key><integer>35</integer></dict>
+  <key>StandardOutPath</key><string>/Users/zaoldyeck/Documents/scala/quantlib/research/out/trading/candles/archive.log</string>
+  <key>StandardErrorPath</key><string>/Users/zaoldyeck/Documents/scala/quantlib/research/out/trading/candles/archive.log</string>
+</dict>
+</plist>

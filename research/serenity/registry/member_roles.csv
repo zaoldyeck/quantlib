@@ -1,0 +1,59 @@
+company_code,company_name,theme_id,role,rationale,labeled_on
+2383,台光電,ai_ccl,chokepoint_owner,M8/M9 低損耗 CCL 寡占之首;AI 加速卡材料規格代際鎖定,2026-07-14
+6274,台燿,ai_ccl,chokepoint_owner,低損耗 CCL 三強;800G 交換器材料規格綁定,2026-07-14
+6213,聯茂,ai_ccl,enabler,CCL 三強之末;持有節點但高階規格與份額落後半代,2026-07-14
+3044,健鼎,ai_ccl,beneficiary,PCB 板廠=CCL 節點的下游客戶;不持有材料稀缺性,2026-07-14
+2367,燿華,ai_pcb,beneficiary,一般 PCB 板廠;AI 佔比低，無獨佔製程節點,2026-07-14
+3037,欣興,ai_pcb,chokepoint_owner,ABF 載板三雄;載板產能+認證是自有稀缺節點,2026-07-14
+8021,尖點,ai_pcb,enabler,鑽針耗材全球前二;技術門檻真但非獨佔(對手 Union Tool),2026-07-14
+3167,大量,ai_pcb,enabler,PCB 成型/鑽孔設備寡占利基;有替代供應商,2026-07-14
+2059,川湖,ai_server_mech,chokepoint_owner,伺服器導軌近壟斷(60-70%);安規認證+機櫃世代規格鎖定,2026-07-14
+3017,奇鋐,ai_server_mech,chokepoint_owner,散熱雙雄之首;3D VC/液冷板寡占+設計綁定,2026-07-14
+3324,雙鴻,ai_server_mech,chokepoint_owner,散熱雙雄;液冷板/水冷排寡占本尊,2026-07-14
+3653,健策,ai_server_mech,chokepoint_owner,均熱片/metal lid 高階近獨供,2026-07-14
+3533,嘉澤,ai_server_mech,chokepoint_owner,CPU socket 三強寡占;LGA 規格認證鎖定,2026-07-14
+3131,弘塑,advanced_packaging,enabler,CoWoS 濕製程設備關鍵供應商;認證綁定但稀缺主體是台積電產能,2026-07-14
+3583,辛耘,advanced_packaging,enabler,先進封裝製程設備+再生晶圓;同弘塑邏輯,2026-07-14
+6223,旺矽,advanced_packaging,chokepoint_owner,MEMS 探針卡台系獨大;全球三強，技術+認證雙壁壘,2026-07-14
+6515,穎崴,advanced_packaging,chokepoint_owner,高階測試座寡占本尊,2026-07-14
+7556,意德士,advanced_packaging,enabler,測試介面/治具利基;非獨佔,2026-07-14
+3081,聯亞,optical_cpo,chokepoint_owner,光通訊磊晶/EML 上游;利基磊晶產能+大客戶認證,2026-07-14
+6442,光聖,optical_cpo,enabler,光通訊連接組件;北美 DC 訂單集中但存在競爭者,2026-07-14
+3163,波若威,optical_cpo,enabler,光被動元件;規格門檻有但競爭者多,2026-07-14
+3443,創意,ai_asic,enabler,ASIC 設計服務與世芯/Marvell/Broadcom 競爭;真稀缺(先進製程+CoWoS 配額)在母公司台積電手裡,2026-07-14
+3661,世芯-KY,ai_asic,enabler,設計服務競爭市場;專案內鎖定但跨案可替代,2026-07-14
+3529,力旺,ai_asic,chokepoint_owner,eNVM IP 事實壟斷;royalty 模式，替代認證 >12 個月,2026-07-14
+6669,緯穎,server_oem,beneficiary,機櫃整合純代工;客戶自有設計，組裝經濟無定價權,2026-07-14
+2382,廣達,server_oem,beneficiary,ODM 組裝;7-09 報告自判「瓶頸是別人的」,2026-07-14
+3231,緯創,server_oem,beneficiary,ODM 組裝;同廣達邏輯,2026-07-14
+2356,英業達,server_oem,beneficiary,ODM 組裝;同上,2026-07-14
+2317,鴻海,server_oem,beneficiary,規模執行力強但無稀缺節點定價權,2026-07-14
+2308,台達電,industrial_test,chokepoint_owner,伺服器電源寡占之首(份額 >50%);電源效率規格代際鎖定,2026-07-14
+2360,致茂,industrial_test,chokepoint_owner,半導體/電源測試設備利基寡占,2026-07-14
+2458,義隆,industrial_test,beneficiary,觸控 IC 與本主題瓶頸(power/test)無關;主題錯配，建議策展複審,2026-07-14
+1513,中興電,power_grid,chokepoint_owner,重電 GIS/變壓器;台電資格+產能瓶頸(大型變壓器交期 ~2.5 年),2026-07-14
+1514,亞力,power_grid,chokepoint_owner,重電變壓器/配電盤;同一資格產能瓶頸,2026-07-14
+1519,華城,power_grid,chokepoint_owner,變壓器龍頭;美國出口+台電雙需求,2026-07-14
+1503,士電,power_grid,chokepoint_owner,重電三雄;馬達+變壓器,2026-07-14
+1609,大亞,power_grid,enabler,電線電纜;台電標案資格但產品差異化低,2026-07-14
+2344,華邦電,memory_cycle,chokepoint_owner,利基 DRAM+NOR IDM;自有晶圓產能,2026-07-14
+2408,南亞科,memory_cycle,chokepoint_owner,台灣唯一獨立 DRAM IDM;成熟 DRAM 供給真空最大直接受益，報價直接灌進自有產能毛利,2026-07-14
+3006,晶豪科,memory_cycle,enabler,利基 DRAM/Flash fabless;自有產品 IP 但產能依賴代工配額,2026-07-14
+8299,群聯,memory_cycle,enabler,NAND 控制器雙寡占 IP;模組業務攤薄純度，顆粒成本端 price-taker,2026-07-14
+5289,宜鼎,memory_cycle,enabler,工控模組龍頭;客戶認證週期長構成轉換成本，模組廠中唯一有黏性者,2026-07-14
+8271,宇瞻,memory_cycle,beneficiary,工控/消費模組;無自有稀缺節點，庫存財,2026-07-14
+2451,創見,memory_cycle,beneficiary,模組品牌廠;庫存財,2026-07-14
+4973,廣穎,memory_cycle,beneficiary,消費模組品牌;7-09 報告自判「槓桿載具」,2026-07-14
+3260,威剛,memory_cycle,beneficiary,模組龍頭但成本端價格接受者;7-09 報告自判「不是瓶頸，護城河是本輪存貨」,2026-07-14
+4967,十銓,memory_cycle,beneficiary,模組三線;同威剛邏輯,2026-07-14
+6446,藥華藥,biotech_regulatory,chokepoint_owner,藥證+孤兒藥+NCCN 指南綁定的法規壟斷;利基疾病內 price-maker,2026-07-14
+3491,昇達科,satellite_defense,chokepoint_owner,微波/毫米波元件利基龍頭;LEO 供應鏈認證綁定,2026-07-14
+3596,智易,satellite_defense,beneficiary,網通 CPE ODM;組裝經濟無稀缺節點,2026-07-14
+8048,德勝,satellite_defense,enabler,RF/衛星零組件利基;規模小非獨佔,2026-07-14
+2404,漢唐,fab_facility_epc,chokepoint_owner,無塵室/廠務 EPC 龍頭;fab 業主資格認證即瓶頸本體(在手訂單 1939 億),2026-07-14
+6196,帆宣,fab_facility_epc,chokepoint_owner,廠務系統兩強;台積電海外廠 hookup 資格,2026-07-14
+6691,洋基工程,fab_facility_epc,enabler,同主題次級量能;規模較小,2026-07-14
+6613,朋億,fab_facility_epc,enabler,廠務管路(水氣化)利基,2026-07-14
+3004,豐達科,aerospace_fastener,chokepoint_owner,NADCAP+四大引擎 OEM 認證扣件;認證產能即瓶頸,2026-07-14
+4541,晟田,aerospace_fastener,enabler,AIDC 二階機加工;認證範圍較窄,2026-07-14
+1723,中碳,battery_sic_carbon_materials,enabler,論點為唯一非中負極認證者但新業務規模未證實;舊本業連五季衰退,2026-07-14
