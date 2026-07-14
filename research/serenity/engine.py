@@ -788,6 +788,15 @@ def main() -> None:
         default=None,
         help="comma-separated variant names to run (default: all); e.g. battle subsets",
     )
+    parser.add_argument(
+        "--grid-exit",
+        default=None,
+        help=(
+            "battle 17 diagnostic: exit-rule grid over ONE base variant "
+            "(requires --variants <base>); spec 'tp=0.4,0.6,none;trail=0.15,0.2;"
+            "abs=0.1,0.15;time=30,50' — data loads once, all cells simulate in-process"
+        ),
+    )
     args = parser.parse_args()
 
     if args.ablate:
@@ -1023,6 +1032,36 @@ def main() -> None:
             if unknown:
                 raise ValueError(f"unknown variant names: {sorted(unknown)}")
             variants = tuple(v for v in variants if v.name in wanted)
+        if args.grid_exit:
+            if len(variants) != 1:
+                raise ValueError("--grid-exit requires exactly one base variant via --variants")
+            base = variants[0]
+            axes: dict[str, list] = {}
+            for part in args.grid_exit.split(";"):
+                key, raw = part.split("=")
+                axes[key.strip()] = [
+                    None if v.strip().lower() in ("none", "inf") else float(v)
+                    for v in raw.split(",")
+                ]
+            fmt = lambda v: "none" if v is None else f"{v:g}"
+            variants = tuple(
+                replace(
+                    base,
+                    name=f"g_tp{fmt(tp)}_tr{fmt(tr)}_ab{fmt(ab)}_td{fmt(td)}",
+                    rules=replace(
+                        base.rules,
+                        take_profit=tp,
+                        trail=tr,
+                        abs_stop=ab,
+                        time_days=None if td is None else int(td),
+                    ),
+                )
+                for tp in axes.get("tp", [base.rules.take_profit])
+                for tr in axes.get("trail", [base.rules.trail])
+                for ab in axes.get("abs", [base.rules.abs_stop])
+                for td in axes.get("time", [base.rules.time_days])
+            )
+            print(f"grid-exit: {len(variants)} cells over base {base.name}")
         summaries: list[dict[str, object]] = []
         daily_paths: dict[str, Path] = {}
         for variant in variants:

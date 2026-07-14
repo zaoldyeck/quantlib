@@ -164,6 +164,7 @@ def selection_permutation(
     activation_lag_days: int,
     n_perm: int,
     actual_cagr: float,
+    registry_path: Path | None = None,
 ) -> dict:
     """Re-run the engine with random picks from each refresh day's eligible pool."""
     con = connect(read_only=True)
@@ -171,7 +172,7 @@ def selection_permutation(
         cutoff = con.sql("select max(date) from daily_quote").fetchone()[0]
         load_start = start - timedelta(days=420)
         if mode == "registry":
-            registry = load_registry(REGISTRY)
+            registry = load_registry(registry_path or REGISTRY)
             if activation_lag_days:
                 registry["active_from"] = registry["active_from"].map(
                     lambda v: v + timedelta(days=activation_lag_days)
@@ -298,6 +299,10 @@ def main() -> None:
     parser.add_argument("--variant", default="ev_full_tp60")
     parser.add_argument("--n-perm", type=int, default=200)
     parser.add_argument("--skip-perm", action="store_true")
+    parser.add_argument(
+        "--registry", default=None,
+        help="alternative registry CSV — permutation eligible pool matches the NAV series' pool",
+    )
     args = parser.parse_args()
 
     series = [
@@ -324,7 +329,8 @@ def main() -> None:
         base = next((r for r in rows if r["name"].startswith("registry_lag0")), None)
         if base:
             perm_results["registry_lag0"] = selection_permutation(
-                args.variant, date(2025, 1, 1), "registry", 0, args.n_perm, base["cagr"]
+                args.variant, date(2025, 1, 1), "registry", 0, args.n_perm, base["cagr"],
+                registry_path=Path(args.registry) if args.registry else None,
             )
             print("perm registry_lag0:", perm_results["registry_lag0"])
         # Mechanical mode showed no risk-adjusted alpha vs 2330/0050, so a
