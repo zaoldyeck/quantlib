@@ -1,0 +1,114 @@
+{
+ "label_month": "2023-10",
+ "mode": "incremental",
+ "fence": "2023-10-31",
+ "queries": [
+  "AI 光通訊 光模組 光收發 缺貨 供不應求 2023年 第四季 台廠 交期"
+ ],
+ "sources_used": [
+  {
+   "date": "2023(約, 概念股導覽)",
+   "publisher": "經濟日報 money.udn (7749488)",
+   "claim": "光通訊為 AI+5G+美中角力題材,13 檔概念股受惠——屬熱門題材導覽,非供給瓶頸(缺料/配額)之當時證據。"
+  }
+ ],
+ "sources_discarded_count": 10,
+ "discard_note": "光通訊『EML/VCSEL 供不應求、交期 180→270 天、800G 缺貨潮』之供給瓶頸敘事全為 2024-2026 回溯文,無≤2023-10-31。時間圍欄裁決:AI 光通訊至 2023-10 仍為熱門題材而非當時可證之硬性供給瓶頸,續 defer。本月種子群(CCL/PCB、光通訊含智邦 2345/光聖 6442/聯鈞 3450、AI 整機、半導體 CoWoS 設備、營建、生技、重電、觀光)全部先前月已檢核,無新聚類。",
+ "clusters": [
+  {
+   "industry": "通信網路業/半導體業(AI 光通訊)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "光通訊群擴大(華星光 4979/上詮 3363/光聖 6442/聯鈞 3450/波若威 3163/前鼎 4908/智邦 2345):2023-10 再驗證仍無≤圍欄之光電晶片(EML/VCSEL)配額/缺料硬瓶頸證據——屬熱門題材而非當時瓶頸;智邦 2345(交換器 whitebox ODM)為 AI 資料中心受惠端非節點。沿用 defer/reject。",
+   "bottleneck_check": {
+    "demand": "carry(AI 資料中心互連需求)",
+    "supply_rigidity": "carry(≤圍欄無硬瓶頸,廠商擴產中)",
+    "concentration": "carry",
+    "amplifier": "carry"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "電子零組件業(CCL/PCB)/半導體(CoWoS 設備)/電腦週邊(AI 組裝)/建材營造/生技/電機機械(重電)/觀光餐旅",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "全數沿用前月:CCL/PCB(台光電/台燿/聯茂/健鼎/定穎/金像電)續 defer(無≤圍欄供給瓶頸);advanced_packaging_cowos(辛耘 3583 enabler/京元電 2449/台積電 2330 owner 4)持平無新證據;AI 整機(廣達/緯創/技嘉)carry reject beneficiary;建材營造(興富發/潤隆/基泰)carry reject(交屋認列);生技(藥華藥/高端疫苗 6547 等)carry reject(單一催化);grid_heavy_electrical(華城 1519/大同 2371 grid-adjacent)持平;reopening_travel(2618/2610)持平 4。conviction 全無變動。",
+   "bottleneck_check": {
+    "demand": "carry",
+    "supply_rigidity": "carry",
+    "concentration": "carry",
+    "amplifier": "carry"
+   },
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "多主題沿用(CoWoS/重電/解封出行)",
+   "members": [
+    {
+     "code": "2330",
+     "name": "台積電",
+     "role": "chokepoint_owner",
+     "conviction": 4,
+     "rationale": "carry 持平。"
+    },
+    {
+     "code": "3583",
+     "name": "辛耘",
+     "role": "enabler",
+     "conviction": 2,
+     "rationale": "carry 持平。"
+    },
+    {
+     "code": "1519",
+     "name": "華城",
+     "role": "chokepoint_owner",
+     "conviction": 3,
+     "rationale": "carry 持平。"
+    },
+    {
+     "code": "2618",
+     "name": "長榮航",
+     "role": "beneficiary",
+     "conviction": 4,
+     "rationale": "carry 持平。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "各主題沿用前月 invalidation_criteria。",
+   "evidence": []
+  },
+  {
+   "industry": "電腦及週邊設備業(補全)",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:電腦及週邊設備業動能/營收群為 AI 伺服器整機廠與 ODM(廣達 2382/緯創 3231/技嘉 2376/英業達 2356/光寶 2301/勤誠 8210/迎廣 6117/銦泰 3693 等),riding 上游 GPU/CoWoS 缺口的下游代工受惠者 —— 不擁稀缺節點、客戶可換代工=beneficiary,真瓶頸 CoWoS 已在冊(advanced_packaging_cowos)。成員構成與 2023-07 高度重疊、無新供應鏈敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "光電業(補全)",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 合併小群 reject 判定:光電業(廣運 6125 倉儲自動化/AI 搬運受惠、一詮 2486/全台 3038 導線架,及顯示/背光材料達威 5432/榮創 3437/友輝 4933/先進光 3362 等)為需求受惠或顯示循環,無稀缺節點控制、供給可擴,不符瓶頸簽名。各月成員同屬此類,無新供應鏈敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "生技醫療業(補全)",
+   "seed_type": "revenue",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:生技醫療業為新藥上市/CDMO/人口老化之需求成長 + 個股藥證/醫美催化(智擎 4162/藥華藥/高端疫苗 6547/合一 4743 等),無實體產能瓶頸、無控制稀缺節點、下游無 12 個月硬替代約束,結構性不符瓶頸簽名。成員為各自為政的個股催化,無新敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  }
+ ]
+}

@@ -1,0 +1,298 @@
+{
+ "label_month": "2023-08",
+ "mode": "incremental",
+ "fence": "2023-08-31",
+ "queries": [
+  "辛耘 3583 CoWoS 先進封裝 濕製程 設備 台積電 2023年 訂單",
+  "華星光 4979 光通訊 2023年 訂單 AI 交換器 800G 營收 上櫃",
+  "台光電 2383 2023年 營收 AI伺服器 高速 材料 法說 M6 需求",
+  "高力 8996 液冷 散熱 AI伺服器 板式熱交換器 訂單 2023年"
+ ],
+ "sources_used": [
+  {
+   "date": "2023-02~03(約)",
+   "publisher": "Anue 鉅亨 (5202529 / 5254061)",
+   "claim": "台積電 CoWoS 先進封裝受惠設備股：弘塑(原濕製程獨家)、辛耘(二供)、萬潤；台積電急擴 CoWoS 帶旺設備鏈。"
+  },
+  {
+   "date": "2023-05(約)",
+   "publisher": "MoneyDJ / 辛耘法說",
+   "claim": "辛耘 CoWoS/單晶圓濕製程設備賣進台積電龍潭/竹南,2023 前四月營收 21.49 億(+25% YoY),自製設備佔比>60%,估全年 EPS 7.5 元。"
+  },
+  {
+   "date": "2023-04(約)",
+   "publisher": "MoneyDJ",
+   "claim": "台光電 3 月/Q1 營收創高,聚焦高速 CCL 領域。"
+  },
+  {
+   "date": "2023-06(約)",
+   "publisher": "Anue 鉅亨 (5534647)",
+   "claim": "AI 等高階 CCL 市場需求強,台光電及台燿獲外資調高目標價。"
+  },
+  {
+   "date": "2023-08~09(約)",
+   "publisher": "Anue 鉅亨 (5819743)",
+   "claim": "華星光加速擴產搶 AI 商機,明年(2024)7 月新廠完工,CW 雷射出貨年增 4 倍,800G 需求高成長,已卡位 3 家 CSP、400G/800G ZR 獨家代工市佔>50%。"
+  },
+  {
+   "date": "2022(約)",
+   "publisher": "Anue 鉅亨 (4615964)",
+   "claim": "高力伺服器用散熱系統交貨當年增 4 倍(2022 敘事,非 2023 AI 液冷剛需)。"
+  }
+ ],
+ "sources_discarded_count": 34,
+ "discard_note": "高階 CCL『供不應求/HVLP4 缺料 25%/擴產應戰』、AI 液冷『剛需/BPHE 少數合格供應商』、光通訊『EML/CW-LD 缺料瓶頸』等供給約束敘事之來源全為 2024-2026 回溯文,發布日晚於 2023-08-31,一律丟棄。時間圍欄裁決:CCL/光通訊/液冷在 2023-08 之≤圍欄證據僅為『需求強+目標價上調+廠商擴產』,並無當時之硬性供給約束(配額/缺料/18 個月+無彈性)證據,故不得 admit,列 defer 觀察。",
+ "clusters": [
+  {
+   "industry": "半導體業(CoWoS 設備)",
+   "seed_type": "momentum(新群)",
+   "verdict": "carry_over",
+   "narrative": "半導體動能新群(辛耘 3583 +147%/華泰 2329/智原 3035/世芯 3661)實為在冊主題 advanced_packaging_cowos 之設備/封測外溢層。≤圍欄證據(2023 Q1~前四月)證實辛耘為台積電 CoWoS 濕製程二供(弘塑原獨家)、營收 +25% YoY,屬 CoWoS 產能擴張的真實 enabler。演化:新增設備 enabler 成員。惟世芯 3661(AI ASIC 設計服務)、智原 3035(IP)、華泰 2329(封裝)為受惠端(fabless 設計無實體節點/一般封測),記錄不入冊。",
+   "bottleneck_check": {
+    "demand": "台積電急擴 CoWoS 帶動設備訂單(≤圍欄)",
+    "supply_rigidity": "先進封裝濕製程設備認證門檻高、二供結構",
+    "concentration": "弘塑(原獨家)+辛耘(二供),認證壁壘",
+    "amplifier": "AI 加速器 CoWoS 擴產"
+   },
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "CoWoS 先進封裝",
+   "members": [
+    {
+     "code": "3583",
+     "name": "辛耘",
+     "role": "enabler",
+     "conviction": 2,
+     "rationale": "台積電 CoWoS 濕製程二供、自製設備>60%,2023 營收 +25%;新增 enabler(上市可交易)。"
+    },
+    {
+     "code": "3131",
+     "name": "弘塑",
+     "role": "enabler",
+     "conviction": 2,
+     "rationale": "CoWoS 濕製程原獨家設備供應商;上櫃(TPEx),追蹤不可交易。"
+    },
+    {
+     "code": "6187",
+     "name": "萬潤",
+     "role": "enabler",
+     "conviction": 2,
+     "rationale": "先進封裝設備;上櫃(TPEx),追蹤不可交易。"
+    }
+   ],
+   "conviction_updates": [
+    {
+     "theme_id": "advanced_packaging_cowos",
+     "code": "3583",
+     "from": 0,
+     "to": 2,
+     "evidence": "2023 前四月營收 +25%、台積電 CoWoS 濕製程二供(cnyes 5202529/5254061 + 辛耘法說)。"
+    }
+   ],
+   "invalidation_criteria": "CoWoS 產能利用率跌破 80%/AI 加速器砍單/擴產開出且交期正常化。",
+   "evidence": [
+    {
+     "date": "2023-02~05(約)",
+     "source": "cnyes 5202529/5254061 + MoneyDJ 辛耘法說",
+     "claim": "辛耘為台積電 CoWoS 濕製程二供、營收 +25% YoY。"
+    }
+   ]
+  },
+  {
+   "industry": "電子零組件業(高速 CCL)",
+   "seed_type": "momentum+revenue_accel(新群)",
+   "verdict": "reject",
+   "reject_reason": "台光電 2383/台燿 6274 高速 CCL:≤圍欄證據(2023 Q1~6 月)僅顯示 AI 伺服器帶動高階 CCL 需求強、外資調高目標價、營收創高——屬『需求強的優質供應商』,並無當時之硬性供給約束證據(缺料/配額/擴產交期≥18 個月);所有『供不應求/HVLP4 缺料』文皆 2024-2026(丟棄)。不符瓶頸簽名第 2 項,defer 觀察(台光電為高速 CCL 最強名,後續月若出現≤圍欄配額/缺料證據再重估)。",
+   "narrative": "高速 CCL 為 AI 板材關鍵,台光電領先(集中度中等),但 2023-08 屬需求驅動非供給瓶頸。禁以 2025-26 缺料敘事回填。",
+   "bottleneck_check": {
+    "demand": "AI 伺服器/800G 交換器帶動高階 CCL(通過)",
+    "supply_rigidity": "≤圍欄無缺料/配額證據,CCL 產能可擴(不通過)",
+    "concentration": "台光電領先但台燿/聯茂並存(中等)",
+    "amplifier": "AI+高速規格換代(有)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [
+    {
+     "code": "2383",
+     "name": "台光電",
+     "role": "beneficiary",
+     "conviction": 0,
+     "rationale": "高速 CCL 領先者,需求驅動;≤圍欄無供給瓶頸,defer 觀察不入冊。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {
+     "date": "2023-06(約)",
+     "source": "cnyes 5534647",
+     "claim": "AI 高階 CCL 需求強,台光電/台燿目標價上調。"
+    }
+   ]
+  },
+  {
+   "industry": "通信網路業(AI 光通訊)",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "華星光 4979(+226%)/上詮 3363/波若威 3163:≤圍欄證據(約 2023-08~09)顯示 CW 雷射出貨年增 4 倍、800G 高成長、3 家 CSP、ZR 獨家代工市佔>50%(需求+集中度佳),但公司同時『加速擴產、2024/7 新廠完工』——供給正在開出,非 18 個月+無彈性硬瓶頸;EML/CW-LD 缺料之供給約束敘事皆 2026(丟棄)。不符瓶頸簽名第 2 項,defer(華星光 ZR 獨家高集中為觀察線,後續月若見≤圍欄光電晶片配額/缺料再重估)。",
+   "narrative": "AI 光通訊需求爆發+華星光高集中,惟供給擴產中、當時無硬缺料證據。時間圍欄要求 defer 而非以未來瓶頸回填。",
+   "bottleneck_check": {
+    "demand": "AI 資料中心 800G 互連(通過,CW 雷射+4x)",
+    "supply_rigidity": "華星光擴產、新廠 2024/7 完工(不通過)",
+    "concentration": "華星光 ZR 獨家代工>50%(佳)",
+    "amplifier": "AI+CPO 換代(有)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [
+    {
+     "code": "4979",
+     "name": "華星光",
+     "role": "beneficiary",
+     "conviction": 0,
+     "rationale": "CW 雷射/ZR 獨家高集中,需求爆發;≤圍欄供給擴產中無硬瓶頸,defer 觀察。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {
+     "date": "2023-08~09(約)",
+     "source": "cnyes 5819743",
+     "claim": "華星光 CW 雷射 +4x、800G 高成長、ZR 獨家代工>50%、擴產新廠 2024/7 完工。"
+    }
+   ]
+  },
+  {
+   "industry": "電機機械(AI 液冷散熱)",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "高力 8996:AI 伺服器液冷『剛需』、BPHE『少數合格供應商』等瓶頸敘事全為 2024-2026(GB200 世代,丟棄);≤圍欄僅 2022 之『伺服器散熱 +4x』與燃料電池/儲能題材。2023 H100 世代風冷仍主流,AI 液冷尚未成當時瓶頸。8996 動能/營收成長來自氫能/儲能/傳產復甦,非 AI 液冷瓶頸。reject(過早)。",
+   "narrative": "AI 液冷瓶頸為 2024-25 敘事,2023-08 無≤圍欄支撐,結構性 reject。",
+   "bottleneck_check": {
+    "demand": "2023 AI 液冷需求未成剛需(不通過)",
+    "supply_rigidity": "≤圍欄無證據",
+    "concentration": "≤圍欄無證據",
+    "amplifier": "AI 液冷放大器 2023 尚未觸發"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "觀光餐旅(航空/旅行社)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "reopening_travel 沿用:2023 半年報(8 月公布,≤圍欄)華航 H1 EPS 0.77、下半年客運復甦更強;票價維持高檔、運能仍未回補 2019。失效條件未觸發,持平 conviction 4,續列運能正常化為失效觀察線。",
+   "bottleneck_check": {
+    "demand": "出行需求續強(H1 營收/獲利)",
+    "supply_rigidity": "運能仍<2019(暫時缺口)",
+    "concentration": "航空雙雄(非結構節點)",
+    "amplifier": "運能落後→高票價(暫時)"
+   },
+   "theme_id": "reopening_travel",
+   "theme_name": "解封出行",
+   "members": [
+    {
+     "code": "2618",
+     "name": "長榮航",
+     "role": "beneficiary",
+     "conviction": 4,
+     "rationale": "持平,運能正常化前受惠。"
+    },
+    {
+     "code": "2610",
+     "name": "華航",
+     "role": "beneficiary",
+     "conviction": 4,
+     "rationale": "H1 EPS 0.77、下半年客運更強,持平。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "航空運能恢復至 2019 水準、票價正常化。",
+   "evidence": [
+    {
+     "date": "2023-08(約)",
+     "source": "MoneyDJ",
+     "claim": "華航 H1 EPS 0.77,下半年客運復甦更強。"
+    }
+   ]
+  },
+  {
+   "industry": "電機機械(重電)/電腦週邊(AI 組裝)/電子零組件(受惠)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "沿用先前判定:grid_heavy_electrical(華城 1519 續在動能+營收榜,持平沿用,缺≤圍欄新訂單報導不調整);AI 伺服器整機廠(廣達/緯創/技嘉/英業達)carry reject 為 beneficiary;電子零組件受惠鏈(川湖 2059/建准 2421/金像電 2368/楠梓電 2316)carry reject。epaper_esl/ev_supply 本月無新增≤圍欄證據,持平沿用。",
+   "bottleneck_check": {
+    "demand": "carry",
+    "supply_rigidity": "carry",
+    "concentration": "carry",
+    "amplifier": "carry"
+   },
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電(+其餘沿用)",
+   "members": [
+    {
+     "code": "1519",
+     "name": "華城",
+     "role": "chokepoint_owner",
+     "conviction": 3,
+     "rationale": "carry_over 持平。"
+    },
+    {
+     "code": "1513",
+     "name": "中興電",
+     "role": "chokepoint_owner",
+     "conviction": 3,
+     "rationale": "carry_over 持平。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬/重電訂單連 2 季衰退/變壓器交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "電腦及週邊設備業(補全)",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:電腦及週邊設備業動能/營收群為 AI 伺服器整機廠與 ODM(廣達 2382/緯創 3231/技嘉 2376/英業達 2356/光寶 2301/勤誠 8210/迎廣 6117/銦泰 3693 等),riding 上游 GPU/CoWoS 缺口的下游代工受惠者 —— 不擁稀缺節點、客戶可換代工=beneficiary,真瓶頸 CoWoS 已在冊(advanced_packaging_cowos)。成員構成與 2023-07 高度重疊、無新供應鏈敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "其他電子業(補全)",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 合併小群 + 本月 CoWoS 設備處理:其他電子業(萬潤 6187/弘塑 3131 先進封裝濕製程設備、碩天 3617 UPS、亞翔 6139 廠務工程、無敵 8201)—— 萬潤/弘塑已在本月『半導體業(CoWoS 設備)』cluster 記為 enabler(TPEx 追蹤不可交易),其餘為受惠端,carry。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "電腦及週邊設備業(補全)",
+   "seed_type": "revenue",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:電腦及週邊設備業動能/營收群為 AI 伺服器整機廠與 ODM(廣達 2382/緯創 3231/技嘉 2376/英業達 2356/光寶 2301/勤誠 8210/迎廣 6117/銦泰 3693 等),riding 上游 GPU/CoWoS 缺口的下游代工受惠者 —— 不擁稀缺節點、客戶可換代工=beneficiary,真瓶頸 CoWoS 已在冊(advanced_packaging_cowos)。成員構成與 2023-07 高度重疊、無新供應鏈敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "生技醫療業(補全)",
+   "seed_type": "revenue",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:生技醫療業為新藥上市/CDMO/人口老化之需求成長 + 個股藥證/醫美催化(智擎 4162/藥華藥/高端疫苗 6547/合一 4743 等),無實體產能瓶頸、無控制稀缺節點、下游無 12 個月硬替代約束,結構性不符瓶頸簽名。成員為各自為政的個股催化,無新敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  }
+ ]
+}

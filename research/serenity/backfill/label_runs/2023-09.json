@@ -1,0 +1,177 @@
+{
+ "label_month": "2023-09",
+ "mode": "incremental",
+ "fence": "2023-09-30",
+ "queries": [
+  "台光電 聯茂 台燿 CCL 產能滿載 供不應求 缺料 2023年 下半年 9月",
+  "興富發 潤隆 營建股 2023年 營收暴增 完工 交屋 認列 入帳"
+ ],
+ "sources_used": [
+  {
+   "date": "2023-08(約)",
+   "publisher": "Anue 鉅亨 (5283916, 台股公告)",
+   "claim": "興富發 7 月營收 43.68 億、年增 2305%,1-7 月 211.97 億——由潤隆『國家大院』『竹科潤隆』等案完工交屋入帳挹注(認列型,非持續性供給)。"
+  }
+ ],
+ "sources_discarded_count": 17,
+ "discard_note": "CCL『高階材料供不應求/全產全銷/漲價/產能滿載』敘事(含台光電董定宇談話)之來源全為 2025-2026 回溯文,無任一≤2023-09-30。時間圍欄裁決:高速 CCL 供給瓶頸至 2023-09 仍非當時證據,續 defer。營建暴增純為完工交屋認列(known rule:營建按完工/交屋認列,YoY 具跳動性,非供給瓶頸)。",
+ "clusters": [
+  {
+   "industry": "建材營造",
+   "seed_type": "revenue_accel(新群)",
+   "verdict": "reject",
+   "reject_reason": "興富發 2542/潤隆 1808/愛山林 2540/中工 2515 之營收暴增(1808 +7350% YoY)為建案完工交屋一次性認列(國家大院/竹科潤隆等入帳),屬 known judgement rule『營建按完工交屋認列』的跳動性,非供應鏈瓶頸;地產無稀缺節點控制與供給無彈性之硬約束。結構性 reject。",
+   "narrative": "營建 YoY 跳動來自認列時點,非缺貨/漲價瓶頸,reject。",
+   "bottleneck_check": {
+    "demand": "個案完工交屋認列(非持續需求跳升)",
+    "supply_rigidity": "無(認列型)",
+    "concentration": "無節點控制",
+    "amplifier": "無"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {
+     "date": "2023-08(約)",
+     "source": "cnyes 5283916",
+     "claim": "興富發 7 月營收 +2305%,潤隆建案交屋入帳挹注。"
+    }
+   ]
+  },
+  {
+   "industry": "電子零組件業(CCL/PCB)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "台光電 2383/台燿 6274/聯茂 6213/金像電 2368/健鼎 3044/定穎 3715 等 AI 板材鏈:2023-09 仍無≤圍欄之供給瓶頸(缺料/配額)證據,沿用 8 月 defer 判定,續列觀察不入冊。",
+   "bottleneck_check": {
+    "demand": "carry(AI 板材需求強)",
+    "supply_rigidity": "carry(≤圍欄無硬瓶頸)",
+    "concentration": "carry(中等)",
+    "amplifier": "carry"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "半導體業(CoWoS 設備/封測)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "advanced_packaging_cowos 沿用:辛耘 3583(enabler)/弘塑 3131/萬潤 6187 持平,京元電 2449 仍在(testing enabler);世芯 3661/智原 3035/華泰 2329/矽統 2363 為受惠端不入冊。本月無新增≤圍欄證據,conviction 全持平。",
+   "bottleneck_check": {
+    "demand": "carry",
+    "supply_rigidity": "carry",
+    "concentration": "carry",
+    "amplifier": "carry"
+   },
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "CoWoS 先進封裝",
+   "members": [
+    {
+     "code": "2330",
+     "name": "台積電",
+     "role": "chokepoint_owner",
+     "conviction": 4,
+     "rationale": "carry 持平。"
+    },
+    {
+     "code": "3583",
+     "name": "辛耘",
+     "role": "enabler",
+     "conviction": 2,
+     "rationale": "carry 持平。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "CoWoS 產能利用率跌破 80%/AI 加速器砍單/擴產開出且交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "通信網路業(AI 光通訊)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "華星光 4979/上詮 3363/波若威 3163:沿用 8 月 defer,2023-09 仍無≤圍欄之光電晶片(EML/CW-LD)配額/缺料硬瓶頸證據,續觀察不入冊。",
+   "bottleneck_check": {
+    "demand": "carry",
+    "supply_rigidity": "carry",
+    "concentration": "carry",
+    "amplifier": "carry"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "電機機械(重電)/電腦週邊(AI 組裝)/觀光餐旅/生技",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical(華城 1519 續在動能+營收榜,大同 2371 首見於營收加速榜——歸類 grid-adjacent 多角化受惠,無≤圍欄純重電訂單佐證故不併入核心 owner,持平);reopening_travel(航空/旅行社,票價仍高、運能未回補 2019,持平 4);AI 伺服器整機廠(廣達/緯創/技嘉/英業達/嘉澤/勤誠)carry reject beneficiary;生技(智擎/美時等)carry reject;ev_supply/epaper_esl 本月無新增≤圍欄證據持平。",
+   "bottleneck_check": {
+    "demand": "carry",
+    "supply_rigidity": "carry",
+    "concentration": "carry",
+    "amplifier": "carry"
+   },
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電(+其餘沿用)",
+   "members": [
+    {
+     "code": "1519",
+     "name": "華城",
+     "role": "chokepoint_owner",
+     "conviction": 3,
+     "rationale": "carry 持平。"
+    },
+    {
+     "code": "1513",
+     "name": "中興電",
+     "role": "chokepoint_owner",
+     "conviction": 3,
+     "rationale": "carry 持平。"
+    }
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬/重電訂單連 2 季衰退/變壓器交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "電腦及週邊設備業(補全)",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:電腦及週邊設備業動能/營收群為 AI 伺服器整機廠與 ODM(廣達 2382/緯創 3231/技嘉 2376/英業達 2356/光寶 2301/勤誠 8210/迎廣 6117/銦泰 3693 等),riding 上游 GPU/CoWoS 缺口的下游代工受惠者 —— 不擁稀缺節點、客戶可換代工=beneficiary,真瓶頸 CoWoS 已在冊(advanced_packaging_cowos)。成員構成與 2023-07 高度重疊、無新供應鏈敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "光電業(補全)",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 合併小群 reject 判定:光電業(廣運 6125 倉儲自動化/AI 搬運受惠、一詮 2486/全台 3038 導線架,及顯示/背光材料達威 5432/榮創 3437/友輝 4933/先進光 3362 等)為需求受惠或顯示循環,無稀缺節點控制、供給可擴,不符瓶頸簽名。各月成員同屬此類,無新供應鏈敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  },
+  {
+   "industry": "生技醫療業(補全)",
+   "seed_type": "revenue",
+   "verdict": "carry_over",
+   "narrative": "沿用 2023-07 判定:生技醫療業為新藥上市/CDMO/人口老化之需求成長 + 個股藥證/醫美催化(智擎 4162/藥華藥/高端疫苗 6547/合一 4743 等),無實體產能瓶頸、無控制稀缺節點、下游無 12 個月硬替代約束,結構性不符瓶頸簽名。成員為各自為政的個股催化,無新敘事。",
+   "theme_id": null,
+   "members": [],
+   "evidence": [],
+   "backfill": "2023H2_recordkeeping"
+  }
+ ]
+}
