@@ -864,16 +864,24 @@ def main() -> None:
         taxonomy = load_taxonomy(con, universe["company_code"].tolist())
         price_features, daily_returns = load_price_features(con, universe, load_start, cutoff)
         revenue = load_revenue_features(con)
-        per = load_point_in_time_table(con, "stock_per_pbr", ["price_to_earning_ratio", "price_book_ratio"])
+        per = load_point_in_time_table(con, "stock_per_pbr", ["price_to_earning_ratio", "price_book_ratio"],
+                                       codes=universe["company_code"].tolist())
+        # 效能修(2026-07-17):法人流按池過濾 + rolling 留在 polars——原版全市場
+        # ~590 萬行進 pandas 做 lambda rolling,是每進程載入時間的最大單一項。
+        uni_sql_flows = ",".join(f"'{c}'" for c in sorted(set(universe["company_code"])))
         flows = (
-            con.sql("SELECT date, company_code, total_difference AS inst_diff FROM daily_trading_details")
+            con.sql(
+                f"SELECT date, company_code, total_difference AS inst_diff "
+                f"FROM daily_trading_details WHERE company_code IN ({uni_sql_flows})"
+            )
             .pl()
             .with_columns(pl.col("company_code").cast(pl.Utf8).str.zfill(4))
+            .sort(["company_code", "date"])
+            .with_columns(
+                pl.col("inst_diff").rolling_sum(20, min_samples=5)
+                .over("company_code").alias("inst_20d")
+            )
             .to_pandas()
-        )
-        flows = flows.sort_values(["company_code", "date"]).copy()
-        flows["inst_20d"] = flows.groupby("company_code")["inst_diff"].transform(
-            lambda s: s.rolling(20, min_periods=5).sum()
         )
         buybacks = load_buyback_events(con)
 

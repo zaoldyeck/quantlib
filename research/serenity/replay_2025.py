@@ -251,9 +251,14 @@ def load_revenue_features(con) -> pd.DataFrame:
     return rev
 
 
-def load_point_in_time_table(con, table: str, fields: list[str], date_field: str = "date") -> pd.DataFrame:
+def load_point_in_time_table(con, table: str, fields: list[str], date_field: str = "date",
+                             codes: list[str] | None = None) -> pd.DataFrame:
     select_fields = ", ".join(["company_code", date_field, *fields])
-    frame = con.sql(f"SELECT {select_fields} FROM {table}").pl()
+    where = ""
+    if codes:
+        codes_sql = ",".join(f"'{c}'" for c in sorted(set(codes)))
+        where = f" WHERE company_code IN ({codes_sql})"
+    frame = con.sql(f"SELECT {select_fields} FROM {table}{where}").pl()
     return frame.with_columns(pl.col("company_code").cast(pl.Utf8).str.zfill(4)).to_pandas()
 
 
