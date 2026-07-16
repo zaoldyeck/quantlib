@@ -185,15 +185,20 @@ def selection_permutation(
         price_features, _ = load_price_features(con, universe, load_start, cutoff)
         revenue = load_revenue_features(con)
         per = load_point_in_time_table(con, "stock_per_pbr", ["price_to_earning_ratio", "price_book_ratio"])
+        _uni_sql = ",".join(f"'{c}'" for c in sorted(set(universe["company_code"])))
         flows = (
-            con.sql("SELECT date, company_code, total_difference AS inst_diff FROM daily_trading_details")
+            con.sql(
+                f"SELECT date, company_code, total_difference AS inst_diff "
+                f"FROM daily_trading_details WHERE company_code IN ({_uni_sql})"
+            )
             .pl()
             .with_columns(pl.col("company_code").cast(pl.Utf8).str.zfill(4))
+            .sort(["company_code", "date"])
+            .with_columns(
+                pl.col("inst_diff").rolling_sum(20, min_samples=5)
+                .over("company_code").alias("inst_20d")
+            )
             .to_pandas()
-        )
-        flows = flows.sort_values(["company_code", "date"]).copy()
-        flows["inst_20d"] = flows.groupby("company_code")["inst_diff"].transform(
-            lambda s: s.rolling(20, min_periods=5).sum()
         )
 
         px = price_features.copy()

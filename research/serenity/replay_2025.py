@@ -220,13 +220,18 @@ def load_price_features(con, universe: pd.DataFrame, start: date, end: date) -> 
     return featured.to_pandas(), daily_returns
 
 
-def load_revenue_features(con) -> pd.DataFrame:
+def load_revenue_features(con, codes: list[str] | None = None) -> pd.DataFrame:
+    # 效能(2026-07-17):可按池過濾;None = 全市場(mechanical mode 用)
+    code_filter = ""
+    if codes:
+        codes_sql = ",".join(f"'{c}'" for c in sorted(set(codes)))
+        code_filter = f" AND company_code IN ({codes_sql})"
     rev = (
         con.sql(
-            """
+            f"""
             SELECT company_code, year, month, type, monthly_revenue_yoy
             FROM operating_revenue
-            WHERE regexp_matches(company_code, '^[0-9]{4}$')
+            WHERE regexp_matches(company_code, '^[0-9]{{4}}$'){code_filter}
             """
         )
         .pl()
@@ -275,11 +280,27 @@ def load_taxonomy(con, codes: list[str]) -> pd.DataFrame:
     return frame.with_columns(pl.col("company_code").cast(pl.Utf8).str.zfill(4)).to_pandas()
 
 
+_RLB_CACHE: dict[int, tuple] = {}
+
+
 def row_latest_before(df: pd.DataFrame, day: date, date_col: str) -> pd.DataFrame:
-    work = df.copy()
-    work[date_col] = pd.to_datetime(work[date_col]).dt.date
-    view = work[work[date_col] <= day].sort_values(["company_code", date_col])
-    return view.groupby("company_code", as_index=False).tail(1)
+    """As-of 篩選:每 company_code 取 date_col ≤ day 的最新一列。
+
+    效能(2026-07-17):原版每呼叫全表 copy+轉型+排序(refresh 迴圈 × 多表 = 主要
+    熱點);現以 id(df) 快取「已轉型、按日全域穩定排序」版本,每呼叫僅
+    searchsorted 切片 + drop_duplicates(keep='last')——語義等價(穩定排序保證
+    組內日序;同日多列取原順序最後,與原版 tie 行為一致級)。"""
+    key = (id(df), date_col)
+    cached = _RLB_CACHE.get(key)
+    if cached is None or cached[2] is not df:
+        work = df.copy()
+        work[date_col] = pd.to_datetime(work[date_col]).dt.date
+        work = work.sort_values(date_col, kind="stable").reset_index(drop=True)
+        _RLB_CACHE[key] = (work, work[date_col].to_numpy(), df)
+        cached = _RLB_CACHE[key]
+    work, dates, _ = cached
+    hi = int(np.searchsorted(dates, day, side="right"))
+    return work.iloc[:hi].drop_duplicates("company_code", keep="last")
 
 
 _ABLATE: set = set()

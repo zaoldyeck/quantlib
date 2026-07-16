@@ -839,7 +839,7 @@ def main() -> None:
     mode_tag = "" if args.mode == "registry" else "_mech"
     out_prefix = args.label or f"{OUT_PREFIX}{mode_tag}{suffix}"
 
-    con = connect(read_only=True)
+    con = connect(read_only=True, register_raw_quarterly=False)  # 引擎不用該 view,省開機 ~7s
     try:
         cutoff = con.sql("select max(date) from daily_quote").fetchone()[0]
         if args.end:
@@ -862,8 +862,29 @@ def main() -> None:
         else:
             universe = load_universe_history(con)
         taxonomy = load_taxonomy(con, universe["company_code"].tolist())
-        price_features, daily_returns = load_price_features(con, universe, load_start, cutoff)
-        revenue = load_revenue_features(con)
+        # 效能(2026-07-17):調整面板磁碟快取——back-adjustment(除權息/減資掃描)
+        # 是單進程載入的最大殘餘項;同池同窗的格點掃描全部命中。key 含 cache.duckdb
+        # mtime,資料世代一變即失效(不會吃到舊世代面板)。
+        import hashlib
+        import os as _os
+        panel_cache = RESULTS / ".panel_cache"
+        panel_cache.mkdir(parents=True, exist_ok=True)
+        db_mtime = int(_os.path.getmtime(REPO_ROOT / "research" / "cache.duckdb"))
+        _key = hashlib.sha1(
+            ("|".join(sorted(universe["company_code"])) + f"|{load_start}|{cutoff}|{db_mtime}").encode()
+        ).hexdigest()[:16]
+        pf_path = panel_cache / f"pf_{_key}.parquet"
+        dr_path = panel_cache / f"dr_{_key}.parquet"
+        if pf_path.exists() and dr_path.exists():
+            price_features = pd.read_parquet(pf_path)
+            daily_returns = pd.read_parquet(dr_path)
+        else:
+            price_features, daily_returns = load_price_features(con, universe, load_start, cutoff)
+            price_features.to_parquet(pf_path, index=False)
+            daily_returns.to_parquet(dr_path, index=False)
+        revenue = load_revenue_features(
+            con, codes=universe["company_code"].tolist() if args.mode == "registry" else None
+        )
         per = load_point_in_time_table(con, "stock_per_pbr", ["price_to_earning_ratio", "price_book_ratio"],
                                        codes=universe["company_code"].tolist())
         # 效能修(2026-07-17):法人流按池過濾 + rolling 留在 polars——原版全市場
@@ -928,7 +949,11 @@ def main() -> None:
         bb_window = buybacks[
             (buybacks["announce_date"] >= start) & (buybacks["announce_date"] <= cutoff)
         ]
-        extra_codes = sorted(set(bb_window["company_code"]) - bb_codes)
+        # 效能(2026-07-17):全市場 buyback extra 面板只在有 variant 用 buyback 通道
+        # 時才載(戰役三已否決該通道,champion 不用——原本每進程白算 4 年全市場面板)
+        _needs_bb = any(v.use_buyback for v in VARIANTS if not args.variants
+                        or v.name in {n.strip() for n in (args.variants or "").split(",")})
+        extra_codes = sorted(set(bb_window["company_code"]) - bb_codes) if _needs_bb else []
         if extra_codes:
             extra_uni = load_universe(con, extra_codes)
             if not extra_uni.empty:

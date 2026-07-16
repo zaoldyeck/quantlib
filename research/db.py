@@ -10,6 +10,8 @@ Views expose BOTH TWSE + TPEx rows. Research scripts must apply explicit
 import os
 import duckdb
 
+from industry_taxonomy import build_industry_taxonomy_pit
+
 DEFAULT_DSN = os.environ.get(
     "QL_PG_DSN",
     f"host=localhost port=5432 dbname=quantlib user={os.environ.get('USER', 'zaoldyeck')}"
@@ -20,21 +22,52 @@ CACHE_DB = os.path.join(os.path.dirname(__file__), "cache.duckdb")
 RAW_QUARTERLY_PARQUET = os.path.join(os.path.dirname(__file__), "raw_quarterly.parquet")
 
 
+def _configure_connection(con: duckdb.DuckDBPyConnection) -> None:
+    """Apply local performance defaults without changing query semantics."""
+    threads = int(os.environ.get("QL_DUCKDB_THREADS", os.cpu_count() or 1))
+    memory_limit = os.environ.get("QL_DUCKDB_MEMORY_LIMIT", "8GB")
+    con.sql(f"SET memory_limit = '{memory_limit}'")
+    con.sql(f"SET threads = {max(1, threads)}")
+    try:
+        con.sql("SET preserve_insertion_order = false")
+    except duckdb.Error:
+        pass
+
+
 def _register_raw_quarterly(con: duckdb.DuckDBPyConnection) -> None:
-    """Register raw_quarterly first-principles factors as DuckDB view if parquet exists.
+    """Register raw_quarterly first-principles factors as a session-local view.
 
     Computed by `python research/strat_lab/raw_quarterly.py` from raw IS/BS/CF base tables.
     Replaces dependency on PG views (financial_index_quarterly, growth_analysis_ttm).
+
+    This must stay TEMP so read-only cache connections remain process-parallel.
     """
     if os.path.exists(RAW_QUARTERLY_PARQUET):
         con.sql(
-            f"CREATE OR REPLACE VIEW raw_quarterly AS "
+            f"CREATE OR REPLACE TEMP VIEW raw_quarterly AS "
             f"SELECT * FROM read_parquet('{RAW_QUARTERLY_PARQUET}')"
         )
 
 
+def _register_industry_taxonomy(con: duckdb.DuckDBPyConnection) -> None:
+    """Expose canonical PIT industry taxonomy on older caches or live PG views."""
+    try:
+        con.sql("SELECT 1 FROM industry_taxonomy_pit LIMIT 1")
+        return
+    except duckdb.Error:
+        pass
+
+    taxonomy = build_industry_taxonomy_pit(con)
+    con.register("_industry_taxonomy_pit_df", taxonomy)
+    con.sql(
+        "CREATE OR REPLACE TEMP VIEW industry_taxonomy_pit AS "
+        "SELECT * FROM _industry_taxonomy_pit_df"
+    )
+
+
 def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
-            use_cache: bool = True) -> duckdb.DuckDBPyConnection:
+            use_cache: bool = True,
+            register_raw_quarterly: bool = True) -> duckdb.DuckDBPyConnection:
     """Return a DuckDB connection. If use_cache=True and `research/cache.duckdb`
     exists, open it directly (millisecond queries). Otherwise attach live
     PostgreSQL as `pg` (slow — for ad-hoc cross-table queries only).
@@ -46,17 +79,18 @@ def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
     To rebuild cache: `uv run python research/cache_tables.py`
     """
     if use_cache and os.path.exists(CACHE_DB):
-        # read_only=False so we can register temp in-memory frames; file itself is not modified
-        con = duckdb.connect(CACHE_DB, read_only=False)
-        con.sql("SET memory_limit = '8GB'")
-        _register_raw_quarterly(con)
+        con = duckdb.connect(CACHE_DB, read_only=read_only)
+        _configure_connection(con)
+        if register_raw_quarterly:
+            _register_raw_quarterly(con)
+        _register_industry_taxonomy(con)
         return con
 
     con = duckdb.connect()
     con.sql("INSTALL postgres; LOAD postgres;")
     readonly = ", READ_ONLY" if read_only else ""
     con.sql(f"ATTACH '{dsn}' AS pg (TYPE postgres{readonly})")
-    con.sql("SET memory_limit = '8GB'")
+    _configure_connection(con)
     # Register views matching cache table names (so same SQL works with/without cache).
     # stock_per_pbr in cache = stock_per_pbr_dividend_yield in pg.
     con.sql("CREATE OR REPLACE VIEW daily_quote AS "
@@ -93,6 +127,9 @@ def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
             "       securities_investment_trust_companies_difference AS trust_difference, "
             "       dealers_difference, total_difference "
             "FROM pg.public.daily_trading_details")
+    con.sql('CREATE OR REPLACE VIEW market_index AS '
+            'SELECT market, date, name, close, change, "change(%)" AS change_pct '
+            'FROM pg.public."index"')
     con.sql("CREATE OR REPLACE VIEW margin_transactions AS "
             "SELECT market, date, company_code, "
             "       margin_balance_of_the_day AS margin_balance, "
@@ -126,6 +163,20 @@ def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
             "       current_shares_own, current_shares_trust, "
             "       planned_shares_own, planned_shares_trust "
             "FROM pg.public.insider_holding")
+    con.sql("CREATE OR REPLACE VIEW taifex_futures_daily AS "
+            "SELECT date, contract_code, contract_month, open, high, low, close, change, change_pct, "
+            "       volume, settlement_price, open_interest, best_bid, best_ask, historical_high, historical_low, "
+            "       trading_halt, trading_session, spread_single_volume "
+            "FROM pg.public.taifex_futures_daily")
+    con.sql("CREATE OR REPLACE VIEW taifex_futures_institutional AS "
+            "SELECT date, contract_code, product_name, investor_type, long_volume, long_value_thousands, "
+            "       short_volume, short_value_thousands, net_volume, net_value_thousands, "
+            "       long_open_interest, long_oi_value_thousands, short_open_interest, short_oi_value_thousands, "
+            "       net_open_interest, net_oi_value_thousands "
+            "FROM pg.public.taifex_futures_institutional")
+    con.sql("CREATE OR REPLACE VIEW taifex_futures_final_settlement AS "
+            "SELECT date, contract_code, contract_month, final_settlement_price "
+            "FROM pg.public.taifex_futures_final_settlement")
     # First-principles raw base tables (long-form line items)
     con.sql("CREATE OR REPLACE VIEW is_progressive_raw AS "
             "SELECT market, type, year, quarter, company_code, title, value "
@@ -139,6 +190,7 @@ def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
             "SELECT market, year, quarter, company_code, title, value "
             "FROM pg.public.cash_flows_progressive WHERE market='tw'")
     _register_raw_quarterly(con)
+    _register_industry_taxonomy(con)
     return con
 
 

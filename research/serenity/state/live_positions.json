@@ -8,7 +8,8 @@
    "entry_date": "2026-07-03",
    "source": "adopted",
    "vetted": true,
-   "thesis_note": "ai_server_mech(註冊表 conviction 5)。瓶頸:伺服器導軌/滑軌全球市佔 60-70%,GB200/300 機櫃化導軌規格升級單價倍增,rack 級安規認證鎖定、12 個月內無可替代者——通過瓶頸簽名四項。資料確認(6/11 計分):rank 6、score 97.7、5月營收 YoY +172%、yoy_3m +97%。判定:keep,按五規則管理(2026-07-07 判斷層檢核)"
+   "thesis_note": "ai_server_mech(註冊表 conviction 5)。瓶頸:伺服器導軌/滑軌全球市佔 60-70%,GB200/300 機櫃化導軌規格升級單價倍增,rack 級安規認證鎖定、12 個月內無可替代者——通過瓶頸簽名四項。資料確認(6/11 計分):rank 6、score 97.7、5月營收 YoY +172%、yoy_3m +97%。判定:keep,按五規則管理(2026-07-07 判斷層檢核)",
+   "cost_basis": "adopted_close"
   },
   "2383": {
    "qty": 1,
@@ -17,7 +18,8 @@
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
-   "thesis_note": "ccl_substrate(在冊)。M8/M9 級 CCL 三強寡占之首,AI 加速卡低損耗材料代際鎖定;7-09 手動 lot @5465"
+   "thesis_note": "ccl_substrate(在冊)。M8/M9 級 CCL 三強寡占之首,AI 加速卡低損耗材料代際鎖定;7-09 手動 lot @5465",
+   "cost_basis": "fill"
   },
   "2408": {
    "qty": 2,
@@ -25,7 +27,8 @@
    "peak": 448.0,
    "entry_date": "2026-07-09",
    "source": "engine",
-   "vetted": true
+   "vetted": true,
+   "cost_basis": "fill"
   },
   "3006": {
    "qty": 1,
@@ -34,7 +37,8 @@
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
-   "thesis_note": "mem_niche(在冊)。利基型 DRAM/SLC NAND 設計,AI 邊緣裝置補庫存週期;7-09 手動 lot @235.5"
+   "thesis_note": "mem_niche(在冊)。利基型 DRAM/SLC NAND 設計,AI 邊緣裝置補庫存週期;7-09 手動 lot @235.5",
+   "cost_basis": "fill"
   },
   "6446": {
    "qty": 1,
@@ -43,7 +47,8 @@
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
-   "thesis_note": "drug_orphan(在冊)。P1101 罕藥自有藥證+產能,美國放量;7-09 手動 lot @1265"
+   "thesis_note": "drug_orphan(在冊)。P1101 罕藥自有藥證+產能,美國放量;7-09 手動 lot @1265",
+   "cost_basis": "fill"
   },
   "6223": {
    "qty": 1,
@@ -52,7 +57,8 @@
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
-   "thesis_note": "probe_card(在冊)。先進封裝測試探針卡,CoWoS 測試瓶頸受益;收養錨=7-09 收盤 7080(昨日成交價無從查證,filled_history 回空)"
+   "thesis_note": "probe_card(在冊)。先進封裝測試探針卡,CoWoS 測試瓶頸受益;收養錨=7-09 收盤 7080(昨日成交價無從查證,filled_history 回空)",
+   "cost_basis": "adopted_close"
   },
   "6274": {
    "qty": 1,
@@ -61,7 +67,8 @@
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
-   "thesis_note": "ccl_substrate(在冊)。高階 CCL 三強,800G 交換器材料;7-09 手動 lot @1660"
+   "thesis_note": "ccl_substrate(在冊)。高階 CCL 三強,800G 交換器材料;7-09 手動 lot @1660",
+   "cost_basis": "fill"
   }
  },
  "log": [
@@ -255,6 +262,11 @@
    "ts": "2026-07-14T16:06:45",
    "action": "closed",
    "code": "8299"
+  },
+  {
+   "ts": "2026-07-16T04:21:26",
+   "action": "tag_cost_basis",
+   "note": "fill=實際成交價(2026-07-09 批,order_results 佐證);adopted_close=收養日收盤(成本代理,真實成本不可考)"
   }
  ]
 }
