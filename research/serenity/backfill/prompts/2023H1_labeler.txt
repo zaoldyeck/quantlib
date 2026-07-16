@@ -56,3 +56,11 @@ E. 每月輸出寫入 label_runs/2023-0M.json(UTF-8):
                   "invalidation_criteria","evidence":[{"date","source","claim"}]}]}
 F. 六個月全部完成後,回覆 ≤20 行總摘要:各月 admit/reject/carry_over 計數、conviction
    演化事件、時間圍欄丟棄總數。
+
+## v3 追加(2026-07-14,全量 campaign):期初冊快照
+全量批次(2022H2/2023H2/2024H1/2024H2)的 agent 會在任務指示中收到「期初冊快照」
+(前批彙整的在冊主題:theme_id/成員/conviction/invalidation_criteria)。規則:
+- 期初在冊主題視為 carry 基礎:各月對它們只做證據演化(conviction 調升/調降、
+  invalidation 觸發則設 active_until),不重新發現、不重跑瓶頸簽名。
+- 演化與失效判定同樣受時間圍欄約束(只用 ≤ 該月月末的證據)。
+- 新主題(種子聚類+自由發現)照常完整檢核。

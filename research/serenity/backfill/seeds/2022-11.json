@@ -1,0 +1,453 @@
+{
+ "label_month": "2022-11",
+ "label_day": "2022-11-01",
+ "momentum_clusters": [
+  {
+   "industry": "生技醫療業",
+   "members": [
+    {
+     "code": "4102",
+     "ret60_pct": 54.0
+    },
+    {
+     "code": "6666",
+     "ret60_pct": 37.0
+    },
+    {
+     "code": "4743",
+     "ret60_pct": 36.5
+    },
+    {
+     "code": "1736",
+     "ret60_pct": 34.0
+    },
+    {
+     "code": "1760",
+     "ret60_pct": 32.7
+    },
+    {
+     "code": "6472",
+     "ret60_pct": 31.2
+    },
+    {
+     "code": "6589",
+     "ret60_pct": 22.5
+    },
+    {
+     "code": "4162",
+     "ret60_pct": 17.0
+    },
+    {
+     "code": "6469",
+     "ret60_pct": 14.7
+    },
+    {
+     "code": "1795",
+     "ret60_pct": 11.6
+    }
+   ]
+  },
+  {
+   "industry": "其他",
+   "members": [
+    {
+     "code": "8933",
+     "ret60_pct": 89.3
+    },
+    {
+     "code": "8033",
+     "ret60_pct": 37.6
+    },
+    {
+     "code": "8916",
+     "ret60_pct": 35.1
+    },
+    {
+     "code": "1342",
+     "ret60_pct": 31.1
+    },
+    {
+     "code": "9942",
+     "ret60_pct": 25.6
+    },
+    {
+     "code": "8478",
+     "ret60_pct": 22.2
+    },
+    {
+     "code": "4536",
+     "ret60_pct": 19.1
+    },
+    {
+     "code": "9939",
+     "ret60_pct": 14.7
+    },
+    {
+     "code": "8938",
+     "ret60_pct": 12.9
+    }
+   ]
+  },
+  {
+   "industry": "電腦及週邊設備業",
+   "members": [
+    {
+     "code": "3046",
+     "ret60_pct": 73.9
+    },
+    {
+     "code": "3272",
+     "ret60_pct": 59.6
+    },
+    {
+     "code": "2364",
+     "ret60_pct": 52.6
+    },
+    {
+     "code": "4931",
+     "ret60_pct": 47.9
+    },
+    {
+     "code": "5215",
+     "ret60_pct": 26.0
+    },
+    {
+     "code": "2465",
+     "ret60_pct": 16.2
+    },
+    {
+     "code": "2376",
+     "ret60_pct": 13.5
+    },
+    {
+     "code": "2305",
+     "ret60_pct": 13.1
+    }
+   ]
+  },
+  {
+   "industry": "電子零組件業",
+   "members": [
+    {
+     "code": "2413",
+     "ret60_pct": 38.4
+    },
+    {
+     "code": "5227",
+     "ret60_pct": 25.8
+    },
+    {
+     "code": "3207",
+     "ret60_pct": 19.7
+    },
+    {
+     "code": "3533",
+     "ret60_pct": 19.6
+    },
+    {
+     "code": "8358",
+     "ret60_pct": 14.0
+    },
+    {
+     "code": "6205",
+     "ret60_pct": 11.7
+    }
+   ]
+  },
+  {
+   "industry": "光電業",
+   "members": [
+    {
+     "code": "3454",
+     "ret60_pct": 81.7
+    },
+    {
+     "code": "3128",
+     "ret60_pct": 56.3
+    },
+    {
+     "code": "5251",
+     "ret60_pct": 38.9
+    },
+    {
+     "code": "3149",
+     "ret60_pct": 26.1
+    },
+    {
+     "code": "3356",
+     "ret60_pct": 22.3
+    }
+   ]
+  },
+  {
+   "industry": "其他電子業",
+   "members": [
+    {
+     "code": "5225",
+     "ret60_pct": 72.9
+    },
+    {
+     "code": "3289",
+     "ret60_pct": 50.2
+    },
+    {
+     "code": "3587",
+     "ret60_pct": 19.8
+    }
+   ]
+  },
+  {
+   "industry": "半導體業",
+   "members": [
+    {
+     "code": "6533",
+     "ret60_pct": 47.6
+    },
+    {
+     "code": "6643",
+     "ret60_pct": 30.2
+    },
+    {
+     "code": "8040",
+     "ret60_pct": 26.4
+    }
+   ]
+  },
+  {
+   "industry": "觀光餐旅",
+   "members": [
+    {
+     "code": "2754",
+     "ret60_pct": 39.1
+    },
+    {
+     "code": "2753",
+     "ret60_pct": 23.2
+    },
+    {
+     "code": "5704",
+     "ret60_pct": 20.4
+    }
+   ]
+  },
+  {
+   "industry": "通信網路業",
+   "members": [
+    {
+     "code": "3027",
+     "ret60_pct": 23.8
+    },
+    {
+     "code": "6143",
+     "ret60_pct": 16.0
+    },
+    {
+     "code": "4977",
+     "ret60_pct": 13.4
+    }
+   ]
+  }
+ ],
+ "revenue_accel_clusters": [
+  {
+   "industry": "電腦及週邊設備業",
+   "members": [
+    {
+     "code": "3272",
+     "yoy_3m": 108.0,
+     "yoy_3m_prev": 6.0
+    },
+    {
+     "code": "6570",
+     "yoy_3m": 51.0,
+     "yoy_3m_prev": 17.0
+    },
+    {
+     "code": "8114",
+     "yoy_3m": 52.0,
+     "yoy_3m_prev": 37.0
+    },
+    {
+     "code": "4931",
+     "yoy_3m": 190.0,
+     "yoy_3m_prev": 95.0
+    },
+    {
+     "code": "5258",
+     "yoy_3m": 70.0,
+     "yoy_3m_prev": 63.0
+    },
+    {
+     "code": "3022",
+     "yoy_3m": 62.0,
+     "yoy_3m_prev": 1.0
+    },
+    {
+     "code": "6669",
+     "yoy_3m": 75.0,
+     "yoy_3m_prev": 45.0
+    },
+    {
+     "code": "6235",
+     "yoy_3m": 66.0,
+     "yoy_3m_prev": 40.0
+    }
+   ]
+  },
+  {
+   "industry": "光電業",
+   "members": [
+    {
+     "code": "6443",
+     "yoy_3m": 62.0,
+     "yoy_3m_prev": 38.0
+    },
+    {
+     "code": "8069",
+     "yoy_3m": 107.0,
+     "yoy_3m_prev": 85.0
+    },
+    {
+     "code": "3454",
+     "yoy_3m": 108.0,
+     "yoy_3m_prev": 39.0
+    },
+    {
+     "code": "6477",
+     "yoy_3m": 220.0,
+     "yoy_3m_prev": 123.0
+    },
+    {
+     "code": "6125",
+     "yoy_3m": 66.0,
+     "yoy_3m_prev": 35.0
+    },
+    {
+     "code": "3535",
+     "yoy_3m": 113.0,
+     "yoy_3m_prev": 91.0
+    },
+    {
+     "code": "3059",
+     "yoy_3m": 65.0,
+     "yoy_3m_prev": 36.0
+    }
+   ]
+  },
+  {
+   "industry": "通信網路業",
+   "members": [
+    {
+     "code": "3062",
+     "yoy_3m": 111.0,
+     "yoy_3m_prev": 23.0
+    },
+    {
+     "code": "3081",
+     "yoy_3m": 78.0,
+     "yoy_3m_prev": 14.0
+    },
+    {
+     "code": "3558",
+     "yoy_3m": 83.0,
+     "yoy_3m_prev": 57.0
+    },
+    {
+     "code": "5388",
+     "yoy_3m": 65.0,
+     "yoy_3m_prev": 52.0
+    },
+    {
+     "code": "6285",
+     "yoy_3m": 53.0,
+     "yoy_3m_prev": 30.0
+    }
+   ]
+  },
+  {
+   "industry": "其他電子業",
+   "members": [
+    {
+     "code": "5225",
+     "yoy_3m": 51.0,
+     "yoy_3m_prev": 33.0
+    },
+    {
+     "code": "2360",
+     "yoy_3m": 56.0,
+     "yoy_3m_prev": 11.0
+    },
+    {
+     "code": "2404",
+     "yoy_3m": 124.0,
+     "yoy_3m_prev": 74.0
+    },
+    {
+     "code": "8183",
+     "yoy_3m": 84.0,
+     "yoy_3m_prev": 57.0
+    }
+   ]
+  },
+  {
+   "industry": "其他",
+   "members": [
+    {
+     "code": "9904",
+     "yoy_3m": 53.0,
+     "yoy_3m_prev": 5.0
+    },
+    {
+     "code": "8916",
+     "yoy_3m": 89.0,
+     "yoy_3m_prev": 21.0
+    },
+    {
+     "code": "9910",
+     "yoy_3m": 121.0,
+     "yoy_3m_prev": 26.0
+    }
+   ]
+  },
+  {
+   "industry": "半導體業",
+   "members": [
+    {
+     "code": "6533",
+     "yoy_3m": 56.0,
+     "yoy_3m_prev": -28.0
+    },
+    {
+     "code": "6515",
+     "yoy_3m": 107.0,
+     "yoy_3m_prev": 60.0
+    },
+    {
+     "code": "3443",
+     "yoy_3m": 70.0,
+     "yoy_3m_prev": 64.0
+    }
+   ]
+  },
+  {
+   "industry": "化學工業",
+   "members": [
+    {
+     "code": "4768",
+     "yoy_3m": 70.0,
+     "yoy_3m_prev": 35.0
+    },
+    {
+     "code": "4763",
+     "yoy_3m": 87.0,
+     "yoy_3m_prev": 54.0
+    },
+    {
+     "code": "1708",
+     "yoy_3m": 85.0,
+     "yoy_3m_prev": 72.0
+    }
+   ]
+  }
+ ]
+}
