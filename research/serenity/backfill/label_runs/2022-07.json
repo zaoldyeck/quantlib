@@ -1,0 +1,332 @@
+{
+ "label_month": "2022-07",
+ "mode": "full",
+ "fence_date": "2022-07-31",
+ "opening_registry_note": "全量 campaign 首批(最早時點)。收到 2022-07-01 期初冊快照 4 主題(abf_substrate/foundry_shortage/ev_supply/reopening_travel),依 v3 規則僅做證據演化、不重跑瓶頸簽名;種子聚類與自由發現照常完整檢核。",
+ "queries": [
+  "台灣 半導體 砍單 庫存修正 2022年7月 聯電 世界先進 成熟製程 產能",
+  "ABF 載板 供需 交期 2022年 欣興 南電 景碩 缺貨 是否緩解",
+  "台灣 邊境 解封 觀光 航空 長榮航 華航 2022年7月 入境 隔離",
+  "電動車 供應鏈 台達電 貿聯 和大 2022年 需求 特斯拉 交期",
+  "東陽 堤維西 汽車零件 2022 車用 缺料 售後市場 AM件 訂單 為什麼上漲",
+  "8097 常珵 2022 營收 大增 原因 通信 網通 是什麼產品",
+  "生技股 2022年6月 7月 上漲 保瑞 藥華藥 智擎 原因 題材 授權",
+  "重電 電機機械 2022年 華城 中興電 士電 台電 電網 訂單 缺 交期",
+  "信驊 5274 家登 3680 2022年 伺服器 BMC EUV pod 市占 需求 缺貨",
+  "台股 2022年下半年 漲價 缺貨 供不應求 交期拉長 概念股 非半導體 電子",
+  "WebFetch thenewslens/169532 驗證發布日=2022-07-08(成熟製程砍單)"
+ ],
+ "sources_used": [
+  {"date": "2022-07-08", "publisher": "關鍵評論網 The News Lens (WebFetch 驗證發布日 2022/07/08)", "claim": "集邦示警成熟製程『砍單潮』:通膨/衰退拖累,消費性(電視/PC driver IC)最劇,部分8吋廠產能利用率恐下探9成;PMIC/CIS/MCU/SoC砍單已浮現。世界先進轉保守(庫存升、Q2終端不如預期、Q3利用率自高點滑落);聯電仍100%+滿載並樂觀、力積電面板driver/CIS鬆動但轉單PMIC/車用維持Q3滿載;12吋成熟製程約95%。→ 成熟製程需求開始分裂、消費端鬆動"},
+  {"date": "2022-06-01", "publisher": "旺得富理財網/中時 (URL slug 20220601 確認日期)", "claim": "南電/景碩/欣興ABF載板三雄『首遭』外資降評,一原因狠砍目標價約4成;外資估ABF缺口由2021的19%降至10%以內、漲價趨勢即將喊卡。→ ABF供需自高峰反轉的第一手訊號"},
+  {"date": "2022-06-15", "publisher": "工商時報 ctee (URL slug 20220615700678 確認日期)", "claim": "生技月倒數,13檔生醫強勢股(明基醫/大樹/藥華藥/合一/美時/智擎/杏輝等15日漲逾2%);生技為通膨/升息避風港,資金轉進;BIO Asia-Taiwan 7/28-31登場;保瑞擬60億併安成藥擴CDMO規模。→ 事件/題材/避風港資金驅動"},
+  {"date": "2022-03-28", "publisher": "工商時報 ctee (URL slug 20220328700419 確認日期)", "claim": "汽車AM零件需求升溫、AM族群6檔反攻:①用車晶片荒→新車缺車→中古車價漲逾40%→修補件需求;②俄烏戰衝擊東歐汽車零件重鎮、供應鏈轉往亞洲;③美系保險商(State Farm)納入AM件;④匯率/運費成本下降。東陽為全球最大AM塑膠件/鈑金件廠(全球市佔70%/35%)、堤維西台灣第2大AM車燈廠。→ 需求復甦+戰爭斷鏈轉單的循環受惠,非自有結構供給卡口"},
+  {"date": "2022-07(6月營收公布,早7月)", "publisher": "經濟日報 money.udn / 鉅亨 cnyes (EV旺季綜合)", "claim": "貿聯(3665)6月營收24.07億、年增36.8%創單月新高(受惠EV+資料中心+半導體);和大(1536)為特斯拉減速齒輪獨家供應商、嘉義大埔美三廠陸續投產擴產;特斯拉2021/2022產量85-90萬/120-130萬輛(年增67-77%/38-49%),下半年進入交車旺季。→ EV供應鏈圍欄內證據仍偏正向"},
+  {"date": "2022-06-15", "publisher": "衛福部疾管署 CDC 公告", "claim": "自2022-06-15零時起邊境檢疫鬆綁為『3天居家檢疫+4天自主防疫』、入境每週2.5萬人次為原則、發2劑家用快篩;7月中旬預計改發4劑。→ 國境自封控逐步鬆綁、出行需求回流進行中(全面0+7的10/13公告屬7月圍欄後,本月不採)"},
+  {"date": "公司基本資料(識別事實,無時效)", "publisher": "Goodinfo/財報狗 個股簡介", "claim": "8097常珵=網通CPE廠(VDSL/GPON/WiFi 6通訊週邊+IoT智慧家庭),屬下游設備銷售。(其2022年南美/東南亞電信客戶拉貨之營收動因來源發布於2022-11,屬7月圍欄後,本月不採為動因)"},
+  {"date": "識別事實(無時效)+2022-06-24盤中價", "publisher": "口袋學堂/財報狗 信驊簡介", "claim": "信驊(5274)=全球伺服器BMC(基板管理控制器)SoC龍頭、市佔穩逾7成、fabless(委外台積);2022-06-24盤中曾達歷史高2950元。→ 結構性近獨佔『致能者』,但護城河為設計/生態鎖定(非自有實體產能卡口),且圍欄內無強制換代放大器"}
+ ],
+ "sources_discarded_count": 41,
+ "sources_discarded_note": "近似值。多數 surface 結果為 2024-2026 年之圍欄後主題演化,一律丟棄不採(此為本 campaign 防倖存者偏誤核心):① ABF/PCB/被動元件/記憶體/矽晶圓『2026 超級循環、缺口擴大至2027-2028、交期拉長至12個月、報價季漲10-15%』(豐雲學堂/CMoney/工商 2026 共約 15 篇)——與圍欄內『2022-06 首遭降評、漲價喊卡』方向相反,嚴禁用未來反轉;② 重電『台電近百億標案/中興電431億在手/訂單排到2029-2031/AI資料中心變壓器荒/矽鋼片缺』(豐雲學堂/CMoney/鉅亨 2024-2026 共約 8 篇)——強韌電網計畫 2022-09 才公布(對7月亦屬未來)、重電四雄未進7月種子,本月完全不觸及;③ 信驊『AI伺服器/BMC換代/AST2700/股價破萬』(2024-2026 共約 5 篇);④ 常珵營收動因報導(2022-11);⑤ 邊境『0+7 於10/13上路』公告(2022-09-22 technews)對7月處理屬未來,不採;⑥ 其餘 2023-2025 個股財報。核心判讀:2022-07 為消費性電子/半導體『由缺轉鬆』的反轉點,不是缺貨期。",
+ "clusters": [
+  {
+   "industry": "半導體業(期初冊主題 foundry_shortage)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,僅做證據演化(不重跑瓶頸簽名)。圍欄內 2022-07-08 第一手證據顯示成熟製程開始『分裂』:消費性應用(電視/PC driver IC、PMIC/CIS/MCU/SoC)砍單潮已浮現、8吋廠利用率下探9成、世界先進轉保守(庫存升、Q3利用率自高點下滑);但聯電仍100%+滿載且對供不應求維持樂觀、力積電轉單PMIC/車用維持滿載。命中失效判準『成熟製程砍單/降價』的『砍單』面(消費端),但車用/工業/PMIC 與12吋(約95%)仍緊。故判定為主題『開始弱化但未失效』——conviction 由 4 下調至 3,不設 active_until,續觀察後續月份是否擴散到全製程與降價。",
+   "bottleneck_check": {
+    "demand": "弱化 — 消費性終端(PC/TV/手機)需求急凍、客戶砍單;但車用/工業/PMIC需求仍在(carry,不重跑)",
+    "supply_rigidity": "鬆動中 — 8吋利用率下探9成、世界先進庫存升;供給不再無彈性(carry,不重跑)",
+    "concentration": "N/A(不重跑;成熟製程仍寡占但需求面反轉為主導)",
+    "amplifier": "無新增;原漲價放大器正在消退(漲價喊卡)"
+   },
+   "theme_id": "foundry_shortage",
+   "theme_name": "成熟製程產能荒",
+   "members": [
+    {"code": "2303", "name": "聯電", "role": "chokepoint_owner", "conviction": 3, "rationale": "圍欄內仍100%+滿載、口頭樂觀,但消費端砍單潮浮現、下行風險升高;由4下調至3"},
+    {"code": "5347", "name": "世界先進", "role": "chokepoint_owner", "conviction": 3, "rationale": "已轉保守(庫存升、Q3利用率自高點滑落),弱化最明確;由4下調至3"},
+    {"code": "6770", "name": "力積電", "role": "chokepoint_owner", "conviction": 3, "rationale": "面板driver/CIS鬆動、靠轉單PMIC/車用維持滿載;結構性供不應求敘事開始鬆動,由4下調至3"}
+   ],
+   "conviction_updates": [
+    {"theme_id": "foundry_shortage", "code": "2303", "from": 4, "to": 3, "evidence": "2022-07-08 成熟製程砍單潮浮現(消費端),8吋利用率下探9成"},
+    {"theme_id": "foundry_shortage", "code": "5347", "from": 4, "to": 3, "evidence": "2022-07-08 世界先進轉保守、庫存升、Q3利用率自高點下滑"},
+    {"theme_id": "foundry_shortage", "code": "6770", "from": 4, "to": 3, "evidence": "2022-07-08 力積電面板driver/CIS鬆動,靠轉單維持滿載"}
+   ],
+   "invalidation_criteria": "成熟製程全面砍單並開始降價(而非僅消費端砍單);利用率跌破8成;聯電/世界先進由『樂觀/滿載』轉為明確減產或報價下修",
+   "evidence": [
+    {"date": "2022-07-08", "source": "The News Lens/169532 (WebFetch驗證)", "claim": "成熟製程砍單潮:消費性最劇、8吋利用率下探9成;世界先進轉保守、庫存升;聯電/力積電仍滿載"}
+   ]
+  },
+  {
+   "industry": "其他電子業/PCB(期初冊主題 abf_substrate)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,僅做證據演化。圍欄內 2022-06-01 第一手證據:南電/景碩/欣興ABF載板三雄『首遭』外資降評、目標價狠砍約4成;外資估ABF缺口由2021的19%降至10%以內、漲價趨勢即將喊卡。此直接命中失效判準『ABF交期正常化/報價回落』的『報價回落(漲價喊卡)』前導訊號,是主題自高峰反轉的第一手證據。判定:conviction 由 5 大幅下調至 3(仍未見報價實際崩跌、Q2尚有漲價,故不立即設 active_until,續觀察 H2 消費崩壞是否確認降價)。",
+   "bottleneck_check": {
+    "demand": "反轉 — 消費性(PC/伺服器基板)需求走弱,ABF缺口收斂(carry,不重跑)",
+    "supply_rigidity": "鬆動 — 缺口19%→<10%、漲價喊卡(carry,不重跑)",
+    "concentration": "N/A(不重跑;三雄仍寡占但需求/定價權反轉為主導)",
+    "amplifier": "原漲價放大器消退"
+   },
+   "theme_id": "abf_substrate",
+   "theme_name": "ABF 載板缺貨",
+   "members": [
+    {"code": "3037", "name": "欣興", "role": "chokepoint_owner", "conviction": 3, "rationale": "外資首度降評、目標價砍4成;缺口收斂、漲價喊卡。由5下調至3"},
+    {"code": "8046", "name": "南電", "role": "chokepoint_owner", "conviction": 3, "rationale": "同遭降評,基板高峰反轉。由5下調至3"},
+    {"code": "3189", "name": "景碩", "role": "chokepoint_owner", "conviction": 3, "rationale": "同遭降評。由5下調至3"}
+   ],
+   "conviction_updates": [
+    {"theme_id": "abf_substrate", "code": "3037", "from": 5, "to": 3, "evidence": "2022-06-01 ABF三雄首遭外資降評、目標價砍4成、缺口19%→<10%、漲價喊卡"},
+    {"theme_id": "abf_substrate", "code": "8046", "from": 5, "to": 3, "evidence": "2022-06-01 同上"},
+    {"theme_id": "abf_substrate", "code": "3189", "from": 5, "to": 3, "evidence": "2022-06-01 同上"}
+   ],
+   "invalidation_criteria": "ABF現貨/長約報價實際回落(非僅漲價喊卡);交期由高峰縮回正常;三雄稼動率明顯下滑或下修財測。→ 若 H2 確認降價則設 active_until",
+   "evidence": [
+    {"date": "2022-06-01", "source": "旺得富/中時 20220601900344", "claim": "ABF三雄首遭外資降評、目標價砍4成;缺口19%→<10%、漲價喊卡"}
+   ]
+  },
+  {
+   "industry": "汽車工業/其他電子(期初冊主題 ev_supply)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,僅做證據演化。圍欄內證據仍偏正向:貿聯(3665)6月營收24.07億、年增36.8%創單月新高;和大(1536)為特斯拉減速齒輪獨家供應商、擴三廠;特斯拉2022產量估120-130萬輛(年增38-49%)、下半年進入交車旺季。失效判準『Tesla降價戰壓縮供應鏈』尚未觸發(特斯拉大規模降價為2023-01後,屬圍欄後)。判定:conviction 維持 4(不調升——2022 H2 已有終端需求見頂的市場疑慮,但圍欄內尚無壓縮供應鏈的實據)。",
+   "bottleneck_check": {
+    "demand": "延續 — EV滲透率上升、H2交車旺季(carry)",
+    "supply_rigidity": "carry — 部分成員(和大減速齒輪獨家)具產能/認證卡口",
+    "concentration": "carry — 和大獨家、貿聯高壓線束design-in;台達電電源",
+    "amplifier": "carry — onshoring/車規認證"
+   },
+   "theme_id": "ev_supply",
+   "theme_name": "電動車供應鏈",
+   "members": [
+    {"code": "1536", "name": "和大", "role": "chokepoint_owner", "conviction": 4, "rationale": "特斯拉減速齒輪獨家供應、擴三廠;圍欄內獨家卡口延續,維持4"},
+    {"code": "3665", "name": "貿聯-KY", "role": "enabler", "conviction": 4, "rationale": "6月營收+36.8%創高,高壓線束design-in;維持4"},
+    {"code": "5243", "name": "乙盛-KY", "role": "enabler", "conviction": 3, "rationale": "特斯拉機構件/沖壓,受惠但替代性較高;維持3(enabler結構上限)"},
+    {"code": "2308", "name": "台達電", "role": "enabler", "conviction": 4, "rationale": "車用電源/充電,多引擎;維持4"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "特斯拉啟動降價戰壓縮供應鏈利潤;EV終端需求明確轉弱、砍單;和大獨家地位被第二供應商稀釋;成員毛利率未隨營收擴張(顯示無定價權)",
+   "evidence": [
+    {"date": "2022-07(6月營收)", "source": "money.udn/cnyes EV旺季綜合", "claim": "貿聯6月營收+36.8%創高;和大特斯拉減速齒輪獨家擴三廠;特斯拉H2交車旺季"}
+   ]
+  },
+  {
+   "industry": "觀光餐旅(期初冊主題 reopening_travel)",
+   "seed_type": "momentum + snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,與本月『觀光餐旅』動能種子(2736寧茂/2743三顧-KY/2723美食-KY/2753八方雲集等,ret60 +15~49%)同源,僅做證據演化。圍欄內證據:2022-06-15 邊境檢疫鬆綁(3+4)、入境週2.5萬人次、7月中旬預計改發4劑快篩——國境自封控逐步鬆綁、出行需求回流進行中,航空運能仍受限(票價偏高的容量瓶頸尚存)。判定:主題延續、方向偏正(需求回流進入受限運能),但圍欄內尚無票價/運能的量化實據,conviction 維持 3 不調升。註:全面0+7於10/13上路之公告屬7月圍欄後,本月不採。",
+   "bottleneck_check": {
+    "demand": "回流中 — 邊境鬆綁、出行需求恢復(carry)",
+    "supply_rigidity": "carry — 航空運能/航班/機組短期無法快速恢復,構成容量瓶頸(票價偏高)",
+    "concentration": "carry — 國籍航空雙雄(長榮航/華航)",
+    "amplifier": "carry — 政策解封節奏"
+   },
+   "theme_id": "reopening_travel",
+   "theme_name": "解封出行",
+   "members": [
+    {"code": "2618", "name": "長榮航", "role": "chokepoint_owner", "conviction": 3, "rationale": "運能受限下的雙雄之一;邊境鬆綁需求回流,維持3"},
+    {"code": "2610", "name": "華航", "role": "chokepoint_owner", "conviction": 3, "rationale": "同上,維持3"},
+    {"code": "2731", "name": "雄獅", "role": "beneficiary", "conviction": 3, "rationale": "旅行社為需求受惠者(非運能卡口),但屬解封主題核心成員,carry 維持3"},
+    {"code": "2707", "name": "晶華", "role": "beneficiary", "conviction": 3, "rationale": "飯店需求受惠者,carry 維持3"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "航空運能全面恢復、國際航班/座位供給回到疫情前;票價正常化(容量瓶頸解除);出行需求見頂回落",
+   "evidence": [
+    {"date": "2022-06-15", "source": "衛福部疾管署公告", "claim": "邊境檢疫鬆綁3+4、入境週2.5萬、發快篩;國境逐步鬆綁、出行需求回流"}
+   ]
+  },
+  {
+   "industry": "生技醫療業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "上漲由『生技月』題材、國際生技展會(BIO/BIO Asia-Taiwan)、避風港資金(避通膨升息)、併購/授權/臨床里程碑事件驅動,屬需求與事件催化,非實體產能供給瓶頸;CDMO(保瑞)具產能面但靠併購取得、全球CDMO可替代,非握有稀缺節點",
+   "narrative": "2022-06-15 圍欄內證據:生技月(7月)+ BIO Asia-Taiwan(7/28-31)+ 資金避風港轉進,13檔生醫強勢股齊漲;保瑞(6472)擬60億併安成擴CDMO;北極星肝癌P3收案。動能與營收爆量(6576逸達 yoy+58755%、6446 yoy+787% 屬授權金/里程碑一次性認列的低基期爆發)皆為事件性,無截面供給約束。與後續(2023)生技判定一致。",
+   "bottleneck_check": {
+    "demand": "事件催化 — 生技月/展會/避風港資金,非結構TAM跳升",
+    "supply_rigidity": "FAIL — 製藥/CDMO產能全球可擴、可替代,無18個月+獨佔卡口",
+    "concentration": "FAIL — CDMO全球競爭(Lonza/Catalent/Samsung Bio),保瑞靠併購擴產非稀缺節點",
+    "amplifier": "無(生技月/展會屬需求/題材面,非供給放大器)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-06-15", "source": "工商時報 ctee 20220615700678", "claim": "生技月+BIO Asia-Taiwan+避風港資金,13檔強勢;保瑞擬60億併安成擴CDMO"}
+   ]
+  },
+  {
+   "industry": "汽車工業",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "成員為AM(售後維修)汽車零件廠(東陽/堤維西/耿鼎/帝寶等),漲勢來自『用車晶片荒→中古車熱→修補件需求』+『俄烏戰衝擊東歐零件供應鏈轉單亞洲』+美系保險納AM件的需求/斷鏈循環受惠,非自有結構供給卡口;需求源本身(中古車熱)是新車晶片荒的下游衍生,循環性、非持久瓶頸",
+   "narrative": "2022-03-28 圍欄內證據:AM零件族群反攻,東陽為全球最大AM塑膠件/鈑金件廠(市佔70%/35%)、堤維西台灣第2大AM車燈。雖東陽於利基市佔極高,但主題驅動是需求(中古車修補)+戰爭斷鏈轉單(暫時)+匯率成本,AM件供給充分可替代,客戶12個月內非無痛不可換。屬需求復甦與地緣斷鏈的循環受惠,不符瓶頸簽名的供給無彈性。註:東陽70%市佔為 caveat,但無需求跳升的結構TAM與放大器,不admit。",
+   "bottleneck_check": {
+    "demand": "循環回升 — 中古車熱/修補件,惟源於新車晶片荒衍生,非結構TAM跳升",
+    "supply_rigidity": "FAIL — AM零件產能可擴、可替代;東陽利基市佔高但非18個月+獨佔卡口",
+    "concentration": "部分(東陽AM塑膠件70%)但主題由需求/斷鏈主導",
+    "amplifier": "俄烏戰斷鏈為暫時性需求轉單,非持久供給放大器"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-03-28", "source": "工商時報 ctee 20220328700419", "claim": "AM零件需求升溫;中古車熱+東歐斷鏈轉單;東陽全球最大AM塑膠件/鈑金件廠(市佔70%/35%)"}
+   ]
+  },
+  {
+   "industry": "通信網路業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "成員為網通CPE/設備下游廠(常珵8097=VDSL/GPON/WiFi6網通週邊+IoT;6470等),漲勢與營收成長來自電信客戶拉貨/新市場開拓的需求面,無自有供給瓶頸節點",
+   "narrative": "8097常珵為網通CPE廠(識別事實);其營收爆量(yoy+1118%)為電信客戶訂單/低基期拉貨,屬下游設備需求。網通設備組裝競爭充分、無握有卡別人的稀缺產能。註:常珵之南美/東南亞電信拉貨具體來源發布於2022-11(圍欄後),本月僅以公司屬性判定reject。",
+   "bottleneck_check": {
+    "demand": "客戶拉貨/新市場開拓(需求面)",
+    "supply_rigidity": "FAIL — 網通設備組裝無供給約束",
+    "concentration": "FAIL — CPE/網通廠競爭充分",
+    "amplifier": "無圍欄內硬放大器"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "公司基本資料(識別事實)", "source": "Goodinfo/財報狗 8097簡介", "claim": "常珵=網通CPE(VDSL/GPON/WiFi6)+IoT下游設備銷售"}
+   ]
+  },
+  {
+   "industry": "電腦及週邊設備業",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "成員為工業電腦/POS/週邊組裝下游(4931/5258/8050/8114/6206/6235),處消費性電子下行與缺料緩解期,屬下游組裝需求,無自有供給瓶頸",
+   "narrative": "圍欄內半導體/電子正由缺轉鬆(2022-07-08),PC/消費終端急凍;電腦週邊為下游組裝受惠者(部分利基IPC/POS有個別訂單),不握有卡口產能。動能多為個別題材或超跌反彈,無截面供給約束。",
+   "bottleneck_check": {
+    "demand": "下行 — PC/消費終端急凍",
+    "supply_rigidity": "FAIL — 缺料緩解、組裝產能無約束",
+    "concentration": "FAIL — 下游組裝競爭充分",
+    "amplifier": "無"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-07-08", "source": "The News Lens/169532(產業背景)", "claim": "消費性電子/半導體由缺轉鬆、PC需求急凍(下游組裝無供給卡口)"}
+   ]
+  },
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "異質小型工業機械桶(4503/1539/8222/4543/1590等),無共同供給瓶頸敘事;台電『強韌電網』計畫2022-09才公布(對7月屬未來)、重電四雄(華城/中興電/士電/亞力)未進本月種子,故無圍欄內可admit的電網瓶頸",
+   "narrative": "本月電機機械成員為分散的小型機械/零件廠,無相干結構主題;動能屬個股題材。重要:2022 H2 後成為瓶頸的『電網重電』此刻(7月)其政策錨(強韌電網5645億)尚未公布(9月才出),且重電龍頭不在種子——嚴守圍欄不以未來電網敘事回填本月。",
+   "bottleneck_check": {
+    "demand": "各自為政,無共同結構需求",
+    "supply_rigidity": "FAIL — 無共同供給約束",
+    "concentration": "N/A — 異質桶",
+    "amplifier": "無(強韌電網政令2022-09才出,圍欄外)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-07(產業背景)", "source": "本月無fence-valid電網來源", "claim": "強韌電網政策錨2022-09才公布;7月電機機械為異質小型機械桶"}
+   ]
+  },
+  {
+   "industry": "電子零組件業",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "成員為零組件下游(6715/3207/4915/6114),處電子去庫存下行,個別動能非截面供給瓶頸",
+   "narrative": "電子零組件於2022 H2進入去庫存下行;成員為分散零件廠,無共同瓶頸敘事。與半導體由缺轉鬆背景一致。",
+   "bottleneck_check": {
+    "demand": "下行/去庫存",
+    "supply_rigidity": "FAIL — 產能寬鬆",
+    "concentration": "N/A — 分散",
+    "amplifier": "無"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-07-08", "source": "The News Lens/169532(背景)", "claim": "電子零組件去庫存下行,無供給卡口"}
+   ]
+  },
+  {
+   "industry": "其他電子業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "異質桶(2482連宇/3093港建/2474可成),各自為政無共同瓶頸;桶內3665貿聯屬期初冊 ev_supply 主題(已於該主題演化,不重複入冊)",
+   "narrative": "『其他電子業』為統計聚合桶:2474可成(機殼)、2482連宇、3093港建等互不相干。營收面3665貿聯(yoy+96%)為EV供應鏈(歸 ev_supply 主題)、2482(yoy+83%)個別成長,無共同結構供給瓶頸。",
+   "bottleneck_check": {
+    "demand": "個別成長,無共同結構TAM",
+    "supply_rigidity": "FAIL — 無共同供給約束",
+    "concentration": "N/A — 異質桶",
+    "amplifier": "無"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-07(6月營收)", "source": "營收面綜合", "claim": "3665貿聯歸ev_supply;2482等個別成長,無共同瓶頸"}
+   ]
+  },
+  {
+   "industry": "其他",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "異質產業桶(9802鈺齊-KY鞋/8478東哥遊艇/4541晟田),無相干供給鏈瓶頸,屬動能篩選統計聚合",
+   "narrative": "成員橫跨製鞋(鈺齊)、遊艇(東哥)、航太零件(晟田)等互不相干領域,無共同結構瓶頸。",
+   "bottleneck_check": {
+    "demand": "各自為政",
+    "supply_rigidity": "FAIL",
+    "concentration": "N/A — 異質桶",
+    "amplifier": "無"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-07", "source": "動能篩選", "claim": "異質桶,無共同瓶頸"}
+   ]
+  },
+  {
+   "industry": "半導體業(種子 revenue_accel,非成熟製程龍頭)",
+   "seed_type": "revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "本月半導體營收加速桶(2330台積/3680家登/2388威盛/5274信驊/3265台星科)乘2021-22景氣尾段營收慣性,但2022 H2整體由缺轉鬆、需求(尤其伺服器/消費)減速,且圍欄內無強制換代放大器;近獨佔利基(信驊BMC>70%、家登EUV pod)為結構致能者但護城河屬設計/生態鎖定而非自有實體產能無彈性,主題層需求跳升+放大器兩項不成立",
+   "narrative": "台積6月營收 yoy+51% 屬先進製程慣性(整體展望已見保守);信驊(5274)為全球伺服器BMC龍頭市佔>70%、家登為EUV pod利基,皆近獨佔『致能者』。但2022 H2伺服器/資料中心資本支出進入消化、消費崩壞,需求非跳升;且無圍欄內放大器(AI爆發屬圍欄後、嚴禁採計)。信驊/家登的近獨佔記錄為 enabler caveat,惟主題不成立,不admit。",
+   "bottleneck_check": {
+    "demand": "FAIL(主題層)— 半導體整體由缺轉鬆、伺服器資本支出消化、消費崩壞;非跳升",
+    "supply_rigidity": "部分(信驊/家登利基近獨佔)但屬設計/生態鎖定,非自有實體產能18個月+卡口",
+    "concentration": "部分 PASS(信驊BMC>70%、家登EUV pod)但需求與放大器不成立",
+    "amplifier": "FAIL — 圍欄內無強制換代/漲價/出口管制;AI放大器屬2023+圍欄後,嚴禁採計"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "識別事實+2022-06-24價", "source": "口袋學堂/財報狗 信驊簡介", "claim": "信驊全球BMC龍頭>70%、fabless;2022-06-24盤中歷史高2950(結構致能者,但2022 H2無需求跳升與放大器)"}
+   ]
+  }
+ ]
+}

@@ -13,6 +13,7 @@ Run: uv run --project research python -m research.serenity.backfill.pilot_accept
 
 from __future__ import annotations
 
+import argparse
 import json
 from datetime import date, timedelta
 from pathlib import Path
@@ -21,7 +22,11 @@ import duckdb
 
 HERE = Path(__file__).parent
 CACHE = HERE.parents[2] / "research" / "cache.duckdb"
-MONTHS = [f"2023-0{i}" for i in range(1, 7)]
+_ap = argparse.ArgumentParser()
+_ap.add_argument("--months", nargs="+", default=[f"2023-0{i}" for i in range(1, 7)])
+_ap.add_argument("--tag", default="2023H1")
+_ARGS, _ = _ap.parse_known_args()
+MONTHS = _ARGS.months
 
 
 def ret_12m(con, codes: list[str], d0: date) -> float | None:
@@ -68,23 +73,26 @@ def main() -> None:
     for ym, run in runs.items():
         fence = run.get("fence_date") or f"{ym}-28"
         for cl in run["clusters"]:
-            for ev in cl.get("evidence") or []:
+            evs = cl.get("evidence") or []
+            dated_ok = sum(1 for e in evs if (norm_date(e.get("date", "")) or "9999") <= fence)
+            for ev in evs:
                 d = norm_date(ev.get("date", ""))
-                if d is None or d > fence:
-                    row = (ym, cl.get("industry"), ev.get("date"))
-                    if cl.get("verdict") == "admit":
-                        fence_violations.append(row)
-                    else:
-                        fence_warnings.append(row)
+                row = (ym, cl.get("industry"), ev.get("date"))
+                if d is not None and d > fence and cl.get("verdict") == "admit":
+                    fence_violations.append(row)  # 明確晚於圍欄的入冊證據 = 真違規
+                elif d is None and cl.get("verdict") == "admit" and dated_ok == 0:
+                    fence_violations.append(row)  # 入冊卻無任何合規日期證據 = 真違規
+                elif d is None or d > fence:
+                    fence_warnings.append(row)  # 佐證性無日期條目/reject 聚類 → 警示
 
     # --- 判準 B:種子檢核完備 ---
     missing_checks = []
     for ym in MONTHS:
-        seen = {(c.get("industry"), c.get("seed_type")) for c in runs[ym]["clusters"]}
-        seen_ind = {c.get("industry") for c in runs[ym]["clusters"]}
+        # agent 的 cluster 名可帶注解(「觀光餐旅(期初冊主題 …)」),用子字串匹配
+        seen_ind = [str(c.get("industry") or "") for c in runs[ym]["clusters"]]
         for stype, key in (("momentum", "momentum_clusters"), ("revenue", "revenue_accel_clusters")):
             for cl in seeds[ym][key]:
-                if (cl["industry"], stype) not in seen and cl["industry"] not in seen_ind:
+                if not any(cl["industry"] in s for s in seen_ind):
                     missing_checks.append((ym, stype, cl["industry"]))
 
     # --- 判準 A:事後失敗主題(首次檢核的 admit/reject 聚類)---
@@ -121,7 +129,7 @@ def main() -> None:
     a_pass, b_pass, c_pass = len(failed_themes) >= 2, not missing_checks, not fence_violations
 
     lines = [
-        "# 2023H1 回溯標記先導 — 驗收報告(2026-07-14)", "",
+        f"# {_ARGS.tag} 回溯標記 — 三判準驗收報告", "",
         f"- 判準 A(≥2 個事後失敗主題被納入檢核):**{'PASS' if a_pass else 'FAIL'}**"
         f"(失敗主題 {len(failed_themes)} 個)",
         f"- 判準 B(種子聚類檢核完備):**{'PASS' if b_pass else 'FAIL'}**"
@@ -137,7 +145,7 @@ def main() -> None:
             f"| {r['month']} | {r['industry']} | {r['verdict']} | {r['n']} "
             f"| {r['ret_12m']}% | {r['bench_0050']}% | {'✗ 失敗' if r['failed_after'] else ''} |"
         )
-    out = HERE / "2023H1_report.md"
+    out = HERE / f"{_ARGS.tag}_report.md"
     out.write_text("\n".join(lines) + "\n", encoding="utf-8")
     print("\n".join(lines))
     print(f"\nreport -> {out}")

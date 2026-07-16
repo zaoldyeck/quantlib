@@ -1,0 +1,265 @@
+{
+ "label_month": "2022-08",
+ "mode": "incremental",
+ "fence_date": "2022-08-31",
+ "queries": [
+  "元太 8069 電子紙 2022 電子標籤 ESL 需求 產能 供不應求 交期",
+  "貨櫃 航運 運價 2022 下半年 SCFI 崩跌 長榮 陽明 衰退",
+  "半導體 砍單 2022年8月 惡化 庫存 IC設計 產能利用率 下修",
+  "大立光 3008 2022 智慧型手機 鏡頭 需求 衰退 稼動率 玉晶光",
+  "半導體 2022年8月 庫存修正 台積電 聯發科 盛群 展望 下修 消費性",
+  "WebFetch cnyes/5536042(=2024-04-25,discard)、blog.fugle/eink-2022(=2025-01-21,discard)、cnyes/4665914(=2021-06-27,fence-valid)"
+ ],
+ "sources_used": [
+  {"date": "2022-07~08(Q2法說季,late-Jul/early-Aug報導)", "publisher": "經濟日報/聯合報系(半導體庫存綜合)", "claim": "聯發科CEO蔡力行:高通膨壓抑消費信心、晶片需求下降,客戶積極調整庫存,估未來2-3季持續調整;盛群MCU庫存約4個月、通路端5個月合計9個月創歷史新高;台積電魏哲家:半導體供應鏈庫存高點於2022 Q3觸頂、Q4起下滑、2023 H1回健康;聯詠/敦泰等IC設計短期庫存壓力升。→ 消費性半導體去庫存確認broadening"},
+  {"date": "2021-06-27", "publisher": "鉅亨 cnyes/4665914 (WebFetch 驗證發布日 2021-06-27)", "claim": "元太看下半年旺季,電子紙閱讀器/電子筆記本/電子貨架標籤(ESL)出貨看增;資本支出加倍至約20億元、新竹建新廠(2年內完工)。→ ESL結構成長 + 多年期擴產(供給無彈性)之fence-valid前導(雖為2021-06,主題早於本月圍欄即成立)"},
+  {"date": "2022-08(seed PIT 當時值)", "publisher": "Serenity seed 2022-08 revenue_accel", "claim": "元太8069 近3月營收 yoy +85%(前值+33%),ESL帶動營收加速;為本月圍欄內demand-jump的當時證據"},
+  {"date": "2022(光學鏡頭產業背景,綜合)", "publisher": "財訊/Smart/鉅亨(光學雙雄綜合)", "claim": "2022蘋果手機鏡頭多年停於1200萬畫素未升級、陸廠舜宇/瑞聲技術跟上並砍價搶市占,國內鏡頭股2021獲利嚴重衰退;智慧手機相機模組出貨連兩年衰退(2022 -7%)。大立光/玉晶光靠砍價接單。→ 手機光學處需求疲弱+價格戰,瓶頸反面"},
+  {"date": "產業結構(佐證,非時效)", "publisher": "E Ink Holdings 產業地位", "claim": "元太為全球電子紙近獨佔(逾九成電子紙技術源自元太),擁E Ink電子紙膜IP(收購E Ink Corp/Hydis);屬單一近獨佔『稀缺技術節點』擁有者"}
+ ],
+ "sources_discarded_count": 33,
+ "sources_discarded_note": "近似值。① 元太 press 多為圍欄後:cnyes/5536042(WebFetch=2024-04-25,彩色電子紙產能滿載/ESL Q3升溫)、blog.fugle/eink-2022(WebFetch=2025-01-21,2022 Q3法說回顧、ESL佔比60%、第4-6條產線2023-25量產)——皆嚴禁採計為本月證據,僅取其揭露之『元太近獨佔』為timeless產業事實佐證;② 航運運價『連24周黑/崩7成/SCFI跌破1300』的第一手日期為2022-10~12(wantrich 20221029/20221125/20221205,對8月屬圍欄後),本月不引用其數據,航運reject僅立於『貨櫃航運=大宗週期、2022自年初高點下滑、供過於求』之結構事實;③ 2026 ABF/PCB/被動元件/記憶體超級循環、聯發科2026漲價函;④ 大立光2024-2026『AI眼鏡/CPO/機器人』轉型(smart/digitimes 2024+)。核心判讀延續7月:2022 H2為消費性電子去庫存下行,唯一新admit為結構近獨佔的電子紙(元太)。",
+ "clusters": [
+  {
+   "industry": "光電業(電子紙 e-paper/ESL)",
+   "seed_type": "revenue_accel",
+   "verdict": "admit",
+   "reject_reason": null,
+   "narrative": "本月新出現之光電次主題,與手機光學(大立光)分開評估。元太(8069)為全球電子紙近獨佔(逾九成電子紙技術源自元太、擁E Ink電子紙膜IP)。圍欄內demand-jump證據:seed近3月營收yoy+85%(前值+33%)、ESL(電子貨架標籤)帶動——ESL為零售數位化/ESG/缺工驅動的結構性換代需求(紙標籤→電子標籤),非消費循環;e-reader雖受消費疲弱短期承壓,但ESL主導營收加速。供給無彈性:電子紙膜產能滿載、擴產屬多年期建廠(2021-06來源:capex加倍、新竹新廠2年完工)。此為Serenity式『單一近獨佔擁有稀缺技術節點』的正例。放大器為ESL規格換代(邊際),非硬性地緣/出口管制;且圍欄內無fence-valid漲價公告(相關漲價/滿載press皆2024後、已discard),故保守admit:owner元太起手conviction 3(結構上限5,因amplifier偏軟+mid-2022 press薄而保守)。",
+   "bottleneck_check": {
+    "demand": "PASS — ESL/零售數位化結構換代需求,seed營收yoy+85%加速;e-reader消費端弱但ESL主導",
+    "supply_rigidity": "PASS — 元太電子紙膜產能滿載、擴產為多年期建廠(2021-06 capex加倍/2年建廠),短期無彈性>18個月、瓶頸存續>12個月",
+    "concentration": "PASS — 全球電子紙近獨佔(~90%),擁E Ink膜IP,12個月內無可認證替代者",
+    "amplifier": "邊際PASS — ESL規格換代(紙→電子標籤,ESG/缺工);屬需求端規格轉換,非地緣/出口管制/漲價公告(圍欄內漲價證據不可得)"
+   },
+   "theme_id": "epaper_esl",
+   "theme_name": "電子紙/電子貨架標籤瓶頸(元太近獨佔)",
+   "members": [
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "稀缺節點:全球電子紙膜近獨佔(~90%)、擁E Ink IP。定價權:近獨佔+產能滿載,ESL結構需求。替代性:客戶12個月內無認證替代者。結構上限5;因圍欄內amplifier偏軟(ESL規格換代非硬約束)+mid-2022 press薄,保守起手3"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "ESL/零售數位化需求轉弱;元太擴產到位使產能不再滿載、交期正常化;出現可認證的電子紙膜競爭者(獨佔被打破);電子紙報價回落、毛利未隨營收擴張(顯示無定價權)",
+   "evidence": [
+    {"date": "2022-08(seed PIT)", "source": "Serenity seed 2022-08", "claim": "元太8069近3月營收yoy+85%(前值+33%),ESL帶動加速"},
+    {"date": "2021-06-27", "source": "鉅亨 cnyes/4665914", "claim": "元太下半年旺季,ESL/閱讀器出貨看增;capex加倍至~20億、新竹建新廠(多年期擴產)"},
+    {"date": "產業結構(佐證)", "source": "E Ink Holdings 產業地位", "claim": "元太全球電子紙近獨佔~90%、擁E Ink膜IP"}
+   ]
+  },
+  {
+   "industry": "光電業(手機光學鏡頭)",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "手機光學(大立光3008/玉晶光/揚明光等)2022處智慧手機需求疲弱+陸廠(舜宇/瑞聲)砍價搶市占的價格戰,國內鏡頭股2021獲利已嚴重衰退、相機模組出貨連兩年衰退;為需求收縮+價格戰,瓶頸反面",
+   "narrative": "光電業動能桶內的手機光學與電子紙分屬兩事。大立光雖為手機鏡頭龍頭,但2022蘋果畫素多年未升級、陸廠技術跟上並砍價,大立光/玉晶光靠砍價接單,毛利/獲利下行。動能屬超跌反彈,無需求跳升與供給卡口。",
+   "bottleneck_check": {
+    "demand": "FAIL — 智慧手機需求疲弱、相機模組出貨連兩年衰退",
+    "supply_rigidity": "FAIL — 產能寬鬆、價格戰(砍價搶單)",
+    "concentration": "部分(大立光高階鏡頭)但需求/定價權雙向下,主題不成立",
+    "amplifier": "無(圍欄內;AI眼鏡/CPO為2024+圍欄後)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022(產業背景)", "source": "財訊/Smart/鉅亨 光學雙雄綜合", "claim": "2022手機鏡頭價格戰、陸廠砍價、鏡頭股獲利衰退、模組出貨連兩年衰退"}
+   ]
+  },
+  {
+   "industry": "航運業",
+   "seed_type": "revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "貨櫃航運為大宗週期、非結構供給卡口;2022自年初SCFI高點一路下滑、供過於求,revenue_accel(2607榮運/2637慧洋/2633高鐵)為對2021高基期的落後YoY,非前瞻瓶頸訊號。散裝亦大宗循環;2633台灣高鐵為內需鐵路(解封受惠,非供給節點)",
+   "narrative": "航運營收加速是回望2021高基期的落後指標;前瞻面貨櫃運價自2022年初高點持續回落、疫情紅利消退、供過於求(旺季不旺)。海運運力可調度、無18個月+獨佔卡口,結構上就不是瓶頸。註:SCFI『連24周黑/崩7成/跌破1300』的第一手報導日期為2022-10~12(對8月屬圍欄後),本月reject立於結構事實而非引用該等後期數據。",
+   "bottleneck_check": {
+    "demand": "FAIL(前瞻)— 貨櫃需求回落、疫情紅利消退",
+    "supply_rigidity": "FAIL — 運力可調度、供過於求",
+    "concentration": "FAIL — 大宗運價市場,無獨佔卡口",
+    "amplifier": "無(反而是運價下行)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022(結構事實)", "source": "貨櫃航運週期性/SCFI自年初下滑", "claim": "貨櫃運價2022自高點回落、供過於求;營收YoY為落後高基期,非瓶頸"}
+   ]
+  },
+  {
+   "industry": "半導體業(期初冊主題 foundry_shortage)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題證據演化(續7月)。8月圍欄內Q2法說季確認去庫存broadening:聯發科估客戶庫存調整續2-3季、盛群庫存9個月創歷史新高、台積估庫存Q3觸頂Q4下滑。消費性IC設計壓力瀕高點——需求端持續惡化,傳導到成熟製程稼動的壓力Q4將現(圍欄內聯電尚未明確鬆動)。演化:世界先進(最保守、消費曝險高)conviction 3→2;聯電/力積電圍欄內仍撐(轉單車用/PMIC)維持3。主題持續弱化未失效。",
+   "bottleneck_check": {
+    "demand": "續弱 — 消費性去庫存broadening、庫存創歷史高(carry+deepen)",
+    "supply_rigidity": "鬆動加深 — Q3庫存觸頂、Q4稼動壓力(carry)",
+    "concentration": "N/A(需求面主導)",
+    "amplifier": "無;漲價放大器已消退"
+   },
+   "theme_id": "foundry_shortage",
+   "theme_name": "成熟製程產能荒",
+   "members": [
+    {"code": "2303", "name": "聯電", "role": "chokepoint_owner", "conviction": 3, "rationale": "圍欄內尚撐、轉單車用,但下游客戶砍單傳導中;維持3"},
+    {"code": "5347", "name": "世界先進", "role": "chokepoint_owner", "conviction": 2, "rationale": "最保守、消費曝險高、庫存創高;由3下調至2"},
+    {"code": "6770", "name": "力積電", "role": "chokepoint_owner", "conviction": 3, "rationale": "靠轉單PMIC/車用維持;維持3"}
+   ],
+   "conviction_updates": [
+    {"theme_id": "foundry_shortage", "code": "5347", "from": 3, "to": 2, "evidence": "2022-08 Q2法說季:去庫存broadening、庫存9個月創歷史高、Q3觸頂;世界先進最保守"}
+   ],
+   "invalidation_criteria": "成熟製程稼動率明確跌破、聯電由撐轉為減產或報價下修;全面(非僅消費)砍單降價 → 屆時設 active_until",
+   "evidence": [
+    {"date": "2022-07~08", "source": "Q2法說季綜合(聯發科/盛群/台積)", "claim": "客戶去庫存續2-3季、庫存創歷史高、Q3觸頂Q4下滑"}
+   ]
+  },
+  {
+   "industry": "其他電子業/PCB(期初冊主題 abf_substrate)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,續7月(5→3)。8月無ABF載板專屬的fence-valid新來源;惟消費性/PC去庫存broadening(聯發科/台積8月)與ABF下游(PC/伺服器基板)方向一致,支持主題續弱但不足以量化再降。守紀律:無ABF專屬新證據不再下調,conviction維持3,待H2(Q4)PC崩壞確認基板降價再設active_until。",
+   "bottleneck_check": {
+    "demand": "續弱(carry)— PC/消費基板需求下行",
+    "supply_rigidity": "鬆動(carry)— 缺口收斂、漲價喊卡",
+    "concentration": "N/A(需求/定價權反轉主導)",
+    "amplifier": "漲價放大器消退"
+   },
+   "theme_id": "abf_substrate",
+   "theme_name": "ABF 載板缺貨",
+   "members": [
+    {"code": "3037", "name": "欣興", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry自7月,無8月專屬新證據,維持3"},
+    {"code": "8046", "name": "南電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "3189", "name": "景碩", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "ABF現貨/長約報價實際回落、交期縮回正常、稼動下滑 → 設 active_until",
+   "evidence": [
+    {"date": "2022-06-01(carry)", "source": "旺得富 20220601900344", "claim": "ABF三雄首遭降評、漲價喊卡、缺口收斂(carry;8月無專屬新證據)"}
+   ]
+  },
+  {
+   "industry": "汽車工業/其他電子(期初冊主題 ev_supply)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,續7月(維持4)。8月無EV供應鏈專屬的fence-valid反轉證據;特斯拉降價戰(失效判準)為2023-01後、圍欄外。EV下半年交車旺季延續,carry維持conviction 4。",
+   "bottleneck_check": {
+    "demand": "延續(carry)— EV滲透率/交車旺季",
+    "supply_rigidity": "carry — 和大減速齒輪獨家等卡口",
+    "concentration": "carry",
+    "amplifier": "carry — 車規/onshoring"
+   },
+   "theme_id": "ev_supply",
+   "theme_name": "電動車供應鏈",
+   "members": [
+    {"code": "1536", "name": "和大", "role": "chokepoint_owner", "conviction": 4, "rationale": "carry,維持4"},
+    {"code": "3665", "name": "貿聯-KY", "role": "enabler", "conviction": 4, "rationale": "carry,維持4"},
+    {"code": "5243", "name": "乙盛-KY", "role": "enabler", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "2308", "name": "台達電", "role": "enabler", "conviction": 4, "rationale": "carry,維持4"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "特斯拉降價戰壓縮供應鏈;EV需求轉弱砍單;和大獨家被稀釋;毛利未隨營收擴張",
+   "evidence": [
+    {"date": "2022-07(carry)", "source": "EV旺季綜合", "claim": "EV下半年交車旺季延續(carry;8月無反轉專屬證據)"}
+   ]
+  },
+  {
+   "industry": "觀光餐旅/航空(期初冊主題 reopening_travel)",
+   "seed_type": "snapshot_registry",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "期初冊主題,續7月(維持3)。8月觀光餐旅未進momentum/revenue種子;邊境續漸進鬆綁(全面0+7之公告為2022-09-22、圍欄外)。無8月專屬新量化證據,carry維持3,待9月0+7上路再評估是否調升(需求湧入受限運能)。",
+   "bottleneck_check": {
+    "demand": "回流中(carry)",
+    "supply_rigidity": "carry — 航空運能短期受限(容量瓶頸)",
+    "concentration": "carry — 航空雙雄",
+    "amplifier": "carry — 政策解封"
+   },
+   "theme_id": "reopening_travel",
+   "theme_name": "解封出行",
+   "members": [
+    {"code": "2618", "name": "長榮航", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "2610", "name": "華航", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "2731", "name": "雄獅", "role": "beneficiary", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "2707", "name": "晶華", "role": "beneficiary", "conviction": 3, "rationale": "carry,維持3"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "航空運能全面恢復、票價正常化;出行需求見頂回落",
+   "evidence": [
+    {"date": "2022-06-15(carry)", "source": "疾管署公告", "claim": "邊境漸進鬆綁(carry;8月無專屬新量化證據)"}
+   ]
+  },
+  {
+   "industry": "生技醫療業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:生技月/展會/避風港資金/併購授權事件驅動,非供給瓶頸。本月無圍欄內結構反轉",
+   "narrative": "沿用7月reject。生醫營收爆量續為授權金/里程碑一次性認列(低基期),事件性。",
+   "bottleneck_check": {"demand": "事件催化(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-06-15(carry)", "source": "ctee 20220615700678(carry)", "claim": "生技月/事件驅動"}]
+  },
+  {
+   "industry": "汽車工業",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:AM售後零件的中古車熱+東歐斷鏈轉單循環受惠,非自有供給卡口",
+   "narrative": "沿用7月reject。1524耿鼎/1522堤維西/1319東陽等AM件動能延續,惟屬需求/斷鏈循環。",
+   "bottleneck_check": {"demand": "循環回升(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "部分(東陽利基)但需求主導", "amplifier": "戰爭斷鏈暫時"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-03-28(carry)", "source": "ctee 20220328700419(carry)", "claim": "AM件需求/斷鏈循環受惠"}]
+  },
+  {
+   "industry": "通信網路業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:網通CPE/設備下游廠,電信客戶拉貨需求面,無供給卡口",
+   "narrative": "沿用7月reject。8097常珵等CPE續受電信訂單,下游設備。",
+   "bottleneck_check": {"demand": "客戶拉貨(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "識別事實(carry)", "source": "8097簡介(carry)", "claim": "網通CPE下游設備"}]
+  },
+  {
+   "industry": "電腦及週邊設備業",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:IPC/POS/週邊下游組裝,消費下行+缺料緩解,無供給卡口。註:2364倫飛/2305全友等ret60高屬超跌反彈",
+   "narrative": "沿用7月reject。2364/2305動能雖強(reversal),為下游組裝/超跌反彈,非瓶頸。",
+   "bottleneck_check": {"demand": "下行(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-07~08(carry)", "source": "半導體去庫存背景(carry)", "claim": "下游組裝無卡口"}]
+  },
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:異質小型工業機械桶,無共同瓶頸;強韌電網政令2022-09才公布(對8月仍屬未來)、重電龍頭未進種子",
+   "narrative": "沿用7月reject。8222寶一/4503金雨/4543萬在等分散小型機械,無相干結構主題。嚴守圍欄:電網敘事9月才有政策錨。",
+   "bottleneck_check": {"demand": "各自為政(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無(電網政令圍欄外)"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-08(carry)", "source": "無fence-valid電網來源(carry)", "claim": "異質小型機械桶"}]
+  },
+  {
+   "industry": "電子零組件業",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:零組件下游去庫存下行,分散個股動能,非截面供給瓶頸",
+   "narrative": "沿用7月reject。6133竑騰/6715嘉基等去庫存下行。",
+   "bottleneck_check": {"demand": "下行(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-07~08(carry)", "source": "去庫存背景(carry)", "claim": "零組件下行無卡口"}]
+  },
+  {
+   "industry": "其他電子業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2022-07 reject:異質桶;3665貿聯歸ev_supply主題(已演化,不重複)",
+   "narrative": "沿用7月reject。2482連宇等個別成長,無共同瓶頸;貿聯歸EV主題。",
+   "bottleneck_check": {"demand": "個別成長(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-08(carry)", "source": "營收面(carry)", "claim": "異質桶;貿聯歸EV"}]
+  }
+ ]
+}

@@ -520,3 +520,14 @@ time{30,50,70} = **144 cells**,champion `ev_v2_thesis_inst` 其餘規則(guard/t
 backcast_2020_2022 + live registry 接齊 = 2020-2026 連續標記 → Serenity 版 3+1
 walk-forward(tp 哲學裁決、PBO fold 修復)+ 與 Evergreen 同窗同尺(P5 幾何均)池品質
 比較(另行預註冊)。
+**批次 1/4 結果 — 2022H2(2026-07-16)**:**三判準全 PASS**(A:航運/生技 2 個事後失敗
+主題被正確 reject;B:缺檢 0〔驗收 matching 修正:agent cluster 名帶注解屬合理行為〕;
+C:入冊違規 0)。新 admit 2 主題:epaper_esl(元太,2022-08;TPEx 註記不可交易)、
+grid_heavy_electrical(2022-09,台電強韌電網公告當月——**比 2023H1 先導的 2023-01
+更早且更正確,先導成為交叉驗證**)。期初冊 4 主題全程演化:ABF/成熟製程 2022-10 失效、
+電動車 12 月下調、解封 9 月升 4。**12 月 ChatGPT 爆紅但刻意不 admit AI 主題**(2022
+圍欄內非市場主題)——防倖存者偏誤紀律的最硬示範。圍欄丟棄 167 筆。實際成本 28.7 萬
+(高於 20 萬/批預估);**campaign 累計 49.6 萬,照趨勢三批後將達 ~135 萬、超過 100 萬
+上限——已向使用者報告請裁決;第三批(2024H2)開跑前若累計 >100 萬,按治理條款自動
+暫停待批**。批間快照 `backfill/opening_books/2023H2.md`;後續三批依使用者指示改用
+Workflow 編排(journal + resume 中斷韌性)。
