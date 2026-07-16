@@ -64,8 +64,13 @@ def evergreen_nav() -> pd.Series:
 
 
 def s_strategy_nav() -> pd.Series:
-    from research.apex.experiments.chart_s_vs_benchmarks import build, run_s  # type: ignore
-    panel, feat, elig = build()
+    from research.apex.experiments.chart_s_vs_benchmarks import prep, run_s  # type: ignore
+    from research.apex import data as apex_data  # type: ignore
+    con = apex_data.connect()
+    try:
+        panel, feat, elig = prep(con)
+    finally:
+        con.close()
     nav = run_s(panel, feat, elig, start="2022-07-11").to_pandas()
     nav["date"] = pd.to_datetime(nav["date"])
     return nav.set_index("date")["nav"]
