@@ -345,6 +345,15 @@ def set_fresh(bonus: float, months: int) -> None:
     _FRESH_MONTHS = int(months or 6)
 
 
+_CONV_W: float = 8.0
+
+
+def set_conv_weight(value: float) -> None:
+    """Battle 18 round 2: conviction score weight (production default 8.0)."""
+    global _CONV_W
+    _CONV_W = float(value if value is not None else 8.0)
+
+
 def score_candidates(frame: pd.DataFrame) -> pd.DataFrame:
     data = frame.copy()
     for col in (
@@ -383,7 +392,7 @@ def score_candidates(frame: pd.DataFrame) -> pd.DataFrame:
 
     score = pd.Series(0.0, index=data.index)
     if "conviction" not in _ABLATE:
-        score += data["conviction"].fillna(3.0) * 8.0
+        score += data["conviction"].fillna(3.0) * _CONV_W
     # battle 12 (2026-07-07): theme_count removed — dead weight (ablation 0/3,
     # identical picks; most names are single-theme so the term never breaks ties).
     if "revenue" not in _ABLATE:

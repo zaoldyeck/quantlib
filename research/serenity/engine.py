@@ -50,7 +50,7 @@ from constants import CAPITAL, COMMISSION, SELL_TAX  # noqa: E402
 from db import connect  # noqa: E402
 from prices import total_return_series  # noqa: E402
 
-from replay_2025 import set_ablate, set_fresh, set_pe_pen_mode, set_role_bonus  # noqa: E402
+from replay_2025 import set_ablate, set_conv_weight, set_fresh, set_pe_pen_mode, set_role_bonus  # noqa: E402
 from replay_2025 import (  # noqa: E402
     REGISTRY,
     active_registry_for_day,
@@ -766,6 +766,53 @@ def simulate_event_variant(
     return daily, trades, total_traded / CAPITAL
 
 
+def _run_variant(variant, args, out_prefix, trading_days, close_by_day, ret_by_day,
+                 scored_by_refresh, scored_by_refresh_chips, thesis_ok_by_refresh,
+                 buyback_by_day, adv_by_day, market_risk_off,
+                 valuation_by_refresh, thesis_metrics_by_refresh, theme_dead_by_code):
+    """單 variant 模擬 + emit-book/state 副作用(battle 18 round 2 重構抽出)。"""
+    book_sink: dict[date, dict[str, float]] | None = (
+        {} if args.emit_book == variant.name else None
+    )
+    state_sink: dict | None = {} if args.emit_book == variant.name else None
+    daily, trades, turnover = simulate_event_variant(
+        variant, trading_days, close_by_day, ret_by_day,
+        scored_by_refresh_chips if variant.chips_score else scored_by_refresh,
+        thesis_ok_by_refresh, buyback_by_day, adv_by_day=adv_by_day,
+        market_risk_off=market_risk_off, book_sink=book_sink, state_sink=state_sink,
+        valuation_by_refresh=valuation_by_refresh,
+        thesis_metrics_by_refresh=thesis_metrics_by_refresh,
+        theme_dead_by_code=theme_dead_by_code,
+    )
+    if state_sink:
+        import json
+
+        state_path = RESULTS / f"{out_prefix}_{variant.name}_state.json"
+        state_path.write_text(
+            json.dumps(state_sink, default=str, ensure_ascii=False, indent=1), encoding="utf-8"
+        )
+        print(f"state -> {state_path}")
+    if book_sink is not None:
+        book_rows = [
+            {"date": d, "company_code": c, "weight": w}
+            for d, (book, traded) in sorted(book_sink.items())
+            if traded
+            for c, w in sorted(book.items())
+        ]
+        book_path = RESULTS / f"{out_prefix}_{variant.name}_book.csv"
+        pd.DataFrame(book_rows).to_csv(book_path, index=False)
+        tw_rows = [
+            {"date": d, "company_code": c, "target_weight": w}
+            for d, (book, _traded) in sorted(book_sink.items())
+            for c, w in sorted(book.items())
+        ]
+        tw_path = RESULTS / f"{out_prefix}_{variant.name}_target_weights.csv"
+        pd.DataFrame(tw_rows).to_csv(tw_path, index=False)
+        print(f"book -> {book_path} ({len(book_rows)} rows, trade days only)")
+        print(f"target_weights -> {tw_path} (daily, planner format)")
+    return daily, trades, turnover
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--start", default="2025-01-01")
@@ -817,6 +864,12 @@ def main() -> None:
     )
     parser.add_argument("--weight-mode", default=None, choices=("equal", "score", "inv_atr"),
                         help="battle 18 stage 3: override variant weight_mode")
+    parser.add_argument("--score-grid", default=None,
+                        help='battle 18 round 2: JSON list of score configs, e.g. '
+                             '[{"name":"nofilt","ablate":"filters"},{"name":"role20","role":20}] '
+                             '— in-process 交叉(每 config 重算 scored 後跑全部 variants)')
+    parser.add_argument("--sweep", action="store_true",
+                        help="sweep 模式:不寫 per-cell daily/trades/png,summary 內建 boot_p5(固定 seed)")
     parser.add_argument("--regime-exit", action="store_true",
                         help="battle 18: regime-adaptive exits (bull: no TP/wide trail; bear: TP60/tight)")
     parser.add_argument("--theme-dead-exit", action="store_true",
@@ -994,6 +1047,7 @@ def main() -> None:
         thesis_ok_by_refresh: dict[date, dict[str, bool]] = {}
         thesis_metrics_by_refresh: dict[date, dict[str, dict]] = {}
         valuation_by_refresh: dict[date, dict[str, tuple[float, float]]] = {}
+        joined_by_refresh: dict[date, pd.DataFrame] = {}
         pick_rows: list[pd.DataFrame] = []
         for day in refresh_days:
             tax_day = row_latest_before(taxonomy, day, "effective_date")
@@ -1022,6 +1076,7 @@ def main() -> None:
             scored = score_candidates(joined)
             if scored.empty:
                 continue
+            joined_by_refresh[day] = joined  # battle 18 round 2: score-grid 重算原料
             scored_by_refresh[day] = scored.head(40).reset_index(drop=True)
 
             # chips 2.0 scoring (battle 4): pre-committed fixed weights, no grid.
@@ -1143,67 +1198,72 @@ def main() -> None:
             for code, g in registry.groupby("company_code"):
                 if g["active_until"].notna().all():
                     theme_dead_by_code[str(code)] = max(g["active_until"])
+        # battle 18 round 2: score-config 外層迴圈(in-process 全交叉)。
+        # None = 沿用 CLI 全域配置(生產路徑,行為不變)。
+        score_cfgs: list[dict | None] = [None]
+        if args.score_grid:
+            import json as _json
+            score_cfgs = _json.loads(args.score_grid)
+            print(f"score-grid: {len(score_cfgs)} configs × {len(variants)} exit variants "
+                  f"= {len(score_cfgs) * len(variants)} cells (in-process)")
+
+        def _boot_p5(daily_df: pd.DataFrame) -> float:
+            nav = daily_df.set_index("date")["nav"]
+            m = nav.groupby(pd.Index(nav.index.astype(str)).str.slice(0, 7)).last() \
+                   .pct_change().dropna().to_numpy()
+            n = len(m)
+            if n < 8:
+                return float("nan")
+            rng = np.random.default_rng(20260716)
+            out = []
+            for _ in range(1000):
+                idx = (int(rng.integers(n)) + np.arange(n + 6)) % n
+                samp = m[idx[:n]]
+                out.append(float(np.prod(1 + samp) ** (12 / n) - 1))
+            return float(np.percentile(out, 5))
+
         summaries: list[dict[str, object]] = []
         daily_paths: dict[str, Path] = {}
-        for variant in variants:
-            book_sink: dict[date, dict[str, float]] | None = (
-                {} if args.emit_book == variant.name else None
-            )
-            state_sink: dict | None = {} if args.emit_book == variant.name else None
-            daily, trades, turnover = simulate_event_variant(
-                variant,
-                trading_days,
-                close_by_day,
-                ret_by_day,
-                scored_by_refresh_chips if variant.chips_score else scored_by_refresh,
-                thesis_ok_by_refresh,
-                buyback_by_day,
-                adv_by_day=adv_by_day,
-                market_risk_off=market_risk_off,
-                book_sink=book_sink,
-                state_sink=state_sink,
-                valuation_by_refresh=valuation_by_refresh,
-                thesis_metrics_by_refresh=thesis_metrics_by_refresh,
-                theme_dead_by_code=theme_dead_by_code,
-            )
-            if state_sink:
-                import json
-
-                state_path = RESULTS / f"{out_prefix}_{variant.name}_state.json"
-                state_path.write_text(
-                    json.dumps(state_sink, default=str, ensure_ascii=False, indent=1), encoding="utf-8"
+        for cfg in score_cfgs:
+            cfg_tag = ""
+            active_scored = scored_by_refresh
+            if cfg is not None:
+                set_ablate((cfg.get("ablate") or "").split(",") if cfg.get("ablate") else [])
+                set_role_bonus(cfg.get("role", 0.0))
+                set_fresh(cfg.get("fresh", 0.0), cfg.get("fresh_m", 6))
+                set_conv_weight(cfg.get("conv_w", 8.0))
+                cfg_tag = f"{cfg['name']}|"
+                active_scored = {}
+                for d, j in joined_by_refresh.items():
+                    s = score_candidates(j)
+                    if not s.empty:
+                        active_scored[d] = s.head(40).reset_index(drop=True)
+            for variant in variants:
+                daily, trades, turnover = _run_variant(
+                    variant, args, out_prefix, trading_days, close_by_day, ret_by_day,
+                    active_scored, scored_by_refresh_chips, thesis_ok_by_refresh,
+                    buyback_by_day, adv_by_day, market_risk_off,
+                    valuation_by_refresh, thesis_metrics_by_refresh, theme_dead_by_code,
                 )
-                print(f"state -> {state_path}")
-            if book_sink is not None:
-                book_rows = [
-                    {"date": d, "company_code": c, "weight": w}
-                    for d, (book, traded) in sorted(book_sink.items())
-                    if traded
-                    for c, w in sorted(book.items())
-                ]
-                book_path = RESULTS / f"{out_prefix}_{variant.name}_book.csv"
-                pd.DataFrame(book_rows).to_csv(book_path, index=False)
-                tw_rows = [
-                    {"date": d, "company_code": c, "target_weight": w}
-                    for d, (book, _traded) in sorted(book_sink.items())
-                    for c, w in sorted(book.items())
-                ]
-                tw_path = RESULTS / f"{out_prefix}_{variant.name}_target_weights.csv"
-                pd.DataFrame(tw_rows).to_csv(tw_path, index=False)
-                print(f"book -> {book_path} ({len(book_rows)} rows, trade days only)")
-                print(f"target_weights -> {tw_path} (daily, planner format)")
-            path = RESULTS / f"{out_prefix}_{variant.name}_daily.csv"
-            daily.to_csv(path, index=False)
-            trades.to_csv(RESULTS / f"{out_prefix}_{variant.name}_trades.csv", index=False)
-            daily_paths[variant.name] = path
-            row = summarize_nav(variant.name, daily, turnover, len(scored_by_refresh))
-            extra = nav_metrics(pl.from_pandas(daily[["date", "nav"]]))
-            row.update({k: v for k, v in extra.items() if k in ("ulcer_index", "upi", "k_ratio", "tail_ratio")})
-            if not trades.empty:
-                row.update(trade_distribution_metrics(trades["ret"].tolist()))
-                row["n_trades"] = len(trades)
-                row["exit_mix"] = trades["reason"].value_counts().to_dict()
-            summaries.append(row)
+                cell_name = f"{cfg_tag}{variant.name}"
+                if args.sweep:
+                    row = summarize_nav(cell_name, daily, turnover, len(active_scored))
+                    row["boot_p5"] = _boot_p5(daily)
+                    row["n_trades"] = len(trades)
+                    summaries.append(row)
+                    continue
+                path = RESULTS / f"{out_prefix}_{variant.name}_daily.csv"
+                daily.to_csv(path, index=False)
+                trades.to_csv(RESULTS / f"{out_prefix}_{variant.name}_trades.csv", index=False)
+                daily_paths[variant.name] = path
+                row = summarize_nav(cell_name, daily, turnover, len(active_scored))
+                extra = nav_metrics(pl.from_pandas(daily[["date", "nav"]]))
+                row.update({k: v for k, v in extra.items() if k in ("ulcer_index", "upi", "k_ratio", "tail_ratio")})
+                if not trades.empty:
+                    row.update(trade_distribution_metrics(trades["ret"].tolist()))
+                    row["n_trades"] = len(trades)
+                    row["exit_mix"] = trades["reason"].value_counts().to_dict()
+                summaries.append(row)
 
         for code, market, name in (("0050", "twse", "hold_0050"), ("2330", "twse", "hold_2330")):
             daily = benchmark_nav(con, code, market, trading_days[0], trading_days[-1], name)
@@ -1217,20 +1277,23 @@ def main() -> None:
         if pick_rows:
             pd.concat(pick_rows).to_csv(RESULTS / f"{out_prefix}_picks.csv", index=False)
 
-        fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
-        for name in summary.head(6)["name"]:
-            daily = pd.read_csv(daily_paths[name], parse_dates=["date"])
-            axes[0].plot(daily["date"], daily["nav"] / daily["nav"].iloc[0], label=name)
-            axes[1].plot(daily["date"], daily["nav"] / daily["nav"].cummax() - 1.0, label=name)
-        axes[0].set_title(f"Serenity event engine v1 ({args.mode}{suffix}): NAV")
-        axes[0].grid(True, alpha=0.3)
-        axes[0].legend(fontsize=8)
-        axes[1].set_title("Drawdown")
-        axes[1].grid(True, alpha=0.3)
-        fig.tight_layout()
-        chart = RESULTS / f"{out_prefix}_overview.png"
-        fig.savefig(chart, dpi=160)
-        plt.close(fig)
+        if not args.sweep:
+            fig, axes = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+            for name in summary.head(6)["name"]:
+                if name not in daily_paths:
+                    continue
+                daily = pd.read_csv(daily_paths[name], parse_dates=["date"])
+                axes[0].plot(daily["date"], daily["nav"] / daily["nav"].iloc[0], label=name)
+                axes[1].plot(daily["date"], daily["nav"] / daily["nav"].cummax() - 1.0, label=name)
+            axes[0].set_title(f"Serenity event engine v1 ({args.mode}{suffix}): NAV")
+            axes[0].grid(True, alpha=0.3)
+            axes[0].legend(fontsize=8)
+            axes[1].set_title("Drawdown")
+            axes[1].grid(True, alpha=0.3)
+            fig.tight_layout()
+            chart = RESULTS / f"{out_prefix}_overview.png"
+            fig.savefig(chart, dpi=160)
+            plt.close(fig)
 
         print(f"data_cutoff={cutoff} mode={args.mode} lag={args.activation_lag_days}")
         print(f"window={trading_days[0]}~{trading_days[-1]} refreshes={len(scored_by_refresh)}")
