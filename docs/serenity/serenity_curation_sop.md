@@ -68,7 +68,22 @@ owner」,不得矯枉過正。
 | `review_by` | 下次強制複審日(預設:入表 +2 個季度) |
 | 候選股 | 以類別界定候選範圍(產業分類/產品線),**逐檔過 §1.5 成員層三測試 + 標注 role**;「禁止挑會漲的個股」= 禁止用近期報酬選成員,但結構角色判斷是義務、不是 cherry-picking;過檢者的量化優劣才交給引擎計分 |
 
-## 3. 節奏與流程
+## 3. 節奏與流程(2026-07-17 全自動化定案:`research.tri.daily` 一條指令驅動全鏈)
+
+**Live 策展日曆與回測(回溯標記 campaign)嚴格同構——這是 PIT 一致性的核心**:
+
+| 時機 | 自動動作(headless serenity-curator,Opus 4.8/effort max,工具不設限) | 回測對應 |
+|---|---|---|
+| 每交易日第一次執行 | **每日輕掃**(`curation/daily_watch_prompt.md`):訊號進 watch log,**不改冊**;urgent 事實級利空置頂警示(人工 override 裁量) | 標記材料的「當時新聞」 |
+| 每月第一次執行 | **月度策展批次**(`curation/monthly_curation_prompt.md`):機械種子(同 `seed_signals`)+ 上月證據圍欄 → 瓶頸簽名四項 + §1.5 三測試 → **全自動入冊/失效/調分 + git commit** | 回溯標記月批次(同種子、同圍欄、月粒度演化) |
+| 每季 | 月度批次加深:全冊複審(`review_by` 執行) | 季度複審 |
+| 每日(策展後) | 引擎 rerun + live book 對帳 + brief(`serenity.daily run`) | 引擎 live-revenue 逐日 refresh |
+
+入冊/出冊/調分**不需人工核准**(使用者 2026-07-17 定調);git commit 為審計軌跡,
+使用者經報告知情、可事後 override。狀態機:`state/curation_state.json`(月批次與
+輕掃的最後執行記錄;漏跑自動補)。
+
+### 原始節奏規範(自動化狀態機的執行內容,標準不變)
 
 - **每日**(可排程 agent 化,整合 `quantlib-daily-briefing`):跑 skill 的 L0-L4 資訊掃描
   (含非 AI 觸發源:SMM 全金屬價格、各產業漲價公告、航運運價、藥品/化工短缺通報、

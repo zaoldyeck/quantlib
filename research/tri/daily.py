@@ -22,7 +22,7 @@ from datetime import date as Date
 import polars as pl
 
 from research.tri.advisors import (Advice, evergreen_advisor, s_advisor,
-                                   serenity_advisor)
+                                   serenity_advisor)  # noqa: F401
 
 REPORTS = "research/tri/reports"
 
@@ -50,11 +50,21 @@ def get_account(args) -> tuple[dict[str, float], float]:
         )
         broker = FubonBroker(dry_run=True)
         pos = positions_from_fubon_inventories(broker.get_inventories())
+        # 2026-07-14 修正:「餘額 0」是合法狀態(交割扣款後歸零),不是讀取
+        # 失敗——只有查詢真的失敗才警告,且必附原因(先前把兩者混為一談)。
         bank = broker.get_bank_remain()
-        cash = (available_balance_from_fubon_bank_remain(bank)
-                if getattr(bank, "is_success", False) else 0.0)
-        if not cash:
-            print("⚠ 富邦銀行餘額讀取失敗,現金以 0 計(可用 --cash 覆蓋)")
+        if getattr(bank, "is_success", False):
+            try:
+                cash = available_balance_from_fubon_bank_remain(bank)
+                if cash == 0:
+                    print("ℹ 富邦可用餘額 0(交割扣款後屬正常;買入股數估算需現金時用 --cash 覆蓋)")
+            except Exception as e:  # noqa: BLE001
+                cash = 0.0
+                print(f"⚠ 富邦餘額欄位解析失敗:{e}(現金以 0 計,可用 --cash 覆蓋)")
+        else:
+            cash = 0.0
+            print(f"⚠ 富邦銀行餘額查詢失敗:{getattr(bank, 'message', bank)}"
+                  "(現金以 0 計,可用 --cash 覆蓋)")
         if args.cash is not None:
             cash = float(args.cash)
         return {str(k): float(v) for k, v in pos.items()}, float(cash)
@@ -79,6 +89,38 @@ def market_maps(codes: list[str]) -> tuple[dict, dict, str]:
             f"FROM operating_revenue WHERE company_code IN ({ph}) "
             f"GROUP BY company_code", codes).fetchall())
     return px, names, str(d0)
+
+
+def ensure_fresh_cache(no_refresh: bool) -> None:
+    """資料齊備自檢:不齊備就跑**一次**完整更新,齊備就直接用。
+
+    「齊備」的定義見 `research/data_calendar.py` 與 `docs/data_ops/twse_publish_times.md`:
+    **D 的資料自 D+1 00:30 起才算齊備**(融資融券官方只保證次一營業日開市前公告、借券
+    22:30 才是最終值)。所以 D 日盤中跑本指令,期望日就是上一個交易日——不會為了「今天」
+    去跑注定抓不全的更新(2026-07-15 教訓:抓一半 → 表間日期錯位 → 策略閘門靜靜零候選)。
+    """
+    import subprocess
+
+    from research.data_calendar import latest_complete_trading_day, stale_tables
+
+    want = latest_complete_trading_day()
+    stale = stale_tables(want)
+    if not stale:
+        return
+    detail = "、".join(f"{t}={got or '無'}" for t, got in stale.items())
+    if no_refresh:
+        print(f"⚠ 資料未齊備(齊備日 {want};落後表:{detail}),--no-refresh 指定跳過")
+        return
+    print(f"⟳ 資料未齊備(齊備日 {want};落後表:{detail})"
+          "——跑一次完整更新(爬蟲入庫 + cache 重建,約 10-15 分鐘)…", flush=True)
+    subprocess.run(["sbt", "-batch", "runMain Main update"], check=True)
+    subprocess.run(["uv", "run", "--project", "research", "python", "research/cache_tables.py"], check=True)
+    left = stale_tables(want)
+    if left:
+        print("ℹ 更新後仍缺(該表可能延遲發布,或當日休市):"
+              + "、".join(f"{t}={got or '無'}" for t, got in left.items()) + " —— 以現有資料執行")
+    else:
+        print(f"✓ 全表齊備至 {want}")
 
 
 def freshness_line(d0: str) -> str:
@@ -116,41 +158,167 @@ def fmt_advice(a: Advice, holdings: dict[str, float], names: dict) -> str:
     return "\n".join(lines)
 
 
+def ensure_serenity_current(no_curation: bool) -> list[str]:
+    """Serenity 全自動狀態機(2026-07-17,使用者定調:一條指令 = 最新交易建議)。
+
+    節奏與回測嚴格同構:月度策展(改冊)= 每月第一次執行時對上月批次;每日輕掃
+    (watch log,不改冊)= 每交易日一次;引擎 brief = 當日未產則跑。headless agent
+    走 claude CLI(Opus 4.8 / effort max,吃訂閱額度);CLI 缺席則 fail-open 警示。
+    回傳要放進報告頂部的策展摘要行。"""
+    import json as _json
+    import shutil
+    import subprocess
+
+    lines: list[str] = []
+    if no_curation:
+        return ["- ⚠ --no-curation 指定:跳過策展狀態機(建議僅基於既有冊)"]
+    state_p = REPO_ROOT / "research" / "serenity" / "state" / "curation_state.json"
+    state = _json.loads(state_p.read_text()) if state_p.exists() else {}
+    today = Date.today()
+    prev_month = f"{today.year - (today.month == 1)}-{(today.month - 2) % 12 + 1:02d}"
+    cur_dir = REPO_ROOT / "research" / "serenity" / "curation"
+
+    if shutil.which("claude") is None:
+        return ["- ⚠ claude CLI 不在 PATH:策展 agent 無法自動執行(建議僅基於既有冊)"]
+
+    def run_agent(prompt_file: str, extra: str, timeout: int, tag: str) -> bool:
+        prompt = (cur_dir / prompt_file).read_text(encoding="utf-8") + extra
+        print(f"⟳ {tag}(claude-opus-4-8 / effort max,headless)…", flush=True)
+        r = subprocess.run(
+            ["claude", "-p", prompt, "--model", "claude-opus-4-8", "--effort", "max",
+             "--permission-mode", "bypassPermissions"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=timeout,
+        )
+        ok = r.returncode == 0
+        print((r.stdout or r.stderr)[-800:])
+        return ok
+
+    # 1) 月度策展(改冊;與回測月批次同構)——每月第一次執行時對上月 M 補跑
+    if state.get("last_monthly_for") != prev_month:
+        ok = run_agent("monthly_curation_prompt.md",
+                       f"\n\n## 本次參數\nM(策展月)= {prev_month};今日 = {today}",
+                       timeout=2400, tag=f"月度策展批次(M={prev_month})")
+        if ok:
+            state["last_monthly_for"] = prev_month
+            lines.append(f"- ✅ 月度策展批次已執行(M={prev_month};冊變更見下方策展段)")
+        else:
+            lines.append(f"- ⚠ 月度策展執行失敗(M={prev_month})——建議基於既有冊;請查看輸出")
+    # 2) 每日輕掃(不改冊;watch log 積累)
+    if state.get("last_daily_sweep") != today.isoformat():
+        ok = run_agent("daily_watch_prompt.md", f"\n\n## 本次參數\n今日 = {today}",
+                       timeout=1200, tag="每日輕掃")
+        if ok:
+            state["last_daily_sweep"] = today.isoformat()
+    state_p.write_text(_json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
+
+    # 3) 引擎 brief:今日未產 → 跑 serenity daily(引擎 rerun + live book 對帳 + brief)
+    brief_p = REPO_ROOT / "research" / "out" / "trading" / "briefs" / f"{today}.md"
+    if not brief_p.exists():
+        print("⟳ serenity daily run(引擎 + live book + brief)…", flush=True)
+        r = subprocess.run(
+            ["uv", "run", "--project", "research", "python", "-m",
+             "research.serenity.daily", "run", "--skip-refresh"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=1800,
+        )
+        if r.returncode != 0:
+            lines.append(f"- ⚠ serenity daily 失敗:{(r.stderr or r.stdout)[-300:]}")
+
+    # 4) 策展摘要進報告
+    for f, title in (("curation_monthly_latest.json", "月度策展"),
+                     ("curation_sweep_latest.json", "每日輕掃")):
+        p = REPO_ROOT / "research" / "serenity" / "state" / f
+        if p.exists():
+            try:
+                d = _json.loads(p.read_text())
+                urg = d.get("urgent") or [w for w in d.get("warnings", [])
+                                          if isinstance(w, dict) and w.get("severity") == "urgent"]
+                if urg:
+                    lines.insert(0, f"- 🚨 **urgent 警示({title})**:{str(urg)[:300]}")
+                if d.get("summary"):
+                    lines.append(f"- {title}({d.get('curation_month') or d.get('sweep_date')}):{d['summary']}")
+            except Exception:
+                pass
+    return lines
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--positions", help='手動持倉 "code:shares,code:shares"')
     ap.add_argument("--positions-file", help="csv(code,shares)")
     ap.add_argument("--cash", type=float, help="現金(手動模式或覆蓋 API 值)")
+    ap.add_argument("--no-refresh", action="store_true",
+                    help="跳過資料新鮮度自動刷新(預設:過期就地更新後再評判)")
+    ap.add_argument("--no-curation", action="store_true",
+                    help="跳過策展狀態機(每日輕掃/月度策展/引擎 brief 自動化)")
     args = ap.parse_args()
 
+    ensure_fresh_cache(args.no_refresh)
+    curation_lines = ensure_serenity_current(args.no_curation)
     today = Date.today()
     holdings, cash = get_account(args)
     px, names, d0 = market_maps(list(holdings))
     mv = sum(px.get(c, 0) * s for c, s in holdings.items())
     nav = mv + cash
 
-    parts = [f"═══ 三策略每日檢查 {today} ═══",
-             freshness_line(d0),
-             f"帳戶:持股 {len(holdings)} 檔市值 {mv:,.0f} + 現金 {cash:,.0f} "
-             f"= NAV {nav:,.0f}",
-             "  " + ", ".join(
-                 f"{c} {names.get(c, '')}×{int(s):,}"
-                 for c, s in sorted(holdings.items()))]
+    parts = [f"# 三策略每日報告 {today}",
+             "",
+             f"- 資料到 **{d0}**——出場規則已用這段期間的**每日收盤價逐日檢查過**,"
+             "你沒跑報告的那幾天也算數(規則觸發過就是觸發過)",
+             f"- 帳戶:持股 {len(holdings)} 檔市值 {mv:,.0f} + 現金 {cash:,.0f} = **NAV {nav:,.0f}**",
+             "- " + "、".join(f"{c} {names.get(c, '')}×{int(s):,}"
+                             for c, s in sorted(holdings.items())),
+             "- 三個策略各自把整個帳戶當成自己的來評判,判決會互相矛盾"
+             "——**最後由你決定**;本報告由程式產生,理由直接取自當初做決定時存下來的資料"]
+    parts += curation_lines
 
     from research.apex import data
     con = data.connect()
     all_codes = set(holdings)
-    for fn in (s_advisor, evergreen_advisor, serenity_advisor):
+    advices: dict[str, Advice] = {}
+    strategy_parts: list[str] = []
+    for key, fn in (("S", s_advisor), ("Evergreen", evergreen_advisor),
+                    ("Serenity", serenity_advisor)):
         try:
             adv = fn(con, holdings, today, nav=nav)
+            advices[key] = adv
             all_codes |= {c for c, *_ in adv.buys}
             _, more_names, _ = market_maps(list(all_codes))
             names.update(more_names)
-            parts.append(fmt_advice(adv, holdings, names))
+            strategy_parts.append(fmt_advice(adv, holdings, names))
         except Exception as e:  # noqa: BLE001
-            parts.append(f"\n── {fn.__name__} 失敗 ──\n  {e}")
+            strategy_parts.append(f"\n── {key} 失敗 ──\n  {e}")
+
+    # 置頂:今天非做不可的事(逾期出場優先——規則已觸發,延遲不代表沒發生)
+    from research.tri.report import action_block, stock_appendix, stock_card
+    parts.insert(6, "\n" + action_block(advices, names))  # 帳戶總覽之後、深度之前
+    # 逐檔深度:為什麼買(策展理由全文+當時材料)、為什麼賣(哪道門、線在哪)
+    parts.append("\n---\n\n## 📖 我的每一檔(為什麼持有、什麼會讓我賣、離出場多遠)")
+    for code in sorted(holdings):
+        parts.append("\n" + stock_card(code, names.get(code, ""), holdings[code], advices))
+    buy_codes: dict[str, str] = {}
+    for key, adv in advices.items():
+        for code, _w, why in adv.buys:
+            buy_codes.setdefault(code, f"{key}:{why.split('|')[0]}")
+    if buy_codes:
+        parts.append("\n---\n\n## 🛒 今天可以買的(為什麼它值得買)")
+        for code in sorted(buy_codes):
+            parts.append("\n" + stock_card(code, names.get(code, ""), 0, advices))
+    parts.append("\n---\n\n## 📋 三策略各自的完整視角(誰想持有什麼)")
+    parts += strategy_parts
+    # 附錄:原始存證。要查證才看,不擋路
+    parts.append("\n---\n\n## 📎 附錄:原始存證(策展當時的材料,供查證)")
+    for code in sorted(set(holdings) | set(buy_codes)):
+        parts.append("\n" + stock_appendix(code, names.get(code, ""), advices))
     parts.append("\n(三份獨立建議——各策略把整個帳戶視為自己的;"
                  "資金分配與送單由你決定;本指令永不下單)")
+    parts.append(
+        "\n── 下單指令範例(代碼自行填入,逗號分隔多檔;全部腿併發,買撈低點、"
+        "賣撈高點,收盤未竟自動盤後掛收盤價,做完自動終止)──\n"
+        "  FUBON_DRY_RUN=false \\\n"
+        "  uv run --project research python -m research.trading.execution.trade \\\n"
+        "      --buy \"<買入代碼>\" --sell \"<賣出代碼>\" --qty 1 --live\n"
+        "  (只買或只賣就省略另一個參數;何時啟動都行——盤前啟動自動等開盤,"
+        "盤中啟動立即執行)")
 
     report = "\n".join(parts)
     print(report)
