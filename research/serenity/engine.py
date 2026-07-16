@@ -815,6 +815,8 @@ def main() -> None:
             "abs=0.1,0.15;time=30,50' — data loads once, all cells simulate in-process"
         ),
     )
+    parser.add_argument("--weight-mode", default=None, choices=("equal", "score", "inv_atr"),
+                        help="battle 18 stage 3: override variant weight_mode")
     parser.add_argument("--regime-exit", action="store_true",
                         help="battle 18: regime-adaptive exits (bull: no TP/wide trail; bear: TP60/tight)")
     parser.add_argument("--theme-dead-exit", action="store_true",
@@ -1096,6 +1098,9 @@ def main() -> None:
                 for td in axes.get("time", [base.rules.time_days])
             )
             print(f"grid-exit: {len(variants)} cells over base {base.name}")
+        if args.weight_mode:
+            variants = tuple(replace(v, name=f"{v.name}_w{args.weight_mode}", weight_mode=args.weight_mode)
+                             for v in variants)
         if args.regime_exit:
             variants = tuple(replace(v, name=f"{v.name}_rgx", regime_exit=True) for v in variants)
         if args.theme_dead_exit:
