@@ -87,6 +87,24 @@ def main() -> None:
             covered_named_only.append(code)
     reg.to_csv(REG, index=False)
 
+    # 第二步:補搜 agent 的 supplement 材料回填(有 sources 者)
+    supp_path = OUT_DIR / "supplement_2026-07.jsonl"
+    if supp_path.exists():
+        for line in supp_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            code, urls = rec["company_code"], [s["url"] for s in rec.get("sources", []) if s.get("url")]
+            if not urls:
+                print(f"⚠ 補搜查無實質瓶頸證據:{code} — {rec.get('note', '')}(策展複審)")
+                continue
+            ref = f"repo:registry/evidence/supplement_2026-07.jsonl#{code}; " + "; ".join(urls[:2])
+            mask = (reg.company_code == code) & (reg.active_until == "") & (
+                reg.evidence_url.str.startswith(("legacy:", "internal:"))
+            )
+            reg.loc[mask, "evidence_url"] = ref
+        reg.to_csv(REG, index=False)
+
     missing = sorted(
         active_codes
         - set(covered_with_url)

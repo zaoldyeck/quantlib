@@ -16,7 +16,7 @@ company_code,company_name,theme_id,role,rationale,labeled_on
 3583,辛耘,advanced_packaging,enabler,先進封裝製程設備+再生晶圓;同弘塑邏輯,2026-07-14
 6223,旺矽,advanced_packaging,chokepoint_owner,MEMS 探針卡台系獨大;全球三強，技術+認證雙壁壘,2026-07-14
 6515,穎崴,advanced_packaging,chokepoint_owner,高階測試座寡占本尊,2026-07-14
-7556,意德士,advanced_packaging,enabler,測試介面/治具利基;非獨佔,2026-07-14
+7556,意德士,advanced_packaging,enabler,"測試介面/治具利基;非獨佔;2026-07-14 補搜查無:實為製程設備零件廠,主題誤標,已除名",2026-07-14
 3081,聯亞,optical_cpo,chokepoint_owner,光通訊磊晶/EML 上游;利基磊晶產能+大客戶認證,2026-07-14
 6442,光聖,optical_cpo,enabler,光通訊連接組件;北美 DC 訂單集中但存在競爭者,2026-07-14
 3163,波若威,optical_cpo,enabler,光被動元件;規格門檻有但競爭者多,2026-07-14
@@ -49,7 +49,7 @@ company_code,company_name,theme_id,role,rationale,labeled_on
 6446,藥華藥,biotech_regulatory,chokepoint_owner,藥證+孤兒藥+NCCN 指南綁定的法規壟斷;利基疾病內 price-maker,2026-07-14
 3491,昇達科,satellite_defense,chokepoint_owner,微波/毫米波元件利基龍頭;LEO 供應鏈認證綁定,2026-07-14
 3596,智易,satellite_defense,beneficiary,網通 CPE ODM;組裝經濟無稀缺節點,2026-07-14
-8048,德勝,satellite_defense,enabler,RF/衛星零組件利基;規模小非獨佔,2026-07-14
+8048,德勝,satellite_defense,enabler,"RF/衛星零組件利基;規模小非獨佔;2026-07-14 補搜查無:光纖/網通廠與衛星 RF 論點不符,已除名",2026-07-14
 2404,漢唐,fab_facility_epc,chokepoint_owner,無塵室/廠務 EPC 龍頭;fab 業主資格認證即瓶頸本體(在手訂單 1939 億),2026-07-14
 6196,帆宣,fab_facility_epc,chokepoint_owner,廠務系統兩強;台積電海外廠 hookup 資格,2026-07-14
 6691,洋基工程,fab_facility_epc,enabler,同主題次級量能;規模較小,2026-07-14
