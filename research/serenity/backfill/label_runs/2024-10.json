@@ -1,0 +1,159 @@
+{
+ "label_month": "2024-10",
+ "mode": "incremental",
+ "fence": "2024-10-31",
+ "queries": [
+  "中興電 華城 法說 2024年10月 AI 資料中心 訂單 變壓器 美國 台積電認證 在手訂單",
+  "艾姆勒 4569 怡利電 宏旭 汽車 零組件 2024年10月 電動車 訂單 股價",
+  "永光 1711 三晃 化學 2024 電子級 化學品 光阻 特化 缺貨 漲價"
+ ],
+ "sources_used": [
+  {
+   "date": "2024 中(≤圍欄;化工題材 + Asahi PSPI 停供)",
+   "publisher": "鉅亨/FTNN/永光化學資料(統整)",
+   "claim": "2024-08 特化股(三晃 1721/永光 1711/中華化 1727)因台積電擴產、面板 fan-out 封裝題材同步漲停(題材型)。永光具光阻劑/顯影劑/CMP 研磨漿料/PSPI 量產能力,受惠半導體在地化採購;日本旭化成(Asahi Kasei)2024 中因產能不足暫停部分 PSPI 供應引發市場恐慌,永光被視為轉單受惠者。"
+  }
+ ],
+ "sources_discarded_count": 18,
+ "discard_note": "晚於 2024-10-31 圍欄丟棄:①重電 AI-DC 全數 >圍欄——華城 Stargate 訂單為『2024-Q4 陸續接單』無 ≤10/31 具體第一手、AIDC 120-200 億/滿到 2028、中興電台積電認證皆 2025-2026 回溯(sinotrade 2026、wantrich 2026、cnyes 6430105、peoplenews、money.udn 9199443/8429089 訂單看 2028 為 forward);中興電 09-27 法說第一手已自陳『不賣美國、未提 AI-DC』(見 2024-09 sources),故 10 月無據可上調。②汽車零組件僅得個股同業比較頁(無 ≤圍欄供給瓶頸敘事)。③永光法說電子化學品強勢成長(vocus 68add410,2025)。④液冷 GB200 放量為 2024-11(戴爾)。",
+ "clusters": [
+  {
+   "industry": "汽車工業(新產業聚類)",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "本月新出現之產業聚類(六方科-KY 4569/宏旭-KY 2243/怡利電 2497 車用電子)。完整瓶頸簽名檢核:①需求——車用/電動車零組件需求,方向有;②供給無彈性——不成立:Tier-1/Tier-2 車用零組件產能可擴,無 ≥18 個月結構無彈性;③集中——不成立:車用零組件供應商多、客戶(車廠)可換代工;④放大器——無出口管制/規格強制硬約束。結論:車用零組件 Tier 供應商、riding 車市/EV 需求受惠端,無稀缺不可替代節點,結構性 reject(同已失效之 ev_supply Tier-1 判例:瓶頸性偏弱)。真搜尋僅得個股同業比較頁,無 ≤圍欄供給瓶頸第一手。",
+   "narrative": "汽車工業為車用電子/EV 零組件 Tier 供應商(六方科/宏旭/怡利電),riding 車市需求受惠端、無稀缺節點、供給可擴、客戶可換,結構性 reject(同 ev_supply 判例)。",
+   "bottleneck_check": {
+    "demand": "車用/EV 零組件需求(受惠端)",
+    "supply_rigidity": "不成立——Tier 零組件產能可擴",
+    "concentration": "不成立——供應商多、車廠可換",
+    "amplifier": "無出口管制/規格強制硬約束"
+   },
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "化學工業(新產業聚類)",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "本月新出現之產業聚類(三晃 1721/遠泰 3430/永光 1711)。完整瓶頸簽名檢核:聚類整體為特化/大宗化學題材型輪動——2024-08 三晃領軍化工股因台積電擴產/面板 fan-out 封裝『題材』同步漲停(cnyes 5721714,≤圍欄但屬題材非供給硬約束),三晃(阻燃劑/PU)/遠泰屬特化循環,無稀缺不可替代節點,結構性 reject。子標的永光 1711 另有電子級化學品(光阻劑/顯影劑/CMP 漿料/PSPI)+ 半導體在地化角度,惟 ≤圍欄催化為『旭化成 2024 中暫停部分 PSPI 供應→永光轉單受惠』:此為外商『暫停(可逆)』引發之轉單受惠、非永光控制之 ≥18 個月結構稀缺節點,永光被市場定位為『轉單受惠者(beneficiary)』而非壟斷節點 owner,且電子化學品占比仍小、在地化題材尚未見結構定價權第一手。依框架(下游/轉單受惠 + 特化題材循環)cluster 判 reject;永光列 defer 觀察線(電子級特化在地化),日後若 ≤圍欄出現永光對光阻/PSPI 之結構性配額/長約/定價權硬證據再重估入冊。",
+   "narrative": "化學工業為特化/大宗題材輪動(三晃阻燃劑領軍、台積擴產/面板封裝題材漲停),無稀缺節點,結構性 reject。永光 1711(光阻/PSPI/CMP 在地化)≤圍欄僅為旭化成暫停 PSPI 之轉單受惠者(可逆、beneficiary 定位),不足以入冊,列 defer 觀察。",
+   "bottleneck_check": {
+    "demand": "半導體在地化 + Asahi PSPI 暫停轉單(≤圍欄,可逆)",
+    "supply_rigidity": "不成立——特化產能可擴;PSPI 轉單源自外商『暫停』非結構無彈性",
+    "concentration": "光阻/PSPI 全球由日商(JSR/TOK/信越/旭化成)主導,永光為轉單受惠之次要供給、非壟斷節點",
+    "amplifier": "在地化政策 + 題材(非結構硬約束)"
+   },
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2024-08~中", "source": "cnyes 5721714 / 永光化學資料 / Asahi PSPI 停供", "claim": "化工題材漲停;永光為旭化成 PSPI 暫停之轉單受惠者。"}
+   ]
+  },
+  {
+   "industry": "散熱/AI 液冷(UQD 水冷快接頭;在冊)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "ai_liquid_cooling:GB200 液冷放量之第一手為 2024-11(戴爾搶先出貨,>圍欄),10 月仍為量產前夕,無新 ≤圍欄升等觸發。持平:富世達 owner 3/嘉澤 2/奇鋐 2/雙鴻 0。無失效觸發(供給仍緊、無多家台廠稀釋、無砍單)。",
+   "bottleneck_check": {"demand": "GB200 量產前夕(carry)", "supply_rigidity": "UQD 量產 Q4~2025H1(carry)", "concentration": "台廠雙雄+外企寡占(carry)", "amplifier": "規格強制+漲價+地緣(carry)"},
+   "theme_id": "ai_liquid_cooling",
+   "theme_name": "AI 液冷 (UQD 水冷快接頭)",
+   "members": [
+    {"code": "6805", "name": "富世達", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平。"},
+    {"code": "3533", "name": "嘉澤", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "3017", "name": "奇鋐", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "3324", "name": "雙鴻", "role": "beneficiary", "conviction": 0, "rationale": "carry(TPEx)。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台廠多家通過 UQD 認證致集中度瓦解 / 快接頭供給正常化、漲價回落 / GB200/GB300 液冷砍單 / 富世達 UQD 訂單能見度回縮。",
+   "evidence": []
+  },
+  {
+   "industry": "電機機械(重電;在冊)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical:本月仍無『發布日 ≤ 2024-10-31』之重電廠 AI-DC 第一手催化(華城 Stargate 為 Q4 陸續接單、無 ≤10/31 具體第一手;中興電 09-27 法說已自陳不賣美國/未提 AI-DC)。全數持平:華城 4/中興電 3/亞力 2/士電 2。AI-DC 首見窗口續延(華城 Q4 接單具體公告待 ≤各月圍欄第一手)。",
+   "bottleneck_check": {"demand": "台電強韌電網(carry);華城美國電網汰換(在冊)", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電",
+   "members": [
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 4, "rationale": "carry 持平(寡占上限)。"},
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平(09-27 法說錨定純國內電網 owner)。"},
+    {"code": "1514", "name": "亞力", "role": "enabler", "conviction": 2, "rationale": "carry。"},
+    {"code": "1503", "name": "士電", "role": "enabler", "conviction": 2, "rationale": "carry。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬 / 重電訂單連 2 季衰退 / 變壓器交期正常化 / 美國外銷能見度回縮。",
+   "evidence": []
+  },
+  {
+   "industry": "半導體(先進封裝;在冊)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "advanced_packaging_cowos:台積電封頂 owner=5,台積電 10-17 法說(2024Q3)再確認 AI/CoWoS 需求強勁但已封頂,carry 持平。enabler 層持平 2。",
+   "bottleneck_check": {"demand": "carry(台積電 10-17 法說再確認)", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "CoWoS 先進封裝",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 5, "rationale": "carry 持平(封頂)。"},
+    {"code": "3711", "name": "日月光投控", "role": "enabler", "conviction": 2, "rationale": "carry。"},
+    {"code": "2449", "name": "京元電", "role": "enabler", "conviction": 2, "rationale": "carry。"},
+    {"code": "3583", "name": "辛耘", "role": "enabler", "conviction": 2, "rationale": "carry。"},
+    {"code": "3131", "name": "弘塑", "role": "enabler", "conviction": 2, "rationale": "carry(TPEx)。"},
+    {"code": "6187", "name": "萬潤", "role": "enabler", "conviction": 2, "rationale": "carry(TPEx)。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "CoWoS 產能利用率跌破 80% / AI 加速器砍單 / 擴產開出且交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "顯示器(電子紙;在冊)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "epaper_esl(元太 8069,TPEx):本月無 ≤圍欄新催化,休眠,持平 3。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "epaper_esl",
+   "theme_name": "電子紙/ESL",
+   "members": [
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry(TPEx)。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "ESL 換裝潮結束 / 電子紙產能過剩 / 報價回落。",
+   "evidence": []
+  },
+  {
+   "industry": "觀光餐旅(航空;在冊)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "reopening_travel ⚠ 晚週期見頂續判:10 月進入 Q4 傳統貨運旺季(空運價看漲),客運穩定,≤圍欄無『票價 YoY 轉跌 + 運能全面恢復 2019』見頂訊號,持平 conviction 4,失效未觸發。",
+   "bottleneck_check": {"demand": "Q4 貨運旺季+客運穩(carry)", "supply_rigidity": "運能續回補未全面恢復 2019", "concentration": "航空雙雄(非節點)", "amplifier": "票價未正常化、貨運看漲"},
+   "theme_id": "reopening_travel",
+   "theme_name": "解封出行",
+   "members": [
+    {"code": "2618", "name": "長榮航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平。"},
+    {"code": "2610", "name": "華航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平。"},
+    {"code": "2731", "name": "雄獅", "role": "beneficiary", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "2707", "name": "晶華", "role": "beneficiary", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "航空運能恢復至 2019 水準、票價正常化(≤圍欄至 2024-10 未觸發)。",
+   "evidence": []
+  },
+  {"industry": "電機機械", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:工具機/自動化/傳產機械(4583/4510/2070/1540/3167/4563/6609/4571/福裕 4513),資本財循環受惠、無瓶頸節點,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "光電業", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:顯示/背光/面板/光學循環(3230/8111/5234/3019/4729/6405/6706/5443),無稀缺節點、供給可擴,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "通信網路業", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:光通訊(4909 相鄰)defer + 網通/衛星(3081/4903/6546/6530)beneficiary,≤圍欄無光電晶片配額/缺料硬瓶頸,carry。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "電子零組件業", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:機構/被動/連接器/PCB 受惠端(8249/8043/3550/4927/4974),AI 伺服器單位量受惠、客戶可換,carry reject。液冷 UQD 另在 ai_liquid_cooling 在冊。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "其他電子業", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:量測/機構/散熱/CoWoS 相鄰(6151/萬潤 6187 TPEx 在冊/3663/2477/3303),無獨立稀缺節點,carry reject/beneficiary。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "半導體業", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:IC 設計 fabless/OSAT/設備(3227/6104/6651/6223 探針卡/聯鈞 3450),fabless/設備受惠,carry reject。真瓶頸 CoWoS 在冊。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "電腦及週邊設備業", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:AI 伺服器周邊/整機/儲存(3013/2399/5438/1569),下游代工受惠端 beneficiary,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "建材營造", "seed_type": "momentum", "verdict": "carry_over", "narrative": "沿用:建案完工認列+房市(2524/皇昌 2543/9906),無實體稀缺產能節點,結構性 reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "建材營造", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用:建案完工認列基期效應(5534/2539/1316/1436/9906/2520/2548/2442/4113/2530/2537),無稀缺產能節點,結構性 reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "通信網路業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用:光通訊(4909 相鄰)defer + 網通/衛星(3025/3491/8089/3047/3081/3564/6442/2439/4903)beneficiary,carry。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "半導體業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用:IC 設計/OSAT/利基/記憶體模組(5351/6515/十銓 4967/3680/6640/5274/6526/世芯 3661/6937)。十銓 4967 記憶體模組大宗商品循環 reject;餘 fabless/利基受惠,carry reject。真瓶頸 CoWoS 在冊。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "其他電子業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用 + 交叉引用:6187 萬潤(CoWoS enabler 在冊)、3030 德律/信紘科 6667/6743/3663/6409/6215 等 capex/量測/機構受惠端,無獨立稀缺節點,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "光電業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用:顯示/光學/背光循環(3535/5484/大立光 3008/2489/5443/6742),無稀缺節點、供給可擴,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "電子零組件業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用 + GB200 機構件交叉引用:機構/連接器/滑軌/CCL(8358/川湖 2059/8249/6134/台燿 6274 CCL/3207)。機構/連接器/滑軌為 AI 伺服器單位量受惠端 beneficiary;台燿 6274 CCL 屬 defer 觀察,carry。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "電腦及週邊設備業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用:AI 伺服器 ODM/板卡/整機(6669/3013/3706/勤誠 8210/5386),下游代工受惠端 beneficiary,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "航運業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用 2024-06:貨櫃海運(陽明 2609/萬海 2615/長榮海 2603/2636)為紅海繞道短窗口地緣+美急單之大宗運價循環,price-taker、無稀缺節點,carry reject。", "theme_id": null, "members": [], "evidence": []},
+  {"industry": "生技醫療業", "seed_type": "revenue", "verdict": "carry_over", "narrative": "沿用:新藥/CDMO/檢測個股催化(1799/6782/6446/6472),無實體產能瓶頸,結構性 reject。", "theme_id": null, "members": [], "evidence": []}
+ ]
+}
