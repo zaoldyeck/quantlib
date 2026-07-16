@@ -1217,8 +1217,11 @@ def main() -> None:
             rng = np.random.default_rng(20260716)
             out = []
             for _ in range(1000):
-                idx = (int(rng.integers(n)) + np.arange(n + 6)) % n
-                samp = m[idx[:n]]
+                idx: list[int] = []
+                while len(idx) < n:  # circular block bootstrap(block=6,多起點拼接)
+                    pos = int(rng.integers(n))
+                    idx.extend(range(pos, pos + 6))
+                samp = m[np.array(idx[:n]) % n]
                 out.append(float(np.prod(1 + samp) ** (12 / n) - 1))
             return float(np.percentile(out, 5))
 
