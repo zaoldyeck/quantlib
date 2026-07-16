@@ -1,0 +1,16 @@
+{
+ "refit_date": "2026-07-17",
+ "champion": "ev_v3_wf",
+ "lineage": {
+  "walk_forward": "battle 18 — train 2022-07-11~2025-07-10 凍結 → OOS 2025-07-11~2026-07-03(F1 106.6% / F2 468.1%,四方對決乾淨勝 Evergreen P5 274.5% vs 172.2%)",
+  "refit": "EV43 同法 — train 2023-07-11~2026-07-09 凍結網格 1,680 cells top-1(P5 0.360 / CAGR 111.9% / MDD -20.7%)",
+  "realistic": "Fubon sim PASS — realistic CAGR 101.9%(4y)、fill 99.73%"
+ },
+ "config": {
+  "score": "八成分 - 軟門檻(ablate filters)+ 主題新鮮度(fresh_bonus 10, fresh_months 12)",
+  "exit": {"take_profit": 0.40, "trail": 0.25, "abs_stop": 0.15, "time_days": 30, "thesis_mode": "inst_neg"},
+  "slots": 10, "weighting": "equal", "regime_guard": true, "max_new_per_day": 3, "adv_cap": 0.20
+ },
+ "cli_flags": "--variants ev_v3_wf --ablate filters --fresh-bonus 10 --fresh-months 12",
+ "next_refit_due": "2027-01(半年)或 2027-07(一年);網格凍結,加軸須重過 walk-forward"
+}

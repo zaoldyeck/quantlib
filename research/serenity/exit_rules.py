@@ -12,8 +12,9 @@ tri 曾以「引擎模擬簿成員資格」當 KEEP/SELL 判準,與 live 的 lot
 
 from __future__ import annotations
 
-TRAIL, ABS_STOP, TAKE_PROFIT = 0.20, 0.15, 0.60
-TIME_DAYS, TIME_RET = 50, -0.01
+# 2026-07-17 換帥(battle 18 walk-forward + EV43 式 refit):ev_v3_wf 上場參數
+TRAIL, ABS_STOP, TAKE_PROFIT = 0.25, 0.15, 0.40
+TIME_DAYS, TIME_RET = 30, -0.01
 
 
 def evaluate_exit(

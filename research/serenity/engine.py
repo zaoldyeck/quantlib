@@ -176,6 +176,17 @@ VARIANTS: tuple[EngineVariant, ...] = (
         thesis_mode="inst_neg",
     ),
     EngineVariant(
+        # battle 18 champion(2026-07-17 換帥):walk-forward 驗證結構 + EV43 式
+        # refit 上場參數(train 2023-07-11~2026-07-09 凍結網格 top-1,P5 0.360)。
+        # 計分側由 daily.py CLI 帶 --ablate filters --fresh-bonus 10 --fresh-months 12。
+        "ev_v3_wf",
+        rules=ExitRules(take_profit=0.40, trail=0.25, abs_stop=0.15, time_days=30, thesis_stop=True),
+        regime_guard=True,
+        max_new_per_day=3,
+        adv_cap=0.20,
+        thesis_mode="inst_neg",
+    ),
+    EngineVariant(
         "ev_v2_ti_veto_inst",  # battle 14 V1: champion + entry veto on inst_20d<0
         rules=replace(FULL_RULES, take_profit=0.60),
         regime_guard=True,

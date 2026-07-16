@@ -45,8 +45,8 @@ BRIEFS = OUT_DIR / "briefs"
 PLANS = OUT_DIR / "plans"
 OVERRIDES = Path(__file__).parent / "state" / "overrides.json"
 LIVE_BOOK = Path(__file__).parent / "state" / "live_positions.json"
-STRATEGY_ID = "serenity_ev_v2_thesis_inst"
-VARIANT = "ev_v2_thesis_inst"
+STRATEGY_ID = "serenity_ev_v3_wf"
+VARIANT = "ev_v3_wf"  # 2026-07-17 換帥(battle 18);計分側旗標見 cmd_run 的 engine 呼叫
 ENGINE = REPO_ROOT / "research" / "serenity" / "engine.py"
 STATE = RESULTS / f"serenity_event_engine_v1_{VARIANT}_state.json"
 PICKS = RESULTS / "serenity_event_engine_v1_picks.csv"
@@ -294,6 +294,9 @@ def cmd_run(args: argparse.Namespace) -> None:
         [
             "uv", "run", "--project", "research", "python", str(ENGINE),
             "--start", "2025-01-01", "--emit-book", VARIANT, "--live-revenue",
+            # battle 18 champion 計分配置(nofilt + 主題新鮮度 12 月 +10)
+            "--variants", VARIANT, "--ablate", "filters",
+            "--fresh-bonus", "10", "--fresh-months", "12",
         ],
         timeout=1800,
     )

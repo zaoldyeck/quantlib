@@ -1,10 +1,10 @@
 {
- "as_of": "2026-07-14",
+ "as_of": "2026-07-15",
  "positions": {
   "2059": {
    "qty": 1,
    "anchor": 8000.0,
-   "peak": 8250.0,
+   "peak": 8500.0,
    "entry_date": "2026-07-03",
    "source": "adopted",
    "vetted": true,
@@ -24,7 +24,7 @@
   "2408": {
    "qty": 2,
    "anchor": 421.0,
-   "peak": 448.0,
+   "peak": 481.0,
    "entry_date": "2026-07-09",
    "source": "engine",
    "vetted": true,
@@ -33,7 +33,7 @@
   "3006": {
    "qty": 1,
    "anchor": 235.5,
-   "peak": 237.0,
+   "peak": 239.0,
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
@@ -43,7 +43,7 @@
   "6446": {
    "qty": 1,
    "anchor": 1265.0,
-   "peak": 1285.0,
+   "peak": 1320.0,
    "entry_date": "2026-07-09",
    "source": "adopted",
    "vetted": true,
