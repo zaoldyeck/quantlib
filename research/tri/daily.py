@@ -17,6 +17,9 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+from pathlib import Path
+
+REPO_ROOT = Path(__file__).resolve().parents[2]
 from datetime import date as Date
 
 import polars as pl
