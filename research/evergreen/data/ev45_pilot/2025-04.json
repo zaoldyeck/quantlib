@@ -1,0 +1,105 @@
+{
+ "month": "2025-04",
+ "labels": [
+  {
+   "code": "1560",
+   "name": "中砂",
+   "theme": "AI半導體CMP鑽石碟耗材",
+   "signal_type": "恐慌錯殺修復型",
+   "event": "4/7台股史上最大崩(-9.7%)無差別錯殺硬論點→4/9對等關稅暫緩90天觸發修復;中砂自2025-04起認列並購日本MKS/泰國MGT砂輪綜效、營收連16月年增",
+   "evidence": "優分析/MoneyDJ:CMP鑽石碟先進製程近獨家(3nm~70%/2nm~80%+)+12吋再生晶圓結構定位(≤2025-03);中央社/Yahoo:4/9暫緩、4/10台股+9.25%(2025-04-09~10)",
+   "invalidation": "90天暫緩7月到期後關稅全面回檔引發系統性再殺;或台積2nm擴產遞延、鑽石碟遭替代",
+   "conviction": 5
+  },
+  {
+   "code": "3131",
+   "name": "弘塑",
+   "theme": "CoWoS先進封裝濕製程設備",
+   "signal_type": "恐慌錯殺修復型",
+   "event": "4/7崩盤錯殺→4/9暫緩修復;弘塑為CoWoS後段濕製程(清洗)設備龍頭、客戶所需機台約自製產能2倍、急單滿到2026上半年",
+   "evidence": "鉅亨cnyes 2025-02-15:CoWoS急單滿到2026上半年、無下修;商周財富網:CoWoS 5家主力台廠濕製程龍頭;中央社:4/9暫緩(2025-04-09)",
+   "invalidation": "7月關稅懸崖再殺;台積CoWoS擴產下修/急單消退;3/31已部分反應後追高",
+   "conviction": 4
+  },
+  {
+   "code": "6223",
+   "name": "旺矽",
+   "theme": "AI晶圓測試探針卡",
+   "signal_type": "財務印證引爆型",
+   "event": "3月營收創歷年單月次高(約4/10公布);非記憶體探針卡2024+47%YoY升全球第4、佈局CPO雙面測試;疊4/9暫緩修復",
+   "evidence": "口袋學堂SCHOOL/6433、自由財經:旺矽3月營收單月次高、2024非記憶體探針卡+47%(遠超FormFactor)、毛利55%(≤2025-04-10);4/9暫緩",
+   "invalidation": "7月關稅再殺;AI ASIC/HPC測試需求放緩或探針卡競爭殺價;千金股部分反應後追高",
+   "conviction": 4
+  },
+  {
+   "code": "2360",
+   "name": "致茂",
+   "theme": "AI測試設備(SLT系統級測試)",
+   "signal_type": "恐慌錯殺修復型",
+   "event": "4/7崩盤錯殺→4/9暫緩修復;AI測試收費站SLT 2024估+100%、客戶美系CSP與輝達、多引擎含CPO矽光子/HVDC測試",
+   "evidence": "CMoney投資網誌(2024-12/2025-01):致茂SLT+100%、能見度2026;大摩CPO元年1/16點名(≤2025-03);中央社:4/9暫緩",
+   "invalidation": "7月關稅再殺;CSP自研ASIC/輝達測試需求放緩;大摩已點名部分反應後追高",
+   "conviction": 4
+  },
+  {
+   "code": "6139",
+   "name": "亞翔",
+   "theme": "AI晶圓廠建置(無塵室廠務統包)",
+   "signal_type": "恐慌錯殺修復型",
+   "event": "4/7崩盤錯殺→4/9暫緩修復;在手訂單破千億創高、新簽半導體占約97%、新增新加坡半導體廠務大單=直接美出口關稅曝險最低避風港",
+   "evidence": "台視財經/鉅亨號hao.cnyes:亞翔千億backlog、半導體97%/東協84%、台積長期夥伴(2024末/2025初);中央社:4/9暫緩",
+   "invalidation": "7月關稅再殺;半導體海內外擴廠資本支出遞延;工程專案執行/認列風險",
+   "conviction": 4
+  },
+  {
+   "code": "2368",
+   "name": "金像電",
+   "theme": "AI伺服器PCB",
+   "signal_type": "財務印證引爆型",
+   "event": "3月營收45.27億(+51.1%YoY/+17.25%MoM)創單月歷史新高(約4/10公布);伺服器PCB龍頭、美系四大CSP自研ASIC平台主要PCB供應商;疊4/9暫緩",
+   "evidence": "經濟日報money.udn/vocus:金像電3月營收ATH+51.1%、伺服器PCB龍頭AWS/Google/Meta/微軟ASIC供應商(≤2025-04-10);4/9暫緩",
+   "invalidation": "7月關稅再殺;蘇州(中國)廠關稅衝擊;CSP ASIC PCB訂單下修;千金股部分反應",
+   "conviction": 4
+  },
+  {
+   "code": "8227",
+   "name": "巨有",
+   "theme": "ASIC設計服務(NRE)",
+   "signal_type": "財務印證引爆型",
+   "event": "6nm ASIC於2025-02順利tape-out、NRE接單爆發『客戶拿錢等設計』、3月營收年增94.58%(約4/10公布);疊4/9暫緩修復",
+   "evidence": "富果法說備忘錄blog.fugle.tw/優分析:巨有6nm tape-out、NRE爆發、3月營收+94.58%、IP/NRE低關稅曝險(≤2025-04-10)",
+   "invalidation": "7月關稅再殺;股本輕薄籌投機退潮;NRE接單/tape-out進度不如預期",
+   "conviction": 4
+  },
+  {
+   "code": "8210",
+   "name": "勤誠",
+   "theme": "AI伺服器機殼(GB200)",
+   "signal_type": "財務印證引爆型",
+   "event": "率先通過NVIDIA GB200 MGX 2U機殼reference design;3月營收25.06億(+44.72%)、Q1累計71.07億(+71.1%)創同期高(約4/10公布);疊4/9暫緩",
+   "evidence": "經濟日報money.udn/工商時報:勤誠GB200 MGX design-win、3月營收+44.72%、Q1+71.1%(≤2025-04-10);中央社:4/9暫緩",
+   "invalidation": "7月關稅再殺(機殼隨server輸美);GB200量產遞延;機殼商品化殺價",
+   "conviction": 4
+  },
+  {
+   "code": "3653",
+   "name": "健策",
+   "theme": "AI伺服器散熱(均熱片/液冷板)",
+   "signal_type": "恐慌錯殺修復型",
+   "event": "4/7崩盤錯殺→4/9暫緩修復;均熱片(heat spreader/lid)龍頭、2024 EPS 24.15元、水冷板(Cold Plate)切入GPU液冷",
+   "evidence": "財報狗/口袋學堂SCHOOL/6275:健策均熱片龍頭、2024 EPS 24.15、水冷板GPU液冷(2024全年/2025-03法說);4/9暫緩",
+   "invalidation": "7月關稅再殺;散熱三雄(奇鋐/雙鴻/健策)擁擠殺價;GPU液冷滲透不如預期",
+   "conviction": 4
+  },
+  {
+   "code": "6187",
+   "name": "萬潤",
+   "theme": "CoWoS先進封裝設備/CPO",
+   "signal_type": "大廠事件讀穿型",
+   "event": "NVIDIA CPO FAU耦合/AOI設備卡位、大摩CPO元年點名(升目標450→688)、GTC 3/18發表矽光子CPO交換器;4/9暫緩修復。惟2023/2024已兩度暴漲",
+   "evidence": "DA Labs/財報狗:萬潤NVIDIA CPO FAU、大摩1/16升目標450→688、CoWoS估占2026營收76%(≤2025-03);鉅亨:GTC 3/18 CPO交換器",
+   "invalidation": "7月關稅再殺;已兩度暴漲燃料耗盡、邊際買方稀薄;CPO兌現遞延至2027",
+   "conviction": 3
+  }
+ ]
+}
