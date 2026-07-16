@@ -1,0 +1,88 @@
+"""戰役十八 Stage 1:計分軸粗掃(固定現役出場+10 席).
+
+14 cells × 2 個 train 折(F1: ~2024-12、F2: ~2025-12),每 cell 收 train 內
+CAGR/Sortino/MDD 與月報酬 block bootstrap P5;排名 = 兩折 P5 幾何均。
+嚴禁看 OOS 選型(OOS 只在 Stage 4 裁決時跑)。
+
+Run: uv run --project research python -m research.serenity.wf.run_stage1
+"""
+
+from __future__ import annotations
+
+import subprocess
+import sys
+from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+
+REPO_ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(REPO_ROOT))
+ENGINE = REPO_ROOT / "research" / "serenity" / "engine.py"
+REGISTRY = Path(__file__).parent / "registry_wf.csv"
+RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+VARIANT = "ev_v2_thesis_inst"
+
+from research.serenity.backfill.pool_quality_duel import boot_cagr_lb  # noqa: E402
+
+CELLS: list[tuple[str, list[str]]] = [
+    ("S00_baseline", []),
+    ("S01_momentum_only", ["--ablate", "conviction,revenue,adv,inst,pe_pen,pb_pen"]),
+    ("S02_revenue_only", ["--ablate", "conviction,momentum,adv,inst,pe_pen,pb_pen"]),
+    ("S03_conviction_only", ["--ablate", "revenue,momentum,adv,inst,pe_pen,pb_pen"]),
+    ("S04_no_valuation", ["--ablate", "pe_pen,pb_pen"]),
+    ("S05_no_inst", ["--ablate", "inst"]),
+    ("S06_mom_conv", ["--ablate", "revenue,adv,inst,pe_pen,pb_pen"]),
+    ("S07_no_filters", ["--ablate", "filters"]),
+    ("S08_role20", ["--role-bonus", "20"]),
+    ("S09_role40", ["--role-bonus", "40"]),
+    ("S10_fresh3_15", ["--fresh-bonus", "15", "--fresh-months", "3"]),
+    ("S11_fresh6_15", ["--fresh-bonus", "15", "--fresh-months", "6"]),
+    ("S12_fresh12_10", ["--fresh-bonus", "10", "--fresh-months", "12"]),
+    ("S13_role20_fresh6", ["--role-bonus", "20", "--fresh-bonus", "15", "--fresh-months", "6"]),
+]
+FOLDS = {"F1": "2024-12-31", "F2": "2025-12-31"}
+
+
+def run_cell(cell: str, extra: list[str], fold: str, end: str) -> dict | None:
+    label = f"b18s1_{cell}_{fold}"
+    cmd = [sys.executable, str(ENGINE), "--start", "2022-08-01", "--end", end,
+           "--registry", str(REGISTRY), "--variants", VARIANT, "--label", label, *extra]
+    proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=3600)
+    if proc.returncode != 0:
+        print(f"FAIL {label}: {proc.stderr[-300:]}")
+        return None
+    s = pd.read_csv(RESULTS / f"{label}_summary.csv")
+    row = s[s.name == VARIANT].iloc[0]
+    daily = pd.read_csv(RESULTS / f"{label}_{VARIANT}_daily.csv", parse_dates=["date"])
+    nav = daily.set_index("date")["nav"]
+    mrets = nav.groupby(nav.index.astype(str).str.slice(0, 7)).last().pct_change().dropna()
+    rng = np.random.default_rng(20260716)
+    p5, p50, _ = boot_cagr_lb(mrets, rng)
+    print(f"done {label}: cagr={row['cagr']:.3f} p5={p5:.3f}")
+    return {"cell": cell, "fold": fold, "cagr": float(row["cagr"]),
+            "sortino": float(row["sortino"]), "mdd": float(row["mdd"]),
+            "boot_p5": round(p5, 4), "boot_p50": round(p50, 4),
+            "n_trades": int(row.get("n_trades", 0))}
+
+
+def main() -> None:
+    jobs = [(c, e, f, end) for c, e in CELLS for f, end in FOLDS.items()]
+    rows = []
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        for r in pool.map(lambda j: run_cell(*j), jobs):
+            if r:
+                rows.append(r)
+    df = pd.DataFrame(rows)
+    wide = df.pivot(index="cell", columns="fold", values="boot_p5")
+    wide["p5_geo"] = np.sqrt((1 + wide["F1"]) * (1 + wide["F2"])) - 1
+    rank = wide.sort_values("p5_geo", ascending=False)
+    df.to_csv(Path(__file__).parent / "stage1_results.csv", index=False)
+    rank.to_csv(Path(__file__).parent / "stage1_ranking.csv")
+    print("\n=== Stage 1 排名(兩 train 折 boot P5 幾何均)===")
+    print(rank.round(3).to_string())
+
+
+if __name__ == "__main__":
+    main()

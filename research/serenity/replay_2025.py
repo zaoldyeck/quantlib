@@ -99,6 +99,8 @@ def load_registry(path: Path = REGISTRY) -> pd.DataFrame:
         lambda value: value.date() if pd.notna(value) else None
     )
     registry["conviction"] = pd.to_numeric(registry["conviction"], errors="coerce").fillna(3.0)
+    if "role" not in registry:
+        registry["role"] = ""  # battle 18: role axis(僅 wf registry 帶 role 欄)
     return registry
 
 
@@ -120,6 +122,7 @@ def active_registry_for_day(registry: pd.DataFrame, day: date) -> pd.DataFrame:
             conviction=("conviction", "max"),
             theme_count=("theme_id", "nunique"),
             first_active_from=("active_from", "min"),
+            role=("role", "first"),
         )
     )
     return grouped
@@ -296,6 +299,26 @@ def set_pe_pen_mode(mode: str) -> None:
     _PE_PEN_MODE = mode or "full"
 
 
+# Battle 18: new score axes (default 0 = production behaviour unchanged).
+_ROLE_BONUS: float = 0.0
+_FRESH_BONUS: float = 0.0
+_FRESH_MONTHS: int = 6
+
+
+def set_role_bonus(value: float) -> None:
+    """Battle 18: score bonus for chokepoint_owner members (role axis)."""
+    global _ROLE_BONUS
+    _ROLE_BONUS = float(value or 0.0)
+
+
+def set_fresh(bonus: float, months: int) -> None:
+    """Battle 18: theme-freshness bonus for members whose theme was admitted
+    within `months` of the refresh day (theme lifecycle axis, from backfill)."""
+    global _FRESH_BONUS, _FRESH_MONTHS
+    _FRESH_BONUS = float(bonus or 0.0)
+    _FRESH_MONTHS = int(months or 6)
+
+
 def score_candidates(frame: pd.DataFrame) -> pd.DataFrame:
     data = frame.copy()
     for col in (
@@ -372,6 +395,12 @@ def score_candidates(frame: pd.DataFrame) -> pd.DataFrame:
     # battle 12 (2026-07-07): dd_pen removed — dead weight (ablation 0/3, lag0
     # even improved 248→252.5); the -35%/-55% soft filters already exclude
     # deep-drawdown names, so the extra penalty never bit on survivors.
+    # battle 18: new axes — default 0 keeps production scoring bit-identical.
+    if _ROLE_BONUS and "role" in data:
+        score += (data["role"] == "chokepoint_owner").astype(float) * _ROLE_BONUS
+    if _FRESH_BONUS and "theme_age_days" in data:
+        fresh = pd.to_numeric(data["theme_age_days"], errors="coerce")
+        score += (fresh <= _FRESH_MONTHS * 30).fillna(False).astype(float) * _FRESH_BONUS
     data["score"] = score
     # battle 10 (iter_87): expectations-gap unit in [-1, 1] — rank(yoy_3m) - rank(PE)
     # within surviving candidates. Pure extra column; base score is unchanged.

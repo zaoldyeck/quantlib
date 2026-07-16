@@ -50,7 +50,7 @@ from constants import CAPITAL, COMMISSION, SELL_TAX  # noqa: E402
 from db import connect  # noqa: E402
 from prices import total_return_series  # noqa: E402
 
-from replay_2025 import set_ablate, set_pe_pen_mode  # noqa: E402
+from replay_2025 import set_ablate, set_fresh, set_pe_pen_mode, set_role_bonus  # noqa: E402
 from replay_2025 import (  # noqa: E402
     REGISTRY,
     active_registry_for_day,
@@ -797,11 +797,19 @@ def main() -> None:
             "abs=0.1,0.15;time=30,50' — data loads once, all cells simulate in-process"
         ),
     )
+    parser.add_argument("--role-bonus", type=float, default=0.0,
+                        help="battle 18: score bonus for chokepoint_owner (0 = off)")
+    parser.add_argument("--fresh-bonus", type=float, default=0.0,
+                        help="battle 18: theme-freshness score bonus (0 = off)")
+    parser.add_argument("--fresh-months", type=int, default=6,
+                        help="battle 18: freshness window in months")
     args = parser.parse_args()
 
     if args.ablate:
         set_ablate(args.ablate.split(","))
     set_pe_pen_mode(args.pe_pen_mode)
+    set_role_bonus(args.role_bonus)
+    set_fresh(args.fresh_bonus, args.fresh_months)
 
     suffix = "" if args.activation_lag_days == 0 else f"_lag{args.activation_lag_days}"
     mode_tag = "" if args.mode == "registry" else "_mech"
@@ -949,6 +957,10 @@ def main() -> None:
                 .merge(rev_day, on="company_code", how="left", suffixes=("", "_rev"))
                 .merge(per_day, on="company_code", how="left")
                 .merge(flow_day, on="company_code", how="left")
+            )
+            # battle 18: theme age (days since first admit) for the freshness axis.
+            joined["theme_age_days"] = joined["first_active_from"].map(
+                lambda v: (day - v).days if pd.notna(v) else 99_999
             )
             scored = score_candidates(joined)
             if scored.empty:
