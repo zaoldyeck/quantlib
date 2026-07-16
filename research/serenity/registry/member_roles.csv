@@ -57,3 +57,9 @@ company_code,company_name,theme_id,role,rationale,labeled_on
 3004,豐達科,aerospace_fastener,chokepoint_owner,NADCAP+四大引擎 OEM 認證扣件;認證產能即瓶頸,2026-07-14
 4541,晟田,aerospace_fastener,enabler,AIDC 二階機加工;認證範圍較窄,2026-07-14
 1723,中碳,battery_sic_carbon_materials,enabler,論點為唯一非中負極認證者但新業務規模未證實;舊本業連五季衰退,2026-07-14
+5274,信驊,server_bmc,chokepoint_owner,伺服器 BMC 全球 70-80% 壟斷;2-3 年驗證加 5 年黏著構成極高切換成本、自有標準生態,2026-07-17
+2337,旺宏,memory_cycle,chokepoint_owner,NOR/ROM/NAND 自有 12 吋廠 IDM;高密度 MLC NAND 近獨供、漲價灌進自有產能毛利,2026-07-17
+3189,景碩,ai_pcb,chokepoint_owner,ABF/BT 載板寡占本尊;自有產能加 AI ASIC(TPU/Meta)認證、T-Glass 短缺定價權,2026-07-17
+7734,印能,advanced_packaging,chokepoint_owner,先進封裝除泡機全球 80% 近獨佔;CoWoS-L/R 良率關鍵製程、自有稀缺節點,2026-07-17
+7769,鴻勁,advanced_packaging,enabler,AI/HPC 測試分選機龍頭;設備關鍵投入但稀缺主體為 OSAT 測試產能、非獨佔,2026-07-17
+8358,金居,ai_ccl,enabler,HVLP4 極低稜銅箔;自有稀缺產能但非全球獨佔(日系更大)、CCL 上游材料,2026-07-17

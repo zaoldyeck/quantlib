@@ -1,0 +1,115 @@
+{
+  "curation_month": "2026-06",
+  "run_date": "2026-07-17",
+  "evidence_fence": "<=2026-06-30",
+  "seed": "research/serenity/backfill/seeds/2026-06.json (momentum clusters=7, revenue_accel clusters=12)",
+  "watch_log": "research/serenity/state/watch_log.jsonl 不存在(每日輕掃層 2026-07-17 才上線;2026-06 冷啟動,僅機械種子+當時新聞)",
+  "queries": [
+    "WebSearch: 信驊 5274 Aspeed 伺服器 BMC 市佔 2026 AI server 出貨",
+    "WebSearch: 旺宏 2337 記憶體 NOR Flash 漲價 缺貨 2026 第二季",
+    "WebSearch: 頎邦 6147 金凸塊 COF 驅動IC 產能滿載 2026",
+    "WebSearch: 景碩 3189 ABF 載板 2026 訂單 產能 AI",
+    "WebSearch: 鴻勁 7769 AI晶片 測試 handler 分選機 2026 產能 訂單能見度",
+    "WebSearch: 印能 7734 CoWoS 先進封裝 除泡 壓合設備 2026 訂單",
+    "WebSearch: 金居 8358 銅箔 HTE RTF 載板 AI PCB 漲價 2026 缺貨",
+    "WebSearch: DRAM DDR4 現貨價 漲價 2026 六月 三星 美光 退出 成熟製程 供給",
+    "WebFetch(日期/事實確認): vocus 696886d7 → 信驊,發布 2026-01-16,BMC 70-80% 壟斷/GM 65-70%/黏著 5 年+",
+    "WebFetch: businesstoday 202605290013 → 金居,發布 2026-05-30,HVLP4 全平台指定/毛利率 20→40-50%",
+    "WebFetch: statementdog 16439 → 印能,頁面空白(改用 cmnews 佐證)",
+    "WebFetch: cmnews 2bb97c56 → 印能,發布 2026-04-13,除泡機全球 80%/能見度到年底",
+    "WebFetch: vocus 6978dbea → 旺宏,發布 2026-01-28,高密度 MLC NAND『只剩旺宏』+自有 12 吋擴產 220 億"
+  ],
+  "actions": [
+    {
+      "type": "admit",
+      "theme_id": "server_bmc",
+      "theme_status": "new_theme",
+      "codes": ["5274"],
+      "role": "chokepoint_owner",
+      "conviction": 2,
+      "detail": "新開主題『伺服器 BMC 獨佔』。信驊全球 BMC 70-80% 絕對壟斷,驗證 2-3 年+黏著>5 年=極高切換成本,GM 65-70% 結構性;AST2700 世代量價齊揚。已為股王(PE 50-66x)故保守起手 conviction 2,交引擎 PE/dd 懲罰定位(比照 6196)。四項簽名+三測試全過。",
+      "evidence": [
+        {"date": "2026-01-16", "source": "vocus 696886d7", "claim": "BMC 全球 70-80% 絕對壟斷、GM 65-70%、驗證 2-3 年+黏著 5 年+、AST2700 2026 出貨上看 700 萬顆"},
+        {"date": "2026-06-10", "source": "月營收公告(MOPS)", "claim": "信驊 2026-05 營收 12.82 億 +68.74%、Q1 營收 31.47 億 +52.38%、EPS 37.41 創高(圍欄內加速確認)"}
+      ]
+    },
+    {
+      "type": "admit",
+      "theme_id": "memory_cycle",
+      "codes": ["2337"],
+      "role": "chokepoint_owner",
+      "conviction": 3,
+      "detail": "旺宏 NOR/ROM/NAND 自有 12 吋廠 IDM;同業退出致高密度 MLC NAND『市場上只剩旺宏』(近獨供),NOR Q1 漲價 30-100%,三星停產致 MLC 產能年減 41.7%;220 億擴月產能 2 萬→3 萬片。供給真空論點的自有產能本尊——記憶體主題一年來的明顯缺口。結構上限 4,保守起手 3。",
+      "evidence": [
+        {"date": "2026-01-28", "source": "vocus 6978dbea(旺宏法說)", "claim": "高密度 MLC NAND 只剩旺宏、NOR Q1 漲價 30-100%、三星停產 MLC 產能年減 41.7%、220 億擴 12 吋 2 萬→3 萬片、eMMC Q4 +213%"}
+      ]
+    },
+    {
+      "type": "admit",
+      "theme_id": "ai_pcb",
+      "codes": ["3189"],
+      "role": "chokepoint_owner",
+      "conviction": 3,
+      "detail": "景碩 ABF/BT 載板寡占本尊(欣興外的獨立本尊);Q1 營收 111 億創高,ABF 利用率 85%→年底 90-95%、六廠擴產面臨滿載,235 億三年史上最大資本支出;T-Glass/Low-CTE 玻纖布短缺帶定價權,已切入 Google TPU/Meta 訂單。ABF 為多本尊寡占節點(比照 power_grid 四家變壓器本尊)。結構上限 4,保守起手 3。",
+      "evidence": [
+        {"date": "2026-03-10", "source": "vocus 6a12e06b(景碩法說)", "claim": "Q1 營收 111 億 +28.83% 創高、ABF 利用率 85→90-95%、六廠擴產面臨滿載、235 億資本支出、T-Glass 短缺定價權、切入 TPU/Meta"},
+        {"date": "2026", "source": "經濟日報 9459664", "claim": "ABF 能見度高、法人調升評等、二季報價續漲約 5%"}
+      ]
+    },
+    {
+      "type": "admit",
+      "theme_id": "advanced_packaging",
+      "codes": ["7734"],
+      "role": "chokepoint_owner",
+      "conviction": 3,
+      "detail": "印能先進封裝除泡機(void-free lamination)全球市佔 80% 近獨佔;CoWoS-L/R 下除泡從選配變良率關鍵(氣泡→數千美元晶片報廢),能見度到年底,Q1 GM 65%/營益率 53%。自有稀缺製程節點本尊。結構上限 5,保守起手 3。",
+      "evidence": [
+        {"date": "2026-04-13", "source": "CMoney cmnews", "claim": "除泡機全球市佔 80%、訂單能見度到 2026 年底、CoWoS-L/R 除泡為良率關鍵"},
+        {"date": "2026", "source": "財報狗 16439", "claim": "Q1 營收 8.76 億 +81.9%、GM 65%、營益率 53%、EPS 14.68"}
+      ]
+    },
+    {
+      "type": "admit",
+      "theme_id": "advanced_packaging",
+      "codes": ["7769"],
+      "role": "enabler",
+      "conviction": 2,
+      "detail": "鴻勁 AI/HPC/ASIC 晶片測試分選機(ATC handler)龍頭,AI 佔接單 78%;Q1 營收 107 億 +81.4%,能見度到年底,2026-2028 產能 CAGR ~50%;高階 ATC handler 2H26 供 CSP TPU、CPO 同測機年底定案。測試設備關鍵投入(稀缺主體=OSAT 測試產能)→ enabler。與探針卡(6223)/測試座(6515)不同節點(handler),補主題缺口。結構上限 3,保守起手 2。",
+      "evidence": [
+        {"date": "2026-05-12", "source": "富果 fugle(鴻勁法說)", "claim": "測試分選機龍頭、Q1 +81.4%、AI 佔 78%、能見度到年底、產能 CAGR 50%、ATC handler 2H26 供 TPU"}
+      ]
+    },
+    {
+      "type": "admit",
+      "theme_id": "ai_ccl",
+      "codes": ["8358"],
+      "role": "enabler",
+      "conviction": 2,
+      "detail": "金居 HVLP4 極低稜銅箔(CCL 上游材料);Rubin/Google V8/AWS Trainium3 全平台指定,良率偏低致產能嚴重吃緊,2026-02 停供傳統 HTE/RTF 全轉 HVLP;漲價 +50%、HVLP4 毛利率 40-50%(vs 傳統~20%)=定價權硬證。非全球獨佔(日系更大)→ enabler。CCL 上游銅箔為主題未覆蓋的獨立節點。結構上限 3,保守起手 2。",
+      "evidence": [
+        {"date": "2026-05-30", "source": "今周刊 businesstoday", "claim": "HVLP4 全平台指定、良率低產能吃緊、漲價 +50%、毛利率 20→40-50%、承接日系轉單"},
+        {"date": "2025-12-20", "source": "旺得富/工商", "claim": "PCB 上下游點火、金居為稀缺在地銅箔供應商、承接日系轉單調升 ASP"}
+      ]
+    }
+  ],
+  "rejected": [
+    {"codes": ["6147"], "name": "頎邦", "reason": "60 日 +457% 全種子最大漲幅,但產能利用率僅 65-70%(無約束)、2026 成長目標僅 10%、漲勢來自韓國驅動 IC 轉單低基期轉機——失敗於瓶頸簽名 #1(需求非量級跳升)與 #2(供給有餘裕)。是轉機股非缺貨股。"},
+    {"codes": ["3260","8271","2451","4973","4967"], "name": "威剛/宇瞻/創見/廣穎/十銓(記憶體模組庫存財)", "reason": "皆 2026-07-13 role purity 除名的 beneficiary;6 月營收大幅加速(yoy_3m 155-621%)正是庫存財型態,依 SOP §1.5『排除 beneficiary 是純度最優點』拒絕重收——動能/營收不是重收理由。"},
+    {"codes": ["2382"], "name": "廣達等 server_oem ODM", "reason": "server_oem 全主題 2026-07-13 因成員全屬 beneficiary(組裝經濟無定價權)已停用,不因動能重收。"}
+  ],
+  "watch": [
+    {"codes": ["5351"], "name": "鈺創", "note": "利基 DRAM/buffer IDM-lite,memory-adjacent enabler 候選;需下批 June 圍欄內自有產能/定價權事證。"},
+    {"codes": ["4919"], "name": "新唐", "note": "MCU 廣線 + BMC #2,server_bmc-adjacent;BMC 為次要業務、廣線 MCU 稀釋純度,需事證釐清是否 enabler。"},
+    {"codes": ["6531","6683","6217","6640"], "name": "愛普/雍智/中探針/均華", "note": "先進封裝/測試介面 enabler 候選(HBM 測試、測試座、探針、封裝設備);本批未逐一搜證,列 watch。"},
+    {"codes": ["6182","3532"], "name": "合晶/台勝科", "note": "矽晶圓,結構上 bottleneck-eligible 但規模較小;需缺貨/交期事證。"},
+    {"codes": ["1785"], "name": "光洋科", "note": "貴金屬濺鍍靶材/回收,半導體材料 enabler 候選;需認證壁壘/定價權事證。"},
+    {"codes": ["2327","2492"], "name": "國巨/華新科", "note": "MLCC/被動元件,偏大宗被動循環;需 sole-source 規格瓶頸事證才可 admit。"}
+  ],
+  "warnings": [
+    "memory_cycle 論點強化(非失效):DDR4 現貨 5 月 MoM +19-25%、DDR4 現貨價已超越 HBM3e 合約價、三大原廠續撤成熟 DRAM 轉 HBM(供給真空加劇);invalidation 未觸及。owner(南亞科 2408/華邦電 2344)已達 conviction 結構上限 5、不加碼;主題擴張由新入冊的旺宏 2337 承接。",
+    "ai_ccl/ai_pcb 論點強化:2026 為 PCB 缺料大年,HVLP4 缺口 48%、ABF 缺口 2027 擴至 21-27%、T-Glass 交期 30 週+;invalidation 未觸及。新增上游節點金居(銅箔)+景碩(ABF)。",
+    "advanced_packaging 論點強化:CoWoS 續拉,印能/鴻勁 訂單能見度到年底;invalidation 未觸及。",
+    "其餘在冊主題(power_grid/optical_cpo/ai_asic/ai_server_mech/fab_facility_epc/aerospace_fastener/battery/biotech_regulatory/satellite_defense/industrial_test)本批次無 June 圍欄失效訊號浮現,維持現狀;全冊強制複審依 review_by(多數 2026-09-30、2026H2 新主題 2027-01-31)於季度執行。"
+  ],
+  "summary": "2026-06 策展批次:入冊 6 檔真瓶頸(前月冊漏收的結構缺口),全部有 6 月當時、可回查的證據撐腰,並經引擎實載驗證全部進池。\n新開 1 個主題『伺服器 BMC』——信驊 5274 是這顆伺服器管理晶片的全球獨佔者(七到八成市佔、換一次要驗證 2-3 年),但因已是股王故起手分數壓低,買不買交給引擎的估值懲罰決定。\n另補進記憶體的旺宏 2337(高密度記憶體『只剩它能供』)、載板的景碩 3189、先進封裝除泡機獨大的印能 7734、AI 測試機龍頭鴻勁 7769、高階銅箔漲價王金居 8358。\n漲最兇的頎邦(60 天漲 4.5 倍)反而不收——它產能只開 6-7 成、根本沒瓶頸,漲的是低基期轉機不是缺貨;記憶體那幾檔庫存財(威剛、宇瞻等)照樣擋門外,它們上月才因『不是真瓶頸』被除名。\n既有主題全數健在:DDR4 現貨價 5 月還在月漲 2 成、記憶體缺貨只有更兇,沒有任何主題觸及失效條件。\n提醒:每日輕掃層今天才上線,2026-06 沒有每日累積訊號,本批屬冷啟動(靠機械種子+當時新聞);下批起會有 watch log 佐證。"
+}
