@@ -72,19 +72,17 @@ def evergreen_pools(pool_months: int = EV_POOL_MONTHS) -> dict[str, set[str]]:
 
 
 def monthly_returns(all_codes: set[str]) -> pd.DataFrame:
-    """月末調整收盤 → 月報酬(index=YYYY-MM, columns=code)。TWSE 走 cache,TPEx 走 pg。"""
+    """月末調整收盤 → 月報酬(index=YYYY-MM, columns=code)。cache 為全市場
+    (2026-07-16 查證:TWSE+TPEx 皆本地化),兩市場都走 cache。"""
     codes = sorted(all_codes)
     frames = []
     con = connect()
-    frames.append(fetch_adjusted_panel(con, "2022-06-01", "2026-07-16", codes=codes,
-                                       market="twse", include_extra_history_days=0).to_pandas())
-    con.close()
-    con_pg = connect(use_cache=False)
     try:
-        frames.append(fetch_adjusted_panel(con_pg, "2022-06-01", "2026-07-16", codes=codes,
-                                           market="tpex", include_extra_history_days=0).to_pandas())
+        for market in ("twse", "tpex"):
+            frames.append(fetch_adjusted_panel(con, "2022-06-01", "2026-07-16", codes=codes,
+                                               market=market, include_extra_history_days=0).to_pandas())
     finally:
-        con_pg.close()
+        con.close()
     px = pd.concat(frames, ignore_index=True)
     px["ym"] = px["date"].astype(str).str[:7]
     eom = px.sort_values("date").groupby(["company_code", "ym"])["close"].last().unstack(0)

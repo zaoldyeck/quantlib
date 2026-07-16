@@ -68,12 +68,31 @@ psql -h localhost -p 5432 -d quantlib
 
 ### Data Refresh Workflow (MANDATORY order)
 
-**當日資料收盤後即可抓(2026-07-09 起)**:日頻 pull 依各源發布時刻決定是否
-含今天(Taipei;`Task.dailyEndExclusive`)——daily_quote/index 14:00、
-stock_per_pbr 15:00、法人 T86 16:00、外資持股 17:00、融資券/借券 21:30、
-內部人 22:00。太早抓到「無資料」回應時 `Crawler.downloadFile` 對**當日**
-絕不落 0-byte sentinel(`[deferred-today]` 刪檔,下次重跑自動補),所以
-收盤後任何時間跑 `Main update` 永遠安全;沒抓到的表晚點再跑一次即補齊。
+**「更新」= 當日全表齊備,不是抓到多少算多少(2026-07-15 定案,第一手蒐證見
+`docs/data_ops/twse_publish_times.md`)**:
+
+> **D 日的資料自 D+1 00:30 起才算齊備 → 一天只跑一次完整更新,排在 D+1 盤前
+> (每日 loop 07:20)。D 日盤中/傍晚不期待 D 的資料。**
+
+依據(不是慣例,是官方明文):① 融資融券 `MI_MARGN` 的官方保證只到「**次一營業日
+開市前公告**」(操作辦法 §69),D 日晚間抓得到是實務不是承諾;② 借券 `TWT93U`/TPEx
+`sbl` 官方明文「每日晚間**二次**更新(約 20:30、22:30)」且時間隨日結浮動——20:30~22:30
+之間抓到的是**部分更新**,檔案看起來完整卻會被改寫(無聲汙染,舊設定 21:30 正踩中);
+③ 實證:margin/sbl/foreign/insider 四表全史零次同日成功,唯一「全表齊備」紀錄在 D+1 凌晨。
+
+**為什麼重要**:抓一半 → **表間日期錯位** → 策略閘門查無資料就 fail-closed 把候選
+靜靜砍光(2026-07-15 事故:報價 7/14、法人 7/13 → Evergreen「濾後候選 0」)。
+`Task.dailyEndExclusive` 的各源時刻(quote/index 15:30、T86 16:00、stock_per_pbr 18:30、
+margin/foreign 21:30、sbl **22:30**、insider 22:00)只用來**避免白跑的請求**,不是正確性
+的來源;每個時刻的證據等級都註記在呼叫點。
+
+**sentinel(休市日)規則**:只有「已過該日齊備時刻(D+1 00:30)」之後收到的乾淨無資料
+才寫 0-byte sentinel;之前一律 `[deferred]` 刪檔重抓。sentinel 同時是我們的**休市日曆**
+(`research/data_calendar.py::is_trading_day` 讀它)——颱風假無法從星期幾推得
+(2026-07-10 即是颱風休市,平日 ≠ 交易日)。
+
+**Python 側入口**:`research/data_calendar.py`(`latest_complete_trading_day()` /
+`stale_tables()`);`research.tri.daily` 已內建齊備自檢——不齊備才跑一次完整更新。
 
 Whenever Taiwan-market data needs to be up-to-date (daily routine, before
 starting a research session, after a long break), run these **in order**:
@@ -279,6 +298,23 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 - **Quarterly partial import** — after `Main update`, sanity-check `SELECT year, quarter, COUNT(DISTINCT company_code) FROM concise_balance_sheet GROUP BY year, quarter` against ~1800 expected.
 - **`Crawler.downloadFile` regex** stays `^\d{4}_.*\.csv$` — daily (YYYY_M_D.csv) AND quarterly (YYYY_Q_a_c_idx.csv) both need year-subdir routing.
 
+### Exit Semantics Contract(2026-07-16 定調)
+
+- **出場一律逐日重放價格路徑,禁止今日快照評估**(`research/trading/exit_replay.py`)。
+  回測逐交易日評估、觸發當天出場;live 只看「今天的價格 vs 今天的止損線」會把
+  「沒跑報告那幾天已觸發的出場」變成沒發生——**只在最沒紀律的時候放寬規則**。
+  使用者定調:「我就算延遲了,該賣還是得賣,不能過時間了就當作沒發生」。
+- **峰值(trailing 錨)由價格歷史重算**,不得用「跑報告時才更新」的增量 state
+  (漏跑 → 峰值偏低 → 止損線偏低 → 該賣的沒賣)。峰值下限 = 該筆成交價
+  (回測 `peak_close = entry_close` 的忠實對應)。
+- **成本是帳戶的屬性,不是策略的屬性**(`research/trading/cost_basis.py` 單一
+  來源):富邦 inventories 無成本欄位、filled_history 全回空 → 跨日成交價只能靠
+  成交當天自己記帳(執行器 TCA jsonl 必須永久保存)。收養部位的「成本」是收養日
+  收盤的**代理值**,報告必須標示 `(收養價)` 而非假裝是真成本。
+- **報告零 LLM**:LLM 的判斷早就被壓成帶時間戳的資料(Serenity `thesis_registry`
+  的 source_note/evidence_url/invalidation_criteria;Evergreen `registry_v3.parquet`
+  + `ev28_news/{month}/materials.json` + `prompts/{month}.txt`),報告只做 join + render。
+
 ### Strategy Semantics Contract
 
 - **現役交易策略(live,使用者指定單一策略)= Serenity 事件引擎 `ev_v2_thesis_inst`** — 論點註冊表策展 × 事件紀律(止盈 +60% 回收 / trail -20% / abs -15% / time50 / **法人分佈出場** / 營收論點停損 + 雙 regime guard + live-book 收養協定)。驗證(cutoff 2026-07-06,計分經戰役十一~十三逐項消融驗證=8 成分全背書):lag0 CAGR 253.3% / MDD -18.0% / Sharpe 6.84 / Lo-t 4.29;置換檢定 p=0.000、DSR 1.00、bootstrap 5% 下界 +102.5%;富邦 realistic CAGR 271.6% / MDD -17.2% / 成交率 96.9%(摩擦 ~0.25% 名目)。**2026-07-14 戰役十五 role purity**:成員層三測試入法(SOP §1.5),beneficiary 14 檔除名(池 58→44,`member_roles.csv` 為姊妹檔);新池重驗證(cutoff 07-14):lag0 288.8% / MDD -16.9% / 置換 p=0.000 / DSR 1.00 / bootstrap 5% 下界 +111.4%;**PBO lag0 0.526(fold 稀疏 caveat 未解,回溯標記先導評估中)**;82 預註冊 trials;live OOS 對照帳 `docs/serenity/serenity_forward_track.md` 月結。文件:skill `serenity-trading-system`(`references/daily-ops.md` = 每日營運、`tw-event-engine.md` = 策略規格)+ `docs/serenity/serenity_event_engine_v1.md`。**鐵律:任何引擎變更必須先在 `docs/serenity/serenity_engine_trials_ledger.md` 預註冊假設與判準再跑**;策展維護依 `serenity_curation_sop.md`(註冊表是 alpha 源頭)。每日營運入口:`uv run --project research python -m research.serenity.daily run`(送單永遠是使用者的人工步驟)。**架構主權(血統原則,2026-07-07)**:Serenity 需求與 quantlib 舊慣例衝突時,一律改造專案服務 Serenity,不反向遷就(先例:事件驅動營收爬蟲、`research/serenity/` 獨立家);文字/質性資訊 fetch-on-demand 當下抓當下判斷(WebFetch → 使用者 Chrome),只存首見時間戳+策展蒸餾+量化資料,不建原文語料庫。
@@ -321,23 +357,17 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 ### Data Roadmap
 
-#### Pipeline gap — TPEx 在 PG 卻被 cache filter 擋掉（高優先修）
+#### TPEx cache 覆蓋 — 已修復（2026-07-16 查證定案，舊「pipeline gap」記載作廢）
 
-**Scala crawler 已下載 TPEx 全套資料到 PG**（7 tables × 2007 起），但 `research/cache_tables.py` 所有 `CREATE TABLE ... WHERE market='twse'` 把 TPEx 整個 filter 掉，research pipeline 系統性漏掉 ~75% 樣本。
-
-**修正步驟（執行前必照此順序）**：
-1. 先在 `research/strat_lab/v4.py` 等既存 query 加顯式 `WHERE market='twse'` filter（否則 cache 加 TPEx 後 baseline 會改）
-2. 修 `research/cache_tables.py` 移除 `WHERE market='twse'`（保留所有市場）
-3. 重跑 `uv run python research/cache_tables.py`（~5 分鐘）
-4. 新實驗腳本明確選擇 `market='twse'` / `'tpex'` / 兩者
-
-**TPEx 資料量**（vs TWSE 同表）：
-- daily_quote: 3.81M rows (73% of TWSE)，2007-07-02 起
-- margin_transactions: 2.88M rows，2007-01-02 起
-- stock_per_pbr: 3.29M rows，2007-01-02 起
-- operating_revenue: 208K rows（TPEx 無工業分類時也有營收）
-
-暴漲股多在 TPEx（小型股、生技、IC 設計），chase 策略納入 TPEx 後 universe 擴大、訊號樣本翻倍。
+**cache 為全市場**：`research/cache_tables.py` 無 market filter（docstring 明寫
+「Cache holds BOTH TWSE + TPEx rows」），daily_quote（TPEx 3.86M rows）、
+stock_per_pbr、operating_revenue、ex_right_dividend、daily_trading_details 等
+全表雙市場俱備、毫秒級。**規則**：research 腳本自行下顯式 `WHERE market=...`
+選市場;`prices.fetch_adjusted_panel` 以 `market='twse'|'tpex'` 分拉再 concat。
+**教訓（2026-07-16 池品質對決時發現）**：本段舊文宣稱「cache 只有 TWSE、高優先修」
+已過時多時,導致回溯標記提示詞誤加「僅 TWSE」限制、對決腳本多繞 pg-attach——
+**外部行為查文件,自家資料查 cache 本身**（`SELECT market, count(*) GROUP BY market`
+十秒定案），文件陳述一律以實測為準。
 
 #### 資料下載狀態 (Sprint A 完成 2026-04-24)
 
