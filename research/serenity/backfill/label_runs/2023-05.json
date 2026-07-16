@@ -1,0 +1,104 @@
+{
+ "label_month": "2023-05",
+ "mode": "incremental",
+ "fence_date": "2023-05-31",
+ "queries": [
+  "AI 伺服器 供應鏈 缺貨 CoWoS 台積電 輝達 需求 2023年5月 台股 供不應求",
+  "華城 士電 中興電 重電 2023年5月 訂單 AI 電力 需求 法說 能見度"
+ ],
+ "sources_used": [
+  {"date": "圍欄內僅得需求訊號,供給瓶頸來源皆post-fence", "publisher": "(見note)", "claim": "本月無新增可入冊之圍欄內來源;既有主題沿用先前已引用之圍欄內證據"}
+ ],
+ "sources_discarded_count": 17,
+ "sources_discarded_note": "CoWoS/AI伺服器供不應求之明確報導最早為TechNews 2023-07-05(輝達找非台積供應鏈)——在2023-05-31圍欄後,故本月不得據以admit任何AI硬體瓶頸(見free_discovery)。重電搜尋第5度全post-fence(Stargate/120億/UL認證/北美變壓器交期2.5-3年/川普/2026),conviction維持不變。",
+ "free_discovery": {
+  "topic": "AI伺服器硬體瓶頸(CoWoS/HBM/先進封裝/AI電力)",
+  "verdict": "deferred_watch",
+  "reasoning": "輝達5/24財測引爆AI需求訊號於圍欄內可感知,但『CoWoS產能供不應求』之供給瓶頸明確報導(TechNews)發布於2023-07-05,在5/31圍欄後。站在5/31,只見AI需求跳升、未見供給端瓶頸的當時證據落地,依鐵律不得admit。此為campaign防前視的關鍵樣本:AI硬體真瓶頸(CoWoS獨佔於台積電、擴產交期長、寡占封測)之結構在H2-2023才被市場證據化。列deferred,交由2023-06/後續月份以屆時證據判定。",
+  "note": "半導體於5月已跌出momentum種子(下行週期尾聲),故無對應種子聚類;此為自由發現(rule B)之記錄,非種子檢核。"
+ },
+ "clusters": [
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "carry grid_heavy_electrical admit。本月士電(1503)於momentum顯著(+74%)、華城(1519)+90%,士電為2022-09來源所列重電四雄之一,納入主題roster。重電搜尋第5度全post-fence(北美變壓器交期2.5-3年等皆2024+),無2023-05至圍欄內fundamental新證據,conviction全數維持不變。",
+   "bottleneck_check": {"demand": "PASS(carry)", "supply_rigidity": "PASS(carry,認證型)", "concentration": "PASS(carry)", "amplifier": "PASS(carry)"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電瓶頸(高壓變壓器/GIS國產化)",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,本月momentum+90%,維持3(無fundamental至fence新證據)"},
+    {"code": "1503", "name": "士電", "role": "chokepoint_owner", "conviction": 2, "rationale": "本月momentum顯著(+74%);2022-09來源列為強韌電網受惠重電四雄之一(寡占peer),起手2"},
+    {"code": "1514", "name": "亞力", "role": "chokepoint_owner", "conviction": 2, "rationale": "carry,維持2"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "同前:強韌電網預算刪減/延後;國產化認證障礙被打破;台電改大量進口;訂單能見度<12個月",
+   "evidence": [{"date": "2022-09-15", "source": "cnyes/4955159(carry)", "claim": "強韌電網+中興電345kV GIS獨佔;重電四雄含士電/亞力"}]
+  },
+  {
+   "industry": "資訊服務業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry 2023-04 reject:ChatGPT/AI軟體/SI需求題材,無實體產能供給瓶頸",
+   "narrative": "沿用reject。AI軟體行情延續(凌群等),仍屬需求/題材面。", "bottleneck_check": {"demand": "強題材(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "部分IP moat非實體卡口", "amplifier": "無實體放大器"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2023-03", "source": "ctee/816601(carry)", "claim": "ChatGPT軟體題材"}]
+  },
+  {
+   "industry": "電子零組件業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry reject:被動元件/連接器/電源下行,非供給瓶頸。AI伺服器電源角度萌芽但未成確認瓶頸",
+   "narrative": "沿用reject。飛宏(2457,電源/充電)等雖沾AI伺服器電源邊,但至fence無供給卡口確認。", "bottleneck_check": {"demand": "FAIL/萌芽(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "部分但未成瓶頸", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2022", "source": "cnyes/4707160(carry)", "claim": "被動元件下行"}]
+  },
+  {
+   "industry": "生技醫療業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:授權/臨床/CDMO題材,非供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "事件催化(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12-26", "source": "genetinfo(carry)", "claim": "CDMO/授權"}]
+  },
+  {
+   "industry": "電腦及週邊設備業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:伺服器準系統/板卡下游組裝,非供給瓶頸",
+   "narrative": "沿用reject。AI伺服器需求萌芽但成員為下游組裝受惠者。", "bottleneck_check": {"demand": "萌芽(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "伺服器摘要(carry)", "claim": "下游組裝"}]
+  },
+  {
+   "industry": "光電業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry reject:安控/光學下游產品,無供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "地緣需求(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-09~", "source": "cnyes/4956832(carry)", "claim": "歐美汰換中國安控"}]
+  },
+  {
+   "industry": "其他", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:異質產業桶,無相干供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "各自為政(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-09~", "source": "cnyes/5092498(carry)", "claim": "異質桶"}]
+  },
+  {
+   "industry": "其他電子業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry reject:異質電子桶,無共同供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "個別(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12~2023-01", "source": "漢唐摘要(carry)", "claim": "廠務工程受惠者"}]
+  },
+  {
+   "industry": "觀光餐旅", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry 2023-03 reject:解封報復性消費需求,無供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "低基期復甦(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2023-02", "source": "解封營收(carry)", "claim": "報復性消費"}]
+  },
+  {
+   "industry": "通信網路業", "seed_type": "revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:網通下游設備需求受惠,無供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "成長題材(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "網通摘要(carry)", "claim": "下游設備受惠"}]
+  }
+ ]
+}

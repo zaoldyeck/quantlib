@@ -1,0 +1,138 @@
+{
+ "label_month": "2023-02",
+ "mode": "incremental",
+ "fence_date": "2023-02-28",
+ "queries": [
+  "國巨 MLCC 被動元件 銅箔 CCL 台燿 聯茂 2023年1月 2月 庫存 報價 展望 供需",
+  "鈊象 橘子 大宇資 遊戲股 2023年2月 營收 題材 上漲",
+  "華城 中興電 重電 2023年2月 訂單 台電 法說 2230 電機機械 飆股",
+  "台股 2230 泰銪 公司 產品 2023 電機機械 上漲 題材 是什麼"
+ ],
+ "sources_used": [
+  {"date": "~2022(cnyes ID 4707160,低ID早於2022-09)", "publisher": "鉅亨網 cnyes", "claim": "國巨電阻降價10-15%搶市占,外資估MLCC將跟進——被動元件處於降價競爭的下行週期(瓶頸的反面)"},
+  {"date": "~2023-01/02(公布1月營收)", "publisher": "工商時報 ctee", "claim": "遊戲股1月營收盤點,大宇資跳增逾3倍;鈊象受惠美國博弈平台單月營收站穩10億;春節旺季題材(需求/題材面,非供給瓶頸)"},
+  {"date": "公司基本資料(識別事實)", "publisher": "鉅亨網 cnyes 個股簡介", "claim": "2230=泰茂實業,產品屬汽車零件——雖PIT分類列電機機械,實為汽車零件循環,非電網重電節點"}
+ ],
+ "sources_discarded_count": 20,
+ "sources_discarded_note": "多數surface結果為圍欄後:國巨AI-MLCC超級循環/目標價千元(2025-2026,共約6篇)、重電台電400億釋單/中興電431億在手/UL認證/川普AI電廠(2023-12~2026,共約8篇)、遊戲股2024-25財報。重電『強化』證據全數落在Feb圍欄後,故本月不採計為conviction演化。",
+ "clusters": [
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "沿用2023-01對電網重電瓶頸(grid_heavy_electrical)之admit。本月新增revenue_accel面(1514亞力、3162、8996、2371大同 yoy加速);亞力(1514)於圍欄內2022-09-15來源即被列為受惠強韌電網之『重電四雄』之一,故納入主題成員(寡占peer)。2230泰茂雖列電機機械,實為汽車零件循環,列beneficiary不入冊。**重要**:本月surface之重電利多(台電400億釋單、中興電431億在手、UL認證)發布日期皆在2023-02圍欄之後,依鐵律不採計,華城/中興電conviction維持不變。",
+   "bottleneck_check": {
+    "demand": "PASS(carry)— 台電強韌電網政策鎖定需求延續",
+    "supply_rigidity": "PASS(carry,認證型)— GIS/變壓器國產化認證障礙",
+    "concentration": "PASS(carry)— 中興電345kV GIS獨佔、重電四雄寡占",
+    "amplifier": "PASS(carry)— 國產化/電網政令"
+   },
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電瓶頸(高壓變壓器/GIS國產化)",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry自2023-01,無圍欄內Feb新證據,維持3"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry自2023-01,維持3"},
+    {"code": "1514", "name": "亞力", "role": "chokepoint_owner", "conviction": 2, "rationale": "本月新入seed(revenue_accel)。2022-09-15來源列為強韌電網受惠重電四雄之一(寡占peer);認證證據不如中興電/華城具體,保守起手2"},
+    {"code": "2230", "name": "泰茂", "role": "beneficiary", "conviction": 0, "rationale": "記錄不入冊。汽車零件循環,非電網重電節點"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "同2023-01:強韌電網預算刪減/延後;國產化認證障礙被打破;台電改大量進口;訂單能見度<12個月;毛利未隨訂單擴張",
+   "evidence": [
+    {"date": "2022-09-15", "source": "鉅亨 cnyes/4955159(carry)", "claim": "重電四雄(中興電/士電/華城/亞力)受惠強韌電網;中興電345kV GIS唯一國產化合格廠"}
+   ]
+  },
+  {
+   "industry": "電子零組件業",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "被動元件(國巨MLCC)+PCB材料(金居銅箔、台燿/聯茂CCL)於2023年初處庫存去化下行週期,且國巨帶頭降價搶市占——是供給寬鬆與價格競爭,瓶頸的反面。銅箔/CCL屬大宗材料循環",
+   "narrative": "國巨等被動元件2022起降價搶市占,外資估MLCC跟進;銅箔/CCL為週期性材料。動能(國巨ret60+94%)屬超跌反彈+中國解封期待,非供給瓶頸。2025-26的AI-MLCC超級循環屬圍欄後,嚴禁採計。",
+   "bottleneck_check": {
+    "demand": "FAIL — 消費電子去庫存,被動元件需求疲弱",
+    "supply_rigidity": "FAIL — 產能寬鬆、國巨帶頭降價",
+    "concentration": "部分(MLCC國巨/村田寡占)但需求與定價權皆向下,主題不成立",
+    "amplifier": "無圍欄內放大器(AI-MLCC為2025-26後話)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "~2022", "source": "鉅亨 cnyes/4707160", "claim": "國巨電阻降價10-15%搶市占,外資估MLCC跟進(下行週期價格戰)"}
+   ]
+  },
+  {
+   "industry": "文化創意業",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "遊戲股(橘子/鈊象/大宇資)漲勢來自春節旺季+新遊戲題材+鈊象美國博弈平台需求,屬娛樂/軟體需求成長,無實體產能供給瓶頸,亦無授權/認證類硬約束構成截面卡口",
+   "narrative": "春節遊戲旺季+鈊象美國/歐洲博弈平台貢獻。屬需求與題材催化,軟體服務業無實體瓶頸,不符Serenity瓶頸簽名。",
+   "bottleneck_check": {
+    "demand": "季節/題材成長,非結構TAM卡口",
+    "supply_rigidity": "FAIL — 軟體/遊戲無實體產能約束",
+    "concentration": "N/A",
+    "amplifier": "無"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "~2023-01/02", "source": "工商 ctee/595213 + 鉅亨 cnyes/5041191", "claim": "遊戲股春節旺季,大宇資1月營收增逾3倍,鈊象美國博弈平台單月營收站穩10億"}
+   ]
+  },
+  {
+   "industry": "半導體業",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:半導體庫存去化下行週期,需求收縮非瓶頸。本月無圍欄內反轉證據",
+   "narrative": "沿用2023-01:台積電雙下修、產業去庫存。carry reject。",
+   "bottleneck_check": {"demand": "FAIL(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01-12", "source": "台積電法說(carry)", "claim": "半導體下行、去庫存"}]
+  },
+  {
+   "industry": "生技醫療業",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:授權/臨床/CDMO題材驅動,非供給瓶頸。本月無新結構證據",
+   "narrative": "沿用2023-01 reject。",
+   "bottleneck_check": {"demand": "事件催化(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12-26", "source": "genetinfo(carry)", "claim": "CDMO/授權題材買盤"}]
+  },
+  {
+   "industry": "其他",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:異質產業桶(雷虎/森崴/精剛等),無相干供給鏈瓶頸",
+   "narrative": "沿用2023-01 reject。",
+   "bottleneck_check": {"demand": "各自為政(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-09~", "source": "cnyes/5092498(carry)", "claim": "異質桶,無共同瓶頸"}]
+  },
+  {
+   "industry": "通信網路業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:網通/網安下游設備商,需求題材受惠,無自有供給瓶頸",
+   "narrative": "沿用2023-01 reject。",
+   "bottleneck_check": {"demand": "成長題材(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "網通需求摘要(carry)", "claim": "下游設備需求受惠"}]
+  },
+  {
+   "industry": "電腦及週邊設備業",
+   "seed_type": "momentum",
+   "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:伺服器準系統/板卡下游組裝,需求平淡且缺料緩解,非供給瓶頸",
+   "narrative": "沿用2023-01 reject。營邦(3693,ret60+116%)動能強但為準系統下游組裝受惠者。",
+   "bottleneck_check": {"demand": "平淡(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "伺服器出貨估摘要(carry)", "claim": "下游組裝受惠者,無卡口"}]
+  }
+ ]
+}

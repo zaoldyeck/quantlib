@@ -1,0 +1,202 @@
+{
+ "label_month": "2023-01",
+ "mode": "full",
+ "fence_date": "2023-01-31",
+ "queries": [
+  "台灣 重電 變壓器 華城 士電 中興電 缺貨 交期 電網 2022 2023",
+  "台股 半導體 2023年1月 庫存修正 砍單 復甦 探針卡 光罩",
+  "生技股 2022 12月 上漲 保瑞 美時 CDMO 授權 題材 原因",
+  "華城 中興電 重電 台電 強韌電網 訂單 2022年9月 2022年12月 電網投資",
+  "台股 半導體 2023年1月 展望 庫存 下修 台積電 需求疲弱 第一季",
+  "台積電 法說會 2023年1月12日 第四季 財報 展望 半導體 下修",
+  "伺服器 準系統 營邦 網通 立端 IPC 缺料 2022年12月 2023年1月 需求 出貨",
+  "晶睿 昇銳 監視器 安控 2022 2023 需求;漢唐 致茂 半導體設備 廠務 訂單 2022年12月",
+  "高力 8996 燃料電池 熱交換器 訂單 2022 2023 題材 上漲原因",
+  "WebFetch cnyes/4955159 (重電) + cnyes/5151326 (台積電法說) 驗證日期"
+ ],
+ "sources_used": [
+  {"date": "2022-09-15", "publisher": "鉅亨網 cnyes", "claim": "台電強韌電網計畫10年投資逾5645億元;中興電為國內345kV GIS『唯一國產化評鑑合格廠』,當年已獲台電GIS訂單逾160億;華城為國內變壓器容量最大、電壓最高、台電認證最多的重電廠。(WebFetch 確認發布日 2022-09-15)"},
+  {"date": "2023-01-03", "publisher": "TechNews 科技新報", "claim": "台積電法說前市場傳2023資本支出上看1.2兆新高(法說後證實反而下修至320-360億美元區間)。URL slug /2023/01/03/ 確認日期"},
+  {"date": "2023-01-09", "publisher": "TechNews 科技新報", "claim": "台積電法說會1/12登場,聚焦全球布局等四大議題,市場對2023展望保守。URL slug /2023/01/09/ 確認日期"},
+  {"date": "2023-01-12", "publisher": "台積電第四季法說(綜合報導,搜尋摘要)", "claim": "台積電估Q1營收季減約14.2%;2023半導體(不含記憶體)產值由-4%下修至-4~-6%、晶圓代工由-3%下修至-7~-9%;終端手機/PC需求疲弱、客戶持續去庫存;先前IC/零組件缺貨已回歸正常供給。屬明確產業下行,非供給瓶頸"},
+  {"date": "2022-12-26", "publisher": "Genet 生技投資第一站 genetinfo", "claim": "12/26外資買超美時1185張、保瑞280張、健喬252張;生技買盤集中在CDMO/新藥授權題材個股。發布日 2022-12-26 明確"},
+  {"date": "2022-09~(ID鄰接4955159推定)", "publisher": "鉅亨網 cnyes", "claim": "歐美加速汰換中國製安控設備,昇銳、奇偶單週漲逾2成——安控廠受惠地緣汰換的下游需求,非握有供給節點。日期以cnyes文章ID 4956832 鄰接已確認之4955159(2022-09-15)推定為2022-09"}
+ ],
+ "sources_discarded_count": 55,
+ "sources_discarded_note": "近似值。九次搜尋surface出的多數連結為2024-2026年文章(AI資料中心變壓器缺60個月、Stargate、賴清德總統令、馬斯克變壓器預言、AI伺服器/探針卡族群、高力AI液冷、漢唐千億訂單、台積電2023-04法說),皆為時間圍欄後之主題演化,一律丟棄不引用——此即本campaign防倖存者偏誤之核心。cnyes/5151326 經WebFetch驗證為2023-04-20亦丟棄。",
+ "clusters": [
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum",
+   "verdict": "admit",
+   "reject_reason": null,
+   "narrative": "台電『強韌電網計畫』(2022-09公布,10年逾5645億元)構成政府強制、多年期的電網設備需求。國內345kV GIS與高壓變壓器須通過台電國產化評鑑,認證門檻使合格供應商極少數(中興電為唯一345kV GIS國產化合格廠、華城台電認證最多),形成憑認證硬約束的供給無彈性。此為Serenity式瓶頸的正例:需求由政策鎖定、供給受認證卡關、供應商高度集中、且帶onshoring/國產化放大器。注意:2024-25年『變壓器缺60個月/矽鋼片短缺/AI資料中心』的劇烈缺貨敘事屬圍欄後演化,此處不採計;圍欄內(≤2023-01)證據為需求政策+認證集中,尚無外顯缺貨報導,故conviction保守起手。",
+   "bottleneck_check": {
+    "demand": "PASS — 台電強韌電網10年5645億(2022-09公布),電網升級為政策鎖定的多年期需求,可信TAM路徑",
+    "supply_rigidity": "PASS(認證型)— 345kV GIS/高壓變壓器須台電國產化評鑑合格,新進者取證+建置產能結構性>18個月;計畫本身10年故瓶頸存續>>12個月。外顯交期缺貨數據於圍欄內尚未報導,以認證障礙推定供給無彈性",
+    "concentration": "PASS — 中興電為國內345kV GIS唯一國產化合格廠(近獨佔);華城台電認證最多、變壓器容量電壓最高。合格供應商為個位數寡占",
+    "amplifier": "PASS — 國產化評鑑(onshoring/在地化強制)+ 政府電網韌性政令"
+   },
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電瓶頸(高壓變壓器/GIS國產化)",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "稀缺節點:國內345kV GIS唯一國產化評鑑合格廠(自有認證護城河)。定價權:台電GIS近獨家來源、在手訂單逾160億,毛利結構性。替代性:台電12個月內無法認證替代者。寡占結構上限4,圍欄內外顯缺貨證據未現,保守起手3"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "稀缺節點:國內變壓器容量最大、電壓最高、台電認證最多。定價權:台電高壓變壓器主力供應、認證護城河。替代性:士電/亞力亦具部分認證故為寡占非獨佔,客戶轉換仍受認證卡關>12個月。結構上限4,保守起手3"},
+    {"code": "8996", "name": "高力", "role": "beneficiary", "conviction": 0, "rationale": "記錄不入冊。高力屬燃料電池熱反應盒(Bloom Energy單一大客戶)+散熱,與電網重電瓶頸非同一主題;單客戶依賴、無自有電網稀缺節點,列beneficiary僅記錄"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算遭大幅刪減或延後;GIS/變壓器國產化認證障礙被打破(新進者快速取證);台電改採大量進口替代國產;在手訂單能見度跌破12個月;毛利率未隨訂單擴張反轉下滑(顯示無定價權)",
+   "evidence": [
+    {"date": "2022-09-15", "source": "鉅亨網 cnyes/4955159 (WebFetch驗證)", "claim": "台電強韌電網5645億/10年;中興電345kV GIS唯一國產化合格廠、已獲台電GIS訂單逾160億;華城台電認證最多、變壓器容量電壓國內最高"}
+   ]
+  },
+  {
+   "industry": "半導體業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "產業下行/庫存修正,需求收縮而非跳升——瓶頸簽名第1項(需求跳升)不成立。動能股多為超跌反彈或利基題材,無截面供給瓶頸",
+   "narrative": "2023-01台積電1/12法說明確下修:Q1營收季減14.2%,2023半導體(不含記憶體)-4~-6%、晶圓代工-7~-9%,終端手機PC疲弱、客戶持續去庫存,先前IC缺貨已回歸正常供給。半導體整體處於庫存去化下行週期,是瓶頸的反面。種子內光罩(2338)/旺矽(6223)/同欣電(6271)等利基雖有個別故事,但缺乏當時可見的截面供給約束。",
+   "bottleneck_check": {
+    "demand": "FAIL — 需求收縮,台積電雙下修、資本支出削減,終端去庫存",
+    "supply_rigidity": "FAIL — 先前缺貨正回歸正常供給,產能寬鬆",
+    "concentration": "N/A(單一利基如光罩/探針卡有集中度,但主題層需求不成立)",
+    "amplifier": "無圍欄內可見放大器(2025-26 AI/先進封裝探針卡缺貨屬圍欄後)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2023-01-12", "source": "台積電Q4法說(綜合報導)", "claim": "Q1營收估季減14.2%;2023半導體-4~-6%、晶圓代工-7~-9%下修;終端疲弱、客戶去庫存;IC缺貨回歸正常"},
+    {"date": "2023-01-09", "source": "TechNews /2023/01/09/", "claim": "台積電1/12法說登場,市場對2023展望保守"}
+   ]
+  },
+  {
+   "industry": "生技醫療業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "上漲由新藥授權/里程碑/臨床/取證+CDMO題材驅動,屬需求與事件催化,非實體產能供給瓶頸。CDMO(保瑞)雖具產能面,但全球CDMO眾多、可替代,且保瑞靠併購取得產能而非握有稀缺節點",
+   "narrative": "2022-12外資買超美時、保瑞、健喬,生技買盤集中CDMO與新藥授權題材(美時韓國腎藥授權、保瑞CDMO併購)。製藥漲勢來自授權金/解盲/藥證等事件,無授權或認證類『硬供給約束』構成截面瓶頸;CDMO產能可由多家全球廠替代。",
+   "bottleneck_check": {
+    "demand": "部分 — 新藥授權/CDMO需求成長,但屬個別事件非結構TAM跳升",
+    "supply_rigidity": "FAIL — 製藥/CDMO產能全球可擴、可替代,無18個月+獨佔卡口",
+    "concentration": "FAIL — CDMO全球競爭(Lonza/Catalent/三星生物等),保瑞靠併購擴產非獨佔稀缺節點",
+    "amplifier": "無(政府支持CDMO屬需求利多,非供給放大器)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-12-26", "source": "Genet genetinfo", "claim": "外資買超美時1185張、保瑞280張、健喬252張;買盤集中CDMO/授權題材"}
+   ]
+  },
+  {
+   "industry": "電腦及週邊設備業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "成員為伺服器準系統/機殼/主機板/顯卡等下游組裝與品牌受惠者,無自有供給瓶頸節點。2023伺服器出貨僅估+4.3%(後續再下修),需求平淡且零組件缺貨已緩解",
+   "narrative": "營邦(準系統/機殼)、技嘉/麗臺(板卡)、安勤(IPC)等屬下游組裝。2023全球伺服器出貨estimate僅+4.3%,IC/零組件缺貨於2022H2起回歸正常。這些是需求受惠者,不握有可卡別人的稀缺產能。",
+   "bottleneck_check": {
+    "demand": "平淡 — 2023伺服器出貨估+4.3%,PC/消費下行",
+    "supply_rigidity": "FAIL — 零組件缺貨已緩解,組裝產能無約束",
+    "concentration": "FAIL — 下游組裝廠競爭充分",
+    "amplifier": "無圍欄內硬放大器"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2023-01(DIGITIMES估,近似)", "source": "MoneyDJ 研調摘要", "claim": "2023全球伺服器出貨估僅成長4.3%;2022因缺料緩解全年+6%"}
+   ]
+  },
+  {
+   "industry": "通信網路業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "網通/網安appliance廠(立端、盛達等)為下游設備商,受惠資安汰換/5G邊緣/充電樁/中國解封等需求題材,無自有供給瓶頸",
+   "narrative": "立端受惠網安、5G邊緣運算、充電樁、中國解封後新基建訂單。屬下游設備需求成長,非握有卡口產能。",
+   "bottleneck_check": {
+    "demand": "成長題材 — 網安/5G邊緣/充電樁",
+    "supply_rigidity": "FAIL — 設備組裝無供給約束",
+    "concentration": "FAIL — 網通廠競爭充分",
+    "amplifier": "地緣資安汰換屬需求面,非供給卡口"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2023-01(近似)", "source": "鉅亨/工商 網通伺服器需求摘要", "claim": "立端網安/5G邊緣/充電樁訂單暢旺,屬下游需求受惠"}
+   ]
+  },
+  {
+   "industry": "光電業",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "晶睿/昇銳為安控監視器下游產品廠,受惠歐美汰換中國製安控品的需求/地緣轉單,非握有供給瓶頸節點",
+   "narrative": "歐美加速汰換中國製安控設備帶動昇銳/奇偶/晶睿;晶睿2022營收+82%轉型AI安防。此為下游產品受惠地緣需求轉移,無自有稀缺產能卡口。",
+   "bottleneck_check": {
+    "demand": "成長 — 歐美汰換中國安控之地緣轉單",
+    "supply_rigidity": "FAIL — 監控設備製造無供給約束",
+    "concentration": "FAIL — 安控廠競爭充分",
+    "amplifier": "地緣汰換屬需求轉移,非供給卡口"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-09~(ID鄰接推定)", "source": "鉅亨 cnyes/4956832", "claim": "歐美加速汰換中國安控品,昇銳、奇偶週漲逾2成"}
+   ]
+  },
+  {
+   "industry": "其他電子業",
+   "seed_type": "revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "異質營收成長桶:漢唐(晶圓廠廠務工程,受惠半導體資本支出的beneficiary)、富喬(玻纖,大宗材料循環)、致茂(量測儀器)、連宇。無共同供給瓶頸主題",
+   "narrative": "漢唐為台積電等晶圓廠無塵室機電協力廠——資本支出受惠者而非卡口;富喬玻纖屬大宗循環;致茂量測儀器範疇廣。此為統計上的營收成長聚合,非相干瓶頸敘事。",
+   "bottleneck_check": {
+    "demand": "個別成長(漢唐受惠擴廠)但無共同TAM主題",
+    "supply_rigidity": "FAIL — 廠務工程/玻纖/儀器皆無獨佔卡口",
+    "concentration": "FAIL — 各細分競爭充分",
+    "amplifier": "無共同放大器"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-12~2023-01(近似)", "source": "經濟日報/MoneyDJ 漢唐摘要", "claim": "漢唐為晶圓廠廠務工程協力廠,受惠半導體擴產資本支出(下游受惠者)"}
+   ]
+  },
+  {
+   "industry": "其他",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "『其他』為異質產業桶(雷虎無人機、森崴能源、jpp-KY、豐泰、精剛、八貝等),無相干供給鏈瓶頸敘事,屬動能篩選的統計聚合",
+   "narrative": "成員橫跨無人機(雷虎)、能源(森崴)、製鞋(豐泰)、特殊鋼(精剛)等互不相干領域;雖雷虎有國防/無人機題材(國家安全網),但整桶無共同結構瓶頸。",
+   "bottleneck_check": {
+    "demand": "各自為政,無共同結構需求",
+    "supply_rigidity": "FAIL — 無共同供給約束",
+    "concentration": "N/A — 異質桶",
+    "amplifier": "雷虎國防題材為需求面個案,不構成主題層放大器"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2022-09~(近似)", "source": "鉅亨 cnyes/5092498", "claim": "打造國家安全網,雷虎、立端相關股受惠(國防/無人機題材屬需求面個案)"}
+   ]
+  }
+ ]
+}

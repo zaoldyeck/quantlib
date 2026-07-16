@@ -1,0 +1,101 @@
+{
+ "label_month": "2023-03",
+ "mode": "incremental",
+ "fence_date": "2023-03-31",
+ "queries": [
+  "觀光 餐旅 雄獅 王品 晶華 雲品 2023年 解封 復甦 報復性消費 營收 題材",
+  "華城 中興電 亞力 重電 2023年3月 得標 訂單 台電 法說 變壓器 產能"
+ ],
+ "sources_used": [
+  {"date": "~2023-02(公布1月營收)", "publisher": "經濟日報 money.udn", "claim": "邊境解封報復性消費:雄獅1月營收11.1億元年增591.2%(疫情以來新高)、晶華6.92億年增31.43%、王品兩岸21.7億年增26.7%——需求復甦題材"},
+  {"date": "~2023-Q1(內需回溫)", "publisher": "工商時報 ctee", "claim": "內需回溫,王品、雄獅等觀光族群股價飆漲(解封需求驅動)"}
+ ],
+ "sources_discarded_count": 16,
+ "sources_discarded_note": "觀光股surface出普發一萬(2025)等圍欄後題材;重電搜尋幾乎全為圍欄後(2026年3月營收創新高、Stargate、川普、漲價潮四雄調整報價2026-02、台電94億釋單),無任何2023-03至圍欄內新催化,重電conviction依鐵律維持不變。此為誠實的當時樣貌:H1-2023重電結構論點(強韌電網)可見,但確認型催化(訂單/漲價)全數落在2024年後。",
+ "clusters": [
+  {
+   "industry": "觀光餐旅",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "後疫情邊境解封+報復性消費的需求復甦題材(雄獅/王品/晶華營收自COVID低基期跳增)。純需求回補,無供給產能瓶頸,不符Serenity瓶頸簽名",
+   "narrative": "2023年初邊境解封、陸團客有譜、企業復辦春酒婚宴,飯店/旅行社/餐飲營收自疫情低基期大幅反彈(雄獅+591%)。屬需求端復甦,服務業無實體供給卡口。",
+   "bottleneck_check": {
+    "demand": "強復甦但為低基期回補,非結構TAM擴張的供給受限型",
+    "supply_rigidity": "FAIL — 餐旅服務產能可快速回補(重啟門市/航班)",
+    "concentration": "FAIL — 餐飲/旅遊競爭充分",
+    "amplifier": "無(解封為需求面事件)"
+   },
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [
+    {"date": "~2023-02", "source": "money.udn 解封營收報導", "claim": "雄獅1月+591%、晶華+31%、王品+27%,報復性消費"}
+   ]
+  },
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "carry grid_heavy_electrical admit(華城1519/中興電1513/亞力1514)。本月搜尋surface之重電催化(2026營收新高、Stargate、台電94億釋單、四雄漲價)全在圍欄後,無2023-03至圍欄內新證據,conviction全數維持不變。2230泰茂續列beneficiary。",
+   "bottleneck_check": {"demand": "PASS(carry)", "supply_rigidity": "PASS(carry,認證型)", "concentration": "PASS(carry)", "amplifier": "PASS(carry)"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電瓶頸(高壓變壓器/GIS國產化)",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,無圍欄內新證據,維持3"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "1514", "name": "亞力", "role": "chokepoint_owner", "conviction": 2, "rationale": "carry,維持2"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "同前:強韌電網預算刪減/延後;國產化認證障礙被打破;台電改大量進口;訂單能見度<12個月",
+   "evidence": [{"date": "2022-09-15", "source": "cnyes/4955159(carry)", "claim": "強韌電網+中興電345kV GIS獨佔認證"}]
+  },
+  {
+   "industry": "半導體業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:去庫存下行週期,需求收縮非瓶頸。本月無反轉證據",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "FAIL(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01-12", "source": "台積電法說(carry)", "claim": "半導體下行"}]
+  },
+  {
+   "industry": "生技醫療業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:授權/臨床/CDMO題材,非供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "事件催化(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12-26", "source": "genetinfo(carry)", "claim": "CDMO/授權題材"}]
+  },
+  {
+   "industry": "其他", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry reject:異質產業桶,無相干供給鏈瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "各自為政(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-09~", "source": "cnyes/5092498(carry)", "claim": "異質桶"}]
+  },
+  {
+   "industry": "電腦及週邊設備業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry reject:伺服器準系統/板卡下游組裝,缺料緩解,非供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "平淡(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "伺服器摘要(carry)", "claim": "下游組裝"}]
+  },
+  {
+   "industry": "其他電子業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry 2023-01 reject:異質營收桶(漢唐廠務/富喬玻纖/致茂儀器),無共同供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "個別(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12~2023-01", "source": "漢唐摘要(carry)", "claim": "廠務工程受惠者"}]
+  },
+  {
+   "industry": "電子零組件業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry 2023-02 reject:被動元件/銅箔/CCL下行週期+降價競爭,非供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "FAIL(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "部分但需求向下", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2022", "source": "cnyes/4707160(carry)", "claim": "國巨降價搶市占,下行週期"}]
+  },
+  {
+   "industry": "通信網路業", "seed_type": "revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:網通/網安下游設備需求受惠,無自有供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "成長題材(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "網通摘要(carry)", "claim": "下游設備受惠"}]
+  }
+ ]
+}

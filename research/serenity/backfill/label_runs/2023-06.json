@@ -1,0 +1,160 @@
+{
+ "label_month": "2023-06",
+ "mode": "incremental",
+ "fence_date": "2023-06-30",
+ "queries": [
+  "三陽 中華 汽車 機車 2023年 銷售 掛牌 內需 上漲 題材 業績",
+  "營建股 建材 興富發 華固 2023年 交屋 認列 營收 題材 房市",
+  "CoWoS 先進封裝 供不應求 台積電 AI 世芯 2023年6月 缺口 產能",
+  "台積電 股東會 2023年6月6日 劉德音 AI 先進封裝 CoWoS 產能 需求 供不應求"
+ ],
+ "sources_used": [
+  {"date": "~2023-06-06", "publisher": "鉅亨 cnyes/5203096(台積電股東會)", "claim": "台積電6/6股東會:生成式AI訂單湧,先進封裝(CoWoS)產能供不應求、需求遠超現有產能、客戶要求緊急增加產能,台積電加速擴產。此為CoWoS瓶頸的圍欄內(≤6/30)第一手證據"},
+  {"date": "~2023(H1機車銷售)", "publisher": "工商時報 ctee(690988/751135)", "claim": "機車市場脫疫,三陽SYM銷量獨走登龍頭(2023全年+31%、市占38.4%),現代汽車熱銷——內需/市占題材"},
+  {"date": "~2022Q4-2023", "publisher": "鉅亨 cnyes/5010806 + 工商 ctee/467894", "claim": "興富發Q4邁入交屋高峰、華固等營建明星股;營收為交屋認列(項目完工入帳)——房市/入帳/高股息題材"}
+ ],
+ "sources_discarded_count": 20,
+ "sources_discarded_note": "CoWoS明確追單/擴產報導TechNews 2023-07-04、2023-07-14在6/30圍欄後,僅作事後印證不引用為admit依據(admit錨定於6/6股東會cnyes/5203096圍欄內來源)。重電第6度surface全post-fence,carry不變。汽車迪爵7月放量、營建2025-26題材亦圍欄後丟棄。",
+ "free_discovery": {
+  "topic": "CoWoS/先進封裝瓶頸(AI加速器強制封裝)",
+  "verdict": "admit",
+  "prior_status": "2023-05為deferred_watch(當時僅需求訊號、供給瓶頸來源皆post-fence)",
+  "reasoning": "2023-06-06台積電股東會為分水嶺:董事長於圍欄內公開證實生成式AI訂單湧入、先進封裝產能供不應求、客戶要求緊急擴產。四項瓶頸簽名於6/30前全數落地:①需求跳升(H100/MI300全需CoWoS)②供給無彈性(供不應求、先進封裝擴產交期長,設備到位看Q4-2023~2024)③集中(台積電高階CoWoS近獨佔)④放大器(AI規格強制換代——加速器強制採先進封裝)。此為campaign正向樣本:同一主題2023-05正確deferred、2023-06因圍欄內證據落地而admit,示範時間圍欄未阻卻真瓶頸、亦未提前偷跑。",
+  "chokepoint_owner_note": "真正的瓶頸擁有者台積電(2330)不在種子(其ret60非top60、營收未加速>50%),經自由發現(rule B)納入。種子半導體revenue成員(世芯/十銓/晶心)為AI下游受惠者,非CoWoS節點擁有者。"
+ },
+ "clusters": [
+  {
+   "industry": "半導體業",
+   "seed_type": "revenue_accel",
+   "verdict": "admit",
+   "reject_reason": null,
+   "narrative": "本產業自2023-01下行reject後,於2023-06因AI而敘事明顯改變,故完整重檢。主題層:CoWoS/先進封裝瓶頸於6/6台積電股東會圍欄內證實成立(見free_discovery)→admit主題advanced_packaging_cowos。惟種子成員世芯(3661,AI ASIC設計)、十銓(4967,記憶體模組)、晶心(6533,RISC-V IP)皆為AI下游受惠者/設計服務,非瓶頸節點擁有者,列beneficiary不入冊。真正chokepoint_owner台積電(2330)+ OSAT溢單enabler(日月光3711/京元電2449)經自由發現納入冊。",
+   "bottleneck_check": {
+    "demand": "PASS — 生成式AI(H100/MI300)訂單湧,全需先進封裝(6/6股東會證實)",
+    "supply_rigidity": "PASS — CoWoS產能供不應求、擴產設備到位看Q4-2023~2024,先進封裝capex交期長;AI需求結構性>12個月",
+    "concentration": "PASS — 台積電高階CoWoS近獨佔;OSAT為次級溢單承接",
+    "amplifier": "PASS — AI加速器規格強制採先進封裝(規格強制換代)"
+   },
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "CoWoS/先進封裝瓶頸(AI加速器)",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 3, "rationale": "自由發現納入(非種子)。稀缺節點:高階CoWoS產能近獨佔。定價權:供不應求下具漲價/配貨權。替代性:客戶12個月內無法無痛轉替代(先進封裝認證+產能)。獨佔結構上限5,6/6股東會剛證實瓶頸、保守起手3"},
+    {"code": "3711", "name": "日月光投控", "role": "enabler", "conviction": 2, "rationale": "自由發現。台積電先進封裝/測試溢單承接者(OSAT);enabler結構上限3,起手2"},
+    {"code": "2449", "name": "京元電", "role": "enabler", "conviction": 2, "rationale": "自由發現。晶圓測試溢單承接;enabler起手2"},
+    {"code": "3661", "name": "世芯-KY", "role": "beneficiary", "conviction": 0, "rationale": "記錄不入冊。AI ASIC設計服務,riding AI但與GUC/創意/博通/邁威爾競爭、用台積電產能,無自有稀缺節點"},
+    {"code": "4967", "name": "十銓", "role": "beneficiary", "conviction": 0, "rationale": "記錄不入冊。記憶體模組,大宗零組件"},
+    {"code": "6533", "name": "晶心科", "role": "beneficiary", "conviction": 0, "rationale": "記錄不入冊。RISC-V IP授權,非實體產能節點"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "AI加速器需求證偽(訂單縮手);台積電CoWoS擴產快速追平供給(供不應求解除);先進封裝出現可認證替代(Intel EMIB/面板級FOPLP等快速放量分食);客戶自建或轉單使台積電獨佔被打破",
+   "evidence": [
+    {"date": "~2023-06-06", "source": "cnyes/5203096 台積電股東會", "claim": "生成式AI訂單湧、先進封裝供不應求、客戶要求緊急擴產、台積電加速擴產"}
+   ]
+  },
+  {
+   "industry": "汽車工業",
+   "seed_type": "momentum",
+   "verdict": "reject",
+   "reject_reason": "三陽/中華/現代=內需機車與汽車銷售復甦+市占題材(三陽脫疫銷量獨走、奪機車龍頭)。屬需求/品牌市占,無實體產能供給瓶頸,亦非握有可卡下游的稀缺節點",
+   "narrative": "2023機車市場脫疫,三陽SYM銷量獨走、市占38.4%奪龍頭,南陽代理現代汽車熱銷。屬內需消費復甦與品牌市占競爭,無供給卡口。",
+   "bottleneck_check": {
+    "demand": "內需復甦+市占,非供給受限型TAM跳升",
+    "supply_rigidity": "FAIL — 整車/機車產能可回補",
+    "concentration": "FAIL — 三陽/光陽/山葉競爭,品牌市占非供給獨佔",
+    "amplifier": "無"
+   },
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2023", "source": "ctee/690988", "claim": "機車脫疫,三陽銷量獨走奪龍頭"}]
+  },
+  {
+   "industry": "建材營造",
+   "seed_type": "revenue_accel",
+   "verdict": "reject",
+   "reject_reason": "營建股(興富發/華固/長虹等)營收為交屋認列(項目完工入帳,故yoy極度lumpy如5531+650%、3056+1037%),搭配交屋潮+高股息+房市題材。屬需求/入帳循環,無供給產能瓶頸(建案受土地與需求循環驅動)",
+   "narrative": "營建F4進入交屋高峰、入帳行情,高股息撐盤。營收lumpy源於完工入帳制(CLAUDE.md明載營建業依交屋認列),非供給瓶頸。",
+   "bottleneck_check": {
+    "demand": "房市/入帳循環,非供給受限型結構TAM",
+    "supply_rigidity": "FAIL — 建案供給受土地/景氣循環,非18個月獨佔卡口",
+    "concentration": "FAIL — 營建商競爭充分",
+    "amplifier": "無"
+   },
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2022Q4-2023", "source": "cnyes/5010806", "claim": "興富發Q4交屋高峰入帳"}]
+  },
+  {
+   "industry": "電機機械",
+   "seed_type": "momentum+revenue_accel",
+   "verdict": "carry_over",
+   "reject_reason": null,
+   "narrative": "carry grid_heavy_electrical admit(中興電/華城/士電/亞力)。本月華城(1519)/士電(1503)續於momentum。重電搜尋第6度全post-fence,無2023-06至圍欄內fundamental新證據,conviction全數維持不變。此為H1-2023一貫結論:結構論點(強韌電網+認證集中)可見,確認催化全在2024+。",
+   "bottleneck_check": {"demand": "PASS(carry)", "supply_rigidity": "PASS(carry,認證型)", "concentration": "PASS(carry)", "amplifier": "PASS(carry)"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電瓶頸(高壓變壓器/GIS國產化)",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry,維持3"},
+    {"code": "1503", "name": "士電", "role": "chokepoint_owner", "conviction": 2, "rationale": "carry,維持2"},
+    {"code": "1514", "name": "亞力", "role": "chokepoint_owner", "conviction": 2, "rationale": "carry,維持2"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "同前:強韌電網預算刪減/延後;國產化認證障礙被打破;台電改大量進口;訂單能見度<12個月",
+   "evidence": [{"date": "2022-09-15", "source": "cnyes/4955159(carry)", "claim": "強韌電網+中興電345kV GIS獨佔認證"}]
+  },
+  {
+   "industry": "電腦及週邊設備業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:伺服器準系統/板卡下游組裝。AI伺服器需求增溫但成員為下游組裝受惠者,非CoWoS/HBM等瓶頸節點擁有者",
+   "narrative": "沿用reject。6276/3231等AI伺服器沾光但屬下游組裝。真AI瓶頸在CoWoS(見半導體admit)。", "bottleneck_check": {"demand": "增溫(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無自有"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "伺服器摘要(carry)", "claim": "下游組裝"}]
+  },
+  {
+   "industry": "電子零組件業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:被動元件/連接器/電源。AI伺服器沾光但成員非供給瓶頸節點",
+   "narrative": "沿用reject。3308/2421等AI伺服器連接器/散熱沾光,但至fence無獨佔卡口確認。", "bottleneck_check": {"demand": "沾光(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "部分未成瓶頸", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2022", "source": "cnyes/4707160(carry)", "claim": "被動元件下行"}]
+  },
+  {
+   "industry": "資訊服務業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry 2023-04 reject:AI軟體/SI需求題材,無實體產能瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "強題材(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "IP moat非實體卡口", "amplifier": "無實體放大器"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2023-03", "source": "ctee/816601(carry)", "claim": "ChatGPT軟體題材"}]
+  },
+  {
+   "industry": "其他", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:異質產業桶,無相干供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "各自為政(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "N/A", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-09~", "source": "cnyes/5092498(carry)", "claim": "異質桶"}]
+  },
+  {
+   "industry": "其他電子業", "seed_type": "momentum", "verdict": "carry_over",
+   "reject_reason": "carry reject:異質電子桶,無共同供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "個別(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12~2023-01", "source": "漢唐摘要(carry)", "claim": "廠務工程受惠者"}]
+  },
+  {
+   "industry": "通信網路業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:網通下游設備需求受惠,無供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "成長題材(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2023-01", "source": "網通摘要(carry)", "claim": "下游設備受惠"}]
+  },
+  {
+   "industry": "生技醫療業", "seed_type": "momentum+revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry reject:授權/臨床/CDMO題材,非供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "事件催化(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "2022-12-26", "source": "genetinfo(carry)", "claim": "CDMO/授權"}]
+  },
+  {
+   "industry": "觀光餐旅", "seed_type": "revenue_accel", "verdict": "carry_over",
+   "reject_reason": "carry 2023-03 reject:解封報復性消費需求,無供給瓶頸",
+   "narrative": "沿用reject。", "bottleneck_check": {"demand": "低基期復甦(carry)", "supply_rigidity": "FAIL(carry)", "concentration": "FAIL(carry)", "amplifier": "無"},
+   "theme_id": null, "theme_name": null, "members": [], "conviction_updates": [], "invalidation_criteria": null,
+   "evidence": [{"date": "~2023-02", "source": "解封營收(carry)", "claim": "報復性消費"}]
+  }
+ ]
+}
