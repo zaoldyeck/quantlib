@@ -43,11 +43,16 @@ CELLS: list[tuple[str, list[str]]] = [
     ("S13_role20_fresh6", ["--role-bonus", "20", "--fresh-bonus", "15", "--fresh-months", "6"]),
 ]
 FOLDS = {"F1": "2024-12-31", "F2": "2025-12-31"}
+START = "2022-08-01"
+# 主線修訂(2026-07-16):--window t3 = EV43 完全同窗(3 年 train 極限優化)
+T3_FOLDS, T3_START = {"T3": "2026-07-09"}, "2023-07-11"
+# EV36 同框架(定案):train 2022-07-11~2025-07-10;OOS 只給最終 top-1
+WF_FOLDS, WF_START = {"WF": "2025-07-10"}, "2022-07-11"
 
 
 def run_cell(cell: str, extra: list[str], fold: str, end: str) -> dict | None:
     label = f"b18s1_{cell}_{fold}"
-    cmd = [sys.executable, str(ENGINE), "--start", "2022-08-01", "--end", end,
+    cmd = [sys.executable, str(ENGINE), "--start", START, "--end", end,
            "--registry", str(REGISTRY), "--variants", VARIANT, "--label", label, *extra]
     proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=3600)
     if proc.returncode != 0:
@@ -72,7 +77,13 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--cells", nargs="*", default=None, help="只跑指定 cells(補跑用)")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--window", choices=("folds", "t3", "ev36"), default="folds")
     ns = ap.parse_args()
+    global FOLDS, START
+    if ns.window == "t3":
+        FOLDS, START = T3_FOLDS, T3_START
+    elif ns.window == "ev36":
+        FOLDS, START = WF_FOLDS, WF_START
     cells = [(c, e) for c, e in CELLS if not ns.cells or c in ns.cells]
     jobs = [(c, e, f, end) for c, e in cells for f, end in FOLDS.items()
             if not (RESULTS / f"b18s1_{c}_{f}_summary.csv").exists()]
@@ -103,10 +114,12 @@ def main() -> None:
                          "n_trades": int(row_.get("n_trades", 0))})
     df = pd.DataFrame(rows)
     wide = df.pivot(index="cell", columns="fold", values="boot_p5")
-    wide["p5_geo"] = np.sqrt((1 + wide["F1"]) * (1 + wide["F2"])) - 1
+    fold_cols = [c for c in wide.columns]
+    wide["p5_geo"] = np.prod([1 + wide[c] for c in fold_cols], axis=0) ** (1 / len(fold_cols)) - 1
     rank = wide.sort_values("p5_geo", ascending=False)
-    df.to_csv(Path(__file__).parent / "stage1_results.csv", index=False)
-    rank.to_csv(Path(__file__).parent / "stage1_ranking.csv")
+    tag = {"2023-07-11": "t3", "2022-07-11": "ev36"}.get(START, "folds")
+    df.to_csv(Path(__file__).parent / f"stage1_results_{tag}.csv", index=False)
+    rank.to_csv(Path(__file__).parent / f"stage1_ranking_{tag}.csv")
     print("\n=== Stage 1 排名(兩 train 折 boot P5 幾何均)===")
     print(rank.round(3).to_string())
 

@@ -26,10 +26,11 @@ VARIANT = "ev_v2_thesis_inst"
 
 from research.serenity.backfill.pool_quality_duel import boot_cagr_lb  # noqa: E402
 
+# Stage 1(EV36 train 窗)top-3:role20 0.041 / role40 0.034 / no_filters 0.030
 SCORES = {
     "role20": ["--role-bonus", "20"],
+    "role40": ["--role-bonus", "40"],
     "nofilt": ["--ablate", "filters"],
-    "noval": ["--ablate", "pe_pen,pb_pen"],
 }
 GRID = "tp=none,0.4,0.6,0.8;trail=0.2,0.3,none;abs=0.15,none;time=50,none"
 EXITS = {
@@ -39,13 +40,17 @@ EXITS = {
     "rgxtdx": ["--regime-exit", "--theme-dead-exit"],
 }
 FOLDS = {"F1": "2024-12-31", "F2": "2025-12-31"}
+START = "2022-08-01"
+T3_FOLDS, T3_START = {"T3": "2026-07-09"}, "2023-07-11"
+# EV36 同框架(定案):train 2022-07-11~2025-07-10;OOS 只給最終 top-1
+WF_FOLDS, WF_START = {"WF": "2025-07-10"}, "2022-07-11"
 
 
 def run_one(score: str, exit_name: str, fold: str) -> str | None:
     label = f"b18s2_{score}_{exit_name}_{fold}"
     if list(RESULTS.glob(f"{label}_summary.csv")):
         return label
-    cmd = [sys.executable, str(ENGINE), "--start", "2022-08-01", "--end", FOLDS[fold],
+    cmd = [sys.executable, str(ENGINE), "--start", START, "--end", FOLDS[fold],
            "--registry", str(REGISTRY), "--variants", VARIANT, "--label", label,
            *SCORES[score], *EXITS[exit_name]]
     proc = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True, text=True, timeout=5400)
@@ -84,10 +89,12 @@ def consolidate() -> None:
     df = pd.DataFrame(rows)
     df["key"] = df.score + "|" + df.exit + "|" + df.cell
     wide = df.pivot(index="key", columns="fold", values="boot_p5").dropna()
-    wide["p5_geo"] = np.sqrt((1 + wide["F1"]) * (1 + wide["F2"])) - 1
+    fold_cols = list(wide.columns)
+    wide["p5_geo"] = np.prod([1 + wide[c] for c in fold_cols], axis=0) ** (1 / len(fold_cols)) - 1
     rank = wide.sort_values("p5_geo", ascending=False)
-    df.to_csv(Path(__file__).parent / "stage2_results.csv", index=False)
-    rank.to_csv(Path(__file__).parent / "stage2_ranking.csv")
+    tag = {"2023-07-11": "t3", "2022-07-11": "ev36"}.get(START, "folds")
+    df.to_csv(Path(__file__).parent / f"stage2_results_{tag}.csv", index=False)
+    rank.to_csv(Path(__file__).parent / f"stage2_ranking_{tag}.csv")
     print(f"\n=== Stage 2 排名 top-15(共 {len(rank)} cells)===")
     print(rank.head(15).round(3).to_string())
 
@@ -96,7 +103,13 @@ def main() -> None:
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--workers", type=int, default=2)
+    ap.add_argument("--window", choices=("folds", "t3", "ev36"), default="folds")
     ns = ap.parse_args()
+    global FOLDS, START
+    if ns.window == "t3":
+        FOLDS, START = T3_FOLDS, T3_START
+    elif ns.window == "ev36":
+        FOLDS, START = WF_FOLDS, WF_START
     jobs = [(s, e, f) for s in SCORES for e in EXITS for f in FOLDS]
     with ThreadPoolExecutor(max_workers=ns.workers) as pool:
         list(pool.map(lambda j: run_one(*j), jobs))
