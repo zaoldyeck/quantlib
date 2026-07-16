@@ -109,6 +109,12 @@ class EngineVariant:
     # battle 14: entry-consistency veto — refuse a seat when the exit gate is
     # already half-armed at entry ("none" | "inst" | "inst_yoy")
     entry_veto: str = "none"
+    # battle 18: regime-adaptive exits — bull (0050>=MA120): no TP + wide trail
+    # (backcast-optimal); bear: TP60 + tight trail. Overrides rules by day.
+    regime_exit: bool = False
+    # battle 18: force-exit a holding once ALL its themes hit active_until
+    # (theme-invalidation dates from the backfill campaign).
+    theme_dead_exit: bool = False
 
 
 FULL_RULES = ExitRules(trail=0.20, abs_stop=0.15, time_days=50, thesis_stop=True)
@@ -396,6 +402,7 @@ def simulate_event_variant(
     state_sink: dict | None = None,
     valuation_by_refresh: dict[date, dict[str, tuple[float, float]]] | None = None,
     thesis_metrics_by_refresh: dict[date, dict[str, dict]] | None = None,
+    theme_dead_by_code: dict[str, date] | None = None,
 ) -> tuple[pd.DataFrame, pd.DataFrame, float]:
     cash = CAPITAL
     positions: dict[str, Position] = {}
@@ -593,11 +600,22 @@ def simulate_event_variant(
 
         # 5) evaluate daily exit rules on today's close
         rules = variant.rules
+        if variant.regime_exit:
+            # battle 18: bull regime → ride winners (no TP, wide trail);
+            # bear regime (0050 < MA120) → tighten (TP60, trail 20).
+            if day in market_risk_off:
+                rules = replace(rules, take_profit=0.60, trail=0.20)
+            else:
+                rules = replace(rules, take_profit=None, trail=0.30)
         effective_trail = rules.trail
         if variant.regime_guard and theme_risk_off:
             effective_trail = 0.15 if rules.trail is None else min(rules.trail, 0.15)
+        theme_dead = theme_dead_by_code or {}
         for code, pos in positions.items():
             if code in pending_exits:
+                continue
+            if variant.theme_dead_exit and code in theme_dead and day >= theme_dead[code]:
+                pending_exits[code] = "theme_dead"
                 continue
             px = closes.get(code)
             if px is None:
@@ -797,6 +815,10 @@ def main() -> None:
             "abs=0.1,0.15;time=30,50' — data loads once, all cells simulate in-process"
         ),
     )
+    parser.add_argument("--regime-exit", action="store_true",
+                        help="battle 18: regime-adaptive exits (bull: no TP/wide trail; bear: TP60/tight)")
+    parser.add_argument("--theme-dead-exit", action="store_true",
+                        help="battle 18: force-exit holdings whose themes all hit active_until")
     parser.add_argument("--role-bonus", type=float, default=0.0,
                         help="battle 18: score bonus for chokepoint_owner (0 = off)")
     parser.add_argument("--fresh-bonus", type=float, default=0.0,
@@ -1074,6 +1096,15 @@ def main() -> None:
                 for td in axes.get("time", [base.rules.time_days])
             )
             print(f"grid-exit: {len(variants)} cells over base {base.name}")
+        if args.regime_exit:
+            variants = tuple(replace(v, name=f"{v.name}_rgx", regime_exit=True) for v in variants)
+        if args.theme_dead_exit:
+            variants = tuple(replace(v, name=f"{v.name}_tdx", theme_dead_exit=True) for v in variants)
+        theme_dead_by_code: dict[str, date] = {}
+        if args.mode == "registry" and registry is not None:
+            for code, g in registry.groupby("company_code"):
+                if g["active_until"].notna().all():
+                    theme_dead_by_code[str(code)] = max(g["active_until"])
         summaries: list[dict[str, object]] = []
         daily_paths: dict[str, Path] = {}
         for variant in variants:
@@ -1095,6 +1126,7 @@ def main() -> None:
                 state_sink=state_sink,
                 valuation_by_refresh=valuation_by_refresh,
                 thesis_metrics_by_refresh=thesis_metrics_by_refresh,
+                theme_dead_by_code=theme_dead_by_code,
             )
             if state_sink:
                 import json

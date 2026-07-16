@@ -68,12 +68,39 @@ def run_cell(cell: str, extra: list[str], fold: str, end: str) -> dict | None:
 
 
 def main() -> None:
-    jobs = [(c, e, f, end) for c, e in CELLS for f, end in FOLDS.items()]
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--cells", nargs="*", default=None, help="只跑指定 cells(補跑用)")
+    ap.add_argument("--workers", type=int, default=4)
+    ns = ap.parse_args()
+    cells = [(c, e) for c, e in CELLS if not ns.cells or c in ns.cells]
+    jobs = [(c, e, f, end) for c, e in cells for f, end in FOLDS.items()
+            if not (RESULTS / f"b18s1_{c}_{f}_summary.csv").exists()]
+    print(f"to run: {len(jobs)} jobs")
     rows = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=ns.workers) as pool:
         for r in pool.map(lambda j: run_cell(*j), jobs):
             if r:
                 rows.append(r)
+    # 彙整一律全量重掃磁碟(補跑模式下 rows 只含增量)
+    rows = []
+    rng = np.random.default_rng(20260716)
+    for cell, _ in CELLS:
+        for fold in FOLDS:
+            label = f"b18s1_{cell}_{fold}"
+            sp = RESULTS / f"{label}_summary.csv"
+            if not sp.exists():
+                continue
+            s = pd.read_csv(sp)
+            row_ = s[s.name == VARIANT].iloc[0]
+            daily = pd.read_csv(RESULTS / f"{label}_{VARIANT}_daily.csv", parse_dates=["date"])
+            nav = daily.set_index("date")["nav"]
+            mrets = nav.groupby(nav.index.astype(str).str.slice(0, 7)).last().pct_change().dropna()
+            p5, p50, _ = boot_cagr_lb(mrets, rng)
+            rows.append({"cell": cell, "fold": fold, "cagr": float(row_["cagr"]),
+                         "sortino": float(row_["sortino"]), "mdd": float(row_["mdd"]),
+                         "boot_p5": round(p5, 4), "boot_p50": round(p50, 4),
+                         "n_trades": int(row_.get("n_trades", 0))})
     df = pd.DataFrame(rows)
     wide = df.pivot(index="cell", columns="fold", values="boot_p5")
     wide["p5_geo"] = np.sqrt((1 + wide["F1"]) * (1 + wide["F2"])) - 1
