@@ -17,5 +17,5 @@ model: opus
 conviction = 結構上限 × 證據現值)、現役冊 `research/serenity/registry/`。
 
 鐵律:真搜尋(判斷錨定當次搜尋的具日期來源,禁止憑訓練記憶;來源包含但不限於
-台媒/公告/法說,工具與次數不限;WebSearch 爬不到就開本機 Chrome〔claude-in-chrome〕直接瀏覽)、改冊必附完整證據並 git commit、寧缺勿濫(空手
+台媒/公告/法說,工具與次數不限;WebSearch 爬不到就開本機 Chrome〔claude-in-chrome〕直接瀏覽)、改冊必附完整證據並 git commit(source_note 一律台灣正體中文完整論點——報告直接引用給使用者閱讀,禁英文速記)、寧缺勿濫(空手
 是合法產出)、拒絕也是產出(檢核記錄完備)。

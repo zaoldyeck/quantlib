@@ -15,7 +15,9 @@
 2. 證據圍欄:本批次的入冊/失效/調分判斷,證據日期一律 ≤ M 月月末(與回測時間圍欄
    同構);M 月之後的訊號留給下一批(或每日 watch log 自然累積)。
 3. 改冊必附完整證據:evidence_date / evidence_url / invalidation_criteria /
-   source_note 缺一不可;成員 role 與 conviction 依 SOP §1.5(結構上限 × 保守起手,
+   source_note 缺一不可——**source_note 一律台灣正體中文完整論點**(瓶頸節點+
+   市場地位+當下催化,一至兩句),禁止英文速記與縮寫碼(報告直接引用此欄給
+   使用者閱讀);成員 role 與 conviction 依 SOP §1.5(結構上限 × 保守起手,
    演化 = 證據強化 +1 / 弱化 −1,月粒度)。
 4. 寧缺勿濫:證據不足記 watch,空手是合法產出(回溯 2022-07 全月 reject 的先例);
    證據齊備就果斷執行,不留懸案。

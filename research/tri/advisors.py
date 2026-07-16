@@ -6,7 +6,7 @@
 
 規格來源:S = research/apex/STRATEGY.md(逐條移植;per-position 狀態存
 research/tri/state/,cost=收養日收盤);Evergreen v3.3 = LEDGER EV30-33
-定版(h52-only × pm3 × h120>0.6 × trail40 × lts45 × 5 席 mn2 等權);
+(參數外部化:`research/evergreen/data/live_config.json`,EV43 年度 refit 產物);
 Serenity = live ledger 錨 × `research/serenity/exit_rules.py`(與執行系統
 同一份六道門規則源)。
 """
@@ -18,6 +18,8 @@ from dataclasses import dataclass, field
 from datetime import date as Date
 
 import polars as pl
+
+from research.trading.cost_basis import cost_of, levels_line
 
 C = "company_code"
 STATE_DIR = "research/tri/state"
@@ -78,6 +80,8 @@ class Advice:
     # renderer 會帶公司名輸出——使用者要求「要能一眼看懂完全體長什麼樣」。
     ideal_title: str = ""
     ideal: list = field(default_factory=list)
+    # 逐檔結構化明細(報告的深度段落用;key=code)
+    detail: dict = field(default_factory=dict)
 
 
 # ── S 策略顧問(apex_revcycle_S,STRATEGY.md 逐條)─────────────────
@@ -190,24 +194,28 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     #     hold-until-exit 語義:S 不因出現更高排名者而中途換股);
     # (b) 不在池內且從未通過池檢 → 賣出(S 不會買的名字沒有理由持有)。
     pool_rank = {r[C]: i + 1 for i, r in enumerate(pool.to_dicts())}
+    # 出場一律**逐日重放**(非今日快照):你沒跑報告那幾天觸發的規則也算數
+    from research.trading.exit_replay import load_paths, replay, s_rule
+    entries = {c: Date.fromisoformat(st.get(c, {}).get("first_seen", d0.isoformat()))
+               for c in holdings}
+    paths = load_paths(sorted(entries), min(entries.values()) if entries else d0, d0)
+    fires: dict[str, object] = {}
     survivors: list[tuple[float, str, str]] = []  # (排序鍵, code, keep理由)
     for code in sorted(holdings):
         info = st.get(code, {})
-        held = held_tdays(info.get("first_seen", d0.isoformat()), d0, dates_all)
         px = closes.get(code)
-        peak = info.get("peak_close")
         fresh = fresh_all.get(code)
-        if px is None:
+        if px is None or code not in paths:
             adv.sells.append((code, "無法取價(下市/停牌?)人工確認"))
             continue
-        if fresh is None or fresh >= 26:
-            adv.sells.append((code, f"訊號過期(揭露後 {'?' if fresh is None else int(fresh)} 日 ≥26,日曆日)"))
-        elif peak and px <= peak * 0.65:
-            adv.sells.append((code, f"移動停損(自峰值 {peak:.1f} 回落 ≥35%)"))
-        elif held >= 30:
-            adv.sells.append((code, f"時間止損(持有 {held} 交易日 ≥30)"))
-        elif info.get("cost") and px < info["cost"] and held >= 15:
-            adv.sells.append((code, f"輸家時間止損(水下且持有 {held} ≥15)"))
+        cost0, _b = cost_of(code, fallback=info.get("cost"))
+        fire, now = replay(paths[code], entries[code], s_rule(cost0), peak_floor=cost0)
+        fires[code] = fire
+        held = now.days_held if now else 0
+        if fire:
+            od = (f"🔴 **逾期未出場**:{fire.day} 觸發(當時 {fire.price:g}),今日 {px:g}"
+                  f"({(px / fire.price - 1) * 100:+.1f}%)|" if fire.is_overdue(d0) else "")
+            adv.sells.append((code, f"{od}{fire.reason}"))
         elif code in pool_rank:
             st[code]["vetted_pool"] = True
             rk = pool_rank[code]
@@ -220,11 +228,40 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
                                     "S 不會買的名字沒有理由持有)"))
     survivors.sort()
     for i, (key, code, why) in enumerate(survivors, 1):
+        info = st.get(code, {})
+        px = closes.get(code)
+        cost, basis = cost_of(code, fallback=info.get("cost"))
+        _f, now = replay(paths[code], entries[code], s_rule(cost), peak_floor=cost)
+        peak = now.peak if now else None  # 峰值由價格路徑重算,不靠增量 state
+        # S 的價位門只有 trail 35%;訊號過期 26 日 / 時間止損 30 日 / 輸家止損
+        # (水下且 ≥15 日)都是時間門,沒有固定止盈。
+        stop = peak * 0.65 if peak else None
+        lv = levels_line(cost, basis, px, stop, None,
+                         stop_note=f"(trail 35%,峰 {peak:g})" if peak else "",
+                         take_note="(無固定止盈:靠 trail/時間出場)")
+        prow = next((r for r in pool.to_dicts() if r[C] == code), None)
+        adv.detail[code] = {
+            "strategy": "S", "cost": cost, "basis": basis, "px": px,
+            "stop": stop, "stop_note": "trail 35%", "take": None,
+            "take_note": "無固定止盈(trail/時間/訊號過期)",
+            "entry_date": entries[code].isoformat(),
+            "days_held": now.days_held if now else 0, "peak": peak,
+            "gates": [("移動停損 −35%", f"{stop:g}(峰 {peak:g})" if stop else "—"),
+                      ("訊號過期 26 日", f"距最近月營收 {fresh_all.get(code)} 日"),
+                      ("時間止損 30 日", f"持有 {now.days_held if now else 0} 交易日"),
+                      ("輸家止損 15 日", f"{'水下' if cost and px < cost else '水上'}")],
+            # S 是純量化,沒有 LLM 理由——「為什麼買」就是這六個因子的值與排名
+            "factors": ({k: round(float(prow[k]), 3) for k in list(S_WTS) if prow.get(k) is not None}
+                        if prow else {}),
+            "geo": round(float(prow["geo"]), 3) if prow and prow.get("geo") is not None else None,
+            "pool_rank": pool_rank.get(code),
+            "fire_day": None, "fire_price": None, "fire_reason": None, "overdue": False,
+        }
         if i <= 5:
-            adv.keeps.append((code, f"{why}|席位 {i}/5"
+            adv.keeps.append((code, f"{why}|席位 {i}/5{lv}"
                                     f"{_sizing_hint(nav, 0.20, closes.get(code), holdings[code])}"))
         else:
-            adv.sells.append((code, f"超額席位(S 上限 5 檔;{why})"))
+            adv.sells.append((code, f"超額席位(S 上限 5 檔;{why}){lv}"))
     save_state("s", st)
 
     # 買入清單 = 通往完全體的完整隊列(使用者要求看得到終局):
@@ -238,6 +275,14 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             continue
         rank_i += 1
         detail = f"{shares_for(0.20, nav, closes.get(r[C]))}|fresh={int(r['rev_fresh_days'])}"
+        # 買入候選的「為什麼買」= 六因子的值與幾何平均(S 是純量化,沒有敘事)
+        adv.detail.setdefault(r[C], {
+            "strategy": "S", "px": closes.get(r[C]), "cost": None, "basis": "",
+            "stop": None, "take": None, "gates": [],
+            "factors": {k: round(float(r[k]), 3) for k in list(S_WTS) if r.get(k) is not None},
+            "geo": round(float(r["geo"]), 3) if r.get("geo") is not None else None,
+            "pool_rank": rank_i, "fire_day": None, "overdue": False,
+        })
         if rank_i <= min(2, n_slot):
             adv.buys.append((r[C], 0.20, f"今日進場 #{rank_i}(每日上限 2)|{detail}"))
             ideal_buys.append((r[C], "今日買"))
@@ -334,11 +379,21 @@ def evergreen_advisor(con, holdings: dict[str, float], today: Date,
                               d0.isoformat())
               .filter(pl.col(C).is_in(cand[C].to_list())).sort([C, "date"]))
         inst = pl.col("foreign_diff") + pl.col("trust_diff")
+        # asof 語義:取「≤ 決策日的最新一筆」,與回測引擎的 row_latest_before 一致。
+        # 曾用 `date == d0` 嚴格對齊(2026-07-15 修正):法人表(16:00 才發布)只要
+        # 比報價表落後一天,join 就全 null → fill_null(False) → **閘門把所有候選
+        # 靜靜砍光**,live 比回測嚴格卻無人察覺。fail-closed 用錯地方就是無聲失效。
         fl = (fl.with_columns([
                   (pl.col("foreign_diff").rolling_sum(5).over(C) > 0).alias("f5"),
                   (inst.rolling_sum(5).over(C) > 0).alias("inst5"),
-              ]).filter(pl.col("date") == d0)
-              .select([C, "f5", "inst5"]))
+              ]).filter(pl.col("date") <= d0).sort([C, "date"])
+              .group_by(C).agg([pl.col("date").last().alias("flow_date"),
+                                pl.col("f5").last(), pl.col("inst5").last()]))
+        lag_src = fl["flow_date"].max() if fl.height else None
+        if lag_src is not None and lag_src < d0:
+            adv.notes.append(f"ℹ 法人資料止於 {lag_src}(決策日 {d0};T86 16:00 才發布)"
+                             "——閘門以最新可得日判定")
+        fl = fl.drop("flow_date")
         cand = cand.join(fl, on=C, how="left")
         if LC["gate"] in ("f5", "inst5"):
             cand = cand.filter(pl.col(LC["gate"]).fill_null(False))
@@ -367,27 +422,61 @@ def evergreen_advisor(con, holdings: dict[str, float], today: Date,
     st = update_state(st, holdings, d0, closes, {})
     h52_rank = dict(cand.select([C, "score"]).iter_rows())
     survivors: list[tuple[float, str]] = []
+    from research.trading.exit_replay import evergreen_rule, load_paths, replay
+    eg_entries = {c: Date.fromisoformat(st.get(c, {}).get("first_seen", d0.isoformat()))
+                  for c in holdings}
+    eg_paths = load_paths(sorted(eg_entries), min(eg_entries.values()) if eg_entries else d0, d0)
     for code in sorted(holdings):
         info = st.get(code, {})
-        held = held_tdays(info.get("first_seen", d0.isoformat()), d0, dates_all)
-        px, peak = closes.get(code), info.get("peak_close")
-        if px is None:
+        px = closes.get(code)
+        if px is None or code not in eg_paths:
             adv.sells.append((code, "無法取價,人工確認"))
-        elif code not in pool_codes:
+            continue
+        if code not in pool_codes:
             adv.sells.append((code, "池籍到期/非本策略池內標的"))
-        elif peak and px <= peak * (1.0 - float(LC["trail"])):
-            adv.sells.append((code, f"移動停損(自峰值回落 ≥{float(LC['trail']):.0%})"))
-        elif info.get("cost") and px < info["cost"] and held >= int(LC["lts"]):
-            adv.sells.append((code, f"輸家時間止損(水下且持有 {held} ≥{LC['lts']})"))
+            continue
+        cost0, _b = cost_of(code, fallback=info.get("cost"))
+        # 逐日重放(非快照):trail 與輸家止損都是路徑相依的
+        fire, _now = replay(eg_paths[code], eg_entries[code],
+                            evergreen_rule(cost0, float(LC["trail"]), int(LC["lts"])),
+                            peak_floor=cost0)
+        if fire:
+            od = (f"🔴 **逾期未出場**:{fire.day} 觸發(當時 {fire.price:g}),今日 {px:g}"
+                  f"({(px / fire.price - 1) * 100:+.1f}%)|" if fire.is_overdue(d0) else "")
+            adv.sells.append((code, f"{od}{fire.reason}"))
         else:
             survivors.append((-(h52_rank.get(code) or 0.0), code))
-    survivors.sort()  # 席位上限依 live config,排位高者優先
+
+    survivors.sort()  # 席位上限 NS,排位高者優先
     for i, (negscore, code) in enumerate(survivors, 1):
+        info = st.get(code, {})
+        px = closes.get(code)
+        cost, basis = cost_of(code, fallback=info.get("cost"))
+        _f, now = replay(eg_paths[code], eg_entries[code],
+                         evergreen_rule(cost, float(LC["trail"]), int(LC["lts"])),
+                         peak_floor=cost)
+        peak = now.peak if now else None  # 峰值由價格路徑重算,不靠增量 state
+        stop = peak * (1 - float(LC["trail"])) if peak else None
+        lv = levels_line(cost, basis, px, stop, None,
+                         stop_note=f"(trail {float(LC['trail']):.0%},峰 {peak:g})" if peak else "",
+                         take_note=f"(無固定止盈:靠 trail/池籍 {LC['pool_months']} 月出場)")
+        adv.detail[code] = {
+            "strategy": "Evergreen", "cost": cost, "basis": basis, "px": px,
+            "stop": stop, "stop_note": f"trail {float(LC['trail']):.0%}", "take": None,
+            "take_note": f"無固定止盈(trail/池籍 {LC['pool_months']} 月)",
+            "entry_date": eg_entries[code].isoformat(),
+            "days_held": now.days_held if now else 0, "peak": peak,
+            "gates": [(f"移動停損 −{float(LC['trail']):.0%}", f"{stop:g}(峰 {peak:g})" if stop else "—"),
+                      (f"輸家止損 {LC['lts']} 日", f"持有 {now.days_held if now else 0} 日、"
+                                                 f"{'水下' if cost and px < cost else '水上'}"),
+                      (f"池籍 {LC['pool_months']} 月", "在池內")],
+            "fire_day": None, "fire_price": None, "fire_reason": None, "overdue": False,
+        }
         if i <= NS:
-            adv.keeps.append((code, f"池內且未觸發出場(排位 {-negscore:.2f},席位 {i}/{NS})"
+            adv.keeps.append((code, f"池內未觸發出場(排位 {-negscore:.2f},席位 {i}/{NS}){lv}"
                                     f"{_sizing_hint(nav, W, closes.get(code), holdings[code])}"))
         else:
-            adv.sells.append((code, f"超額席位(上限 {NS} 檔,排位 {-negscore:.2f})"))
+            adv.sells.append((code, f"超額席位(上限 {NS} 檔,排位 {-negscore:.2f}){lv}"))
     save_state("evergreen", st)
 
     # 同 S:買入清單 = 通往完全體的完整隊列(今日進場/⏸排隊/🕒遞補)
@@ -436,7 +525,8 @@ def serenity_advisor(con, holdings: dict[str, float], today: Date,
     import duckdb
 
     from research.serenity.daily import market_data, trading_days_between
-    from research.serenity.exit_rules import evaluate_exit
+    from research.serenity.exit_rules import (ABS_STOP, TAKE_PROFIT, TIME_DAYS,
+                                              TRAIL, evaluate_exit)
 
     adv = Advice("Serenity(ev_v2_thesis_inst,live lot 六道門;與執行系統同一規則源)")
     led = _json.load(open(SER_LEDGER)) if os.path.exists(SER_LEDGER) else {}
@@ -464,6 +554,11 @@ def serenity_advisor(con, holdings: dict[str, float], today: Date,
         "ledger 的更新由 serenity daily(執行系統)負責"
     )
 
+    from research.trading.exit_replay import load_paths, replay, serenity_rule
+
+    entries = {c: Date.fromisoformat(positions[c]["entry_date"])
+               for c in holdings if c in positions}
+    paths = load_paths(sorted(entries), min(entries.values()) if entries else cutoff, cutoff)
     for code in sorted(holdings):
         pos = positions.get(code)
         px = closes.get(code)
@@ -471,24 +566,63 @@ def serenity_advisor(con, holdings: dict[str, float], today: Date,
             adv.keeps.append((code, "⚠ 未收養——跑 serenity daily run 讓收養協定"
                                     "接手後才受六道門管理"))
             continue
-        if px is None:
+        if px is None or code not in paths:
             adv.sells.append((code, "無法取價(下市/停牌?)人工確認"))
             continue
         anchor = float(pos.get("anchor") or px)
-        peak = max(float(pos.get("peak") or px), px)
-        days_held = trading_days_between(
-            cal, Date.fromisoformat(pos["entry_date"]), cutoff)
+        entry = entries[code]
+        # **逐日重放**(非今日快照):規則在你沒跑報告的那幾天觸發也算數
+        fire, now = replay(paths[code], entry, serenity_rule(anchor), peak_floor=anchor)
+        if now is None:
+            adv.sells.append((code, "無價格路徑,人工確認"))
+            continue
+        peak, days_held = now.peak, now.days_held
+        reason = None
         if code in overrides:
             reason = "override:" + overrides[code].get("reason", "?")
-        else:
-            reason = evaluate_exit(px=px, anchor=anchor, peak=peak,
-                                   days_held=days_held,
-                                   inst20=inst20.get(code), yoy3=yoy3.get(code))
-        detail = f"錨 {anchor:g} 現價 {px:g} 峰 {peak:g} 持有 {days_held} 日"
+        elif fire:
+            reason = fire.reason
+        stop = max(anchor * (1 - ABS_STOP), peak * (1 - TRAIL))
+        stop_note = "成本 −15%" if anchor * (1 - ABS_STOP) >= peak * (1 - TRAIL) else f"高點 −20%,持有期最高 {peak:,.6g}"
+        take = anchor * (1 + TAKE_PROFIT)
+        cost, basis = cost_of(code, fallback=anchor, fallback_basis="adopted_close")
+        # 給人看的說法:每一道門講「離觸發還有多遠」與「現在是安全還是危險」
+        def _dist(level: float) -> str:
+            d = (level / px - 1) * 100
+            return f"{'跌' if d < 0 else '漲'} {abs(d):.1f}% 到 {level:,.6g}"
+
+        inst_ok = (now.inst20 or 0) >= 0 or px >= anchor
+        rev_ok = now.yoy3 is None or now.yoy3 >= 0
+        gates = [
+            ("絕對停損(成本 −15%)", f"{_dist(anchor * (1 - ABS_STOP))} 觸發"),
+            ("移動停損(高點 −20%)", f"{_dist(peak * (1 - TRAIL))} 觸發(持有期最高 {peak:,.6g})"),
+            ("止盈(成本 +60%)", f"{_dist(take)} 觸發"),
+            ("時間門(50 個交易日)", f"已持有 {days_held} 日,還有 {max(TIME_DAYS - days_held, 0)} 日"),
+            ("法人動向", f"法人近 20 日{'買超' if (now.inst20 or 0) >= 0 else '賣超'} "
+                        f"{abs(now.inst20 or 0) / 1000:,.0f} 張"
+                        f"{' ✓ 安全(要法人賣超又虧損才觸發)' if inst_ok else ' ⚠️ 已成立(法人賣超且虧損)'}"),
+            ("營收動向", (f"近 3 個月營收年增 {now.yoy3:+.0f}%"
+                         f"{' ✓ 安全(轉負才觸發)' if rev_ok else ' ⚠️ 已轉負'}")
+                        if now.yoy3 is not None else "無營收資料"),
+        ]
+        adv.detail[code] = {
+            "strategy": "Serenity", "cost": cost, "basis": basis, "px": px,
+            "stop": stop, "stop_note": stop_note, "take": take, "take_note": "",
+            "entry_date": entry.isoformat(), "days_held": days_held, "peak": peak,
+            "gates": gates,
+            "fire_day": fire.day.isoformat() if fire else None,
+            "fire_price": fire.price if fire else None,
+            "fire_reason": fire.reason if fire else None,
+            "overdue": bool(fire and fire.is_overdue(cutoff)),
+        }
+        detail = levels_line(cost, basis, px, stop, take, stop_note=stop_note)
+        detail += f"|持有 {days_held}/{TIME_DAYS} 日(時間門)"
         if reason:
-            adv.sells.append((code, f"{reason}|{detail}"))
+            od = (f"🔴 **逾期未出場**:規則已於 {fire.day} 觸發(當時 {fire.price:g}),"
+                  f"今日 {px:g}({(px / fire.price - 1) * 100:+.1f}%)|" if fire and fire.is_overdue(cutoff) else "")
+            adv.sells.append((code, f"{od}{reason}{detail}"))
         else:
-            adv.keeps.append((code, f"六道門全綠|{detail}"))
+            adv.keeps.append((code, f"六道門全綠{detail}"))
     for code in sorted(set(positions) - set(holdings)):
         adv.notes.append(f"⚠ ledger 有 {code} 但帳上無——跑 serenity daily 對帳")
 

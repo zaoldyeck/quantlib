@@ -114,10 +114,23 @@ def ensure_fresh_cache(no_refresh: bool) -> None:
     if no_refresh:
         print(f"⚠ 資料未齊備(齊備日 {want};落後表:{detail}),--no-refresh 指定跳過")
         return
-    print(f"⟳ 資料未齊備(齊備日 {want};落後表:{detail})"
-          "——跑一次完整更新(爬蟲入庫 + cache 重建,約 10-15 分鐘)…", flush=True)
-    subprocess.run(["sbt", "-batch", "runMain Main update"], check=True)
-    subprocess.run(["uv", "run", "--project", "research", "python", "research/cache_tables.py"], check=True)
+    print(f"⟳ 資料未齊備(齊備日 {want})——更新中(約 10-15 分鐘,詳細過程寫入 log)…", flush=True)
+    # 爬蟲細節(進度條、每個資料源)寫進 log 檔,終端只留一行狀態——使用者
+    # 要的是「有沒有正常跑」,不是 6,500 行下載明細(QL_VERBOSE=true 可全開)。
+    import os as _os
+
+    log_dir = REPO_ROOT / "research" / "out" / "trading" / "update_logs"
+    log_dir.mkdir(parents=True, exist_ok=True)
+    log_path = log_dir / f"update_{Date.today()}.log"
+    with open(log_path, "w", encoding="utf-8") as lf:
+        rc = subprocess.run(["sbt", "-batch", "runMain Main update"],
+                            stdout=lf, stderr=subprocess.STDOUT,
+                            env={**_os.environ}).returncode
+        if rc != 0:
+            print(f"✗ 更新失敗(rc={rc})——詳見 {log_path}")
+            raise SystemExit(1)
+        subprocess.run(["uv", "run", "--project", "research", "python", "research/cache_tables.py"],
+                      stdout=lf, stderr=subprocess.STDOUT, check=True)
     left = stale_tables(want)
     if left:
         print("ℹ 更新後仍缺(該表可能延遲發布,或當日休市):"
@@ -253,6 +266,8 @@ def main() -> None:
                     help="跳過資料新鮮度自動刷新(預設:過期就地更新後再評判)")
     ap.add_argument("--no-curation", action="store_true",
                     help="跳過策展狀態機(每日輕掃/月度策展/引擎 brief 自動化)")
+    ap.add_argument("--no-dashboard", action="store_true",
+                    help="跳過 PnL 儀表板重生(reports/pnl_dashboard.html)")
     args = ap.parse_args()
 
     ensure_fresh_cache(args.no_refresh)
@@ -324,10 +339,41 @@ def main() -> None:
         "盤中啟動立即執行)")
 
     report = "\n".join(parts)
-    print(report)
     os.makedirs(REPORTS, exist_ok=True)
-    open(f"{REPORTS}/{today}.md", "w").write(report + "\n")
-    print(f"\n報告已存:{REPORTS}/{today}.md")
+    report_path = os.path.abspath(f"{REPORTS}/{today}.md")
+    open(report_path, "w").write(report + "\n")
+
+    # PnL 永續追蹤儀表板(2026-07-17):每次執行自動重生,瀏覽器書籤即最新。
+    if not args.no_dashboard:
+        import subprocess as _sp
+        print("⟳ 更新 PnL 儀表板(六線全窗重放,約 2-4 分)…", flush=True)
+        rd = _sp.run([sys.executable, "-m", "research.tri.pnl_dashboard"],
+                     cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=1200)
+        print(rd.stdout.strip()[-200:] if rd.returncode == 0
+              else f"⚠ 儀表板更新失敗:{(rd.stderr or rd.stdout)[-300:]}")
+
+    # 終端只印總結,不倒整份報告(2026-07-17:整份 700+ 行倒進 terminal =
+    # 雜訊)。深度逐檔、策展理由、附錄一律進檔案,終端引導去看。
+    action = action_block(advices, names)
+    term = [
+        f"═══ 三策略每日報告 {today}(資料到 {d0})═══",
+        f"帳戶:持股 {len(holdings)} 檔市值 {mv:,.0f} + 現金 {cash:,.0f} = NAV {nav:,.0f}",
+        "",
+        action,
+        "",
+        "── 三策略各自的完整視角 ──",
+        *strategy_parts,
+        "",
+        "── 下單指令範例(代碼自行填入,逗號分隔多檔)──",
+        "  FUBON_DRY_RUN=false uv run --project research python -m "
+        "research.trading.execution.trade --buy \"<買入代碼>\" --sell \"<賣出代碼>\" --qty 1 --live",
+        "",
+        "─" * 60,
+        f"📄 完整報告(逐檔為什麼買/賣、離出場多遠、策展理由、原始存證):",
+        f"   {report_path}",
+        f"   開啟:open '{report_path}'  或  code '{report_path}'",
+    ]
+    print("\n".join(term))
 
 
 if __name__ == "__main__":

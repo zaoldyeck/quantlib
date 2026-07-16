@@ -20,43 +20,42 @@
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib
 
-# ① 資料刷新(前一晚 21:30 後或當天盤前;約 10-15 分鐘)
-#    (若你今天會跑 Serenity daily,它內建刷新,這步可省)
-sbt "runMain Main update" && uv run python research/cache_tables.py
-
-# ② 三策略決策支援(讀富邦庫存+現金 → 三份獨立建議含股數;永不下單)
+# ① 三策略決策支援(讀富邦庫存+現金 → 三份獨立建議含股數;永不下單)
+#    2026-07-14 起內建資料新鮮度自檢:過期會自己跑爬蟲+cache 重建(約
+#    10-15 分)再評判,新鮮就直接用;--no-refresh 可跳過自檢
 uv run --project research python -m research.tri.daily
 
-# ③(可選,獨立決定)Serenity 執行流水線——會產生訂單計畫並啟動盤中執行
+# ②(可選,獨立決定)Serenity 執行流水線——會產生訂單計畫並啟動盤中執行
 uv run --project research python -m research.serenity.daily run
 ```
 
-②的輸出(終端 + `research/tri/reports/YYYY-MM-DD.md`):
+①的輸出:終端 + **`research/tri/reports/YYYY-MM-DD.md`(一天一份,重跑覆蓋)**。
+報告是寫給投資人看的,**純程式產生、零 LLM**——理由取自策展當時就落地的資料:
 
-- **S(apex_revcycle_S)**:每檔持股 KEEP/SELL(機械原因:訊號過期 26 日
-  /trail 35%/時間止損 30/輸家止損 15)+ 今日 fresh cohort 買入建議
-  (每檔 20% 資金,今日進場 2 檔 + backlog 候補)。**營收事件驅動**:
-  資料庫一有新月報首見即納入(不等每月 10 日;回測維持保守 10 日語義)
-- **Evergreen(live-refit)**:引擎參數讀 `research/evergreen/data/live_config.json`
-  (EV43 年度 refit 產物;現版 score=xadv_inv 小票優先、gate=none、池籍 3 月、
-  trail 40%/輸家止損 45、5 席 × 20%、每日 2 檔)。**每年 refit 一次**
-  (`uv run --project research python -m research.evergreen.ev43_live_refit`)
-  換檔即生效;驗證等級 Borderline,建議倉位 ≤25% NAV
-- **Serenity(live lot 六道門,2026-07-13 重寫)**:讀 live ledger 的 lot 錨
-  (成交價/收養價),用與執行系統**同一份規則源**(`serenity/exit_rules.py`)
-  逐 lot 評六道門 → KEEP/SELL 附錨/現價/峰值;進場建議轉述當日 brief。
-  舊版用引擎模擬簿成員資格當判準,會與 live 判決相左(模擬簿 lot 是引擎
-  自己的錨)——已廢棄
+| 區塊 | 內容 |
+|---|---|
+| 🔔 今日必須行動 | **逾期出場**(規則早已觸發、你還沒賣:附觸發日/當時價/今日價)→ 今日觸發 → 買入 |
+| 📖 逐檔深度 | 每檔一節:三策略判決 + 成本/現價/損益 + **為什麼買**(Serenity 論點原文+瓶頸層+信念度+**失效條件**;Evergreen 最近一次標記全文+**當時查閱的材料原文與連結**+標記史;S 六因子值與 geo 排名)+ **六道門逐條的線與距離** |
+| 🛒 買入候選深度 | 同上規格——買進的理由也要寫完整 |
+| 📋 三策略完整視角 | 各自的理想持倉完全體、續抱/賣出/買入隊列 |
+| 下單指令 | 代碼自行填入的 `trade` 範例 |
+
+**出場一律逐日重放,不是今日快照**(`research/trading/exit_replay.py`):規則在你沒跑
+報告的那幾天觸發也算數——「延遲了該賣還是得賣,不能過時間了就當作沒發生」。峰值
+(trailing 的錨)由價格歷史重算,與跑不跑報告無關。
+
+**誠實標示**:Serenity 註冊表早期入冊只有 `legacy:…` 沒有真出處 → 報告標 ⚠;
+Evergreen 沒標記過的檔 → 寫「全史未曾標記」而不是留白;池籍到期 ≠ 沒看過。
 
 ## 每月一次:Evergreen 標記日
 
-每月 **10 日後的第一個交易日**,②的報告頂部會出現:
+每月 **10 日後的第一個交易日**,①的報告頂部會出現:
 
 > ⚠ 本月標記尚未執行——請執行月中標記(LLM 流程)後重跑
 
 那天在 Claude Code 輸入 **`/evergreen-label`** 即可(流程:凍結提示詞
-組裝 → 發標記 agent 真搜尋 → 驗收 → 落盤 registry_v3 → 重跑 ②)。
-約 15-20 萬 token,每月僅此一次。其他所有日子 ② 零 LLM。
+組裝 → 發標記 agent 真搜尋 → 驗收 → 落盤 registry_v3 → 重跑 ①)。
+約 15-20 萬 token,每月僅此一次。其他所有日子 ① 零 LLM(資料自檢刷新除外)。
 
 ## 富邦讀不到時(手動提供持倉)
 
@@ -71,11 +70,11 @@ uv run --project research python -m research.tri.daily --positions-file my_posit
 
 | 狀況 | 處理 |
 |---|---|
-| 報告顯示「cache 落後 N 天」 | 先跑 ① 再跑 ② |
-| S 顯示「fresh cohort 0 檔」 | 揭露季外正常(訊號稀疏);揭露季內(每月 7-17 日)多半是資料未刷新,先跑 ① |
+| 報告顯示「cache 落後 N 天」 | ① 已內建自動刷新;若用了 --no-refresh 才會見到,拿掉該旗標重跑 |
+| S 顯示「fresh cohort 0 檔」 | 揭露季外正常(訊號稀疏);揭露季內(每月 7-17 日)多半是資料未刷新,重跑 ①(自動刷新會補) |
 | Evergreen 池很小(<5 檔) | 正常——空手紀律;連續數月過小才需檢查標記 |
 | 持股被判「非本策略標的」 | 正常——那是該策略視角(它會換成自己的池);三份建議由你仲裁 |
-| Serenity 段 book as_of 較舊 | 表示引擎近日未跑;要最新 book 就跑 ③(注意 ③ 是執行系統) |
+| Serenity 段 book as_of 較舊 | 表示引擎近日未跑;要最新 book 就跑 ②(注意 ② 是執行系統) |
 | 富邦 API 失敗 | 用 `--positions` 手動提供(見上) |
 
 ## 檔案位置

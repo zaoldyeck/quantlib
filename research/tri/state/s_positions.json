@@ -1,15 +1,40 @@
 {
- "2049": {
+ "2059": {
   "first_seen": "2026-07-09",
-  "peak_close": 331.5,
-  "cost": 331.5,
+  "peak_close": 8655.0,
+  "cost": 8250.0,
+  "peak_missing": false
+ },
+ "2383": {
+  "first_seen": "2026-07-09",
+  "peak_close": 5295.0,
+  "cost": 5295.0,
+  "peak_missing": false
+ },
+ "2408": {
+  "first_seen": "2026-07-09",
+  "peak_close": 481.0,
+  "cost": 435.5,
   "peak_missing": false,
   "vetted_pool": true
  },
- "2059": {
+ "3006": {
   "first_seen": "2026-07-09",
-  "peak_close": 8250.0,
+  "peak_close": 239.0,
+  "cost": 237.0,
   "peak_missing": false,
-  "cost": 8250.0
+  "vetted_pool": true
+ },
+ "6446": {
+  "first_seen": "2026-07-09",
+  "peak_close": 1320.0,
+  "cost": 1285.0,
+  "peak_missing": false
+ },
+ "6223": {
+  "first_seen": "2026-07-09",
+  "peak_close": 7080.0,
+  "cost": 7080.0,
+  "peak_missing": false
  }
 }
