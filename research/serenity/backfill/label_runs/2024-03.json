@@ -1,0 +1,139 @@
+{
+ "label_month": "2024-03",
+ "mode": "incremental",
+ "fence": "2024-03-31",
+ "queries": [
+  "GB200 液冷 剛需 快接頭 CDU 供應鏈 2024年3月 黃仁勳 GTC 雙鴻 奇鋐 富世達 供不應求",
+  "華城 士電 中興電 前2月營收 同期新高 2024年3月 AI 資料中心 電力 變壓器 訂單"
+ ],
+ "sources_used": [
+  {
+   "date": "2024-03(中,GTC 2024-03-18~21)",
+   "publisher": "TechNews 科技新報 / 鉅亨 cnyes(GTC GB200 揭示)",
+   "claim": "NVIDIA GTC 2024(3 月中)發表 GB200(2×B200+Grace CPU),單顆 B200 功耗 1000-1200W,GB200『首度採用液冷』。散熱台廠雙鴻/奇鋐、快接頭富世達、機櫃 rail 川湖等入供應鏈。液冷由規格強制(spec-mandated),非選配。"
+  },
+  {
+   "date": "2024-03-07",
+   "publisher": "TechNews 科技新報 (finance.technews.tw/2024/03/07)",
+   "claim": "元太 2023-Q4 法說:2023 獲利次高;大尺寸電子紙新產線年底就位、彩色閱讀器商機發酵。ESL 受三轉四色技術轉換與客戶庫存調整影響(混合)。"
+  },
+  {
+   "date": "2024-03(上旬,2 月營收公告)",
+   "publisher": "經濟日報 money.udn(航空 2 月營收)",
+   "claim": "華航/長榮航 2024 年 2 月營收同期最佳(逢農曆春節旅運旺季),虎航/星宇單月新高。"
+  }
+ ],
+ "sources_discarded_count": 20,
+ "discard_note": "晚於 2024-03-31 圍欄者丟棄:①GB200 量產/散熱受惠之下游整機爆發皆 2024-Q4(鴻海 11 月量產 12 月交貨、ctee 20241026/20240727、money.udn 8434773/8762539/8768868、finance.technews 2024-04-01 拆解供應鏈=晚 1 日);②重電 AI/美國訂單全部仍晚於圍欄——money.udn 9371414『前2月營收』內文含華城 AI 在手訂單 140 億/占比 20%/能見度 2028,屬 2025 狀態(story id 9xxxxxx),經比對為 2025 文丟棄;cnyes 5868008 經 WebFetch 確認為 2025-02-20(引 2025 年 1 月營收 +89%);money.udn 9434411『第1季營收創高』為 2024-04 上旬(晚於 3 月圍欄);8970257/9352938/ctee 20250916/20260511、cnyes 6430105/6061684 皆 2024-Q4~2026。③GB200 晶片產能不足=CoWoS/晶片端(已在冊),非液冷端證據。",
+ "clusters": [
+  {
+   "industry": "散熱(AI 液冷)",
+   "seed_type": "free_discovery / watchlist_reeval",
+   "verdict": "defer",
+   "reject_reason": "自 reject(過早)升為 defer(觀察線):GTC 2024-03 GB200 揭示使『液冷剛需』由未來敘事變 ≤圍欄事實(規格強制、B200 1000-1200W 超氣冷極限),需求跳升(所有 GB200 機櫃須液冷)+ 放大器(規格強制換代)兩項成立。惟瓶頸簽名另兩項未達 ≤圍欄門檻:②供給無彈性——散熱模組(雙鴻 3324/奇鋐 3017/高力 8996/建準)產能可擴、非 ≥18 個月結構無彈性,≤圍欄框架仍為『riding GB200 缺口的下游受惠端』;③供應商集中——模組層台廠多家、客戶(輝達/鴻海垂直整合逾 80% 自製)可換,非少數控制。故不 admit,升 defer。子節點快接頭/UQD(富世達 6805,高可靠度/防漏認證門檻較高、集中度較模組高)為潛在 enabler 觀察標的,待 ≤圍欄出現 UQD/CDU 配額或缺料硬約束再重估入冊。",
+   "narrative": "GB200 液冷由規格強制成剛需(≤圍欄 GTC 2024-03),需求+放大器成立,但供給無彈性與供應商集中未達 ≤圍欄門檻;由『過早 reject』升『defer 觀察』,子節點鎖定快接頭富世達 6805。",
+   "bottleneck_check": {
+    "demand": "GB200 全數須液冷(≤圍欄 GTC 2024-03,規格強制)——成立",
+    "supply_rigidity": "散熱模組可擴、非 ≥18 個月結構無彈性——未達門檻",
+    "concentration": "模組層台廠多家 + 輝達/鴻海垂直整合自製——未達門檻(快接頭子節點較集中,待觀察)",
+    "amplifier": "規格強制換代(輝達 mandate 液冷)——成立"
+   },
+   "theme_id": null,
+   "theme_name": "ai_liquid_cooling(watch,未入冊)",
+   "members": [
+    {"code": "6805", "name": "富世達", "role": "enabler_candidate", "conviction": 0, "rationale": "快接頭/UQD 子節點觀察標的,未入冊;待 ≤圍欄配額/缺料硬約束證據。"},
+    {"code": "3324", "name": "雙鴻", "role": "beneficiary", "conviction": 0, "rationale": "液冷模組受惠端,產能可擴,不入冊(記錄)。"},
+    {"code": "3017", "name": "奇鋐", "role": "beneficiary", "conviction": 0, "rationale": "同上。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2024-03(GTC)", "source": "cnyes/technews GB200 揭示", "claim": "GB200 首度規格強制液冷,B200 1000-1200W。"}
+   ]
+  },
+  {
+   "industry": "半導體(先進封裝)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "advanced_packaging_cowos:GTC 2024-03 Blackwell/GB200 揭示強化 CoWoS 需求(Blackwell 採 CoWoS-L、單晶片 CoWoS 用量更大),與台積電 owner 論點一致。台積電已於 2024-01 達結構上限 5,本月已封頂、carry 5。enabler 層(日月光 3711/京元電 2449/辛耘 3583/弘塑 3131/萬潤 6187)本月無名別 ≤圍欄新增訂單/擴產專屬證據(GB200 晶片產能不足屬晶片/CoWoS 端在冊敘事),持平 2。",
+   "bottleneck_check": {"demand": "Blackwell/GB200 CoWoS-L 用量更大(≤圍欄 GTC)——強化", "supply_rigidity": "CoWoS 續短缺(carry)", "concentration": "台積電獨佔(carry)", "amplifier": "規格換代 CoWoS-L(carry)"},
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "CoWoS 先進封裝",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 5, "rationale": "carry 持平(已封頂);GTC Blackwell 進一步佐證。"},
+    {"code": "3711", "name": "日月光投控", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "2449", "name": "京元電", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "3583", "name": "辛耘", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "CoWoS 利用率跌破 80% / AI 加速器砍單 / 擴產開出且交期正常化。",
+   "evidence": [
+    {"date": "2024-03(GTC)", "source": "GB200 揭示", "claim": "Blackwell 採 CoWoS-L、CoWoS 用量更大。"}
+   ]
+  },
+  {
+   "industry": "電機機械(重電)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical:第四次真搜尋仍無『發布日期 ≤ 2024-03-31』之重電廠 AI/美國訂單第一手催化——關鍵候選 cnyes 5868008 經 WebFetch 確認為 2025-02-20、money.udn 9371414 內文為 2025 狀態(AI 訂單 140 億/能見度 2028)、9434411 為 2024-04 上旬 Q1 營收,全數晚於或無法確認 ≤圍欄。雖 GTC 使『AI 資料中心電力需求』成 ≤圍欄一般性認知(GB200 功耗暴增),但無 ≤圍欄來源將此連結到華城/中興電之具體新單/漲價。依鐵律 2,不以 2025 回溯敘事回填 2024-H1 conviction(防前視)。持平沿用,≤圍欄驅動維持台電強韌電網(在冊)。",
+   "bottleneck_check": {"demand": "台電強韌電網(≤圍欄在冊);AI 電力為一般認知但無重電廠 ≤圍欄具體單", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "AI 電力(一般性)顯現,惟未連結重電廠具體證據"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平。"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平;AI/美國催化仍晚於圍欄,拒絕以 2025 文回填。"},
+    {"code": "1514", "name": "亞力", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "1503", "name": "士電", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬 / 重電訂單連 2 季衰退 / 變壓器交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "顯示器(電子紙)/觀光餐旅(航空)(在冊沿用)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "①epaper_esl——元太 2023-Q4 法說(2024-03-07,≤圍欄):2023 獲利次高、大尺寸新產線年底就位、彩色閱讀器發酵(正向),惟 ESL 受三轉四色轉換 + 客戶庫存調整(負向),淨值混合,無失效觸發,持平 conviction 3。②reopening_travel——2 月營收同期最佳(春節旺,≤圍欄);需求強但運能仍回補、票價未正常化,失效未觸發,持平 4/4/2/2。晚週期觀察線續延。",
+   "bottleneck_check": {"demand": "carry(元太彩色閱讀器/航空春節旺)", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "epaper_esl",
+   "theme_name": "多主題沿用(電子紙/解封出行)",
+   "members": [
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平(TPEx);2023-Q4 法說混合。"},
+    {"code": "2618", "name": "長榮航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平;春節旺、失效未觸發。"},
+    {"code": "2610", "name": "華航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "電子紙:ESL 換裝潮結束/產能過剩/報價回落。航空:運能恢復 2019 + 票價正常化(逼近未觸發)。",
+   "evidence": [
+    {"date": "2024-03-07", "source": "technews 元太 2023-Q4 法說", "claim": "獲利次高、大尺寸新線年底就位;ESL 三轉四色轉換。"}
+   ]
+  },
+  {
+   "industry": "建材營造",
+   "seed_type": "revenue_accel(本月起顯著)",
+   "verdict": "reject",
+   "reject_reason": "建材營造(永信建 5508/華建 2530/華固 2548/新美齊 2442 等)營收 YoY 巨幅跳升(完工結案認列特性,單月/單季基期效應可達數百至數萬 %),為 known judgement rule:建案採完工認列,營收由交屋時點決定、非供給瓶頸。需求端為 2023-08 新青安房貸 + 房市政策/去化題材(需求+政策),無實體稀缺產能節點、無供給無彈性、下游無 12 個月硬替代約束。結構性 reject(同前批建材判定)。此為本月起至 2024-H1 建材動能族群放大之定性基準,後續月 carry。",
+   "narrative": "建材營造營收跳升為完工認列 + 房市政策需求題材,無供給瓶頸,結構性 reject(建案完工認列基準)。",
+   "bottleneck_check": {"demand": "新青安房貸/房市去化(需求+政策)", "supply_rigidity": "無(建案完工認列,非產能節點)", "concentration": "營建高度分散", "amplifier": "無結構放大器(政策非供給硬約束)"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "半導體/電子零組件/通信網路/電腦週邊/電子通路/光電/其他電子/金融/生技(既檢核沿用)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "其餘聚類沿用:半導體 IC 設計/利基(世紀 5314 續在榜,微基期跳升小型股,carry reject fabless)、電子零組件(合正 5381/PCB-CCL 之台光電 2383 見 CCL 觀察線 defer、機構連接器 carry)、通信網路光通訊(華星光/上詮/光聖/聯鈞續 defer)、電腦週邊 AI ODM(beneficiary)、電子通路(上月 reject,carry)、光電顯示/背光(reject)、其他電子廠務工程(capex beneficiary reject)、金融保險(基期+利差循環 reject)、生技個股催化(reject)。本月 conviction 變動:無(液冷升 defer 屬觀察線非入冊、無 conviction)。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": "沿用前批 reject/defer 理由。",
+   "evidence": []
+  }
+ ]
+}

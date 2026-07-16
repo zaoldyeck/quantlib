@@ -1,0 +1,106 @@
+{
+ "label_month": "2024-05",
+ "mode": "incremental",
+ "fence": "2024-05-31",
+ "queries": [
+  "華城 美國 變壓器 訂單 2024年第一季 外銷 出貨 電網 首張 突破",
+  "長榮航 華航 第一季 法說 2024年5月 運能 疫情前 票價 美洲 承載率 客運"
+ ],
+ "sources_used": [
+  {
+   "date": "2024-05-04",
+   "publisher": "工商時報 ctee (20240504700314,WebFetch 確認)",
+   "claim": "華城外銷美國變壓器逾 30 年、為十餘家美國電力公司長約核心供應商;不因美國大選調整策略。訂單能見度看到 2026 年底、開始接 2027 年單。外銷比重今年『突破 40%』、明年上看 50%。驅動為美國電網汰換 + 台電強韌電網 + 再生能源(本文未提 AI 資料中心)。"
+  },
+  {
+   "date": "2024-05(Q1 2024 法說,≤圍欄)",
+   "publisher": "經濟日報 money.udn / 鉅亨(華航 Q1 2024)",
+   "claim": "華航 2024 Q1 客運收入 356.79 億元,季增 13.2%、年增 9.14%(逢農曆春節/寒假連假旅運旺,正成長)。票價相較 2019 仍高約 40%(美洲 +42%、東南亞 +12%),易漲難跌。"
+  }
+ ],
+ "sources_discarded_count": 15,
+ "discard_note": "晚於 2024-05-31 圍欄者丟棄,重點防前視:①長榮航 Q1『客運營收 364 億年減 0.3%、承載率 81% 年減 2.3pp、票價 YoY 多區下跌(港澳大陸 -14%)』之滾動見頂訊號經 id 比對為 2025 文(cnyes 6457024、money.udn 9458641『長榮明法說』、ctee 20250519『票價易漲難跌 留意川普』)——屬 Q1 2025 資料,若用以下調 reopening 即為 look-ahead,丟棄不採。故本月 reopening 只用可確認 ≤圍欄之 Q1 2024 強成長事實。②重電 AI 資料中心具體大單/占比 20%/星際之門/在手 300 億皆 2024-Q4~2026(moneydj 二期、cnyes 6210465/6224125/6430105、money.udn 9199443),本月僅採 ctee 2024-05-04 之美國電網外銷(不含 AI DC)。③GB200 量產受惠(H2 2024)未到。",
+ "clusters": [
+  {
+   "industry": "電機機械(重電)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical 首度取得 ≤圍欄第一手催化演化=強化(華城)。ctee 2024-05-04(WebFetch 確認)證實華城美國變壓器外銷訂單旺:①需求跳升——美國電網汰換 + 30 年長約客戶群,訂單能見度 2026 年底並開始接 2027;②供給無彈性——變壓器交期長、外銷比重升至 40%(明年上看 50%)為結構性擴張非一次性;③集中——華城為重電四雄中美國外銷純度最高;④放大器——onshoring/美國電網老化汰換(明文)。華城 chokepoint_owner 上調 3→4(達寡占 owner 結構上限 4)。註:此催化為『美國電網汰換』,AI 資料中心連結仍屬圍欄外(2024-Q4 起)。中興電/亞力/士電本月無各自 ≤圍欄第一手新單催化(動能雖強),持平——依鐵律 2 只升有 ≤圍欄證據之名別。",
+   "bottleneck_check": {
+    "demand": "美國電網汰換 + 台電強韌電網;華城訂單能見度 2026 底→2027(≤圍欄 2024-05-04)——跳升",
+    "supply_rigidity": "變壓器交期長、外銷比重結構升至 40-50%——成立",
+    "concentration": "華城美國外銷純度最高、十餘家美電力公司長約——成立",
+    "amplifier": "onshoring/美國電網老化汰換(≤圍欄明文)——成立"
+   },
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電",
+   "members": [
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 4, "rationale": "3→4,ctee 2024-05-04 確認美國變壓器外銷訂單能見度 2026 底、外銷比重 40%→50%,達寡占 owner 上限。"},
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平;本月無各自 ≤圍欄第一手新單。"},
+    {"code": "1514", "name": "亞力", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "1503", "name": "士電", "role": "enabler", "conviction": 2, "rationale": "carry 持平(動能強但無名別 ≤圍欄催化)。"}
+   ],
+   "conviction_updates": [
+    {"theme_id": "grid_heavy_electrical", "code": "1519", "from": 3, "to": 4, "evidence": "ctee 2024-05-04:華城美國變壓器外銷訂單能見度 2026 底並接 2027、外銷比重升至 40%(明年 50%)、美國電網汰換驅動。達寡占 owner 結構上限。"}
+   ],
+   "invalidation_criteria": "台電強韌電網預算腰斬 / 重電訂單連 2 季衰退 / 變壓器交期正常化 / 美國外銷訂單能見度回縮。",
+   "evidence": [
+    {"date": "2024-05-04", "source": "ctee 20240504700314", "claim": "華城美國變壓器外銷訂單能見度 2026 底→2027、外銷比重 40%→50%。"}
+   ]
+  },
+  {
+   "industry": "觀光餐旅(航空)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "reopening_travel ⚠ 晚週期續判(以 ≤圍欄 Q1 2024 證據):可確認 ≤圍欄事實為 Q1 2024 仍強成長(華航客運收入 +9.14% YoY、逢春節),票價仍較 2019 高約 40%(美洲 +42%),易漲難跌、未正常化;運能續回補(部分區已超 2019,中國/東北亞仍落後)。滾動見頂訊號(YoY 票價轉跌、承載率 -2.3pp、營收 -0.3%)經查證為 Q1 2025 資料(見 discard_note)——依鐵律 1 防前視,不以之下調。結論:2024-05 失效條件(運能恢復 2019 + 票價正常化)『均未觸發』——票價明確未正常化、運能未全面恢復;需求仍成長。持平 conviction 4。續以各月 ≤圍欄證據觀察見頂(至本批 6 月止,可確認 ≤圍欄尚無見頂訊號)。",
+   "bottleneck_check": {
+    "demand": "Q1 2024 客運強成長(華航 +9.14% YoY,≤圍欄)",
+    "supply_rigidity": "運能續回補、未全面恢復 2019(非結構節點)",
+    "concentration": "航空雙雄(非結構節點)",
+    "amplifier": "高票價(vs 2019 +40%)持續,未正常化"
+   },
+   "theme_id": "reopening_travel",
+   "theme_name": "解封出行",
+   "members": [
+    {"code": "2618", "name": "長榮航", "role": "beneficiary", "conviction": 4, "rationale": "持平;Q1 2024 仍強、票價未正常化,失效未觸發;2025 見頂訊號不採(防前視)。"},
+    {"code": "2610", "name": "華航", "role": "beneficiary", "conviction": 4, "rationale": "持平;Q1 2024 客運 +9.14% YoY。"},
+    {"code": "2731", "name": "雄獅", "role": "beneficiary", "conviction": 2, "rationale": "carry 持平(出國需求續旺)。"},
+    {"code": "2707", "name": "晶華", "role": "beneficiary", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "航空運能恢復 2019 + 票價正常化(≤圍欄 Q1 2024:票價仍 +40% 未正常化、運能未全面恢復,均未觸發)。",
+   "evidence": [
+    {"date": "2024-05(Q1 2024)", "source": "money.udn 華航 Q1 2024", "claim": "客運 +9.14% YoY、票價 vs 2019 +40% 易漲難跌。"}
+   ]
+  },
+  {
+   "industry": "半導體(先進封裝)/顯示器(電子紙)/散熱(AI 液冷觀察)(在冊+觀察沿用)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "①advanced_packaging_cowos——台積電封頂 carry 5;enabler 層持平 2。②epaper_esl——元太持平 3,本月無新 ≤圍欄催化。③ai_liquid_cooling(觀察,未入冊)——GB200 量產 H2 2024,本月無 ≤圍欄之 UQD/CDU 配額硬約束新證據,續 defer,富世達 6805 續觀察。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "多主題沿用(CoWoS/電子紙/液冷觀察)",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 5, "rationale": "carry 持平(已封頂)。"},
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平(TPEx)。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "各主題沿用前月 invalidation_criteria。",
+   "evidence": []
+  },
+  {
+   "industry": "建材營造/半導體/電子零組件/通信網路/電腦週邊/電子通路/光電/其他電子/金融/生技/其他(既檢核沿用)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "沿用:建材營造本月為最大動能族群(16 檔:永信建 5508/國建 2501/皇昌 2543/龍巖 5530 相鄰等)——完工認列 + 新青安房市題材放大,結構性 reject(2024-03 立基準,持續 carry);半導體 IC 設計/利基(carry reject);電子零組件(CCL 台光電 2383 defer/機構連接器 carry);通信網路光通訊 defer;電腦週邊 AI ODM beneficiary;電子通路 reject;光電顯示 reject;其他電子廠務工程 capex beneficiary reject;金融保險基期循環 reject;生技個股催化 reject;其他(海悅 2348 代銷/房市相鄰)reject。本月 conviction 變動:華城 3→4(見重電群),餘無。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": "沿用前批 reject/defer 理由。",
+   "evidence": []
+  }
+ ]
+}

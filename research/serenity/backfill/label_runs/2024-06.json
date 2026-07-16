@@ -1,0 +1,110 @@
+{
+ "label_month": "2024-06",
+ "mode": "incremental",
+ "fence": "2024-06-30",
+ "queries": [
+  "貨櫃 海運 運價 SCFI 紅海 繞道 2024年 陽明 萬海 長榮 缺櫃 塞港 大漲"
+ ],
+ "sources_used": [
+  {
+   "date": "2024-05~06(萬海 Q1 法說,≤圍欄;story id 5572480)",
+   "publisher": "Anue 鉅亨 (news.cnyes.com/news/id/5572480)",
+   "claim": "萬海法說:紅海危機未除,Q3 仍缺櫃缺艙;全球閒置運力僅 0.7% 續撐高運價。歐洲線繞行好望角、運輸時間拉長,航商須加派運力(原 12 艘增為 15 艘)。"
+  },
+  {
+   "date": "2024上半(≤圍欄;紅海繞道 SCFI 飆)",
+   "publisher": "聯合新聞網 udn(7679999/7982048)",
+   "claim": "紅海危機未解、SCFI 運價指數暴漲(一度 +40%);海運『船櫃雙缺』近洋航線飆漲,萬海/陽明/長榮受惠(繞道吸收有效運力、缺櫃塞港)。"
+  }
+ ],
+ "sources_discarded_count": 12,
+ "discard_note": "晚於 2024-06-30 圍欄者丟棄:①陽明 2024-08 加收 GRI +2000 美元/40 呎(money.udn/udn 8069507 之 8 月具體事實,晚於圍欄);②SCFI 連十漲至 3326、遠東-美西 6630/美東 8296 美元、5 月起主要航線平均漲逾四成之後段暴衝為 2025-2026(money.udn 9537185/9509368/9523063、udn 9605984/9519857,story id 9.5M+);③重電 AI 資料中心具體大單/星際之門/在手 300 億仍 2024-Q4~2026。本月重電四雄不在動能種子(6 月電機機械種子轉為工具機/自動化),無名別 ≤圍欄新催化。",
+ "clusters": [
+  {
+   "industry": "航運業(貨櫃海運)",
+   "seed_type": "momentum(新產業聚類)",
+   "verdict": "reject",
+   "reject_reason": "本月新出現之產業聚類(萬海 2615/陽明 2609/中櫃 2613/志信 2611 等貨櫃海運)。完整瓶頸簽名檢核,判定為框架明列之反例=reject:①需求端——非 TAM 量級擴張,運價飆升主因紅海繞行好望角吸收『有效運力』(供給側事件)+ 美國急單前拉(週期性拉貨),非結構需求跳升;②供給無彈性——不成立:此為典型大宗商品運價循環,新船交付(2023-2025 大量下水)本在開出、僅被紅海繞道暫時吸收;紅海為地緣事件、蘇伊士恢復即運力回吐=『短窗口事件缺口』,框架明列 reject;③供應商集中——不成立:全球班輪寡占但運價為 SCFI 大宗商品定價,台廠(陽明/萬海/長榮海運)為運價 price-taker、不控制稀缺不可替代節點;④放大器——紅海地緣(有,但為暫時性事件放大器,非結構 onshoring/規格強制)。結論:純大宗商品循環 + 短窗口地緣事件缺口,兩項反例同時命中,結構性 reject。",
+   "narrative": "貨櫃海運運價飆為紅海繞道(短窗口地緣事件)吸收有效運力 + 美國前拉的大宗商品運價循環,台廠為運價 price-taker、無結構稀缺節點,框架反例 reject。",
+   "bottleneck_check": {
+    "demand": "非 TAM 擴張;紅海繞道吸收運力 + 美急單前拉(供給側+週期)",
+    "supply_rigidity": "不成立——大宗運價循環,新船在開出、紅海為可逆事件(短窗口缺口)",
+    "concentration": "不成立——運價 SCFI 大宗定價,台廠為 price-taker",
+    "amplifier": "紅海地緣(暫時性事件放大器,非結構)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "2024-05~06", "source": "cnyes 5572480 萬海法說", "claim": "紅海未除、缺櫃缺艙、閒置運力 0.7% 撐高運價(事件型、可逆)。"}
+   ]
+  },
+  {
+   "industry": "電機機械(重電)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical:華城 5 月已 3→4(達寡占 owner 上限)。本月重電四雄未進入 6 月動能種子(電機機械種子轉工具機/自動化:穎漢 4562/羅昇 8374/福裕 4513 等),且無 ≤圍欄名別新催化,全數持平沿用。華城 4 / 中興電 3 / 亞力 2 / 士電 2。",
+   "bottleneck_check": {"demand": "美國電網汰換 + 台電強韌電網(carry;華城 ≤圍欄 2024-05-04)", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電",
+   "members": [
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 4, "rationale": "carry 持平(5 月已升頂)。"},
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平;無 ≤圍欄名別新單。"},
+    {"code": "1514", "name": "亞力", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "1503", "name": "士電", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬 / 重電訂單連 2 季衰退 / 變壓器交期正常化 / 美國外銷能見度回縮。",
+   "evidence": []
+  },
+  {
+   "industry": "觀光餐旅(航空)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "reopening_travel ⚠ 晚週期續判(本批最後一月):可確認 ≤圍欄至 2024-06 之事實仍為需求旺(暑假旅運旺季在即)、票價較 2019 偏高未正常化、運能未全面恢復;滾動見頂(YoY 票價轉跌/承載率下滑)之 ≤圍欄證據要到 2025 才出現(見 05 月 discard_note),故本批六個月內失效條件『均未觸發』,持平 conviction 4。本主題留給 2024H2 批以 ≤圍欄證據續判見頂點(方法:各月讀 ≤圍欄運能 vs 2019 + 票價 YoY,YoY 轉跌 + 運能全面恢復即設 active_until)。",
+   "bottleneck_check": {"demand": "暑假旺季在即、需求續強(≤圍欄)", "supply_rigidity": "運能續回補未全面恢復 2019", "concentration": "航空雙雄(非節點)", "amplifier": "高票價未正常化"},
+   "theme_id": "reopening_travel",
+   "theme_name": "解封出行",
+   "members": [
+    {"code": "2618", "name": "長榮航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平;≤圍欄無見頂訊號、失效未觸發。"},
+    {"code": "2610", "name": "華航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平。"},
+    {"code": "2731", "name": "雄獅", "role": "beneficiary", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "2707", "name": "晶華", "role": "beneficiary", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "航空運能恢復 2019 + 票價正常化(≤圍欄至 2024-06 均未觸發;交棒 2024H2 批續判)。",
+   "evidence": []
+  },
+  {
+   "industry": "半導體(先進封裝)/顯示器(電子紙)/散熱(AI 液冷觀察)(在冊+觀察沿用)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "①advanced_packaging_cowos——台積電封頂 carry 5;enabler 層(日月光 3711/京元電 2449/辛耘 3583/弘塑 3131/萬潤 6187)持平 2。②epaper_esl——元太持平 3。③ai_liquid_cooling(觀察,未入冊)——Computex 2024(6/4-7)再強化液冷需求敘事,惟模組層(雙鴻/奇鋐/高力)仍為可擴受惠端、GB200 量產 H2 才起,本月無 ≤圍欄之 UQD/CDU 配額或缺料硬約束證據,續 defer,富世達 6805 續觀察(交棒 2024H2)。",
+   "bottleneck_check": {"demand": "carry(Computex 液冷再強化需求)", "supply_rigidity": "carry(模組可擴)", "concentration": "carry(子節點 UQD 待證)", "amplifier": "carry(規格強制)"},
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "多主題沿用(CoWoS/電子紙/液冷觀察)",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 5, "rationale": "carry 持平(已封頂)。"},
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平(TPEx)。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "各主題沿用前月 invalidation_criteria。",
+   "evidence": []
+  },
+  {
+   "industry": "建材營造/半導體/電子零組件/通信網路/電腦週邊/電子通路/光電/其他電子/金融/生技/電機機械(工具機)(既檢核沿用)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "沿用:建材營造(2537 聯上發/皇普 2528 相鄰等,動能+營收續放大)= 完工認列+房市題材 reject;半導體 IC 設計/利基 reject;電子零組件(CCL 台光電 2383 defer/機構連接器 carry);通信網路光通訊 defer;電腦週邊 AI ODM beneficiary;電子通路 reject;光電顯示/導線架(佳能 2374/一詮 2486)reject;其他電子(所羅門 2359 AI 機器視覺/鴻海 2317 AI server ODM——AI 受惠端 beneficiary,無稀缺節點,reject/carry);電機機械工具機(穎漢 4562/羅昇 8374/福裕 4513/協易 4533)= 資本財循環受惠、非重電、無瓶頸節點,reject;金融保險基期循環 reject;生技個股催化 reject。本月 conviction 變動:無。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": "沿用前批 reject/defer 理由。",
+   "evidence": []
+  }
+ ]
+}

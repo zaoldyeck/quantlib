@@ -1,0 +1,76 @@
+{
+ "label_month": "2024-04",
+ "mode": "incremental",
+ "fence": "2024-04-30",
+ "queries": [
+  "華城 美國 變壓器 訂單 2024年第一季 外銷 出貨 電網 首張 突破"
+ ],
+ "sources_used": [],
+ "sources_discarded_count": 12,
+ "discard_note": "本月真搜尋(重電 ≤圍欄催化)結果全數晚於或無法確認 ≤ 2024-04-30:①最早可確認之華城美國外銷第一手來源為 ctee 20240504700314『不懼美國大選 華城變壓器外銷訂單旺 能見度看到…』,發布日 2024-05-04——晚於 4 月圍欄 1 天,保留至 5 月使用;②cnyes 5939419『華城 Q1 營收創同期高、逾百億訂單』經 id 序列比對(5.43M=2024-01、5.64M=2024-10、5.86M=2025-02、5.94M≈2025-04)判為 Q1 2025 文,丟棄;③cnyes 6210465/6224125/6430105、money.udn 9199443/9371414、ctee 20260102、moneydj 星際之門二期(在手 300 億)皆 2025-2026。無 ≤圍欄可用來源,故 sources_used 為空——本月為誠實『拒絕也是產出』:動能極強(華城 60 日 +134.9%、士電 +169.3%)但無 ≤圍欄新聞催化,不上調。",
+ "clusters": [
+  {
+   "industry": "電機機械(重電)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical:第五次真搜尋,最早可確認之『華城美國變壓器外銷』第一手來源為 2024-05-04(ctee),仍晚於本月圍欄;Q1 2024 營收創高之報導亦皆 2024-05 起或經比對為 2025 文。故 2024-04 仍無 ≤圍欄催化可引用,持平沿用。市場動能持續放大(華城 +134.9%、士電 +169.3%、亞力續強)——記錄為市場信號,但依鐵律 2 不以動能/2025 回溯敘事上調 conviction(防前視)。≤圍欄驅動維持台電強韌電網(在冊)。註:AI 電力外銷催化預期於 5 月轉為 ≤圍欄可用(見 discard_note)。",
+   "bottleneck_check": {"demand": "台電強韌電網(≤圍欄在冊)", "supply_rigidity": "carry", "concentration": "carry(重電四雄寡占)", "amplifier": "AI 電力一般認知(GTC),重電廠具體單仍待 ≤圍欄"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平。"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平;US 外銷催化 5 月才 ≤圍欄,本月不上調。"},
+    {"code": "1514", "name": "亞力", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "1503", "name": "士電", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬 / 重電訂單連 2 季衰退 / 變壓器交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "文化創意業",
+   "seed_type": "revenue_accel(新產業聚類)",
+   "verdict": "reject",
+   "reject_reason": "本月新出現之產業聚類(寬宏 6596 展演票務/大宇資 6111 遊戲/華義 3086 遊戲)。瓶頸簽名檢核:需求端為展演復甦/遊戲上市個別催化(≤圍欄後疫情展演回補);②供給無彈性——不成立:內容/服務/票務無實體產能節點;③供應商集中——不成立:文創高度分散、可替代;④放大器——無結構性(授權/認證類硬約束不存在於此)。框架結構性 reject(內容/服務業無實體產能瓶頸,同軟體/資訊服務判定)。此為本月起文創族群放大之定性基準,後續月 carry。",
+   "narrative": "文化創意業(展演/遊戲)為內容服務需求復甦,無實體供給節點,框架結構性 reject。",
+   "bottleneck_check": {"demand": "展演復甦/遊戲個股催化", "supply_rigidity": "無(內容服務無產能節點)", "concentration": "文創高度分散", "amplifier": "無"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "半導體(先進封裝)/顯示器(電子紙)/觀光餐旅(航空)/散熱(AI 液冷)(在冊+觀察沿用)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "①advanced_packaging_cowos——台積電 4→5 已封頂於 2024-01;Q1 法說(2024-04-18)AI 需求延續強、CoWoS 續短缺,佐證但已封頂,carry 5;enabler 層持平 2。②epaper_esl——元太持平 3,本月無新 ≤圍欄催化。③reopening_travel——Q1 出行延續旺(≤圍欄),運能仍回補、票價未正常化,失效未觸發,持平 4/4/2/2。④ai_liquid_cooling(觀察線,未入冊)——GB200 量產為 2024-H2,本月無 ≤圍欄之快接頭(UQD)/CDU 配額或缺料硬約束新證據,續 defer,子節點富世達 6805 續觀察。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "多主題沿用(CoWoS/電子紙/解封出行/液冷觀察)",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 5, "rationale": "carry 持平(已封頂);Q1 法說佐證。"},
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平(TPEx)。"},
+    {"code": "2618", "name": "長榮航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平;失效未觸發。"},
+    {"code": "2610", "name": "華航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "各主題沿用前月 invalidation_criteria。",
+   "evidence": []
+  },
+  {
+   "industry": "建材營造/半導體/電子零組件/通信網路/電腦週邊/電子通路/光電/其他電子/金融/生技/電機機械(既檢核沿用)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "沿用既有判定:建材營造(永信建 5508/國建 2501/皇昌 2543 等,動能+營收雙榜放大)= 完工認列 + 新青安房貸房市題材,結構性 reject(2024-03 已立基準);半導體 IC 設計/利基(世紀 5314 續榜)carry reject;電子零組件(合正 5381/CCL 台光電 2383 defer/機構連接器 carry);通信網路光通訊續 defer;電腦週邊 AI ODM beneficiary;電子通路(reject,carry);光電顯示(reject);其他電子廠務工程(潤弘/漢唐相鄰 capex beneficiary reject);金融保險(基期循環 reject);生技個股催化(reject);電機機械非在冊四雄名(擎邦 6425 等)carry。本月 conviction 變動:無。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": "沿用前批 reject/defer 理由。",
+   "evidence": []
+  }
+ ]
+}

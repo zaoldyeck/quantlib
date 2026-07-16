@@ -1,0 +1,103 @@
+{
+ "label_month": "2024-02",
+ "mode": "incremental",
+ "fence": "2024-02-29",
+ "queries": [
+  "電子通路 IC 通路商 缺貨 配貨 2024年 大聯大 文曄 擎亞 亞矽 供貨",
+  "華城 中興電 重電 訂單 美國 AI 資料中心 2024年2月 法說 業績"
+ ],
+ "sources_used": [
+  {
+   "date": "約 2023年底~2024初(≤圍欄,story id 7818198/7581439 區間)",
+   "publisher": "經濟日報 money.udn (5607/7818198, 5607/7581439)",
+   "claim": "IC 通路股搭上 AI + 合併題材(文曄收購 Future Electronics),獲利倍數增;IC 通路一路北上。通路商營收隨 AI/半導體流量放大,惟屬代理配銷受惠 + 整併,非供給節點。"
+  }
+ ],
+ "sources_discarded_count": 14,
+ "discard_note": "晚於 2024-02-29 圍欄或無法確認發布日者丟棄:①重電 AI-電網證據仍全數 ≤圍欄外(華城星際之門/AI 訂單破 120 億/占比 2026>10%、中興電在手 417 億 UL 認證皆 2024-Q4 起至 2025-2026:money.udn 9199443/9200224/9362359/9362482/9268470/9340241/8578714、cnyes 6430105、ctee 20260423);②money.udn 9371414『前2月營收同期新高』story id 屬 9xxxxxx(2025-2026 區間)無法確認為 2024,保守丟棄;③『記憶體大缺貨/DDR4 暴漲 3-4 倍/NAND 缺貨』為 2024-Q4~2025 敘事(晚於圍欄,不作 2 月判斷);④文曄收購 Future 完成/前 10 月營收破兆為 2024 下半年數字;⑤technews 2022-01 IC 通路殖利率文(≤圍欄但與本月無關)。",
+ "clusters": [
+  {
+   "industry": "電子通路業",
+   "seed_type": "momentum(新產業聚類)",
+   "verdict": "reject",
+   "reject_reason": "本月新出現之產業聚類(亞矽 6113/擎亞 8096/尚立 3360/蔚華科 3055 等 IC 通路商),完整檢核瓶頸簽名:①需求端 riding AI/半導體流量放大(≤圍欄:IC 通路搭上 AI + 文曄收購 Future 整併,獲利增)為真;②供給無彈性——不成立:通路商為代理配銷,不擁產能/認證/專利/藥證等稀缺節點,可快速擴充;③供應商集中——不成立:通路高度競爭(大聯大/文曄/至上/威健/擎亞…),客戶與原廠皆可換代理;④定價權——不成立:通路毛利結構性偏薄(數 %),漲價為轉嫁非結構擴張。三成員測試全數指向 beneficiary/無節點,結構性 reject(通路業無實體產能瓶頸,框架同軟體/金融循環)。",
+   "narrative": "IC 通路業為 AI 半導體流量之代理配銷受惠端 + 整併題材,無稀缺節點與供給無彈性,結構性 reject。",
+   "bottleneck_check": {
+    "demand": "AI/半導體流量放大帶動通路營收(≤圍欄受惠敘事)",
+    "supply_rigidity": "不成立——代理配銷可擴,無產能節點",
+    "concentration": "不成立——通路商多家高度競爭、可換代理",
+    "amplifier": "無結構放大器(整併為公司層事件,非供給硬約束)"
+   },
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": [
+    {"date": "約 2023底~2024初(≤圍欄)", "source": "money.udn 7818198/7581439", "claim": "IC 通路搭 AI + 合併題材、獲利倍數增(受惠端,非節點)。"}
+   ]
+  },
+  {
+   "industry": "電機機械(重電)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "grid_heavy_electrical 續判:本月第三次真搜尋仍未取得『發布日期 ≤ 2024-02-29』之 AI-電網/美國變壓器外銷第一手催化——所有相關來源(星際之門訂單、在手 120 億、占比 2026>10%、前 2 月營收同期新高之 story id 屬 2025-2026 區間)皆晚於或無法確認 ≤圍欄。市場動能持續(華城/中興電/亞力/士電本月仍在動能榜,華城 60 日 +101.7%、亞力 +61.4%)但無 ≤圍欄可引用催化,依鐵律 2 不憑動能/記憶上調。≤圍欄結構驅動維持台電強韌電網(在冊)。conviction 全數持平。",
+   "bottleneck_check": {"demand": "台電強韌電網(≤圍欄在冊);AI-電網屬圍欄外(未用)", "supply_rigidity": "carry", "concentration": "carry(重電四雄寡占)", "amplifier": "onshoring/美國電網為圍欄外敘事(未用)"},
+   "theme_id": "grid_heavy_electrical",
+   "theme_name": "電網重電",
+   "members": [
+    {"code": "1513", "name": "中興電", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平。"},
+    {"code": "1519", "name": "華城", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平;動能強但 AI-電網催化仍晚於圍欄。"},
+    {"code": "1514", "name": "亞力", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"},
+    {"code": "1503", "name": "士電", "role": "enabler", "conviction": 2, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "台電強韌電網預算腰斬 / 重電訂單連 2 季衰退 / 變壓器交期正常化。",
+   "evidence": []
+  },
+  {
+   "industry": "半導體(先進封裝)/顯示器(電子紙)/觀光餐旅(航空)(在冊沿用)",
+   "seed_type": "book_theme",
+   "verdict": "carry_over",
+   "narrative": "在冊主題本月無 ≤圍欄新催化,持平沿用:①advanced_packaging_cowos——台積電 2024-01 已達 owner 結構上限 5,本月無新增證據且已封頂,carry 5;enabler 層(日月光 3711/京元電 2449/辛耘 3583/弘塑 3131/萬潤 6187)持平 2。②epaper_esl——元太 8069 之 2023-Q4 法說為 2024-03-07 發布(晚於本月圍欄),carry 3。③reopening_travel——2024-02 逢農曆春節(2/10),短線需求旺為 ≤圍欄延續,惟 2 月營收數字須待 3 月上旬公布(晚於圍欄);票價仍未正常化、運能仍回補中,失效未觸發,持平 4/4/2/2。晚週期觀察線續延。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": "advanced_packaging_cowos",
+   "theme_name": "多主題沿用(CoWoS/電子紙/解封出行)",
+   "members": [
+    {"code": "2330", "name": "台積電", "role": "chokepoint_owner", "conviction": 5, "rationale": "carry 持平(已封頂)。"},
+    {"code": "8069", "name": "元太", "role": "chokepoint_owner", "conviction": 3, "rationale": "carry 持平(TPEx);2023-Q4 法說晚於圍欄。"},
+    {"code": "2618", "name": "長榮航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平;春節旺、票價未正常化,失效未觸發。"},
+    {"code": "2610", "name": "華航", "role": "beneficiary", "conviction": 4, "rationale": "carry 持平。"}
+   ],
+   "conviction_updates": [],
+   "invalidation_criteria": "各主題沿用前月 invalidation_criteria。",
+   "evidence": []
+  },
+  {
+   "industry": "散熱(AI 液冷)",
+   "seed_type": "free_discovery",
+   "verdict": "reject",
+   "narrative": "AI 液冷續判過早:GB200 液冷剛需/黃仁勳宣告下一代 DGX 採液冷之關鍵催化為 GTC 2024-03(晚於本月圍欄),2024-02 氣冷仍為 H100/H200 世代主流。≤圍欄無液冷配額/快接頭/CDU 集中供給硬約束證據,續 reject。GTC(下月)後重估。",
+   "bottleneck_check": {"demand": "AI 功耗上升(需求敘事)", "supply_rigidity": "氣冷仍主流、散熱模組可擴", "concentration": "散熱台廠多家", "amplifier": "GB200 液冷為 2024-03 GTC(圍欄外)"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": null,
+   "evidence": []
+  },
+  {
+   "industry": "半導體/光電/通信網路/電腦週邊/電子零組件/資訊服務/其他電子/電機機械/金融/生技(既檢核沿用)",
+   "seed_type": "carry_over",
+   "verdict": "carry_over",
+   "narrative": "其餘產業聚類皆屬已檢核類別、無新供應鏈敘事,沿用:半導體 IC 設計(世紀 5314 營收 YoY +3500% 為微幅基期跳升之小型股,carry reject fabless/利基)、光電顯示/背光(達威 5432/榮創 3437 等 reject)、通信網路光通訊(續 defer)、電腦週邊 AI ODM(beneficiary)、電子零組件機構/連接器(carry)、資訊服務軟體(結構 reject)、其他電子廠務工程(capex beneficiary reject)、電機機械(力山 1515/樂事綠能 1529/擎邦 6425 等,1529 重電相鄰但非在冊四雄且無 ≤圍欄新單,carry)、金融保險(基期+利差循環 reject)、生技個股催化(reject)。本月無 conviction 變動。",
+   "bottleneck_check": {"demand": "carry", "supply_rigidity": "carry", "concentration": "carry", "amplifier": "carry"},
+   "theme_id": null,
+   "theme_name": null,
+   "members": [],
+   "conviction_updates": [],
+   "invalidation_criteria": "沿用前批 reject/defer 理由。",
+   "evidence": []
+  }
+ ]
+}
