@@ -254,6 +254,24 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 ## Gotchas & Contracts
 
+### 資料流極速鐵律(2026-07-17 定案;任何 session、任何新程式一律遵守,違者重寫)
+
+**cache 是毫秒級的,慢永遠是程式的錯。**歷史事故:引擎單次回測拖到 ~10 分鐘,
+逐段剖析後 5.1 秒(~120x)——五個病灶全是載入層寫法,不是資料層。硬性規則:
+
+1. **禁止全表載入**:任何從 cache/PG 拉表的查詢,能按池/codes/日期過濾就必須過濾
+   (`WHERE company_code IN (...)`)。全市場大表(daily_quote 900 萬、
+   daily_trading_details 590 萬、stock_per_pbr 770 萬)原封進 pandas = 直接違規。
+2. **rolling/groupby 留在 polars 或 SQL**,禁止 pandas `groupby().transform(lambda)`
+   跑百萬行。
+3. **重算物必須快取**:調整價格面板(back-adjustment)等昂貴衍生物一律磁碟快取,
+   key 含 `cache.duckdb` mtime(資料世代一變即失效)。
+4. **迴圈內禁止重複預處理**:對同一 DataFrame 反覆 as-of 篩選時,轉型/排序只做一次
+   (預處理快取 + searchsorted),不准每次迭代 copy+sort。
+5. **不用的資源不初始化**(如用不到的 view 註冊、備用通道的面板)。
+6. **新 harness 出廠前必跑一次 `time` 實測**:單次回測 >30 秒即視為有病灶,cProfile
+   剖到見骨才准交付;修完必附逐位等價驗證。
+
 ### Bash & JVM
 
 - **Bash tool `cd` persists between calls** — always use absolute paths, e.g. `cd /Users/zaoldyeck/Documents/scala/quantlib/research && ...`.

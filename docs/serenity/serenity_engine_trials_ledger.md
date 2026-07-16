@@ -771,3 +771,18 @@ T3 窗(2023-07 起 train)的誤跑檔案作廢不計;選型仍嚴禁看 OOS。
 + polars rolling、調整面板磁碟快取(世代感知)、row_latest_before 預處理快取 +
 searchsorted、db.connect 跳過無用 view 註冊、buyback 面板按需載入。live 每日 loop
 與後續全部研究 runs 同受益。
+
+## 戰役十八續篇 — 第二輪極限搜索(2026-07-17 預註冊;使用者:「不相信引擎到極限了,繼續試」+ 換 champion 流程核准)
+
+**搜索空間擴張(train 窗不變 2022-07-11~2025-07-10;in-process 全交叉)**:
+- 計分軸 × 出場軸**全交叉**(staged 的盲區:Stage 2 只試了 top-3 計分)——計分 14 種
+  (含 role/fresh/nofilt 組合與 conviction 權重係數 4/8/12)× 出場精細格
+  (tp{0.3,0.4,0.5,0.6,none} × trail{0.15,0.2,0.25,0.3} × abs{0.15,none} × time{30,50,none})
+  ≈ 千級 cells;engine 新增 in-process 計分批次(--score-grid),單進程掃全交叉。
+- 判準不變:train 內月報酬 boot P5 選型(固定 seed 消 MC 噪音);**OOS 使用計帳**:
+  乾淨 OOS 已於四方對決消耗一次;第二輪 top-1 與 b18 top-1 的最終比較改以使用者核准的
+  **兩折 OOS 檢核(F1: train→OOS 2025;F2: train→OOS 2026H1)+ 富邦 realistic** 為
+  換 champion 的把關,單一 OOS 大窗不再重複引用為裁決依據。DSR cells 全計。
+**換 champion 流程(使用者核准)**:第二輪 top-1(若勝 b18)或 b18 → 兩折 OOS 檢核 +
+富邦 realistic 重放 → 全過 → **換 champion 並執行第二步 refit(最近 3 年重出上場參數)**
+→ live 上線;任一不過 → 現役續任。
