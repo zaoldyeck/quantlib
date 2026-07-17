@@ -30,6 +30,24 @@ from research.tri.advisors import (Advice, evergreen_advisor, s_advisor,
 REPORTS = "research/tri/reports"
 
 
+def order_example() -> str:
+    """下單指令範例——單一真相來源(報告檔與終端共用,避免兩份漂移)。
+
+    語法與執行器一致:買入 `代碼:股數`、賣出省略股數 = 全部庫存;`--qty`
+    給了就兩側通用、不給則買 1 股/賣全部;逐檔 `:股數` 永遠優先。
+    """
+    return (
+        "── 下單指令範例(全部腿併發,買撈低點、賣撈高點,收盤未竟自動盤後掛收盤價)──\n"
+        "  FUBON_DRY_RUN=false \\\n"
+        "  uv run --project research python -m research.trading.execution.trade \\\n"
+        "      --buy \"2408:2,3006:5\" --sell \"4973,5289\" --live\n"
+        "  說明:\n"
+        "    • 買入寫「代碼:股數」(2408 買 2 股、3006 買 5 股);省略股數預設買 1 股\n"
+        "    • 賣出省略股數 = 賣全部庫存(4973、5289 各清倉);要賣指定量寫 4973:1\n"
+        "    • 想全部買賣同一股數:加 --qty N(兩側通用);逐檔 :股數 永遠優先\n"
+        "    • 只買或只賣就省略另一個參數;何時啟動都行——盤前自動等開盤、盤中立即執行")
+
+
 def get_account(args) -> tuple[dict[str, float], float]:
     """回傳 (持倉, 現金)。"""
     if args.positions or args.positions_file:
@@ -329,14 +347,7 @@ def main() -> None:
         parts.append("\n" + stock_appendix(code, names.get(code, ""), advices))
     parts.append("\n(三份獨立建議——各策略把整個帳戶視為自己的;"
                  "資金分配與送單由你決定;本指令永不下單)")
-    parts.append(
-        "\n── 下單指令範例(代碼自行填入,逗號分隔多檔;全部腿併發,買撈低點、"
-        "賣撈高點,收盤未竟自動盤後掛收盤價,做完自動終止)──\n"
-        "  FUBON_DRY_RUN=false \\\n"
-        "  uv run --project research python -m research.trading.execution.trade \\\n"
-        "      --buy \"<買入代碼>\" --sell \"<賣出代碼>\" --qty 1 --live\n"
-        "  (只買或只賣就省略另一個參數;何時啟動都行——盤前啟動自動等開盤,"
-        "盤中啟動立即執行)")
+    parts.append("\n" + order_example())
 
     report = "\n".join(parts)
     os.makedirs(REPORTS, exist_ok=True)
@@ -364,9 +375,7 @@ def main() -> None:
         "── 三策略各自的完整視角 ──",
         *strategy_parts,
         "",
-        "── 下單指令範例(代碼自行填入,逗號分隔多檔)──",
-        "  FUBON_DRY_RUN=false uv run --project research python -m "
-        "research.trading.execution.trade --buy \"<買入代碼>\" --sell \"<賣出代碼>\" --qty 1 --live",
+        order_example(),
         "",
         "─" * 60,
         f"📄 完整報告(逐檔為什麼買/賣、離出場多遠、策展理由、原始存證):",
