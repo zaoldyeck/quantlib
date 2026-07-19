@@ -85,6 +85,7 @@ uv run --project research python -m research.tri.daily --positions-file my_posit
 | Serenity brief | `research/serenity/out/briefs/YYYY-MM-DD.md` |
 | 出場狀態(首見日/峰值,自動維護) | `research/tri/state/*.json` |
 | Evergreen 標記庫 | `research/evergreen/data/registry_v3.parquet` |
+| PnL 儀表板(七線,含安聯台灣科技基金) | `research/tri/pnl_dashboard.py` → `research/tri/reports/pnl_dashboard.html`;基金淨值來源見 `research/tri/allianz_fund.py` docstring |
 | 策略規格書 | S: `research/apex/STRATEGY.md`;Serenity: skill `serenity-trading-system`;Evergreen: `research/evergreen/LEDGER.md`(EV30-33 定版) |
 
 ## 三策略一覽

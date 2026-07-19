@@ -1,13 +1,15 @@
-"""三策略 PnL 永續追蹤儀表板(2026-07-17;使用者規格).
+"""三策略 PnL 永續追蹤儀表板(2026-07-17;使用者規格;2026-07-19 加安聯台灣科技基金).
 
-六線同窗(2022-07-11 起)至 cache 最新:apex_revcycle_S(apex_revcycle_S 現役)、Evergreen
+七線同窗(2022-07-11 起)至 cache 最新:apex_revcycle_S(apex_revcycle_S 現役)、Evergreen
 最強(live_config 現役)、Serenity(ev_v3_wf)(ev_v3_wf 現役+最新縫合冊)、0050、00685L、
-2330。上圖 NAV(log)/下圖 DD、KPI 卡、逐年績效表;三策略線標「參數世代線」
-(2026-07-17,右側為真前瞻)。輸出 self-contained HTML 至固定路徑,由
-`research.tri.daily` 鏈尾自動重生(--no-dashboard 跳過)——瀏覽器書籤即「打開就最新」。
+2330、安聯台灣科技基金(主動式共同基金,見 `research/tri/allianz_fund.py`)。上圖
+NAV(log)/下圖 DD、KPI 卡、逐年績效表;三策略線標「參數世代線」(2026-07-17,右側
+為真前瞻)。輸出 self-contained HTML 至固定路徑,由 `research.tri.daily` 鏈尾自動
+重生(--no-dashboard 跳過)——瀏覽器書籤即「打開就最新」。
 
 Run: uv run --project research python -m research.tri.pnl_dashboard
-依賴 cache: 是(需最新)。色盤:dataviz reference palette(六槽已過 CVD 驗證)。
+依賴 cache: 是(需最新)。色盤:dataviz reference palette(七槽已過 CVD 驗證,見
+2026-07-19 驗證紀錄 —— validate_palette.js light/dark 皆 ALL CHECKS PASS)。
 """
 
 from __future__ import annotations
@@ -29,9 +31,9 @@ START = date(2022, 7, 11)
 PARAM_EPOCH = date(2026, 7, 17)  # 三策略現役參數世代日(右側=真前瞻)
 OUT_HTML = REPO_ROOT / "research" / "tri" / "reports" / "pnl_dashboard.html"
 RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
-# dataviz reference palette slots 1-6(validate_palette.js 六槽 PASS)
+# dataviz reference palette slots 1-7(validate_palette.js 七槽 PASS,2026-07-19)
 COLORS = {"Serenity(ev_v3_wf)": "#2a78d6", "Evergreen(live-refit)": "#008300", "apex_revcycle_S": "#e87ba4",
-          "0050": "#eda100", "00685L 正2": "#1baf7a", "2330": "#eb6834"}
+          "0050": "#eda100", "00685L 正2": "#1baf7a", "2330": "#eb6834", "安聯台灣科技基金": "#4a3aa7"}
 
 
 def _cache_latest() -> date:
@@ -281,13 +283,13 @@ def build_html(navs: dict[str, pd.Series], data_date: date) -> str:
             f"由 <code>research.tri.daily</code> 自動更新。")
     return f"""<meta charset='utf-8'><title>三策略 PnL 追蹤</title>
 <style>body{{font-family:-apple-system,'PingFang TC',sans-serif;background:#fcfcfb;color:#0b0b0b;margin:24px auto;max-width:1180px}}
-h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin:14px 0}}
+h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}}
 .card{{background:#fff;border:1px solid #eceae6;border-radius:8px;padding:10px 12px}}
 .cn{{font-size:12px;color:#52514e}} .big{{font-size:22px;font-weight:700;margin:2px 0}}
 .kv{{font-size:11.5px;color:#52514e}} .kv b{{color:#0b0b0b}}
 .yr{{border-collapse:collapse;margin:10px 0;font-size:13px}} .yr th,.yr td{{border:1px solid #eceae6;padding:5px 10px;text-align:right}}
 .note{{font-size:12px;color:#52514e;margin-top:14px}}</style>
-<h1>三策略 PnL 永續追蹤 <span style='font-size:13px;color:#52514e'>(三策略現役參數 vs 0050 / 00685L / 2330)</span></h1>
+<h1>三策略 PnL 永續追蹤 <span style='font-size:13px;color:#52514e'>(三策略現役參數 vs 0050 / 00685L / 2330 / 安聯台灣科技基金)</span></h1>
 <div class='cards'>{''.join(cards)}</div>
 {fig.to_html(full_html=False, include_plotlyjs=True)}
 <h2 style='font-size:16px'>逐年績效</h2>{yr_html}
@@ -295,12 +297,15 @@ h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(6,1fr);ga
 
 
 def main() -> None:
+    from research.tri.allianz_fund import load_nav as allianz_nav
+
     end = _cache_latest()
     navs: dict[str, pd.Series] = {}
     navs["Serenity(ev_v3_wf)"] = serenity_nav(end)
     navs["Evergreen(live-refit)"] = evergreen_nav(end)
     navs["apex_revcycle_S"] = s_nav()
     navs.update(bench_navs(end))
+    navs["安聯台灣科技基金"] = allianz_nav(end)
     navs = {k: v[(v.index.date >= START)] for k, v in navs.items()}
     OUT_HTML.parent.mkdir(parents=True, exist_ok=True)
     OUT_HTML.write_text(build_html(navs, end), encoding="utf-8")
