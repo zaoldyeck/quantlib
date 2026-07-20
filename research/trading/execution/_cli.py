@@ -467,6 +467,13 @@ def _run_inner(side: str) -> None:
             "avg_price": round(r.avg_price, 4), "arrival": r.arrival,
             "shortfall_bps": r.shortfall_bps(), "aborted": r.aborted,
         }, ensure_ascii=False))
+        # 目標計分板:買在距當日低多少、賣在距當日高多少(越接近 0 越好)
+        cap = r.capture_bps()
+        if cap is not None:
+            tgt = "當日低" if leg["side"] == "Buy" else "當日高"
+            print(f"      ↳ 撈價成績:{'買' if leg['side'] == 'Buy' else '賣'}在 {r.avg_price:g}"
+                  f",{tgt} {r.day_extreme:g},距{tgt} {cap:g} bps"
+                  + ("(貼著極值 ✓)" if cap <= 20 else "(離極值較遠)" if cap > 80 else ""))
     if aborted_any:
         print("[提醒] 有腿被中止;若在 LIVE,可跑 cancel_all 確認無殘留委託。")
     print("程式自行終止。")

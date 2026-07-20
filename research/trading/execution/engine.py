@@ -392,6 +392,7 @@ class LegResult:
     arrival: float = 0.0
     rounds: int = 0
     aborted: bool = False
+    day_extreme: float = 0.0  # 買=當日低、賣=當日高(目標的計分基準)
     events: list = field(default_factory=list)
 
     @property
@@ -403,6 +404,15 @@ class LegResult:
             return None
         sgn = 1.0 if self.side == "Buy" else -1.0
         return round(sgn * (self.avg_price / self.arrival - 1.0) * 1e4, 1)
+
+    def capture_bps(self) -> float | None:
+        """目標計分:買=成交均價距當日低多少 bps、賣=距當日高多少 bps。
+        越接近 0 越好(0 = 買在最低/賣在最高);None = 尚無成交或缺極值。"""
+        if not self.filled_qty or self.day_extreme <= 0:
+            return None
+        if self.side == "Buy":
+            return round((self.avg_price / self.day_extreme - 1.0) * 1e4, 1)
+        return round((1.0 - self.avg_price / self.day_extreme) * 1e4, 1)
 
 
 class ExecutionEngine:
@@ -1099,11 +1109,20 @@ class ExecutionEngine:
                 except Exception as exc:  # noqa: BLE001 - 清理失敗不得吃掉原始例外
                     self.log("cancel_on_exit_failed", error=str(exc)[:160],
                              note="收工撤單失敗(斷網?)——跑 cancel_all 確認殘留")
+            # 當日極值計分基準:買=日低、賣=日高(micro 每 60s 用 1 分 K 校準的
+            # day_extreme 與 tick 追蹤的 extreme 取有利者)。缺 micro 則留 0。
+            if self.micro is not None:
+                ext = [v for v in (getattr(self.micro, "day_extreme", 0.0),
+                                   getattr(self.micro, "extreme", 0.0)) if v and v > 0]
+                if ext:
+                    self.result.day_extreme = min(ext) if self.side == "Buy" else max(ext)
             self.log("summary",
                      filled=self.result.filled_qty, target=self.qty,
                      avg_price=round(self.result.avg_price, 4),
                      arrival=self.result.arrival,
                      shortfall_bps=self.result.shortfall_bps(),
+                     day_extreme=round(self.result.day_extreme, 4) or None,
+                     capture_bps=self.result.capture_bps(),
                      rounds=self.result.rounds, live=self.live)
             if self._last_bars:  # 1 分 K 自建歷史(明日的「昨日價值區」來源)
                 path = dump_candles(self.code, self._last_bars)

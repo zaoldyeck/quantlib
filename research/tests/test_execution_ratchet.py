@@ -169,6 +169,28 @@ def test_on_bars_calibrates_day_extreme():
     assert mbuy2.day_extreme == 90.0, "買方日低被較高的 1 分 K 低點污染"
 
 
+# ── 4. 目標計分板(買距當日低、賣距當日高)──────────────────
+
+def test_capture_bps_scorecard():
+    from research.trading.execution.engine import LegResult
+    # 買在 101、當日低 100 → 距低 100 bps
+    buy = LegResult(code="0000", side="Buy", qty=10, filled_qty=10,
+                    fill_notional=1010.0, day_extreme=100.0)
+    assert buy.capture_bps() == 100.0
+    # 賣在 99、當日高 100 → 距高 100 bps
+    sell = LegResult(code="0000", side="Sell", qty=10, filled_qty=10,
+                     fill_notional=990.0, day_extreme=100.0)
+    assert sell.capture_bps() == 100.0
+    # 買在最低 → 0 bps(完美)
+    perfect = LegResult(code="0000", side="Buy", qty=10, filled_qty=10,
+                        fill_notional=1000.0, day_extreme=100.0)
+    assert perfect.capture_bps() == 0.0
+    # 無成交 / 缺極值 → None
+    assert LegResult(code="0000", side="Buy", qty=10).capture_bps() is None
+    assert LegResult(code="0000", side="Sell", qty=10, filled_qty=5,
+                     fill_notional=500.0, day_extreme=0.0).capture_bps() is None
+
+
 if __name__ == "__main__":
     import pytest
     pytest.main([__file__, "-v"])
