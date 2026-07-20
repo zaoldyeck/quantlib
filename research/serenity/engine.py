@@ -747,6 +747,17 @@ def simulate_event_variant(
 
     daily = pd.DataFrame(nav_rows)
     trades = pd.DataFrame(trade_rows)
+    # 期末未平倉部位補進 trades(reason="open" = 當下持有;與 apex 引擎 exit_reason
+    # ="open" 一致,供 PnL 儀表板「持倉與交易」區呈現)。ret 為未實現報酬。
+    _cl_last = close_by_day.get(days[-1], {})
+    _open_rows = [
+        {"code": c, "entry_date": days[p.entry_idx], "exit_date": None,
+         "days_held": len(days) - 1 - p.entry_idx,
+         "ret": _cl_last.get(c, p.entry_close) / p.entry_close - 1.0,
+         "reason": "open", "source": p.source}
+        for c, p in positions.items()]
+    if _open_rows:
+        trades = pd.concat([trades, pd.DataFrame(_open_rows)], ignore_index=True)
     if state_sink is not None:
         last_day = days[-1]
         closes_last = close_by_day.get(last_day, {})
@@ -1263,7 +1274,7 @@ def main() -> None:
                 if args.sweep:
                     row = summarize_nav(cell_name, daily, turnover, len(active_scored))
                     row["boot_p5"] = _boot_p5(daily)
-                    row["n_trades"] = len(trades)
+                    row["n_trades"] = int((trades["reason"] != "open").sum()) if not trades.empty else 0
                     summaries.append(row)
                     continue
                 path = RESULTS / f"{out_prefix}_{variant.name}_daily.csv"
@@ -1273,9 +1284,10 @@ def main() -> None:
                 row = summarize_nav(cell_name, daily, turnover, len(active_scored))
                 extra = nav_metrics(pl.from_pandas(daily[["date", "nav"]]))
                 row.update({k: v for k, v in extra.items() if k in ("ulcer_index", "upi", "k_ratio", "tail_ratio")})
-                if not trades.empty:
-                    row.update(trade_distribution_metrics(trades["ret"].tolist()))
-                    row["n_trades"] = len(trades)
+                _closed = trades[trades["reason"] != "open"] if not trades.empty else trades
+                if not _closed.empty:
+                    row.update(trade_distribution_metrics(_closed["ret"].tolist()))
+                    row["n_trades"] = len(_closed)  # open 部位不計入交易統計
                     row["exit_mix"] = trades["reason"].value_counts().to_dict()
                 summaries.append(row)
 

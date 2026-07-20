@@ -5,16 +5,17 @@
   "cost": 8250.0,
   "peak_missing": false
  },
- "2383": {
-  "first_seen": "2026-07-09",
-  "peak_close": 5295.0,
-  "cost": 5295.0,
-  "peak_missing": false
- },
  "2408": {
   "first_seen": "2026-07-09",
   "peak_close": 481.0,
   "cost": 435.5,
+  "peak_missing": false,
+  "vetted_pool": true
+ },
+ "2466": {
+  "first_seen": "2026-07-17",
+  "peak_close": 122.0,
+  "cost": 122.0,
   "peak_missing": false,
   "vetted_pool": true
  },
@@ -31,10 +32,11 @@
   "cost": 1285.0,
   "peak_missing": false
  },
- "6223": {
-  "first_seen": "2026-07-09",
-  "peak_close": 7080.0,
-  "cost": 7080.0,
-  "peak_missing": false
+ "3374": {
+  "first_seen": "2026-07-17",
+  "peak_close": 358.5,
+  "cost": 358.5,
+  "peak_missing": false,
+  "vetted_pool": true
  }
 }

@@ -361,7 +361,8 @@ def main() -> None:
     # PnL 永續追蹤儀表板(2026-07-17):每次執行自動重生,瀏覽器書籤即最新。
     if not args.no_dashboard:
         import subprocess as _sp
-        print("⟳ 更新 PnL 儀表板(六線全窗重放,約 2-4 分)…", flush=True)
+        print("⟳ 更新 PnL 儀表板(含持倉與交易;首次或資料更新後約 1-2 分,"
+              "同資料世代重跑秒回)…", flush=True)
         rd = _sp.run([sys.executable, "-m", "research.tri.pnl_dashboard"],
                      cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=1200)
         print(rd.stdout.strip()[-200:] if rd.returncode == 0

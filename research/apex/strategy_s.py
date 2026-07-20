@@ -60,8 +60,10 @@ def prep(con, end: str | None = None):
     return panel, feat, elig
 
 
-def run_s(panel, feat, elig, start: str) -> pl.DataFrame:
-    """S 規格回測(STRATEGY.md §4-§6),回傳歸一化 NAV。"""
+def run_s_full(panel, feat, elig, start: str
+               ) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """S 規格回測(STRATEGY.md §4-§6),回 (歸一化 NAV, 交易明細 trades)。
+    trades = TRADE_SCHEMA(進出場日/ret_net ROI/days_held/exit_reason;open=當下持有)。"""
     pool = feat.filter(pl.col("rev_fresh_days") <= 7)
     df = (pool.join(elig.filter(pl.col("eligible")).select(["date", C]),
                     on=["date", C], how="semi")
@@ -83,5 +85,12 @@ def run_s(panel, feat, elig, start: str) -> pl.DataFrame:
                    exit_spec=ExitSpec(trailing_stop=0.35, time_stop=30,
                                       loser_time_stop=15),
                    start=Date.fromisoformat(start))
-    nav = res.nav.select(["date", "nav"]).sort("date")
-    return nav.with_columns(pl.col("nav") / pl.col("nav").first())
+    nav = (res.nav.select(["date", "nav"]).sort("date")
+           .with_columns(pl.col("nav") / pl.col("nav").first()))
+    trades = res.trades.filter(pl.col("entry_date") >= pl.lit(start).str.to_date())
+    return nav, trades
+
+
+def run_s(panel, feat, elig, start: str) -> pl.DataFrame:
+    """run_s_full 的 NAV-only 薄包裝(既有 chart/s01/s_nav 呼叫者相容)。"""
+    return run_s_full(panel, feat, elig, start)[0]

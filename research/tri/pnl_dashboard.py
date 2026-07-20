@@ -56,22 +56,66 @@ def _cache_latest() -> date:
         con.close()
 
 
-def serenity_nav(end: date) -> pd.Series:
-    """現役 ev_v3_wf + 最新縫合冊全窗重放(冊由月度策展自動長大)。"""
-    subprocess.run([sys.executable, "-m", "research.serenity.wf.build_registry"],
-                   cwd=REPO_ROOT, check=True, capture_output=True, text=True)
-    cmd = [sys.executable, str(REPO_ROOT / "research" / "serenity" / "engine.py"),
-           "--start", START.isoformat(), "--end", end.isoformat(),
-           "--registry", str(REPO_ROOT / "research/serenity/wf/registry_wf.csv"),
-           "--variants", "ev_v3_wf", "--label", "pnl_dash_serenity",
-           "--ablate", "filters", "--fresh-bonus", "10", "--fresh-months", "12"]
-    subprocess.run(cmd, cwd=REPO_ROOT, check=True, capture_output=True, text=True)
-    daily = pd.read_csv(RESULTS / "pnl_dash_serenity_ev_v3_wf_daily.csv", parse_dates=["date"])
-    return daily.set_index("date")["nav"]
+_TRCACHE = REPO_ROOT / "research" / "tri" / "reports" / "_navtrade_cache"
 
 
-def evergreen_nav(end: date) -> pd.Series:
-    """Evergreen 誠實前瞻線 = 官方引擎的 walk-forward(逐年 refit-on-past → 拼 OOS)。
+def _cache_mtime() -> float:
+    return (REPO_ROOT / "research" / "cache.duckdb").stat().st_mtime
+
+
+def _norm_trades(df) -> pd.DataFrame:
+    """統一交易明細欄位 → [code, entry_date, exit_date, roi, days_held, reason]。
+    吃 apex TRADE_SCHEMA(polars/pandas)或 serenity trades(pandas)。open 部位
+    exit_date=NaT、reason='open'=當下持有。"""
+    if isinstance(df, pl.DataFrame):
+        df = df.to_pandas()
+    df = df.rename(columns={"company_code": "code", "ret_net": "roi",
+                            "exit_reason": "reason", "ret": "roi"})
+    for c in ("entry_date", "exit_date"):
+        if c in df.columns:
+            df[c] = pd.to_datetime(df[c], errors="coerce")
+    keep = [c for c in ("code", "entry_date", "exit_date", "roi", "days_held", "reason")
+            if c in df.columns]
+    return df[keep].copy() if len(df) else pd.DataFrame(columns=keep)
+
+
+def _cached_nt(name: str, ver: str, compute):
+    """(nav_series[date-index], trades_df) 依 cache.duckdb mtime 快取(#3 式:同資料
+    世代重跑秒回,回應『不該全窗重放』)。compute() → (nav_series, trades_df)。"""
+    _TRCACHE.mkdir(parents=True, exist_ok=True)
+    key = f"{ver}|{_cache_mtime():.0f}"
+    kf = _TRCACHE / f"{name}.key"
+    nf, tf = _TRCACHE / f"{name}_nav.parquet", _TRCACHE / f"{name}_trades.parquet"
+    if kf.exists() and kf.read_text() == key and nf.exists() and tf.exists():
+        return pd.read_parquet(nf).set_index("date")["nav"], pd.read_parquet(tf)
+    nav, trades = compute()
+    nav.rename("nav").rename_axis("date").reset_index().to_parquet(nf)
+    trades.to_parquet(tf)
+    kf.write_text(key)
+    return nav, trades
+
+
+def serenity_nav_trades(end: date) -> tuple[pd.Series, pd.DataFrame]:
+    """(nav, trades) — ev_v3_wf 全窗重放;trades 讀子程序輸出的 _trades.csv
+    (含 reason='open' 當下持有)。mtime 快取:同資料世代重跑跳過子程序。"""
+    def _compute():
+        subprocess.run([sys.executable, "-m", "research.serenity.wf.build_registry"],
+                       cwd=REPO_ROOT, check=True, capture_output=True, text=True)
+        cmd = [sys.executable, str(REPO_ROOT / "research" / "serenity" / "engine.py"),
+               "--start", START.isoformat(), "--end", end.isoformat(),
+               "--registry", str(REPO_ROOT / "research/serenity/wf/registry_wf.csv"),
+               "--variants", "ev_v3_wf", "--label", "pnl_dash_serenity",
+               "--ablate", "filters", "--fresh-bonus", "10", "--fresh-months", "12"]
+        subprocess.run(cmd, cwd=REPO_ROOT, check=True, capture_output=True, text=True)
+        daily = pd.read_csv(RESULTS / "pnl_dash_serenity_ev_v3_wf_daily.csv", parse_dates=["date"])
+        trades = pd.read_csv(RESULTS / "pnl_dash_serenity_ev_v3_wf_trades.csv")
+        return daily.set_index("date")["nav"], _norm_trades(trades)
+    return _cached_nt("serenity", "v1", _compute)
+
+
+def evergreen_nav_trades(end: date) -> tuple[pd.Series, pd.DataFrame]:
+    """(nav, trades) — Evergreen 誠實前瞻 NAV(官方引擎 walk-forward)+ 交易明細。
+    NAV = 逐年 refit-on-past 拼 OOS;trades = live 參數連續回放(當下持有 = open)。
 
     **零重寫**:池籍/計分/simulate 一律呼叫 research.evergreen.engine(唯一真源;
     2026-07-20 根治「dashboard 手寫 membership 偏離官方 midmonth_membership + 漏
@@ -79,30 +123,34 @@ def evergreen_nav(end: date) -> pd.Series:
     過去參數,真 OOS 起於 2023-07(之前為初訓期,無可交易軌跡)。引擎與
     live_config 逐位一致由 evergreen/tests/test_engine_parity 鎖死。"""
     from research.apex import data as apex_data
-    from research.evergreen.engine import walkforward_nav_cached
+    from research.evergreen.engine import walkforward_cached
 
     con = apex_data.connect()
     try:
-        nav = walkforward_nav_cached(con, end).to_pandas()
+        nav_pl, tr_pl = walkforward_cached(con, end)
     finally:
         con.close()
+    nav = nav_pl.to_pandas()
     nav["date"] = pd.to_datetime(nav["date"])
-    return nav.set_index("date")["nav"]
+    return nav.set_index("date")["nav"], _norm_trades(tr_pl)
 
 
-def s_nav(end: date) -> pd.Series:
-    """apex_revcycle_S 現役規格全窗重放到 cache 最新日(end 與其他線同源,
-    見 main;prep 的資料截止由 end 決定,不再吃 chart 腳本的寫死字面值)。"""
-    from research.apex import data as apex_data
-    from research.apex.strategy_s import prep, run_s  # 官方 S 引擎唯一真源
-    con = apex_data.connect()
-    try:
-        panel, feat, elig = prep(con, end.isoformat())
-    finally:
-        con.close()
-    nav = run_s(panel, feat, elig, start=START.isoformat()).to_pandas()
-    nav["date"] = pd.to_datetime(nav["date"])
-    return nav.set_index("date")["nav"]
+def s_nav_trades(end: date) -> tuple[pd.Series, pd.DataFrame]:
+    """(nav, trades) — apex_revcycle_S 全窗重放。mtime 快取:同資料世代重跑跳過
+    12 年特徵重建 + 回測。"""
+    def _compute():
+        from research.apex import data as apex_data
+        from research.apex.strategy_s import prep, run_s_full  # 官方 S 引擎唯一真源
+        con = apex_data.connect()
+        try:
+            panel, feat, elig = prep(con, end.isoformat())
+        finally:
+            con.close()
+        nav_pl, tr_pl = run_s_full(panel, feat, elig, start=START.isoformat())
+        nav = nav_pl.to_pandas()
+        nav["date"] = pd.to_datetime(nav["date"])
+        return nav.set_index("date")["nav"], _norm_trades(tr_pl)
+    return _cached_nt("s", "v1", _compute)
 
 
 def bench_navs(end: date) -> dict[str, pd.Series]:
@@ -171,7 +219,37 @@ def yearly_table(navs: dict[str, pd.Series]) -> pd.DataFrame:
     return pd.DataFrame(rows).T
 
 
-def build_html(navs: dict[str, pd.Series], data_date: date) -> str:
+def _trade_html(name: str, tr, color: str) -> str:
+    """單一策略的持倉與交易 HTML:當下持有(reason=open)+ 最近 40 筆已平倉。"""
+    if tr is None or not len(tr):
+        return ""
+    op = tr[tr["reason"] == "open"].sort_values("entry_date")
+    cl = tr[tr["reason"] != "open"]
+    wr = float((cl["roi"] > 0).mean()) if len(cl) else float("nan")
+    avg = float(cl["roi"].mean()) if len(cl) else float("nan")
+
+    def _roi(v):
+        return f"<td style='color:{'#c0392b' if v < 0 else '#178a4c'}'>{v:+.1%}</td>"
+
+    hold = "".join(
+        f"<tr><td>{r.code}</td><td>{r.entry_date:%Y-%m-%d}</td>"
+        f"<td>{int(r.days_held)}</td>{_roi(r.roi)}</tr>"
+        for r in op.itertuples()) or "<tr><td colspan='4' style='text-align:left'>(無)</td></tr>"
+    log = "".join(
+        f"<tr><td>{r.code}</td><td>{r.entry_date:%Y-%m-%d} → {r.exit_date:%Y-%m-%d}</td>"
+        f"{_roi(r.roi)}<td>{int(r.days_held)}</td><td style='text-align:left'>{r.reason}</td></tr>"
+        for r in cl.sort_values("exit_date", ascending=False).head(40).itertuples())
+    return (f"<details><summary style='cursor:pointer;font-size:14px'>"
+            f"<b><span style='color:{color}'>●</span> {name}</b> — 當下持有 "
+            f"<b>{len(op)}</b> 檔 · 已平倉 {len(cl)} 筆(勝率 {wr:.0%}、平均 {avg:+.1%})</summary>"
+            f"<div class='tw'><b>當下持有({len(op)})</b>"
+            f"<table class='tr'><tr><th>代號</th><th>進場日</th><th>持有(日)</th><th>未實現</th></tr>"
+            f"{hold}</table><b>交易明細(最近 40 / 共 {len(cl)})</b>"
+            f"<table class='tr'><tr><th>代號</th><th>進場 → 出場</th><th>ROI</th><th>天數</th>"
+            f"<th>出場原因</th></tr>{log}</table></div></details>")
+
+
+def build_html(navs: dict[str, pd.Series], trades: dict, data_date: date) -> str:
     import plotly.graph_objects as go
     from plotly.subplots import make_subplots
 
@@ -258,7 +336,10 @@ def build_html(navs: dict[str, pd.Series], data_date: date) -> str:
             f"<b>apex_revcycle_S</b> 固定規則(dev 2012-23),OOS 自 <b>2024-01</b>;"
             f"<b>Serenity</b> 選股全程 PIT,惟出場參數 train 2022-25 凍結,OOS 自 <b>2025-07</b>。"
             f"點線(2025-07)後三線皆真前瞻。<b>三策略均為微型股集中回測,絕對數字含容量"
-            f"膨脹,不可外推至大資本</b>。")
+            f"膨脹,不可外推至大資本</b>。<br><b>下方「持倉與交易」</b> = 現行 live 參數的"
+            f"『連續』回放(交易行為視角;當下持有 = 其未平倉部位),口徑有別於上方走查 NAV 線。")
+    trades_html = "".join(_trade_html(n, trades.get(n), COLORS.get(n, "#333"))
+                          for n in trades)
     return f"""<meta charset='utf-8'><title>三策略 PnL 追蹤</title>
 <style>body{{font-family:-apple-system,'PingFang TC',sans-serif;background:#fcfcfb;color:#0b0b0b;margin:24px auto;max-width:1180px}}
 h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}}
@@ -266,11 +347,16 @@ h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(auto-fit,
 .cn{{font-size:12px;color:#52514e}} .big{{font-size:22px;font-weight:700;margin:2px 0}}
 .kv{{font-size:11.5px;color:#52514e}} .kv b{{color:#0b0b0b}}
 .yr{{border-collapse:collapse;margin:10px 0;font-size:13px}} .yr th,.yr td{{border:1px solid #eceae6;padding:5px 10px;text-align:right}}
-.note{{font-size:12px;color:#52514e;margin-top:14px}}</style>
+.note{{font-size:12px;color:#52514e;margin-top:14px}}
+.tw{{margin:8px 0 16px;font-size:12.5px}} details{{margin:5px 0}} summary{{padding:4px 0}}
+.tr{{border-collapse:collapse;margin:4px 0 12px;font-size:12px;width:100%}}
+.tr th,.tr td{{border:1px solid #eceae6;padding:3px 8px;text-align:right}}
+.tr th:first-child,.tr td:first-child,.tr td:nth-child(2){{text-align:left}} .tr th{{background:#f7f7f5}}</style>
 <h1>三策略 PnL 永續追蹤 <span style='font-size:13px;color:#52514e'>(三策略現役參數 vs 0050 / 00685L / 2330 / 安聯台灣科技基金)</span></h1>
 <div class='cards'>{''.join(cards)}</div>
 {fig.to_html(full_html=False, include_plotlyjs=True)}
 <h2 style='font-size:16px'>逐年績效</h2>{yr_html}
+<h2 style='font-size:16px'>持倉與交易 <span style='font-size:12px;color:#52514e'>(點策略名展開:當下持有 + 交易明細)</span></h2>{trades_html}
 <div class='note'>{note}</div>"""
 
 
@@ -307,15 +393,17 @@ def main() -> None:
 
     end = _cache_latest()
     navs: dict[str, pd.Series] = {}
-    navs["Serenity(ev_v3_wf)"] = serenity_nav(end)
-    navs["Evergreen(live-refit)"] = evergreen_nav(end)
-    navs["apex_revcycle_S"] = s_nav(end)
+    trades: dict[str, pd.DataFrame] = {}
+    for nm, fn in (("Serenity(ev_v3_wf)", serenity_nav_trades),
+                   ("Evergreen(live-refit)", evergreen_nav_trades),
+                   ("apex_revcycle_S", s_nav_trades)):
+        navs[nm], trades[nm] = fn(end)
     navs.update(bench_navs(end))
     navs["安聯台灣科技基金"] = allianz_nav(end)
     navs = {k: v[(v.index.date >= START)] for k, v in navs.items()}
     _assert_current(navs, end)
     OUT_HTML.parent.mkdir(parents=True, exist_ok=True)
-    OUT_HTML.write_text(build_html(navs, end), encoding="utf-8")
+    OUT_HTML.write_text(build_html(navs, trades, end), encoding="utf-8")
     print(f"dashboard -> {OUT_HTML}")
 
 

@@ -11,3 +11,5 @@ evergreen/data/_refit_cache.json
 secrets/*
 !secrets/.gitkeep
 !secrets/README.md
+evergreen/data/_wf_trades_cache.parquet
+tri/reports/_navtrade_cache/

@@ -160,9 +160,10 @@ def scores(d: EvergreenData, cfg: dict) -> tuple[pl.DataFrame, pl.DataFrame]:
     return sc, pool_flag
 
 
-def replay_nav(d: EvergreenData, cfg: dict, start: Date, end: Date) -> pl.DataFrame:
-    """cfg 在 [start, end] 上的日 NAV(fresh 起跑)。含選配 abs_stop / 曝險 overlay
-    無關——純引擎。與 ev53 nav_of 逐位對齊。"""
+def replay(d: EvergreenData, cfg: dict, start: Date, end: Date
+           ) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """cfg 在 [start, end] 上的 (日 NAV, 交易明細)。trades = TRADE_SCHEMA:每筆
+    進場日/出場日/ret_net(ROI)/days_held/exit_reason(open=期末未平倉=當下持有)。"""
     sc, pf = scores(d, cfg)
     res = simulate(d.panel.filter(pl.col("date") <= end), sc, exit_flags=pf,
                    exec_spec=ExecSpec(),
@@ -172,8 +173,16 @@ def replay_nav(d: EvergreenData, cfg: dict, start: Date, end: Date) -> pl.DataFr
                                       abs_stop=cfg.get("abs_stop"),
                                       loser_time_stop=cfg["lts"]),
                    start=start)
-    return res.nav.sort("date").filter(
+    nav = res.nav.sort("date").filter(
         (pl.col("date") >= start) & (pl.col("date") <= end))
+    trades = res.trades.filter(
+        (pl.col("entry_date") >= start) & (pl.col("entry_date") <= end))
+    return nav, trades
+
+
+def replay_nav(d: EvergreenData, cfg: dict, start: Date, end: Date) -> pl.DataFrame:
+    """replay 的 NAV-only 薄包裝(既有 ev53/parity 呼叫者相容)。"""
+    return replay(d, cfg, start, end)[0]
 
 
 # ───────────────────────── refit(= ev43 網格 + P5 選型)────────────────
@@ -235,11 +244,11 @@ def _live_cfg() -> dict:
     return json.loads(LIVE_CONFIG.read_text())["config"]
 
 
-def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFrame:
-    """三策略儀表板用的 Evergreen 誠實前瞻線:逐段 refit-on-past → 拼 OOS。
-    回 (date, nav, in_sample) 連續曲線,起於起始標記池(2022-07);首年 2022-07~
-    2023-07 為初訓期(fold0 config 套自己 train 窗)標 in_sample=True,與 S/Serenity
-    同起跑點;2023-07 起為真走查 OOS(in_sample=False)。"""
+def walkforward(con, end: Date) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """Evergreen 誠實前瞻 NAV 線 + 交易明細。**NAV** = 逐段 refit-on-past 拼 OOS
+    (首年 in_sample、2023-07 起真走查,見 dashboard 虛實線)。**trades** = 現行 live
+    參數的『連續』回放(當下持有 = 其 open 部位 = 正確的持續組合;交易行為視角,
+    有別於走查 NAV 線,dashboard 附註標明)。"""
     d = EvergreenData(con, end.isoformat())
     segs = []
     for k, f in enumerate(_folds(end)):
@@ -253,13 +262,13 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
         o0, o1 = f["oos"]
         if o1 <= o0:
             continue
-        nav = replay_nav(d, cfg, o0, o1)
-        if nav.height:
-            segs.append(nav.with_columns([
+        nav_s = replay_nav(d, cfg, o0, o1)
+        if nav_s.height:
+            segs.append(nav_s.with_columns([
                 (pl.col("nav") / pl.col("nav").first()).alias("r"),
                 pl.lit(False).alias("in_sample")]))
     if not segs:
-        return pl.DataFrame({"date": [], "nav": []})
+        return pl.DataFrame({"date": [], "nav": []}), pl.DataFrame()
     # 拼接:逐段複利,前段終值 × 後段歸一
     out, base = [], 1.0
     for s in segs:
@@ -268,9 +277,14 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
         out.append(s)
         base = float(s["nav"][-1])
     nav = pl.concat(out).unique(subset="date", keep="first").sort("date")
-    if out_start is not None:
-        nav = nav.filter(pl.col("date") >= out_start)
-    return nav
+    _, trades = replay(d, _live_cfg(), MEMB_FLOOR, end)  # 交易 = live 參數連續回放
+    return nav, trades
+
+
+def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFrame:
+    """walkforward 的 NAV-only 薄包裝(既有呼叫者相容)。"""
+    nav = walkforward(con, end)[0]
+    return nav.filter(pl.col("date") >= out_start) if out_start is not None else nav
 
 
 _WF_CACHE = Path("research/evergreen/data/_wf_nav_cache.parquet")
@@ -284,18 +298,32 @@ def _wf_key(end: Date) -> str:
     return f"{_ENGINE_VER}|{end}|{mt:.0f}|{lc:.0f}"
 
 
-def walkforward_nav_cached(con, end: Date, out_start: Date | None = None) -> pl.DataFrame:
-    """walkforward_nav 的磁碟快取版(key = 引擎版本 + cache/live_config mtime);
-    資料世代一變即失效重算。dashboard/daily 走這條,避免每次出圖重跑網格。"""
+_WF_TRADES_CACHE = Path("research/evergreen/data/_wf_trades_cache.parquet")
+
+
+def walkforward_cached(con, end: Date) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """(nav, trades) 磁碟快取(key = 引擎版本 + cache/live_config mtime);資料世代
+    一變即失效重算。dashboard/daily 走這條,避免每次出圖重跑網格 + 交易。"""
     key = _wf_key(end)
-    if _WF_CACHE.exists():
-        cached = pl.read_parquet(_WF_CACHE)
-        if cached.height and cached["_key"][0] == key:
-            nav = cached.drop("_key")
-            return nav.filter(pl.col("date") >= out_start) if out_start else nav
-    nav = walkforward_nav(con, end)
+    if _WF_CACHE.exists() and _WF_TRADES_CACHE.exists():
+        cn = pl.read_parquet(_WF_CACHE)
+        if cn.height and cn["_key"][0] == key:
+            ct = pl.read_parquet(_WF_TRADES_CACHE)
+            return cn.drop("_key"), (ct.drop("_key") if "_key" in ct.columns else ct)
+    nav, trades = walkforward(con, end)
     nav.with_columns(pl.lit(key).alias("_key")).write_parquet(_WF_CACHE)
-    return nav.filter(pl.col("date") >= out_start) if out_start else nav
+    (trades.with_columns(pl.lit(key).alias("_key")) if trades.height
+     else pl.DataFrame({"_key": [key]})).write_parquet(_WF_TRADES_CACHE)
+    return nav, trades
+
+
+def walkforward_nav_cached(con, end: Date, out_start: Date | None = None) -> pl.DataFrame:
+    nav = walkforward_cached(con, end)[0]
+    return nav.filter(pl.col("date") >= out_start) if out_start is not None else nav
+
+
+def walkforward_trades_cached(con, end: Date) -> pl.DataFrame:
+    return walkforward_cached(con, end)[1]
 
 
 def _selfcheck() -> None:
