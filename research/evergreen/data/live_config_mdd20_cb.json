@@ -1,0 +1,30 @@
+{
+ "refit_date": "2026-07-20",
+ "base": "div",
+ "config": {
+  "gate": "inst5",
+  "score": "xadv_inv",
+  "pool_months": 2,
+  "h120": 0.0,
+  "trail": 0.25,
+  "lts": 30,
+  "n_slots": 10,
+  "max_new": 1,
+  "abs_stop": 0.15,
+  "circuit_breaker": {
+   "dd_off": 0.12,
+   "exp_low": 0.3,
+   "dd_on": 0.08,
+   "switch_cost": 0.001
+  }
+ },
+ "mdd_cap": 0.2,
+ "train_kpi": {
+  "cagr": 1.0029075654038646,
+  "mdd": -0.19980774044616845,
+  "p5": 0.42672549133231946
+ },
+ "oos_all_held": true,
+ "selection_metric": "MDD≤20% 硬約束下 max P5(EV53b 投組斷路器)",
+ "note": "投組層回撤斷路器 overlay(因果無前視);未覆蓋 live_config.json——待使用者裁決報酬代價與是否採斷路器。"
+}

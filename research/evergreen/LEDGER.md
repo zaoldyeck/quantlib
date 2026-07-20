@@ -1159,3 +1159,52 @@ EV49 軟肋=confirm 防抖參數 train 選不穩。本輪:**掃 regime 定義本
 兩折 top-1 均 revx=off(榜首20 off 18/16 席)。機制:trail 跑在營收前面
 (轉衰股價先弱先被掃),疊營收出場=重複計費+基期噪音誤殺;Serenity 器官
 之魂在論點語境,機械 YoY<0 只剩皮。
+
+## EV53 — MDD ≤ 20% 硬約束下的引擎重優化(2026-07-20 預註冊,使用者指令)
+
+使用者:「Evergreen MDD 最高只能 20%,以此重新優化量化引擎」。現任 live
+(P5 選出)train MDD −44%——高火力高回撤。加開引擎既有但未用的風控槓桿:
+- **abs_stop**(絕對停損,首次啟用):{off, .12, .15, .20}
+- **trail**(收緊):{.15, .20, .25, .30, .40}
+- **n_slots**(分散):{5, 8, 10, 12}
+- **lts**(輸家時間止損):{30, 45};選擇軸維持存活結構 gate{none,inst5}
+  × score{base,xadv_inv} × pm{2,3};h120=0、max_new=1 固定。1,280 配置/窗。
+
+**選擇紀律**:train 選(MDD≤20% 硬約束 → survivor 取 top-Martin 40 計 P5
+→ max P5),OOS 只驗不選。Part A = 三折 walk-forward(選 train 驗 OOS,答
+「20% 帽子樣本外守不守得住」);Part B = live 窗 refit 產候選 config +
+frontier(各 MDD 帽子的 P5/CAGR 代價曲線,供使用者裁決報酬換穩定的點)。
+
+**判準/決策樹**(先寫死):
+- 部位層有配置 train+OOS MDD 都 ≤20%(小容差)且 P5 仍正 → 產候選,報
+  vs 現任 44% 的 CAGR/P5 代價;**不自動覆蓋 live_config.json,待使用者裁決**。
+- 部位層 train≤20% 但 OOS 破 → 升級 Stage 2 投組斷路器(回撤觸發減碼到
+  現金 overlay,因果無前視,切換記 0.1% 摩擦)。
+- 連斷路器都守不住而不殺光報酬 → 誠實呈報 frontier,由使用者選代價點。
+腳本 ev53_mdd_cap.py;abs_stop 落地不改核心引擎(ExitSpec 本就有此欄)。
+
+### EV53/53b/53c 結果(2026-07-20):MDD≤20% 需投組層 overlay,vol-target 勝
+
+**部位層(EV53,單檔 abs_stop/trail/slots)不足**:live 窗 frontier 帽子
+15/20/25% 全無配置(最緊 none/xadv/tr.3/s5/abs.15 = MDD −28.5%/CAGR 248%);
+折1 OOS train 選 19.2%→OOS 34.0% 破帽——單檔停損擋不住相關性崩盤的組合回撤
+(2024-08 日圓套利 + 2025-04 關稅)。折2 train 含崩盤,無配置 train≤20%。
+
+**投組層 overlay 兩式**(均因果無前視、餘額為現金,使用者已確認允許空倉):
+- **53b 回撤斷路器(反應式)**:跌 d_off 才砍 → 殺在谷底、錯過 V 反彈,深崩窗
+  代價慘。live 窗最佳 div+CB(off12/low30/on8):train MDD −20.0 CAGR 100 P5 42.7,
+  OOS 三折全守(−12.9/−20.0/−12.0)。
+- **53c 波動率目標(預應式)**:崩前波動先飆 → 提前降曝險、不歸零殺谷底。
+  live 窗最佳 **live+VT(σ15/lb20)**:train MDD −16.9 CAGR 84 **P5 51.8**,
+  OOS 三折全守(−6.9/−16.9/−4.6;CAGR 89/32/132)。
+
+**裁決:vol-target σ15 勝**(P5 51.8 > 斷路器 42.7,同守 20% 帽;預應 > 反應,
+不 whipsaw 谷底)。**cost ladder**(live 窗 train CAGR):無帽 316% → 帽 30%
+248%(部位層)→ **帽 20% 84%(VT)**——20% 那最後 10pp MDD 砍掉 2/3 CAGR
+(MDD 與報酬同源於高波動,封一半波動 = 砍一半報酬)。但 OOS 絕對報酬仍強
+(32-132%)且 P5 更高 = 報酬更可靠。σ15 守得住因 live train 窗(2023-26)含兩次
+崩盤故自動選緊;比歷史更凶的崩盤仍可能破帽(vol-target 是預應非保證)。
+
+**處置**:未覆蓋 live_config.json;候選存 data/live_config_mdd20_vt.json,待
+使用者裁決(1)是否接受報酬代價(2)是否關進 advisor——vol-target 需 evergreen_advisor
+接策略自身 NAV 已實現波動、即時縮放曝險/持現金,是工程步驟。腳本 ev53/53b/53c。
