@@ -367,17 +367,12 @@ def evergreen_advisor(con, holdings: dict[str, float], today: Date,
         adv.notes.append(f"⚠ 本月({cur_ym})標記尚未執行——今日已過站位日,"
                          "池為舊池;請執行月中標記(LLM 流程)後重跑")
 
+    # 特徵/計分改用引擎唯一真源(2026-07-20 消重複;禁止 advisor 自寫定義)
+    from research.evergreen.engine import feat_cols, score_expr
     feats = (panel.sort([C, "date"])
-             .with_columns([
-                 (pl.col("close") / pl.col("close").rolling_max(120))
-                 .over(C).alias("h120"),
-                 (pl.col("close") / pl.col("close").rolling_max(252))
-                 .over(C).alias("h52"),
-                 pl.col("trade_value").cast(pl.Float64)
-                 .rolling_median(20).over(C).alias("adv20"),
-                 (pl.col("close") > pl.col("close").shift(1).rolling_max(60))
-                 .over(C).alias("don60"),
-             ]).filter(pl.col("date") == d0))
+             .with_columns([feat_cols()[k].alias(k)
+                            for k in ("h120", "h52", "adv20", "don60")])
+             .filter(pl.col("date") == d0))
     closes = dict(feats.select([C, "close"]).iter_rows())
     cand = (feats.filter(pl.col(C).is_in(list(pool_codes))
                          & (pl.col("h120") > float(LC["h120"]))))
@@ -421,10 +416,7 @@ def evergreen_advisor(con, holdings: dict[str, float], today: Date,
                     .filter(pl.col("don60").fill_null(False)
                             | pl.col("inst5").fill_null(False)
                             | pl.col("rev_accel").fill_null(False)))
-    _base = (pl.col("h52").rank() / pl.len()) * (pl.col("h120").rank() / pl.len())
-    _expr = (_base if LC["score"] == "base"
-             else _base * (1.0 - pl.col("adv20").rank() / pl.len()))
-    cand = cand.with_columns(_expr.alias("score")).sort("score", descending=True)
+    cand = cand.with_columns(score_expr(LC).alias("score")).sort("score", descending=True)
 
     st = load_state("evergreen")
     st = update_state(st, holdings, d0, closes, {})

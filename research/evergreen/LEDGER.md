@@ -1255,3 +1255,11 @@ evergreen_nav 刪 68 行手寫 → 呼叫官方引擎 walk-forward(逐年 refit-
   2022-07~2023-07),線與 S/Serenity 同從起始標記池(2022-07)起。輸出加 in_sample
   欄。儀表板三線 in-sample 段畫**虛線**、真前瞻畫實線(誠實 + 一致起跑點同時滿足);
   Evergreen 全期 280.2%(含 in-sample 2022,虛線標示),OOS 段仍 226.9%。
+
+### #1 advisor 消計分重複(2026-07-20):feat_cols/score_expr 唯一真源
+
+engine 抽出 `feat_cols()`(h120/h52/adv20/don60)+ `score_expr(cfg)`(計分公式)為
+唯一真源;`EvergreenData`、`scores()`、`tri.advisors.evergreen_advisor` 三處全改用
+這份,消除 advisor 自寫的特徵/計分重複。gate 的「法人資料延遲 asof」邏輯屬 live
+專屬(回測資料完整不需要),合理保留、非重複。驗證:parity 守住(316% 差 0.00%)、
+advisor 輸出對 baseline **逐字一致**(diff 空,推薦不變)——money-path 安全。

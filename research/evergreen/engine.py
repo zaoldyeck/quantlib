@@ -40,6 +40,28 @@ _GRID_NUM = ((2, 3), (0.0, 0.6), (0.30, 0.40), (30, 45), (5, 6), (1, 2))
 _TOPN_P5 = 40                      # P5(bootstrap)只算 top-Martin 前 N,控成本
 
 
+def feat_cols() -> dict:
+    """Evergreen 特徵表達式唯一真源(h120/h52/adv20/don60,over C)——EvergreenData
+    與 tri.advisors 全用這份,禁止各自手寫(2026-07-20 消計分重複)。"""
+    return {
+        "h120": (pl.col("close") / pl.col("close").rolling_max(120)).over(C),
+        "h52": (pl.col("close") / pl.col("close").rolling_max(252)).over(C),
+        "adv20": pl.col("trade_value").cast(pl.Float64).rolling_median(20).over(C),
+        "don60": (pl.col("close") > pl.col("close").shift(1).rolling_max(60)).over(C),
+    }
+
+
+def _rank(c: str) -> pl.Expr:
+    return (pl.col(c).rank() / pl.len()).over("date")
+
+
+def score_expr(cfg: dict) -> pl.Expr:
+    """Evergreen 計分公式唯一真源(base = h52 rank × h120 rank;xadv_inv 再
+    × (1 − adv20 rank))——engine.scores 與 tri.advisors 全用這份。"""
+    base = _rank("h52") * _rank("h120")
+    return base if cfg["score"] == "base" else base * (1.0 - _rank("adv20"))
+
+
 # ───────────────────────── 資料層(唯一真源)─────────────────────────
 
 
@@ -66,10 +88,10 @@ class EvergreenData:
         self.dates_all = (panel_full.select("date").unique()
                           .sort("date")["date"].to_list())
         self.panel = panel_full.filter(pl.col(C).is_in(codes)).sort([C, "date"])
-        self.feats = (self.panel.with_columns([
-            (pl.col("close") / pl.col("close").rolling_max(120)).over(C).alias("h120"),
-            (pl.col("close") / pl.col("close").rolling_max(252)).over(C).alias("h52"),
-        ]).select(["date", C, "h120", "h52"]))
+        F = feat_cols()
+        self.feats = (self.panel.with_columns(
+            [F["h120"].alias("h120"), F["h52"].alias("h52")])
+            .select(["date", C, "h120", "h52"]))
         self.trig = self._build_trig(codes)
 
     def _build_trig(self, codes: list[str]) -> pl.DataFrame:
@@ -80,9 +102,9 @@ class EvergreenData:
                   (inst.rolling_sum(5).over(C) > 0).alias("inst5"),
                   (pl.col("foreign_diff").rolling_sum(5).over(C) > 0).alias("f5"),
               ]).select(["date", C, "inst5", "f5"]))
-        px = (self.panel.with_columns(
-            (pl.col("close") > pl.col("close").shift(1).rolling_max(60))
-            .over(C).alias("don60")).select(["date", C, "don60"]))
+        F = feat_cols()
+        px = (self.panel.with_columns(F["don60"].alias("don60"))
+              .select(["date", C, "don60"]))
         rev = (data.load_monthly_revenue(self.con, self.end)
                .filter(pl.col(C).is_in(codes)).sort([C, "year", "month"])
                .with_columns([
@@ -92,9 +114,8 @@ class EvergreenData:
                     > pl.col("monthly_revenue_yoy").shift(1).over(C)).alias("rev_accel"),
                ]).select([C, "avail", "rev_accel"])
                .drop_nulls(subset=["avail"]).sort("avail"))
-        adv = (self.panel.sort([C, "date"]).with_columns(
-            pl.col("trade_value").cast(pl.Float64).rolling_median(20)
-            .over(C).alias("adv20")).select(["date", C, "adv20"]))
+        adv = (self.panel.sort([C, "date"]).with_columns(F["adv20"].alias("adv20"))
+               .select(["date", C, "adv20"]))
         return (self.feats.select(["date", C])
                 .join(fl, on=["date", C], how="left")
                 .join(px, on=["date", C], how="left").sort("date")
@@ -124,10 +145,6 @@ class EvergreenData:
 # ───────────────────────── 計分 + replay(= build_sc + nav_of)──────────
 
 
-def _rank(c):
-    return (pl.col(c).rank() / pl.len()).over("date")
-
-
 def scores(d: EvergreenData, cfg: dict) -> tuple[pl.DataFrame, pl.DataFrame]:
     """cfg → (計分 sc, 池籍出場 flag)。與 ev53 build_sc 同語義。"""
     memb, pool_flag = d.memb(cfg["pool_months"])
@@ -136,9 +153,7 @@ def scores(d: EvergreenData, cfg: dict) -> tuple[pl.DataFrame, pl.DataFrame]:
           .filter(pl.col("h120").fill_null(0) > cfg["h120"]))
     if cfg["gate"] != "none":
         sc = sc.filter(pl.col(cfg["gate"]).fill_null(False))
-    base = _rank("h52") * _rank("h120")
-    expr = base if cfg["score"] == "base" else base * (1.0 - _rank("adv20"))
-    sc = (sc.with_columns(expr.alias("score"))
+    sc = (sc.with_columns(score_expr(cfg).alias("score"))
           .with_columns(pl.lit(1.0 / cfg["n_slots"]).alias("weight"))
           .select(["date", C, "score", "weight"]).drop_nulls()
           .sort(["date", "score", C], descending=[False, True, False]))
