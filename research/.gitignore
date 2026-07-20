@@ -1,3 +1,12 @@
 __pycache__/
 .venv/
 out/
+evergreen/data/_wf_nav_cache.parquet
+.env
+.env.*
+!.env.example
+*.pfx
+*.p12
+secrets/*
+!secrets/.gitkeep
+!secrets/README.md
