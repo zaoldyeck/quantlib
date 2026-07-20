@@ -279,6 +279,29 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 - **`Main.run()` must `sys.exit(0)` in `finally`** — Akka ForkJoinPool + non-daemon workers keep JVM alive 30-60s otherwise.
 - **Long Scala commands need generous timeout** — `Main update` / `Main strategy` can take 10+ min; Bash timeout ≥ 1200000ms.
 
+### 引擎唯一真源鐵律(2026-07-20 定案;生產路徑禁止重寫策略引擎)
+
+**每支策略的回測/計分邏輯只准有一份實作(canonical engine),所有生產與研究
+路徑一律 `import` 它、禁止各自重寫。** 重寫的複本必然漂移——2026-07-20 一天內
+就抓到兩起:(a) `tri.pnl_dashboard` 手寫 Evergreen 回測,池籍偏離官方
+`midmonth_membership`,把 live-refit 線畫成與 `live_config` 差 **96pp** 的降級版;
+(b) `tri.advisors` 手寫「最近 N 月」池籍,比驗證引擎少疊一個月。
+
+**唯一真源清單(要改策略邏輯只准動這幾支,別處一律 import)**:
+- Evergreen:`research/evergreen/engine.py`(`EvergreenData` + `scores`/`replay_nav`/
+  `refit`/`walkforward_nav`;特徵/計分再抽成 `feat_cols()`/`score_expr()` 供 advisor 共用)。
+- apex_revcycle_S:`research/apex/strategy_s.py`(`prep`/`run_s`;**不准**再放回畫圖實驗檔)。
+- Serenity:`research/serenity/engine.py`。
+
+**防復發守護**:`research/evergreen/tests/test_engine_parity.py` 鎖死「引擎必須逐位
+重現 `live_config` 記錄的 KPI」——任何漂移即紅燈。**新增或改動策略引擎接線後必跑一次;
+改 advisor 這類 money-path 者,另做 before/after 輸出 diff 必須逐字一致才算安全。**
+
+**live vs 回測的正當差異**(非重寫,但須在註解明確標註來源):live 用 raw registry
+(含當月標記)、回測用 `load_registry`(未來月的 PIT 由日期窗自然處理);live gate 用
+「法人資料延遲 asof(取 ≤ 決策日最新一筆)」、回測用完整資料 date-join。這類差異一律
+寫清「為何 live 與回測在此不同」,不得靜默分岔。
+
 ### Database Schema Contract (Slick FRM)
 
 - **ALL PG tables MUST be created via Slick** (`TableQuery[X].schema.createIfNotExists`), never raw `psql CREATE TABLE`. Slick `class X extends Table[Tuple]` is single source of truth for columns + types + unique indexes — compiler validates type-safe queries (`x.filter(_.date === d).result`) against this definition. Raw DDL drifts from Slick at runtime.
