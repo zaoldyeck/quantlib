@@ -219,10 +219,25 @@ def yearly_table(navs: dict[str, pd.Series]) -> pd.DataFrame:
     return pd.DataFrame(rows).T
 
 
-def _trade_html(name: str, tr, color: str) -> str:
+def _load_names() -> dict:
+    """code → 最新中文公司名(operating_revenue,與 tri.daily 同源;唯一真源)。"""
+    import duckdb
+    raw = duckdb.connect(str(REPO_ROOT / "research" / "cache.duckdb"), read_only=True)
+    try:
+        return dict(raw.execute(
+            "SELECT company_code, last(company_name ORDER BY year*100+month) "
+            "FROM operating_revenue GROUP BY company_code").fetchall())
+    finally:
+        raw.close()
+
+
+def _trade_html(name: str, tr, color: str, names: dict) -> str:
     """單一策略的持倉與交易 HTML:當下持有(reason=open)+ 最近 40 筆已平倉。"""
     if tr is None or not len(tr):
         return ""
+
+    def _nm(code):
+        return f"{code} {names.get(code, '')}".strip()
     op = tr[tr["reason"] == "open"].sort_values("entry_date")
     cl = tr[tr["reason"] != "open"]
     wr = float((cl["roi"] > 0).mean()) if len(cl) else float("nan")
@@ -232,11 +247,11 @@ def _trade_html(name: str, tr, color: str) -> str:
         return f"<td style='color:{'#c0392b' if v < 0 else '#178a4c'}'>{v:+.1%}</td>"
 
     hold = "".join(
-        f"<tr><td>{r.code}</td><td>{r.entry_date:%Y-%m-%d}</td>"
+        f"<tr><td>{_nm(r.code)}</td><td>{r.entry_date:%Y-%m-%d}</td>"
         f"<td>{int(r.days_held)}</td>{_roi(r.roi)}</tr>"
         for r in op.itertuples()) or "<tr><td colspan='4' style='text-align:left'>(無)</td></tr>"
     log = "".join(
-        f"<tr><td>{r.code}</td><td>{r.entry_date:%Y-%m-%d} → {r.exit_date:%Y-%m-%d}</td>"
+        f"<tr><td>{_nm(r.code)}</td><td>{r.entry_date:%Y-%m-%d} → {r.exit_date:%Y-%m-%d}</td>"
         f"{_roi(r.roi)}<td>{int(r.days_held)}</td><td style='text-align:left'>{r.reason}</td></tr>"
         for r in cl.sort_values("exit_date", ascending=False).head(40).itertuples())
     return (f"<details><summary style='cursor:pointer;font-size:14px'>"
@@ -338,7 +353,8 @@ def build_html(navs: dict[str, pd.Series], trades: dict, data_date: date) -> str
             f"點線(2025-07)後三線皆真前瞻。<b>三策略均為微型股集中回測,絕對數字含容量"
             f"膨脹,不可外推至大資本</b>。<br><b>下方「持倉與交易」</b> = 現行 live 參數的"
             f"『連續』回放(交易行為視角;當下持有 = 其未平倉部位),口徑有別於上方走查 NAV 線。")
-    trades_html = "".join(_trade_html(n, trades.get(n), COLORS.get(n, "#333"))
+    _names = _load_names()
+    trades_html = "".join(_trade_html(n, trades.get(n), COLORS.get(n, "#333"), _names)
                           for n in trades)
     return f"""<meta charset='utf-8'><title>三策略 PnL 追蹤</title>
 <style>body{{font-family:-apple-system,'PingFang TC',sans-serif;background:#fcfcfb;color:#0b0b0b;margin:24px auto;max-width:1180px}}
