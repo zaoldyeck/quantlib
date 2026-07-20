@@ -37,10 +37,11 @@ COLORS = {"Serenity(ev_v3_wf)": "#2a78d6", "Evergreen(live-refit)": "#008300", "
 
 
 def _cache_latest() -> date:
-    import duckdb
-    con = duckdb.connect(str(REPO_ROOT / "research" / "cache.duckdb"), read_only=True)
+    """cache 最新交易日——單一真相來源(apex data.latest_date),不自帶查詢副本。"""
+    from research.apex import data as apex_data
+    con = apex_data.connect()
     try:
-        return con.execute("SELECT max(date) FROM daily_quote").fetchone()[0]
+        return apex_data.latest_date(con)
     finally:
         con.close()
 
@@ -130,12 +131,14 @@ def evergreen_nav(end: date) -> pd.Series:
     return nav.set_index("date")["nav"]
 
 
-def s_nav() -> pd.Series:
+def s_nav(end: date) -> pd.Series:
+    """apex_revcycle_S 現役規格全窗重放到 cache 最新日(end 與其他線同源,
+    見 main;prep 的資料截止由 end 決定,不再吃 chart 腳本的寫死字面值)。"""
     from research.apex import data as apex_data
     from research.apex.experiments.chart_s_vs_benchmarks import prep, run_s
     con = apex_data.connect()
     try:
-        panel, feat, elig = prep(con)
+        panel, feat, elig = prep(con, end.isoformat())
     finally:
         con.close()
     nav = run_s(panel, feat, elig, start=START.isoformat()).to_pandas()
@@ -296,6 +299,34 @@ h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(auto-fit,
 <div class='note'>{note}</div>"""
 
 
+#: 策略線 = cache 全窗重放,末日必須貼齊 end;基準/基金容許自然落後(只報告)
+_STRATEGY_LINES = ("Serenity(ev_v3_wf)", "Evergreen(live-refit)", "apex_revcycle_S")
+_STALE_TOLERANCE_DAYS = 4  # 容長週末/假期;策略線正常應恰好貼齊 cache 最新日
+
+
+def _assert_current(navs: dict[str, pd.Series], end: date) -> None:
+    """防凍結守護(2026-07-20 apex_revcycle_S 凍結事故的復發防線)。
+
+    策略線的 NAV 由 cache 全窗重放,末日必須貼齊 cache 最新日;任一條落後過多 =
+    某段管線把「最新」寫死了(如 chart 腳本的 DE 字面值)。寧可大聲炸掉、留住上
+    一張正確的圖,也不要靜靜覆蓋成過時儀表板。基準/基金容許自然落後,只報告。
+    """
+    end_ts = pd.Timestamp(end)
+    stale = []
+    for name, series in navs.items():
+        last = series.index.max()
+        behind = (end_ts - last).days
+        kind = "策略" if name in _STRATEGY_LINES else "基準/基金"
+        print(f"  [{kind}] {name}: 末日 {last.date()}(距 cache 最新 {behind} 日)")
+        if name in _STRATEGY_LINES and behind > _STALE_TOLERANCE_DAYS:
+            stale.append(f"{name}(末日 {last.date()}、落後 {behind} 日)")
+    if stale:
+        raise RuntimeError(
+            f"策略線未更新到 cache 最新日 {end}:" + "、".join(stale)
+            + "。某段管線把資料截止寫死了——一律改用 data.latest_date 動態讀;"
+              "修好再出圖,不覆蓋過時儀表板。")
+
+
 def main() -> None:
     from research.tri.allianz_fund import load_nav as allianz_nav
 
@@ -303,10 +334,11 @@ def main() -> None:
     navs: dict[str, pd.Series] = {}
     navs["Serenity(ev_v3_wf)"] = serenity_nav(end)
     navs["Evergreen(live-refit)"] = evergreen_nav(end)
-    navs["apex_revcycle_S"] = s_nav()
+    navs["apex_revcycle_S"] = s_nav(end)
     navs.update(bench_navs(end))
     navs["安聯台灣科技基金"] = allianz_nav(end)
     navs = {k: v[(v.index.date >= START)] for k, v in navs.items()}
+    _assert_current(navs, end)
     OUT_HTML.parent.mkdir(parents=True, exist_ok=True)
     OUT_HTML.write_text(build_html(navs, end), encoding="utf-8")
     print(f"dashboard -> {OUT_HTML}")
