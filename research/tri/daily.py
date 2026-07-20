@@ -238,11 +238,15 @@ def ensure_serenity_current(no_curation: bool) -> list[str]:
         else:
             lines.append(f"- ⚠ 月度策展執行失敗(M={prev_month})——建議基於既有冊;請查看輸出")
     # 2) 每日輕掃(不改冊;watch log 積累)
-    if state.get("last_daily_sweep") != today.isoformat():
-        ok = run_agent("daily_watch_prompt.md", f"\n\n## 本次參數\n今日 = {today}",
-                       timeout=1200, tag="每日輕掃")
-        if ok:
-            state["last_daily_sweep"] = today.isoformat()
+    # ── 2026-07-20 使用者要求暫停:每日輕掃每交易日都跑 claude CLI(Opus 4.8 /
+    #    effort max)很吃訂閱額度。先停用以省 token;要恢復,解除下面四行註解即可。
+    #    月度策展(step 1,每月一次改冊)與引擎 brief(step 3)不受影響,照常執行。
+    # if state.get("last_daily_sweep") != today.isoformat():
+    #     ok = run_agent("daily_watch_prompt.md", f"\n\n## 本次參數\n今日 = {today}",
+    #                    timeout=1200, tag="每日輕掃")
+    #     if ok:
+    #         state["last_daily_sweep"] = today.isoformat()
+    lines.append("- ⏸ 每日輕掃已暫停(省 token;月度策展與引擎 brief 照常)")
     state_p.write_text(_json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # 3) 引擎 brief:今日未產 → 跑 serenity daily(引擎 rerun + live book 對帳 + brief)
