@@ -353,16 +353,22 @@ def _run_inner(side: str) -> None:
     stop_event = threading.Event()
     import signal as _signal
 
+    # 先綁定(handler 會引用它):早於各腿建立就按 Ctrl+C 時,迴圈為空、不炸 NameError
+    prepared: list[tuple[dict, ExecutionEngine]] = []
+
     def _sigint(_s, _f):
         if stop_event.is_set():
             raise KeyboardInterrupt
-        print("\n[Ctrl+C] 收到中止:各腿本輪結束即撤單退出(再按一次 = 立刻強制)")
+        print("\n[Ctrl+C] 收到中止:各腿立即結束本輪等待、撤單退出(再按一次 = 立刻強制)")
         stop_event.set()
+        # 立刻喚醒各腿正在等待的本輪(不必空等剩餘的 round_sec,~60s → 近即時)。
+        # wake 是 threading.Event,set() 執行緒安全;喚醒後迴圈即重查 stop 並收工。
+        for _leg, _eng in prepared:
+            _eng.wake.set()
 
     _signal.signal(_signal.SIGINT, _sigint)
 
     hub = MarketHub(broker)
-    prepared: list[tuple[dict, ExecutionEngine]] = []
 
     def _register_fill_push() -> None:
         """成交即時推播 → 喚醒對應腿(事件驅動;每輪輪詢降為備援)。
