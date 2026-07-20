@@ -17,8 +17,8 @@ import numpy as np
 import polars as pl
 
 from research.apex import data
-from research.apex.experiments.chart_s_vs_benchmarks import (DS, prep, run_s,
-                                                             yearly_ret)
+from research.apex.experiments.chart_s_vs_benchmarks import yearly_ret
+from research.apex.strategy_s import DS, prep, run_s  # 官方 S 引擎唯一真源
 
 
 def intra_year_mdd(df: pl.DataFrame) -> dict[int, float]:

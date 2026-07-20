@@ -94,7 +94,7 @@ def s_nav(end: date) -> pd.Series:
     """apex_revcycle_S 現役規格全窗重放到 cache 最新日(end 與其他線同源,
     見 main;prep 的資料截止由 end 決定,不再吃 chart 腳本的寫死字面值)。"""
     from research.apex import data as apex_data
-    from research.apex.experiments.chart_s_vs_benchmarks import prep, run_s
+    from research.apex.strategy_s import prep, run_s  # 官方 S 引擎唯一真源
     con = apex_data.connect()
     try:
         panel, feat, elig = prep(con, end.isoformat())
