@@ -21,13 +21,19 @@ def build_parser(side: str) -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description=f"盤中{ '買入' if side == 'Buy' else '賣出' }執行器(預設 dry-run 模擬)")
     if side == "Trade":
-        p.add_argument("--buy", default="", help="買入代碼,逗號多檔(共用 --qty):\"2408,3006\"")
-        p.add_argument("--sell", default="", help="賣出代碼,逗號多檔(共用 --qty):\"4973,5289\"")
+        p.add_argument("--buy", default="", help="買入代碼,逗號多檔,每檔可帶股數:"
+                                                 "\"2408:2,3006:5\";省略股數 = 買 1 股(或 --qty)")
+        p.add_argument("--sell", default="", help="賣出代碼,逗號多檔,每檔可帶股數:"
+                                                  "\"4973,5289:3\";**省略股數 = 賣全部庫存**(或 --qty)")
         p.add_argument("--code", help=argparse.SUPPRESS, default=None)
     else:
-        p.add_argument("--code", help="股票代碼,可逗號多檔併發(共用 --qty):\"4973,5289\";"
-                                      "與 --plan 二選一(逐檔不同股數用 --plan)")
-    p.add_argument("--qty", type=int, help="股數(零股 <1000 自動走盤中零股)")
+        _def = "省略股數 = 賣全部庫存" if side == "Sell" else "省略股數 = 買 1 股"
+        p.add_argument("--code", help=f"股票代碼,逗號多檔併發,每檔可帶股數:\"4973:1,5289:3\";"
+                                      f"{_def}(或 --qty 覆蓋);與 --plan 二選一")
+    # 唯一的股數旗標。給了 → 買賣兩側未逐檔指定者都用它;不給 → 用內建預設
+    # (買 1 股、賣全部庫存)。逐檔 `代碼:股數` 永遠優先。單一旗標,零重複。
+    p.add_argument("--qty", type=int, default=None,
+                   help="預設股數,買賣兩側通用(逐檔 :股數 優先;不給則買 1 股、賣全部)")
     p.add_argument("--plan", help=f"auto_trader plan JSON;執行其中所有 {side} 腿")
     p.add_argument("--cap-pct", type=float, default=None,
                    help="價格護欄(小數;買=上限、賣=下限;預設取 profile)")
@@ -38,7 +44,7 @@ def build_parser(side: str) -> argparse.ArgumentParser:
         p.add_argument("--urgency", choices=("normal", "exit", "stop"),
                        default="exit" if side == "Trade" else "normal",
                        help="賣腿模式。exit = 系統出場(六道門;Trade 模式預設):結構錨整場撈"
-                            "相對高點、盤中永不因時間跨價,收盤未竟→盤後掛收盤價收尾(護欄 -3%);"
+                            "相對高點、盤中永不因時間跨價,收盤未竟→盤後掛收盤價收尾(護欄 -3%%);"
                             "stop = 急殺(僅事實級利空 override):首輪即跨價;normal = 一般賣出(吃 --patience)")
     p.add_argument("--no-micro", action="store_true",
                    help="關閉微結構擇時層(OFI/VPIN/TPO/SMC 加速/減速訊號)")
@@ -83,22 +89,79 @@ def resolve_profile(side: str, args: argparse.Namespace) -> LadderProfile:
     return prof
 
 
-def _split_codes(blob: str, flag: str) -> list[str]:
-    codes = [c.strip().zfill(4) for c in str(blob or "").split(",") if c.strip()]
+#: 賣出腿的「賣全部庫存」哨兵值;庫存同步後解析成真實股數
+SELL_ALL = "all"
+#: 買入未指定股數時的內建預設(使用者定調:買入很明確,一次 1 股)
+BUY_DEFAULT_QTY = 1
+
+
+def _leg_qty(qty_part: str, flag: str, item: str, side: str) -> int | str:
+    """把 ':股數' 的字串解析成 int 或 SELL_ALL 哨兵。"""
+    q = qty_part.strip().lower()
+    if q == SELL_ALL:
+        if side == "Buy":
+            raise SystemExit(f"{flag} 的 {item!r} 不能買 all(買入要明確股數)")
+        return SELL_ALL
+    try:
+        n = int(q)
+    except ValueError:
+        raise SystemExit(f"{flag} 的 {item!r} 股數不是整數(或 all)")
+    if n <= 0:
+        raise SystemExit(f"{flag} 的 {item!r} 股數需 > 0")
+    return n
+
+
+def _parse_legs(blob: str, flag: str, default_qty: "int | str | None",
+                side: str) -> list[tuple[str, "int | str"]]:
+    """把 "2408:2,3006,5289:all" 解析成 [(code, qty)],qty 是 int 或 SELL_ALL。
+
+    每檔可用 `代碼:股數` 指定;省略者用該側預設(不給 --qty 時:買 1 股、
+    賣全部庫存)。買入不接受 all。
+    """
+    legs: list[tuple[str, int | str]] = []
+    for item in str(blob or "").split(","):
+        item = item.strip()
+        if not item:
+            continue
+        if ":" in item:
+            code_part, qty_part = item.split(":", 1)
+            code = code_part.strip().zfill(4)
+            qty = _leg_qty(qty_part, flag, item, side)
+        else:
+            code = item.zfill(4)
+            if default_qty is None:
+                raise SystemExit(
+                    f"{flag} 的 {code} 沒指定股數:寫成 {code}:股數"
+                    + ("(或 --qty 覆蓋)" if side == "Buy"
+                       else "(賣出省略 = 全部,或 --qty 覆蓋)"))
+            qty = default_qty
+        legs.append((code, qty))
+    codes = [c for c, _ in legs]
     dup = {c for c in codes if codes.count(c) > 1}
     if dup:
         raise SystemExit(f"{flag} 重複代碼:{sorted(dup)}")
-    return codes
+    return legs
+
+
+def _side_defaults(args: argparse.Namespace) -> tuple["int", "int | str"]:
+    """(買入預設, 賣出預設)。
+
+    `--qty` 給了就兩側都用它(單一旗標、無重複);沒給則用內建預設——
+    買 1 股、賣全部庫存(2026-07-17 使用者定調:買明確、賣清倉)。
+    """
+    if args.qty is not None:
+        return args.qty, args.qty
+    return BUY_DEFAULT_QTY, SELL_ALL
 
 
 def collect_legs(side: str, args: argparse.Namespace) -> list[dict]:
-    """回傳 legs,每腿自帶 side(Trade 模式買賣混合,一套併發機器同時執行)。"""
+    """回傳 legs,每腿自帶 side/qty(Trade 模式買賣混合,一套併發機器同時執行)。"""
+    buy_default, sell_default = _side_defaults(args)
     if side == "Trade":
-        if not args.qty:
-            raise SystemExit("Trade 模式需要 --qty(共用股數;逐檔不同股數用 buy/sell --plan)")
-        legs = [{"code": c, "qty": int(args.qty), "ref": None, "name": "", "side": s}
-                for s, flag, blob in (("Buy", "--buy", args.buy), ("Sell", "--sell", args.sell))
-                for c in _split_codes(blob, flag)]
+        legs = [{"code": c, "qty": q, "ref": None, "name": "", "side": s}
+                for s, flag, blob, dflt in (("Buy", "--buy", args.buy, buy_default),
+                                            ("Sell", "--sell", args.sell, sell_default))
+                for c, q in _parse_legs(blob, flag, dflt, s)]
         both = {l["code"] for l in legs if sum(1 for x in legs if x["code"] == l["code"]) > 1}
         if both:
             raise SystemExit(f"同一代碼同時出現在 --buy 與 --sell:{sorted(both)}")
@@ -116,12 +179,13 @@ def collect_legs(side: str, args: argparse.Namespace) -> list[dict]:
         if not legs:
             raise SystemExit(f"plan 內沒有 {side} 腿")
         return legs
-    if not args.code or not args.qty:
-        raise SystemExit("需要 --code 與 --qty(或 --plan)")
-    codes = _split_codes(args.code, "--code")
-    if not codes:
+    if not args.code:
+        raise SystemExit("需要 --code(或 --plan)")
+    dflt = sell_default if side == "Sell" else buy_default
+    parsed = _parse_legs(args.code, "--code", dflt, side)
+    if not parsed:
         raise SystemExit("--code 解析後沒有任何腿")
-    return [{"code": c, "qty": int(args.qty), "ref": None, "name": "", "side": side} for c in codes]
+    return [{"code": c, "qty": q, "ref": None, "name": "", "side": side} for c, q in parsed]
 
 
 def arm_live_or_exit(args: argparse.Namespace) -> bool:
@@ -160,6 +224,13 @@ def run(side: str) -> None:
         else:
             print(exc.code)
             code = 1
+    except Exception as exc:  # noqa: BLE001 - 永遠乾淨收尾(ws 非 daemon 執行緒
+        # 會卡住直譯器,裸 traceback 退出會連 os._exit 都跑不到)
+        import traceback
+        traceback.print_exc()
+        print(f"\n✋ 執行器異常退出:{type(exc).__name__}: {exc}\n"
+              "   若曾進入 LIVE,請跑 cancel_all 確認無殘留委託。")
+        code = 1
     sys.stdout.flush()
     sys.stderr.flush()
     os._exit(code)
@@ -194,6 +265,9 @@ def _run_inner(side: str) -> None:
               f"|micro {'off' if args.no_micro else 'on'}|防重複 {'off(--allow-refill)' if args.allow_refill else 'on'}")
     total_ref = 0.0
     for i, leg in enumerate(legs, 1):
+        if leg["qty"] == SELL_ALL:  # 賣全部:股數待庫存同步後解析
+            print(f"  {i:>2}. {leg['side']} {leg['code']} {leg.get('name', '')} × 全部庫存(依同步結果)")
+            continue
         lot = "盤中零股" if leg["qty"] < 1000 else "整股"
         ref = f"|參考價 {leg['ref']:,.1f}|參考額 {leg['ref'] * leg['qty']:,.0f}" if leg.get("ref") else ""
         total_ref += (leg["ref"] or 0.0) * leg["qty"]
@@ -231,10 +305,18 @@ def _run_inner(side: str) -> None:
         broker.login()
         print("[開盤等待] 開盤;已重新登入(session 刷新)")
 
+    # 庫存唯讀同步:live 用來夾賣量/對庫存,dry-run 也載入以解析「賣全部」與
+    # 給準確預覽。有 SELL_ALL 腿時必須載入(否則不知道賣幾股)。
     inventory: dict[str, int] | None = None
-    if live:
+    needs_inventory = live or any(l["qty"] == SELL_ALL for l in legs)
+    if needs_inventory:
         from research.trading.portfolio import positions_from_fubon_inventories
-        inventory = positions_from_fubon_inventories(broker.get_inventories())
+        try:
+            inventory = positions_from_fubon_inventories(broker.get_inventories())
+        except Exception as exc:  # noqa: BLE001
+            if any(l["qty"] == SELL_ALL for l in legs):
+                raise SystemExit(f"要賣全部庫存但庫存查詢失敗:{exc}")
+            print(f"[庫存] 查詢失敗(dry-run 續跑):{exc}")
 
     mode = args.position_mode
     if mode == "auto":
@@ -284,18 +366,18 @@ def _run_inner(side: str) -> None:
 
     def _register_fill_push() -> None:
         """成交即時推播 → 喚醒對應腿(事件驅動;每輪輪詢降為備援)。
-        回呼只 set() 執行緒安全的 Event,帳務仍由 order_results 輪詢確認。"""
+
+        回呼只 set() 執行緒安全的 Event,帳務仍以委託回報對帳為準。交給
+        broker 保管:斷網重登會換掉整個 sdk,broker 會自動重新註冊。
+        """
         def _on_filled(*cb_args):
             data = cb_args[-1] if cb_args else None
             code_f = str(getattr(data, "stock_no", "") or "")
             for _leg, eng_ in prepared:
                 if eng_.code == code_f:
                     eng_.wake.set()
-        try:
-            broker.sdk.set_on_filled(_on_filled)
-            print("[fill-push] 成交即時回報已註冊(輪詢為備援節拍)")
-        except Exception as exc:  # noqa: BLE001 - 舊 SDK 無此路徑則退回輪詢
-            print(f"[fill-push] 註冊失敗({exc}),退回每輪輪詢")
+        broker.set_on_filled(_on_filled)
+        print("[fill-push] 成交即時回報已註冊(輪詢為備援節拍;重登後自動重掛)")
     for leg in legs:
         code, qty, leg_side = leg["code"], leg["qty"], leg["side"]
         prof = profiles[leg_side]
@@ -308,15 +390,20 @@ def _run_inner(side: str) -> None:
             if held > 0:
                 print(f"[{code}] 庫存已持有 {held},只補差額 {qty - held}")
                 qty = qty - held
-        if leg_side == "Sell" and inventory is not None:  # 賣出前庫存夾緊(live)
+        if leg_side == "Sell" and inventory is not None:  # 賣出前庫存夾緊/解析全部
             avail = inventory.get(code, 0)
             if avail <= 0:
                 print(f"[{code}] 庫存 0,跳過賣出")
                 board.update(code, "⏭ 庫存 0 跳過")
                 continue
-            if avail < qty:
+            if qty == SELL_ALL:
+                print(f"[{code}] 賣全部庫存 → {avail} 股")
+                qty = avail
+            elif avail < qty:
                 print(f"[{code}] 庫存僅 {avail} < 目標 {qty},夾緊為 {avail}")
                 qty = avail
+        elif leg_side == "Sell" and qty == SELL_ALL:
+            raise SystemExit(f"[{code}] 賣全部但無庫存資料——請確認可查詢富邦庫存")
         micro = None
         if not args.no_micro and prof.name != "sell_stop":
             from .microstructure import MicrostructureDetector
@@ -352,9 +439,12 @@ def _run_inner(side: str) -> None:
     def _work(leg_: dict, eng: ExecutionEngine) -> None:
         try:
             results[leg_["code"]] = eng.run()
-        except RuntimeError as exc:
-            print(f"[{leg_['code']}] ✋ {exc}")
-            board.update(leg_["code"], f"⏭ {exc}")
+        except Exception as exc:  # noqa: BLE001 - 一條腿的例外不得無聲吃掉整批
+            # 網路類已由引擎內部消化;能到這裡的是真錯誤(憑證/程式 bug/守門)。
+            print(f"[{leg_['code']}] ✋ {type(exc).__name__}: {exc}")
+            board.update(leg_["code"], f"⏭ {type(exc).__name__}: {str(exc)[:60]}")
+            eng.result.aborted = True
+            results[leg_["code"]] = eng.result
 
     for leg, eng in prepared:
         t = threading.Thread(target=_work, args=(leg, eng), name=f"leg-{leg['code']}", daemon=True)
@@ -397,7 +487,8 @@ class _FakeFeed:
     def snapshot(self) -> Quote:
         bid, ask = self.path[min(self.i, len(self.path) - 1)]
         self.i += 1
-        return Quote(bid=bid, ask=ask, last=(bid + ask) / 2, ts=0.0)
+        import time as _t
+        return Quote(bid=bid, ask=ask, last=(bid + ask) / 2, ts=_t.time())
 
 
 def selftest(side: str, urgency: str = "normal") -> None:

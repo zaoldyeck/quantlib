@@ -7,7 +7,7 @@
 
   FUBON_DRY_RUN=false \
   uv run --project research python -m research.trading.execution.trade \
-      --buy "<買入代碼>" --sell "<賣出代碼>" --qty 1 --live
+      --buy "2408:2,3006:5" --sell "4973,5289" --live
 """
 
 from ._cli import run

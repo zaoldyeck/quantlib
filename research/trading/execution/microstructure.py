@@ -254,6 +254,19 @@ class MicrostructureDetector:
             self.atr1m_pct = sum(
                 (float(b["high"]) - float(b["low"])) / max(float(b["close"]), 1e-9) for b in tail
             ) / len(tail)
+        # 官方 1 分 K 的當日極值 → 校準 day_extreme(買=日低、賣=日高)。tick 流
+        # 看不到 websocket 訂閱前(開盤那段)的極值;1 分 K 涵蓋全日,只往有利
+        # 方向收斂(買取更低、賣取更高),讓「日低/日高近旁」錨盯住真實極值。
+        if bars:
+            official = (min(float(b["low"]) for b in bars) if self.side == "Buy"
+                        else max(float(b["high"]) for b in bars))
+            if official > 0:
+                if self.day_extreme <= 0:
+                    self.day_extreme = official
+                elif self.side == "Buy":
+                    self.day_extreme = min(self.day_extreme, official)
+                else:
+                    self.day_extreme = max(self.day_extreme, official)
 
     @property
     def vwap(self) -> float:

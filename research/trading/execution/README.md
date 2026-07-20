@@ -37,7 +37,7 @@ uv run --project research python -m research.trading.execution.buy \
 # 買賣混合一行指令(全部腿併發;買腿撈低點、賣腿撈高點+保證當日完成)
 FUBON_DRY_RUN=false \
 uv run --project research python -m research.trading.execution.trade \
-    --buy "<買入代碼>" --sell "<賣出代碼>" --qty 1 --live
+    --buy "2408:2,3006:5" --sell "4973,5289" --live   # 買寫股數;賣不寫=全部庫存
 ```
 
 ---
@@ -48,8 +48,8 @@ uv run --project research python -m research.trading.execution.trade \
 
 | 參數 | 型別/預設 | 說明 |
 |---|---|---|
-| `--code` | 代碼(可多檔) | 與 `--plan` 二選一。**逗號多檔 = 併發執行**(與 plan 同一套多腿機器):`--code "4973,5289" --qty 1`(共用股數;逐檔不同股數用 `--plan`) |
-| `--qty` | 整數股 | 股數;**< 1000 自動走盤中零股**,≥ 1000 走整股 |
+| `--code` | 代碼(可多檔,可帶股數) | 與 `--plan` 二選一。**逗號多檔 = 併發執行**;每檔可寫 `代碼:股數`:`"4973:1,5289:3"`。**省略股數:買 1 股、賣全部庫存**(`4973:all` 亦可) |
+| `--qty` | 預設股數(買賣通用) | 未逐檔指定 `:股數` 時的預設。**給了 → 買賣兩側都用它;不給 → 買 1 股、賣全部庫存**。逐檔 `:股數` 永遠優先。`< 1000` 走盤中零股 |
 | `--plan` | 路徑 | plan JSON(格式見 §4);buy 吃全部 Buy 腿、sell 吃全部 Sell 腿,**併發執行** |
 
 ### 執行模式
@@ -60,7 +60,7 @@ uv run --project research python -m research.trading.execution.trade \
 | `--urgency` | `normal`(預設)/`exit`/`stop` | **sell 限定**。**exit = 系統出場預設**:結構錨(VAH/昨日高,盤中新高即時追蹤)整場撈相對高點、盤中永不因時間跨價,收盤未竟→**盤後掛收盤價收尾**(14:30 撮合=收盤價,與回測出場價語義精確對齊;護欄 −3% 鐵律:收盤破欄不掛、盤後未中籤→明日門重評);**stop** = 急殺,僅事實級利空 override:首輪即跨價;normal 吃 `--patience` |
 | `--position-mode` | `auto`(預設)/`own`/`add` | 買入語意。**own**:目標=「持有 ≥ qty」,啟動先對庫存,已持有跳過、部分持有只補差額;**add**:嚴格加碼 qty(每日 loop 的 delta plan 用這個);auto:`--code` → own,`--plan` → 讀 plan 的 `position_mode` 欄,無則 add |
 | `--no-micro` | flag | 關閉微結構層(OFI/VPIN/TPO/SMC/VWAP),走純階梯 |
-| `--trigger-strict` | flag | **狙擊模式**(UMEE 哲學):micro 加速需全部條件 AND(止穩+竭盡/掃蕩+資金流/簿支撐+價值區),預設為 ≥3/4;死線保底仍在 |
+| `--trigger-strict` | flag | **狙擊模式**(UMEE 哲學):micro 加速需全部條件 AND(止穩+竭盡/掃蕩+資金流/簿支撐+價值區),預設為 ≥3/4 |
 
 ### 價格控制
 
@@ -100,9 +100,9 @@ uv run --project research python -m research.trading.execution.trade \
 
 | 情境 | 指令組合 |
 |---|---|
-| **當天想買+想賣一次下(建議手動日常)** | `trade --buy "A,B" --sell "C,D" --qty 1`(全腿併發;買撈低、賣撈高,收盤未竟→盤後收盤價收尾;`--urgency`/`--patience` 可覆蓋) |
+| **當天想買+想賣一次下(建議手動日常)** | `trade --buy "2408:2,3006:5" --sell "4973,5289"`(買寫股數、賣不寫=全部庫存;全腿併發撈低/撈高,收盤未竟→盤後收盤價) |
 | 每日 loop 的計畫單(建議日常) | loop 自動派工:買腿 `--patience balanced`(回測完成語意)、止盈腿 price、停損腿 stop |
-| 手動買進(預設:買到好價) | `--code X --qty N`(price + own;結構錨定,13:00 死線保底) |
+| 手動買進(預設:買到好價) | `--code X --qty N`(price + own;結構錨定,收盤未竟→盤後收盤價) |
 | 手動買進、務必今天買到 | `--code X --qty N --patience balanced` |
 | 一般賣出(想賣好價) | `sell --code X --qty N`(price 預設) |
 | **六道門系統出場(全部理由)** | `sell --code X --qty N --urgency exit`(整場撈相對高點,收盤未竟→盤後收盤價) |
@@ -215,11 +215,35 @@ uv run --project research python -m research.serenity.daily run --execute-live  
 
 ---
 
-## 10. 故障排除
+## 10. 網路韌性(2026-07-15 事故後重建)
+
+**契約:暫時性網路問題絕不終止程式**——沒網路就等,網路回來自動重登、對帳、
+續管。憑證/權限/程式 bug 仍快速失敗(重試無用,得讓人看見)。
+
+| 機制 | 作法 |
+|---|---|
+| 錯誤分類 | **預設暫時性**,只有明確的「重試無用」才快速失敗(程式 bug 型別、憑證/權限字樣)。反向判定的理由:網路錯誤字樣空間開放——實測 Wi-Fi 掉線拋 `ValueError: URL error: Unable to connect`、DNS 失敗拋 `IO error: failed to lookup address information`,白名單必漏 |
+| 登入 | `FubonSDK()` 建構子本身就連線(事故點)→ 整段指數退避重試至網路恢復;**多腿併發序列化**(5 秒去抖),避免互相抽換 sdk |
+| 唯讀查詢 | 委託/庫存/餘額:無限退避重試(冪等,重試安全) |
+| **送單** | **絕不自動重送**——「送出後才斷線」時委託可能已到交易所,自動重送 = 重複下單。改由執行器:恢復 → 對帳今日成交 → 認領在途委託 → 才決定是否重掛 |
+| 進度對帳 | **絕對重算**:進度 = 今日累計成交 − 基準(委託回報為權威源)。取代增量記帳——後者在「送單當下斷線」時會永遠漏帳並重複下單 |
+| 行情連線 | SDK 的 `ws.connect()` 沒網路時**永不返回也不拋例外**(`while True` 忙等燒滿一核)→ 自實作有界連線(20s),逾時用 SDK 自己的逾時出口叫醒忙等迴圈 |
+| 行情自癒 | SDK **沒有自動重連**(`run_forever` 未帶 reconnect)→ 看門狗:斷線事件或靜默 >180s → REST 兜底 + 重建整條行情鏈(init_realtime → 重註冊回呼 → 重訂閱);重登換 sdk 也會即刻觸發重建 |
+| 報價新鮮度 | ws 靜默死亡後舊報價會永遠留在記憶體 → 逾 45 秒的報價視為過期,**寧可停手不改價**(在途限價單保留),絕不拿舊價下單 |
+| 事件標籤 | `net_degraded`(斷網續管)、`quote_stale`(報價過期停手)、`waiting_for_quote`、`resync_working_order`(恢復後認領在途單)、`progress_corrected`(對帳修正) |
+
+測試:`uv run --project research python -m pytest research/tests/test_execution_resilience.py`
+(26 項,含「送單當下斷線 → 委託已成交 → 恢復後只算一次且不重掛」的故障注入)
+
+---
+
+## 11. 故障排除
 
 | 症狀 | 處置 |
 |---|---|
-| `Not Login Error` | 已根治(2026-07-13 事故:等開盤 3 小時 session 閒置過期,09:00 炸死錯過早盤):broker 層全呼叫自動重登重試 + wait-open 超過 10 分鐘開盤瞬間強制刷新 session。若仍見此錯誤,檢查憑證/`research/.env` |
+| `Not Login Error` | 已根治(2026-07-13 事故):broker 層全呼叫自動重登重試 + 長等待後開盤瞬間刷新 session |
+| **沒網路 / 斷線** | 已根治(2026-07-15 事故:開盤瞬間斷網 → 整支 traceback 退出、錯過整天)。現在會印 `[net] …網路異常…程式保持執行`,網路回來自動重登續管;掛單保留、恢復後先對帳再動作。見 §10 |
+| 印 `quote_stale` | 行情停擺(ws 死亡/斷網)→ 設計行為:停止改價、保留在途單,等看門狗重建行情鏈;不拿舊價下單 |
 | 成交後才隔一會兒停止 | 已修(2026-07-14):成交即時推播(`set_on_filled`)瞬間喚醒,輪詢只是備援節拍 |
 | 想全部停 | 第一優先 `touch research/state/trading/HALT`;或各終端 Ctrl+C |
 | 強殺後怕有殘單 | `cancel_all` 列出 → `--live` 撤;重跑主程式會自動接管/續傳 |

@@ -21,7 +21,8 @@ from pathlib import Path
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from research.brokers.fubon import FubonBroker, StockOrderRequest
+from research.brokers.fubon import (FubonBroker, StockOrderRequest,
+                                    is_transient_network_error, net_retry)
 
 from .daily_context import dump_candles, load_daily_levels, load_prior_value_area
 from .policy import LadderProfile, price_collar, target_price
@@ -61,8 +62,15 @@ class Quote:
     last: float = 0.0
     ts: float = 0.0
 
+    MAX_AGE_SEC = 45.0  # 超過即視為過期(ws 靜默死亡/斷網;REST 兜底會刷新 ts)
+
     def usable(self) -> bool:
         return self.last > 0 or (self.bid > 0 and self.ask > 0)
+
+    def fresh(self) -> bool:
+        """報價夠新才可用來定價。ws 靜默死亡後最後一筆會永遠留在記憶體,
+        usable() 恆為 True——不看 ts 就是拿舊價交易(2026-07-15 審計)。"""
+        return self.usable() and (time.time() - self.ts) <= self.MAX_AGE_SEC
 
 
 class QuoteFeed:
@@ -183,12 +191,18 @@ class MarketHubView:
 class MarketHub:
     """一條 websocket 供多檔併發:訊息按 symbol 派發到各自 Quote 與 detector。"""
 
+    # 行情靜默多久視為 websocket 停擺(斷網/券商端斷線)→ 觸發重連。
+    # 台股連續交易無午休,books 變動頻繁;180s 全無訊息幾乎必是連線問題。
+    STALE_SEC = 180.0
+
     def __init__(self, broker: FubonBroker):
         self.broker = broker
         self._q: dict[str, Quote] = {}
         self._det: dict[str, Any] = {}
         self._lock = threading.Lock()
         self._started = False
+        self._last_tick = 0.0
+        self._stop = threading.Event()
 
     def add(self, symbol: str, detector: Any | None = None) -> MarketHubView:
         with self._lock:
@@ -200,16 +214,98 @@ class MarketHub:
         return MarketHubView(self, symbol)
 
     def start(self) -> None:
-        self.broker.sdk.init_realtime()
+        """連線 + 啟動看門狗。沒網路 → 等網路回來(絕不讓呼叫端死掉)。"""
+        # 重登會讓 sdk.marketdata 消失 → 訂閱通知,立刻觸發重建(≤30s),
+        # 而不是等 180s 靜默才發現(期間引擎會因報價過期自動停手,不會亂掛)
+        self.broker.set_on_session_replaced(self._invalidate)
+        net_retry(self._connect, what="行情連線")
+        threading.Thread(target=self._watchdog, name="mkt-watchdog", daemon=True).start()
+
+    def stop(self) -> None:
+        self._stop.set()
+
+    CONNECT_TIMEOUT = 20.0
+
+    def _connect(self) -> None:
+        """重建整條行情鏈。init_realtime() 會造全新的 MarketData(新 ws + 新
+        rest),故所有回呼與訂閱都必須重來一次(第一手:fugle sdk.py:23-29)。"""
+        self.broker.sdk.init_realtime()  # 需已登入的 session;斷網會拋 → 交給呼叫端重試
         ws = self.broker.sdk.marketdata.websocket_client.stock
         ws.on("message", self._on_message)
-        ws.connect()
+        # pyee 對「沒有監聽者的 error 事件」會直接 raise 並殺死 ws 執行緒 → 必須註冊
+        ws.on("error", lambda *a: print(f"[market] ws error:{str(a)[:100]}", flush=True))
+        ws.on("disconnect", self._on_disconnect)
+        self._bounded_connect(ws)
         time.sleep(1.0)
         for symbol in list(self._q):
             self._subscribe(symbol)
         self._started = True
+        self._last_tick = time.time()
         for symbol in list(self._q):
             self.refresh_rest(symbol)
+
+    def _bounded_connect(self, ws: Any) -> None:
+        """有界連線。SDK 的 connect() 是 `while True:` 無 sleep 的忙等,靠
+        auth_status 跳出;沒網路時 on_open 永不觸發 → **永不返回、永不拋例外、
+        燒滿一個 CPU 核心**(2026-07-15 實測 + fugle client.py:190-198 原始碼)。
+        逾時就用 SDK 自己的逾時出口(check_auth_status 同款:設 error +
+        UNAUTHENTICATED)把忙等迴圈叫醒,避免遺留空轉執行緒。
+        """
+        done = threading.Event()
+        err: list[BaseException] = []
+
+        def _do() -> None:
+            try:
+                ws.connect()
+            except BaseException as exc:  # noqa: BLE001 - 轉交主執行緒判斷
+                err.append(exc)
+            finally:
+                done.set()
+
+        threading.Thread(target=_do, name=f"ws-connect", daemon=True).start()
+        if not done.wait(self.CONNECT_TIMEOUT):
+            timeout = TimeoutError(
+                f"行情 websocket 連線逾時(>{self.CONNECT_TIMEOUT:.0f}s,沒網路?)")
+            try:  # 叫醒忙等迴圈:它會 close socket 並把 error 拋在自己的執行緒裡
+                from fugle_marketdata.websocket.client import AuthenticationState
+                ws.error = timeout
+                ws.auth_status = AuthenticationState.UNAUTHENTICATED
+            except Exception:  # noqa: BLE001
+                pass
+            done.wait(3.0)
+            raise timeout
+        if err:
+            raise err[0]
+
+    def _invalidate(self) -> None:
+        """session/連線失效 → 標記停擺,由看門狗重建整條行情鏈。"""
+        self._last_tick = 0.0
+
+    def _on_disconnect(self, *args: Any) -> None:
+        print(f"[market] websocket 斷線{str(args)[:80]} —— 看門狗將重建行情鏈", flush=True)
+        self._invalidate()
+
+    def _watchdog(self) -> None:
+        """行情看門狗:ws 停擺(斷網/券商端斷線/重登換 sdk)→ REST 兜底 + 自動重連。
+
+        斷網後 broker 會建立全新 sdk;本 hub 每次都從 `self.broker.sdk` 取用,
+        故重連即自動接上新 session。任何失敗都只記錄不拋——看門狗死掉等於
+        失去自癒能力,比暫時沒行情更糟。
+        """
+        while not self._stop.wait(30.0):
+            hh = _hhmm(_now())
+            if not (SESSION_START <= hh <= AFTERHOURS_MATCH_DONE):
+                continue
+            if time.time() - self._last_tick < self.STALE_SEC:
+                continue  # _on_disconnect 會把 _last_tick 歸零 → 立刻進入重建
+            for symbol in list(self._q):  # 先 REST 兜底:不依賴 ws 也要有報價
+                self.refresh_rest(symbol)
+            try:
+                print(f"[market] 行情靜默 >{self.STALE_SEC:.0f}s → 重連 websocket…", flush=True)
+                self._connect()
+                print("[market] websocket 已重連,行情續傳", flush=True)
+            except Exception as exc:  # noqa: BLE001 - 看門狗永不死
+                print(f"[market] 重連失敗({str(exc)[:80]});REST 兜底中,稍後再試", flush=True)
 
     def _subscribe(self, symbol: str) -> None:
         ws = self.broker.sdk.marketdata.websocket_client.stock
@@ -230,6 +326,7 @@ class MarketHub:
             return
         q = self._q[symbol]
         det = self._det.get(symbol)
+        self._last_tick = time.time()  # 看門狗的活性訊號
         with self._lock:
             bids = payload.get("bids")
             asks = payload.get("asks")
@@ -357,12 +454,18 @@ class ExecutionEngine:
         self.slice_qty = slice_qty or (1000 if qty >= 2000 else qty)
         self._bars_refreshed = 0.0
         self._last_bars: list[dict] = []  # 收盤 dump 用(1 分 K 自建歷史)
+        # 進度基準:進度 = 今日累計成交 − 基準(見 _reconcile_progress)
+        self._baseline_filled = 0
+        self._baseline_money = 0.0
         # 成交即時推播的喚醒訊號(set_on_filled → wake.set() → 立刻結束本輪等待;
         # 輪詢降為備援節拍——2026-07-14 修正「App 都成交了程式過一會兒才停」)
         self.wake = threading.Event()
         self.market_type = "IntradayOdd" if self.qty < 1000 else "Common"
         # working = 現行委託:{price, qty, seq_no, seen_fill}
         self.working: dict[str, Any] | None = None
+        # 結構錨定 profile 的順向棘輪(見 _ratchet_limit):賣掛價只准往上、買掛價
+        # 只准往下,防止今日 VWAP/TPO 阻力隨盤下滑把耐心單一路改低賤賣
+        self._rest_ratchet: float | None = None
         self.result = LegResult(code=code, side=side, qty=qty)
         OUT_DIR.mkdir(parents=True, exist_ok=True)
         stamp = _now().strftime("%Y%m%d_%H%M%S")
@@ -441,21 +544,129 @@ class ExecutionEngine:
                               f"✅ 全數成交 @ {self.result.avg_price:g}" if left <= 0
                               else f"部分成交 {self.result.filled_qty}/{self.qty}")
 
-    def _sync_live_fills(self) -> None:
-        """把現行委託的成交增量記進帳(不重複計)。全成則清空 working。"""
-        if self.working is None or not self.live:
+    def _today_totals(self, orders: Any) -> tuple[int, float]:
+        """今日「本代碼 × 本方向」的累計成交(股數, 成交金額)。
+
+        委託回報是當日成交的唯一權威源(filled_history 盤中查不到今天的成交
+        ——2026-07-09 實盤事故)。金額優先取 filled_money(真實成交價),
+        缺欄位才以委託價近似。
+        """
+        qty_sum, money_sum = 0, 0.0
+        for o in getattr(orders, "data", []) or []:
+            if str(getattr(o, "stock_no", "")) != self.code:
+                continue
+            if self.side not in str(getattr(o, "buy_sell", "")):
+                continue
+            f = self._filled_qty_of(o)
+            if f <= 0:
+                continue
+            qty_sum += f
+            money = 0.0
+            for attr in ("filled_money", "filled_amount"):
+                try:
+                    money = float(getattr(o, attr, 0) or 0)
+                except (TypeError, ValueError):
+                    money = 0.0
+                if money > 0:
+                    break
+            if money <= 0:
+                try:
+                    money = f * float(getattr(o, "price", 0) or 0)
+                except (TypeError, ValueError):
+                    money = 0.0
+            money_sum += money
+        return qty_sum, money_sum
+
+    def _reconcile_progress(self, orders: Any, *, note: str) -> None:
+        """絕對對帳:進度 = 今日累計成交 − 基準。冪等,可重複呼叫。
+
+        為什麼是絕對而非增量:增量記帳(seen_fill)只在「每一筆委託我們都知道
+        seq_no」時成立——**送單當下斷線**時委託可能已到交易所而我們收不到回應,
+        那筆成交會永遠漏帳,接著重掛就是重複下單(2026-07-15 斷網事故暴露的
+        真實風險)。以委託回報重算絕對值則天然冪等、自癒。
+        """
+        if not self.live:
             return
-        cur = self._find_order(self.working["seq_no"])
+        total, money = self._today_totals(orders)
+        progress = max(total - self._baseline_filled, 0)
+        self.result.fill_notional = max(money - self._baseline_money, 0.0)
+        if progress == self.result.filled_qty:
+            return
+        delta = progress - self.result.filled_qty
+        self.result.filled_qty = progress
+        left = self.qty - progress
+        self.log("fill" if delta > 0 else "progress_corrected",
+                 qty=delta, cum=progress, remaining=max(left, 0),
+                 avg_price=round(self.result.avg_price, 4), note=note)
+        if self.board:
+            self.board.update(self.code,
+                              f"✅ 全數成交 @ {self.result.avg_price:g}" if left <= 0
+                              else f"部分成交 {progress}/{self.qty}")
+
+    def _adopt_working(self, orders: Any, *, note: str) -> bool:
+        """認領交易所端的在途同向委託(防重複下單的關鍵)。"""
+        for o in getattr(orders, "data", []) or []:
+            if str(getattr(o, "stock_no", "")) != self.code:
+                continue
+            if self.side not in str(getattr(o, "buy_sell", "")):
+                continue
+            if getattr(o, "status", None) in _TERMINAL_STATUSES:
+                continue
+            seq = getattr(o, "seq_no", None)
+            if self.working is not None and str(self.working.get("seq_no")) == str(seq):
+                return True  # 已在管同一張
+            self.working = {"price": float(getattr(o, "price", 0) or 0),
+                            "qty": int(getattr(o, "quantity", 0) or 0),
+                            "seq_no": seq, "seen_fill": self._filled_qty_of(o)}
+            self.log(note, seq_no=str(seq), price=self.working["price"],
+                     qty=self.working["qty"], already_filled=self.working["seen_fill"])
+            if self.board:
+                self.board.update(self.code, f"接管在途單 @ {self.working['price']:g}")
+            return True
+        return False
+
+    def _sync_live_fills(self) -> None:
+        """對帳今日成交(絕對)+ 維護 working 狀態。斷網時 broker 層會等網路回來。"""
+        if not self.live:
+            return
+        orders = self.broker.get_order_results()
+        self._reconcile_progress(orders, note="sync")
+        if self.working is None:
+            return
+        cur = None
+        for o in getattr(orders, "data", []) or []:
+            if str(getattr(o, "seq_no", "")) == str(self.working["seq_no"]):
+                cur = o
+                break
         if cur is None:
             return
-        filled = self._filled_qty_of(cur)
-        inc = filled - self.working["seen_fill"]
-        if inc > 0:
-            self._register_fill(inc, self.working["price"])
-            self.working["seen_fill"] = filled
-        status = getattr(cur, "status", None)
-        if status in _TERMINAL_STATUSES or filled >= self.working["qty"]:
+        self.working["seen_fill"] = self._filled_qty_of(cur)
+        if (getattr(cur, "status", None) in _TERMINAL_STATUSES
+                or self.working["seen_fill"] >= self.working["qty"]):
             self.working = None
+
+    def _net_degraded(self, exc: Exception) -> None:
+        """本輪撞到暫時性網路故障:記錄 → 稍候 → 網路回來後對帳續管。
+
+        絕不終止本腿(2026-07-15 事故);恢復後**先對帳再動作**,因為斷線期間
+        可能已成交、或有「送出後才斷線」的不知情在途委託。
+        """
+        self.log("net_degraded", error=str(exc)[:160],
+                 note="程式保持執行;網路回來自動重登、對帳、續管")
+        if self.board:
+            self.board.update(self.code, "⏸ 網路中斷——掛單保留,恢復後續管")
+        self.sleep(min(self.round_sec or 10.0, 15.0))
+        if not self.live:
+            return
+        try:
+            self._sync_live_fills()  # 內含等網路恢復 + 絕對對帳
+            if self.working is None:
+                self._adopt_working(self.broker.get_order_results(),
+                                    note="resync_working_order")
+        except Exception as exc2:  # noqa: BLE001
+            if not is_transient_network_error(exc2):
+                raise
+            # 網路還沒回來:下一輪再對,狀態不動
 
     def _place(self, price: float, qty: int) -> None:
         req = StockOrderRequest(
@@ -492,7 +703,7 @@ class ExecutionEngine:
             return
         cur = self._find_order(self.working["seq_no"])
         if cur is not None and getattr(cur, "status", None) not in _TERMINAL_STATUSES:
-            res = self.broker.sdk.stock.cancel_order(self.broker.account, cur)
+            res = self.broker.cancel_order(cur)  # 斷網 → broker 層等網路回來重登再撤
             self.log("cancel", seq_no=str(self.working["seq_no"]),
                      ok=bool(getattr(res, "is_success", False)))
             time.sleep(0.5)
@@ -519,8 +730,7 @@ class ExecutionEngine:
             return
         cur = self._find_order(self.working["seq_no"])
         try:
-            obj = self.broker.sdk.stock.make_modify_price_obj(cur, f"{new_price:g}")
-            res = self.broker.sdk.stock.modify_price(self.broker.account, obj)
+            res = self.broker.modify_price(cur, f"{new_price:g}")
             if getattr(res, "is_success", False):
                 self.working["price"] = new_price
                 self.log("modify_price", price=new_price, seq_no=str(self.working["seq_no"]))
@@ -629,52 +839,51 @@ class ExecutionEngine:
             self._register_fill(self.working["qty"], fill_px)
             self.working = None
 
+    def _ratchet_limit(self, desired: float, aggressive: bool) -> float:
+        """結構錨定 profile 的順向棘輪:被動/錨定段的掛價只准往有利方向走
+        (賣不低於歷史最佳賣價、買不高於歷史最佳買價)。
+
+        為什麼需要(2026-07-20 台光電賣單「越改越低」事故):賣單錨定「現價
+        上方最近阻力」,而今日 VWAP/TPO 阻力會隨盤勢一路下滑,錨就跟著市場
+        往下改價 = 盤中不斷賤賣,違背耐心單「賣掛相對高、買掛相對低,盤中永
+        不因時間讓步,收盤未竟才由盤後定價以收盤價收尾」的合約。棘輪把這條
+        合約寫死成不變式。`aggressive`(過死線/boost 的主動取價)不受限——
+        由狙擊級訊號決定何時真正跨價,那才是允許往不利方向動的唯一時機。
+        """
+        if aggressive or not self.profile.structure_anchor or desired <= 0:
+            return desired
+        if self._rest_ratchet is not None:
+            desired = (min(desired, self._rest_ratchet) if self.side == "Buy"
+                       else max(desired, self._rest_ratchet))
+        self._rest_ratchet = desired
+        return desired
+
     # ── 主迴圈 ──
     def _takeover_existing(self) -> None:
         """接管語意(冪等):在途同向委託認領續管;今日同向成交計入進度。"""
         if not self.live:
             return
         orders = self.broker.get_order_results()
-        for o in getattr(orders, "data", []) or []:
-            if str(getattr(o, "stock_no", "")) != self.code:
-                continue
-            if self.side not in str(getattr(o, "buy_sell", "")):
-                continue
-            if getattr(o, "status", None) in _TERMINAL_STATUSES:
-                continue
-            f = self._filled_qty_of(o)
-            self.working = {"price": float(getattr(o, "price", 0) or 0),
-                            "qty": int(getattr(o, "quantity", 0) or 0),
-                            "seq_no": getattr(o, "seq_no", None), "seen_fill": f}
-            self.log("takeover_working_order", seq_no=str(self.working["seq_no"]),
-                     price=self.working["price"], qty=self.working["qty"], already_filled=f)
-            if self.board:
-                self.board.update(self.code, f"接管在途單 @ {self.working['price']:g}")
-            break  # 一次只管一張
-        if not self.allow_refill:
-            # 當日成交必須從「當日委託回報」加總——filled_history 盤中查不到今天
-            # 的成交(2026-07-09 實盤事故的根因),絕不可再用。
-            prior = 0
-            for o in getattr(orders, "data", []) or []:
-                if str(getattr(o, "stock_no", "")) != self.code:
-                    continue
-                if self.side not in str(getattr(o, "buy_sell", "")):
-                    continue
-                f = self._filled_qty_of(o)
-                if f > 0:
-                    prior += f
-                    try:
-                        self.result.fill_notional += f * float(getattr(o, "price", 0) or 0)
-                    except (TypeError, ValueError):
-                        pass
-            if prior:
-                self.result.filled_qty += prior
-                self.log("resume_from_today_fills", prior_filled=prior, source="order_results",
-                         remaining=max(self.qty - self.result.filled_qty, 0))
+        total, money = self._today_totals(orders)
+        # 進度基準:預設 0 → 今日既有成交直接計入進度(防重複買賣);
+        # --allow-refill → 基準=現值,只算「從現在起」的新成交。
+        if self.allow_refill:
+            self._baseline_filled, self._baseline_money = total, money
+        else:
+            self._baseline_filled, self._baseline_money = 0, 0.0
+            if total > 0:
+                self.log("resume_from_today_fills", prior_filled=total,
+                         source="order_results", remaining=max(self.qty - total, 0))
+        self._adopt_working(orders, note="takeover_working_order")
+        self._reconcile_progress(orders, note="啟動對帳")
 
     def run(self) -> LegResult:
         self._guards()
-        self._takeover_existing()
+        # 啟動對帳也必須撐過斷網(2026-07-15):等網路回來再開工,絕不因為
+        # 「啟動當下沒網路」就放棄整條腿。契約寫在這裡,不依賴 broker 內部重試。
+        net_retry(self._takeover_existing, what=f"[{self.code}] 啟動對帳",
+                  should_give_up=lambda: (HALT_FILE.exists()
+                                          or _hhmm(self.clock()) > AFTERHOURS_LAST))
         if self.result.filled_qty >= self.qty:
             self.log("already_complete_today", filled=self.result.filled_qty, target=self.qty)
             if self.board:
@@ -684,16 +893,32 @@ class ExecutionEngine:
             self.log("summary", filled=self.result.filled_qty, target=self.qty,
                      avg_price=round(self.result.avg_price, 4), arrival=0.0,
                      shortfall_bps=None, rounds=0, live=self.live)
+            self._release_lock()
             return self.result
+        # 等第一筆報價:開盤初期尚未撮合、或主機沒網路,都會沒有報價。
+        # **絕不放棄**(2026-07-15 事故:斷網讓整天的機會消失)——等到有報價
+        # 為止;只有 kill switch 或已過盤後撮合時刻才收工。
         q = self.feed.snapshot()
-        for _ in range(6):  # 開盤最初幾十秒可能還沒有第一筆報價
-            if q.usable():
-                break
-            self.feed.refresh_rest()
+        waited = 0
+        while not q.fresh():
+            if HALT_FILE.exists() or _hhmm(self.clock()) > AFTERHOURS_LAST:
+                self.log("no_quote_giving_up", waited_sec=waited,
+                         note="等到收工仍無報價(網路未恢復?)")
+                if self.board:
+                    self.board.update(self.code, "⏭ 等不到行情,今日未執行")
+                self._release_lock()
+                return self.result
+            if waited % 60 == 0:
+                self.log("waiting_for_quote", waited_sec=waited,
+                         note="尚未開盤或網路中斷;程式保持執行,有報價即開工")
+                if self.board:
+                    self.board.update(self.code, f"⏳ 等待行情 {waited}s(未開盤/網路中斷)")
+            self.feed.refresh_rest()  # 內含 try/except,斷網不拋
             self.sleep(10.0)
+            waited += 10
             q = self.feed.snapshot()
-        if not q.usable():
-            raise RuntimeError("拿不到行情(websocket 與 REST 都沒有報價)")
+        if waited:
+            self.log("quote_ready", waited_sec=waited)
         self.result.arrival = q.last or (q.bid + q.ask) / 2.0
         from dataclasses import replace as _replace
         collar = price_collar(self.side, self.result.arrival,
@@ -739,98 +964,129 @@ class ExecutionEngine:
             round_idx = 0
             while self.result.filled_qty < self.qty and not stop["flag"] and not (
                     self.stop_event is not None and self.stop_event.is_set()):
-                now = self.clock()
-                if _hhmm(now) > SESSION_END:
-                    self.log("session_end_unfilled", remaining=self.qty - self.result.filled_qty)
-                    break
-                if HALT_FILE.exists():
-                    self.log("halt_detected")
-                    break
-                past_deadline = (self.profile.deadline_hhmm is not None
-                                 and _hhmm(now) >= self.profile.deadline_hhmm)
-                in_open_window = _hhmm(now) < f"09:{self.avoid_open_min:02d}"
-                q = self.feed.snapshot()
-                effective_round = round_idx
-                boost = False
-                if self.micro is not None and not past_deadline:
-                    self._refresh_bars()
-                    ref = q.ask if self.side == "Buy" else q.bid
-                    # price 模式(structure_anchor)的加速門檻預設就用狙擊級(全 AND):
-                    # 錨定單放棄跨價的前提是「訊號才動」,訊號就必須嚴。
-                    sig = self.micro.signal(ref or q.last,
-                                            strict=self.trigger_strict or self.profile.structure_anchor)
-                    if sig.hold:
-                        effective_round = min(round_idx, max(self.profile.passive_rounds - 1, 0))
-                        self.log("micro_hold", reasons=sig.reasons)
-                    elif sig.accelerate:
-                        boost = True
-                        self.log("micro_accelerate", reasons=sig.reasons)
-                    elif self.micro.sweep:
-                        boost = True  # 掃蕩後回收 = SMC 快速通道,立即取價
-                        self.log("micro_sweep_fastpath")
-                if in_open_window:
-                    # 開盤前幾分鐘輪動噪音大:壓回被動、不跨價(死線/停損不受此限)
+                try:
+                    now = self.clock()
+                    if _hhmm(now) > SESSION_END:
+                        self.log("session_end_unfilled", remaining=self.qty - self.result.filled_qty)
+                        break
+                    if HALT_FILE.exists():
+                        self.log("halt_detected")
+                        break
+                    past_deadline = (self.profile.deadline_hhmm is not None
+                                     and _hhmm(now) >= self.profile.deadline_hhmm)
+                    in_open_window = _hhmm(now) < f"09:{self.avoid_open_min:02d}"
+                    q = self.feed.snapshot()
+                    if not q.fresh():
+                        # 行情過期(ws 靜默死亡/斷網):先 REST 兜底,仍舊就等——
+                        # 拿舊價改價等於盲目下單(2026-07-15 審計);在途單保留,
+                        # 它是護欄內的限價單,最壞情況是不成交。
+                        self.feed.refresh_rest()
+                        q = self.feed.snapshot()
+                        if not q.fresh():
+                            self.log("quote_stale", age_sec=round(time.time() - q.ts, 1),
+                                     note="不以過期報價定價;掛單保留,等行情恢復")
+                            if self.board:
+                                self.board.update(self.code, "⏸ 行情過期,暫停改價(掛單保留)")
+                            self.sleep(min(self.round_sec or 10.0, 15.0))
+                            continue
+                    effective_round = round_idx
                     boost = False
-                    effective_round = 0
-                eff_profile = self.profile if self.cap_pct_eff == self.profile.cap_pct else                     __import__("dataclasses").replace(self.profile, cap_pct=self.cap_pct_eff)
-                desired = target_price(self.side, eff_profile, effective_round,
-                                       past_deadline or boost, q.bid, q.ask, self.result.arrival)
-                # v2 智慧被動:microprice/OBI 決定 join/improve/lurk(非結構錨定的被動段)
-                if (self.micro is not None and not (past_deadline or boost)
-                        and not self.profile.structure_anchor
-                        and effective_round < self.profile.passive_rounds):
-                    ap = self.micro.adaptive_passive(q.bid, q.ask)
-                    if ap is not None:
-                        collar_px = price_collar(self.side, self.result.arrival, eff_profile)
-                        lvl = min(ap[0], collar_px) if self.side == "Buy" else max(ap[0], collar_px)
-                        if lvl > 0 and lvl != desired:
-                            desired = lvl
-                            if self.working is None or self.working.get("price") != desired:
-                                self.log("adaptive_passive", level=desired, basis=ap[1])
-                # 結構錨定(patient):被動段把單掛在 TPO/SMC 結構位,而非買一/賣一
-                if (self.profile.structure_anchor and self.micro is not None
-                        and not (past_deadline or boost)):
-                    mid_px = (q.bid + q.ask) / 2 if (q.bid > 0 and q.ask > 0) else (q.last or 0)
-                    anchor = self.micro.anchor_level(mid_px) if mid_px > 0 else None
-                    if anchor is not None:
-                        from .ticks import snap_down as _sd, snap_up as _su
-                        collar_px = price_collar(self.side, self.result.arrival, eff_profile)
-                        if self.side == "Buy":
-                            lvl = min(_sd(anchor[0]), collar_px, _sd(q.ask - 1e-9) if q.ask > 0 else _sd(anchor[0]))
-                        else:
-                            lvl = max(_su(anchor[0]), collar_px, _su(q.bid + 1e-9) if q.bid > 0 else _su(anchor[0]))
-                        if lvl > 0 and lvl != desired:
-                            desired = lvl
-                            if self.working is None or self.working.get("price") != desired:
-                                self.log("structure_rest", level=desired, basis=anchor[1])
-                remaining = self.qty - self.result.filled_qty
+                    if self.micro is not None and not past_deadline:
+                        self._refresh_bars()
+                        ref = q.ask if self.side == "Buy" else q.bid
+                        # price 模式(structure_anchor)的加速門檻預設就用狙擊級(全 AND):
+                        # 錨定單放棄跨價的前提是「訊號才動」,訊號就必須嚴。
+                        sig = self.micro.signal(ref or q.last,
+                                                strict=self.trigger_strict or self.profile.structure_anchor)
+                        if sig.hold:
+                            effective_round = min(round_idx, max(self.profile.passive_rounds - 1, 0))
+                            self.log("micro_hold", reasons=sig.reasons)
+                        elif sig.accelerate:
+                            boost = True
+                            self.log("micro_accelerate", reasons=sig.reasons)
+                        elif self.micro.sweep and not self.profile.structure_anchor:
+                            # 掃蕩後回收 = SMC 快速通道,立即取價。但結構錨定
+                            # (patient/exit)profile 的跨價前提是「狙擊級全 AND
+                            # 訊號」(見上 strict=True),而 sweep 已是該訊號的一個
+                            # bucket——不得再獨立觸發跨價,否則盤中冷啟動一偵測到
+                            # 掃蕩就急著成交,違背「掛結構位撈低/撈高」的合約。
+                            boost = True
+                            self.log("micro_sweep_fastpath")
+                    if in_open_window:
+                        # 開盤前幾分鐘輪動噪音大:壓回被動、不跨價(死線/停損不受此限)
+                        boost = False
+                        effective_round = 0
+                    eff_profile = self.profile if self.cap_pct_eff == self.profile.cap_pct else                     __import__("dataclasses").replace(self.profile, cap_pct=self.cap_pct_eff)
+                    desired = target_price(self.side, eff_profile, effective_round,
+                                           past_deadline or boost, q.bid, q.ask, self.result.arrival)
+                    # v2 智慧被動:microprice/OBI 決定 join/improve/lurk(非結構錨定的被動段)
+                    if (self.micro is not None and not (past_deadline or boost)
+                            and not self.profile.structure_anchor
+                            and effective_round < self.profile.passive_rounds):
+                        ap = self.micro.adaptive_passive(q.bid, q.ask)
+                        if ap is not None:
+                            collar_px = price_collar(self.side, self.result.arrival, eff_profile)
+                            lvl = min(ap[0], collar_px) if self.side == "Buy" else max(ap[0], collar_px)
+                            if lvl > 0 and lvl != desired:
+                                desired = lvl
+                                if self.working is None or self.working.get("price") != desired:
+                                    self.log("adaptive_passive", level=desired, basis=ap[1])
+                    # 結構錨定(patient):被動段把單掛在 TPO/SMC 結構位,而非買一/賣一
+                    if (self.profile.structure_anchor and self.micro is not None
+                            and not (past_deadline or boost)):
+                        mid_px = (q.bid + q.ask) / 2 if (q.bid > 0 and q.ask > 0) else (q.last or 0)
+                        anchor = self.micro.anchor_level(mid_px) if mid_px > 0 else None
+                        if anchor is not None:
+                            from .ticks import snap_down as _sd, snap_up as _su
+                            collar_px = price_collar(self.side, self.result.arrival, eff_profile)
+                            if self.side == "Buy":
+                                lvl = min(_sd(anchor[0]), collar_px, _sd(q.ask - 1e-9) if q.ask > 0 else _sd(anchor[0]))
+                            else:
+                                lvl = max(_su(anchor[0]), collar_px, _su(q.bid + 1e-9) if q.bid > 0 else _su(anchor[0]))
+                            if lvl > 0 and lvl != desired:
+                                desired = lvl
+                                if self.working is None or self.working.get("price") != desired:
+                                    self.log("structure_rest", level=desired, basis=anchor[1])
+                    # 順向棘輪:被動/錨定段的掛價只准往有利方向走(賣不改低、買不
+                    # 改高),把耐心單「撈相對低/相對高」寫成不變式。boost/過死線的
+                    # 主動取價不受限,由訊號決定何時真正跨價。
+                    desired = self._ratchet_limit(desired, past_deadline or boost)
+                    remaining = self.qty - self.result.filled_qty
 
-                if self.working is None and remaining > 0:
-                    self._place(desired, min(remaining, self.slice_qty))
-                elif self.working is not None and (
-                        self.working["price"] != desired
-                        or self.working["qty"] - self.working["seen_fill"] != remaining):
-                    self._reprice(desired, min(remaining, self.slice_qty))
+                    if self.working is None and remaining > 0:
+                        self._place(desired, min(remaining, self.slice_qty))
+                    elif self.working is not None and (
+                            self.working["price"] != desired
+                            or self.working["qty"] - self.working["seen_fill"] != remaining):
+                        self._reprice(desired, min(remaining, self.slice_qty))
 
-                self.log("round", i=round_idx, bid=q.bid, ask=q.ask,
-                         working=self.working["price"] if self.working else None,
-                         past_deadline=past_deadline)
+                    self.log("round", i=round_idx, bid=q.bid, ask=q.ask,
+                             working=self.working["price"] if self.working else None,
+                             past_deadline=past_deadline)
 
-                import random as _random
-                wait_s = self.round_sec * _random.uniform(0.85, 1.15) if self.round_sec else 0.0
-                if self.live and wait_s > 0:
-                    # 事件驅動:成交推播即刻喚醒;沒有推播才等滿一輪(備援輪詢)
-                    self.wake.wait(timeout=wait_s)
-                    self.wake.clear()
-                else:
-                    self.sleep(wait_s)
-                if stop["flag"] or (self.stop_event is not None and self.stop_event.is_set()):
-                    stop["flag"] = stop["flag"] or True
-                    break
-                round_idx += 1
-                self.result.rounds = round_idx
-                self._sync_live_fills()
-                self._paper_fill_check()
+                    import random as _random
+                    wait_s = self.round_sec * _random.uniform(0.85, 1.15) if self.round_sec else 0.0
+                    if self.live and wait_s > 0:
+                        # 事件驅動:成交推播即刻喚醒;沒有推播才等滿一輪(備援輪詢)
+                        self.wake.wait(timeout=wait_s)
+                        self.wake.clear()
+                    else:
+                        self.sleep(wait_s)
+                    if stop["flag"] or (self.stop_event is not None and self.stop_event.is_set()):
+                        stop["flag"] = stop["flag"] or True
+                        break
+                    round_idx += 1
+                    self.result.rounds = round_idx
+                    self._sync_live_fills()
+                    self._paper_fill_check()
+                except Exception as exc:  # noqa: BLE001
+                    # 斷網/斷線不得終止本腿(2026-07-15 事故):記錄 → 短暫等待 →
+                    # 下一輪重來(broker 層會等網路回來重登)。恢復後先對帳在途
+                    # 委託再決定動作,避免「送單當下斷線」造成重複下單。
+                    if not is_transient_network_error(exc):
+                        raise
+                    self._net_degraded(exc)
+                    continue
             # 收盤未竟 → 盤後定價自動收尾(護欄內才出手;14:30 撮合=收盤價)
             self._afterhours_completion(stop)
         finally:
@@ -838,7 +1094,11 @@ class ExecutionEngine:
                 signal.signal(signal.SIGINT, old_handler)
             self.result.aborted = stop["flag"]
             if self.working is not None:
-                self._cancel_working()
+                try:
+                    self._cancel_working()
+                except Exception as exc:  # noqa: BLE001 - 清理失敗不得吃掉原始例外
+                    self.log("cancel_on_exit_failed", error=str(exc)[:160],
+                             note="收工撤單失敗(斷網?)——跑 cancel_all 確認殘留")
             self.log("summary",
                      filled=self.result.filled_qty, target=self.qty,
                      avg_price=round(self.result.avg_price, 4),
@@ -849,4 +1109,17 @@ class ExecutionEngine:
                 path = dump_candles(self.code, self._last_bars)
                 if path is not None:
                     self.log("candles_dumped", path=str(path), bars=len(self._last_bars))
+            self._release_lock()
         return self.result
+
+    def _release_lock(self) -> None:
+        """本腿結束即釋放執行鎖(2026-07-15:先前只留給下次啟動的 PID 活性檢查
+        清理,同一程序內重跑同一腿會被自己的死鎖擋住,也留下滿地鎖檔)。"""
+        if self._lock_file is None or not self._lock_file.exists():
+            return
+        try:
+            owner = json.loads(self._lock_file.read_text(encoding="utf-8")).get("pid")
+            if int(owner) == os.getpid():  # 只清自己的,不動別人的
+                self._lock_file.unlink()
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            pass
