@@ -32,8 +32,7 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "research"))
 
-START = date(2022, 7, 11)            # 引擎計算起點(暖機 + 全史)
-COMPARE_START = date(2023, 7, 11)    # 顯示/歸一共同窗 = Evergreen walk-forward 首個 OOS
+START = date(2022, 7, 11)            # 顯示/計算起點(起始標記池;暖機另加)
 ALL_OOS_START = date(2025, 7, 11)    # 三線皆真前瞻起點(Serenity 出場參數凍結最晚)
 OUT_HTML = REPO_ROOT / "research" / "tri" / "reports" / "pnl_dashboard.html"
 RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
@@ -235,15 +234,16 @@ def build_html(navs: dict[str, pd.Series], data_date: date) -> str:
                          for n, row in yt.iterrows())
                + "</table>")
 
-    note = (f"資料日 <b>{data_date}</b> · 生成 {date.today()} · 顯示/歸一起點 "
-            f"<b>{COMPARE_START}</b>(= Evergreen walk-forward 首個 OOS)· 基準含息調整 · "
+    note = (f"資料日 <b>{data_date}</b> · 生成 {date.today()} · 顯示自 <b>{START}</b>"
+            f"(起始標記池)· 各線自其誠實起點歸一 · 基準含息調整 · "
             f"由 <code>research.tri.daily</code> 自動更新(策略線一律呼叫官方引擎,禁重寫)。<br>"
-            f"<b>各線誠實基準</b>(左 in-sample、右真前瞻,邊界不同):"
-            f"<b>Evergreen</b> = 官方引擎逐年 walk-forward refit,真 OOS <b>2023-07</b> 起;"
-            f"<b>apex_revcycle_S</b> = 固定規則(dev 2012-23 凍結),真 OOS <b>2024-01</b> 起;"
-            f"<b>Serenity</b> = PIT 選股 + 出場參數 train 2022-25 凍結,真 OOS <b>2025-07</b> 起。"
+            f"<b>各線誠實基準</b>(左 in-sample、右真前瞻,起點/邊界不同):"
+            f"<b>Evergreen</b> = 官方引擎逐年 walk-forward refit,線自 <b>2023-07</b>"
+            f"(首個 OOS;2022-07~2023-07 為初訓期)起;"
+            f"<b>apex_revcycle_S</b> = 固定規則(dev 2012-23),真 OOS <b>2024-01</b> 起;"
+            f"<b>Serenity</b> = PIT 選股 + 出場參數凍結 <b>2025-07</b>。"
             f"虛線(2025-07)後三線皆真前瞻。<b>三策略均為微型股集中回測,絕對數字含容量"
-            f"膨脹,不可外推至大資本</b>(Evergreen walk-forward 226% CAGR 亦然)。")
+            f"膨脹,不可外推至大資本</b>。")
     return f"""<meta charset='utf-8'><title>三策略 PnL 追蹤</title>
 <style>body{{font-family:-apple-system,'PingFang TC',sans-serif;background:#fcfcfb;color:#0b0b0b;margin:24px auto;max-width:1180px}}
 h1{{font-size:22px}} .cards{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}}
@@ -297,7 +297,7 @@ def main() -> None:
     navs["apex_revcycle_S"] = s_nav(end)
     navs.update(bench_navs(end))
     navs["安聯台灣科技基金"] = allianz_nav(end)
-    navs = {k: v[(v.index.date >= COMPARE_START)] for k, v in navs.items()}
+    navs = {k: v[(v.index.date >= START)] for k, v in navs.items()}
     _assert_current(navs, end)
     OUT_HTML.parent.mkdir(parents=True, exist_ok=True)
     OUT_HTML.write_text(build_html(navs, end), encoding="utf-8")

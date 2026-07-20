@@ -235,7 +235,7 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
 
 _WF_CACHE = Path("research/evergreen/data/_wf_nav_cache.parquet")
 _CACHE_DB = Path("research/cache.duckdb")
-_ENGINE_VER = "ev53wf-1"  # 改引擎邏輯時遞增,強制 walk-forward 重算
+_ENGINE_VER = "ev53wf-2"  # 改引擎邏輯時遞增,強制 walk-forward 重算(-2:midmonth last-day 修正)
 
 
 def _wf_key(end: Date) -> str:

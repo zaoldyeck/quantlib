@@ -347,8 +347,16 @@ def evergreen_advisor(con, holdings: dict[str, float], today: Date,
         cand = [d for d in dates_all if d.year == y and d.month == m and d.day > 10]
         if cand:
             stance[ym] = min(cand)
-    active = [ym for ym in yms if ym in stance and stance[ym] <= d0][-int(LC["pool_months"]):]
-    pool_codes = set(reg.filter(pl.col("month").is_in(active))["code"].to_list())
+    # 池籍改用官方 canonical midmonth_membership(唯一真源;2026-07-20 修:advisor
+    # 舊自寫「最近 N 月」比驗證引擎少疊一個月〔midmonth 有效疊加 2N-1 月〕、且無最後
+    # 一天修正)。reg 先裁到 advisor 資料窗涵蓋得到的月份(池只需最近數月即可)。
+    from research.evergreen.ev30_baseline import midmonth_membership
+    reg_win = reg.filter(
+        pl.col("month") >= f"{dates_all[0].year}-{dates_all[0].month:02d}")
+    _memb = midmonth_membership(reg_win, dates_all, int(LC["pool_months"]))
+    pool_codes = set(_memb.filter(pl.col("date") == d0)["company_code"].to_list())
+    active = [ym for ym in yms if ym in stance and stance[ym] <= d0][
+        -(2 * int(LC["pool_months"]) - 1):]
 
     adv = Advice(f"Evergreen({_tag})")
     cur_ym = f"{d0.year}-{d0.month:02d}"

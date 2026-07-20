@@ -1227,3 +1227,20 @@ evergreen_nav 刪 68 行手寫 → 呼叫官方引擎 walk-forward(逐年 refit-
 ⑤ 共同窗 2023-07 歸一。tri.daily 經子程序呼叫 dashboard,一併修正。S/Serenity
 本就重用官方引擎(run_s / serenity engine.py),未重寫。微型股集中膨脹仍在
 (容量問題,已於附註聲明,不可外推大資本)。
+
+### 池籍唯一真源 + midmonth last-day bug(2026-07-20,使用者連環稽核)
+
+使用者發現三個問題,查證後:
+- **「只推上銀」= 正確**:池子有疊加(5 檔),但 live_config 的 inst5 法人買超閘門
+  今天只有上銀(2049)通過;連驗證版 3 月窗多疊的 3006/6770 今天法人也沒買超。
+- **midmonth_membership last-day bug**:最後 pool_months 個 cohort 的 m_end=dates_all[-1]
+  + filter `date < m_end` → **最後一天池空**。回測邊界無感(mark-to-market),但 live
+  「今天」永遠是最後一天 → advisor 曾靠自寫「最近 N 月」繞過。修:開放上界 _OPEN_END;
+  parity 守住(316% 差 0.00%,證實只動邊界日、無實質)。
+- **advisor 池籍漂移**:自寫「最近 N 月」比驗證引擎(midmonth 有效疊加 2N-1 月)少疊
+  一個月。改用官方 midmonth_membership(唯一真源,吃到 last-day 修正)。live 用 raw
+  registry_v3(含當月 2026-07 標記,站位日已過)、引擎 load_registry 硬切 ≤2026-06
+  (OOS 終點外不載)——此差異為 live vs 回測**正當**,非 bug。
+- **S 儀表板截窗事故**:為對齊 Evergreen 走查起點把顯示窗截到 2023-07,令 S 倍數
+  11.2x→6.5x「看似變弱」(CAGR 其實 82.5%→85.7% 幾乎不變,是我截窗)。已改回全歷史
+  2022-07 顯示,S 恢復 11.2x 全強度;各線自其誠實起點歸一。

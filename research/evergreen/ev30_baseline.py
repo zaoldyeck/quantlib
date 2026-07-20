@@ -14,6 +14,8 @@ import polars as pl
 from research.apex import data
 from research.evergreen.harvest import C, build_feats, harvest
 
+_OPEN_END = Date(9999, 12, 31)  # 池籍開放上界(活到資料末端,含當天;見下方 last-day 修正)
+
 
 def midmonth_membership(reg: pl.DataFrame, dates_all: list[Date],
                         pool_months: int = 4) -> pl.DataFrame:
@@ -27,7 +29,10 @@ def midmonth_membership(reg: pl.DataFrame, dates_all: list[Date],
     rows = []
     for i, ym in enumerate(yms):
         start = ordered[i]
-        end = ordered[i + pool_months] if i + pool_months < len(ordered) else dates_all[-1]
+        # 最後 pool_months 個 cohort 無「pool_months 之後的站位日」→ 活到資料末端。
+        # 修:用開放上界而非 dates_all[-1],否則 `date < m_end` 排除最後一天
+        # (2026-07-20:live「今天」永遠是最後一天,舊寫法令當日池空掉、advisor 無推薦)。
+        end = ordered[i + pool_months] if i + pool_months < len(ordered) else _OPEN_END
         window = yms[max(0, i - pool_months + 1): i + 1]
         cur = (reg.filter(pl.col("month").is_in(window))
                .group_by("code").agg(pl.col("conviction").max()))
