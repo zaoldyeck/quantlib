@@ -186,6 +186,21 @@ def refit(d: EvergreenData, train_start: Date, train_end: Date) -> dict:
     return best[0]
 
 
+_REFIT_CACHE = Path("research/evergreen/data/_refit_cache.json")
+
+
+def _refit_cached(d: EvergreenData, train_start: Date, train_end: Date) -> dict:
+    """refit 磁碟快取(#3 增量,回應「不該全窗重放」):key = 引擎版本 + 訓練窗。
+    fold0/1/2 訓練窗固定在過去、永不變 → 昂貴的網格搜尋只跑一次,新資料日只重放
+    尾巴(~3-4 分 → ~30 秒)。cache 全表重建改動歷史價時,bump _ENGINE_VER 即失效。"""
+    key = f"{_ENGINE_VER}|{train_start}|{train_end}"
+    cache = json.loads(_REFIT_CACHE.read_text()) if _REFIT_CACHE.exists() else {}
+    if key not in cache:
+        cache[key] = refit(d, train_start, train_end)
+        _REFIT_CACHE.write_text(json.dumps(cache, ensure_ascii=False, indent=1))
+    return cache[key]
+
+
 # ───────────────────────── walk-forward(誠實前瞻曲線)────────────────
 
 
@@ -213,7 +228,7 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
     d = EvergreenData(con, end.isoformat())
     segs = []
     for k, f in enumerate(_folds(end)):
-        cfg = refit(d, *f["tr"]) if f["refit"] else _live_cfg()
+        cfg = _refit_cached(d, *f["tr"]) if f["refit"] else _live_cfg()
         if k == 0:  # 初始 in-sample 段:fold0 config 套自己 train 窗 → 線從 2022-07 起
             si = replay_nav(d, cfg, f["tr"][0], f["tr"][1])
             if si.height:

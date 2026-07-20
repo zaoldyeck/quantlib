@@ -2,6 +2,7 @@ __pycache__/
 .venv/
 out/
 evergreen/data/_wf_nav_cache.parquet
+evergreen/data/_refit_cache.json
 .env
 .env.*
 !.env.example
