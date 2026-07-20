@@ -68,19 +68,18 @@ def _refresh_daily(sink: Sink, upto: Date) -> int:
 
 
 def _refresh_monthly(sink: Sink, upto: Date) -> None:
-    """月頻源:operating_revenue(S 進場訊號)+ 其後重算 industry_taxonomy_pit。
-
-    ex_right_dividend / capital_reduction(不定期價格調整表)首版由月度 scp 橋接
-    —— 兩者日影響低(cache 已含前瞻除權息資料),Python adapter 為 fast-follow
-    (見 crawl 模組 docstring 與部署計畫 Part B)。此處不靜默略過:明文標記。
+    """月頻/不定期源:operating_revenue(S 進場訊號)、ex_right_dividend、
+    capital_reduction —— 全 Python 直抓,VM 完全自主、零 Mac 依賴。
+    operating_revenue 更新後重算 industry_taxonomy_pit(唯一真源)。
     """
-    from research.crawl.sources import operating_revenue
+    from research.crawl.sources import (capital_reduction, ex_right_dividend,
+                                        operating_revenue)
 
     n = operating_revenue.refresh(sink, upto)
     if n:
         operating_revenue.rebuild_industry_taxonomy(sink)
-    print("[crawl] ex_right_dividend / capital_reduction:首版由月度 scp 橋接"
-          "(adapter fast-follow;cache 已含前瞻資料)")
+    ex_right_dividend.refresh(sink, upto)
+    capital_reduction.refresh(sink, upto)
 
 
 def ensure_fresh(upto: Date | None = None, *, monthly: bool = True) -> None:

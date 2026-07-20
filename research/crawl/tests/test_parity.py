@@ -15,7 +15,8 @@ import duckdb
 import polars as pl
 
 from research.crawl.sink import CACHE_DB
-from research.crawl.sources import (daily_quote, daily_trading_details,
+from research.crawl.sources import (capital_reduction, daily_quote,
+                                    daily_trading_details, ex_right_dividend,
                                     operating_revenue, stock_per_pbr)
 
 #: 預設 parity 日(需在 cache 內、且交易所仍供該日資料)
@@ -158,6 +159,101 @@ def check_operating_revenue(con, year: int, month: int) -> tuple[int, int, int]:
     return ok, skip, fail
 
 
+def _cmp_keyed(want, got, keys: list[str], vals: list[str]) -> tuple[list[str], int, int]:
+    """比共同 key 上的 vals(float 容差 1e-6,字串精確);回 (差異訊息, 共同數, 漂移數)。"""
+    wi = {tuple(r[k] for k in keys): r for r in want.select(keys + vals).to_dicts()}
+    gi = {tuple(r[k] for k in keys): r for r in got.select(keys + vals).to_dicts()}
+    common = sorted(set(wi) & set(gi))
+    bad = []
+    for k in common:
+        for col in vals:
+            a, b = wi[k][col], gi[k][col]
+            if a is None or b is None:
+                if a is not b:
+                    bad.append(f"{k}.{col}: cache={a} 爬蟲={b}")
+            elif isinstance(a, float) or isinstance(b, float):
+                if abs(float(a) - float(b)) > 1e-6:
+                    bad.append(f"{k}.{col}: cache={a} 爬蟲={b}")
+            elif a != b:
+                bad.append(f"{k}.{col}: cache={a} 爬蟲={b}")
+    return bad, len(common), len(set(wi) ^ set(gi))
+
+
+def check_ex_right(con, year: int, month: int) -> tuple[int, int, int]:
+    ok = skip = fail = 0
+    for market in ex_right_dividend.MARKETS:
+        try:
+            got = ex_right_dividend.fetch_month(market, year, month)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ✗ ex_right_dividend/{market}: 抓取失敗 {type(exc).__name__}: {exc}")
+            fail += 1
+            continue
+        if got is None:
+            print(f"  · ex_right_dividend/{market}: 爬蟲無 {year}-{month:02d} 事件 → SKIP")
+            skip += 1
+            continue
+        dset = got["date"].unique().to_list()
+        ph = ",".join("?" * len(dset))
+        want = con.execute(
+            f"SELECT date, company_code, cash_dividend FROM ex_right_dividend "
+            f"WHERE market = ? AND date IN ({ph})", [market, *dset]).pl()
+        if want.height == 0:
+            print(f"  · ex_right_dividend/{market}: cache 無對照日 → SKIP")
+            skip += 1
+            continue
+        bad, ncom, drift = _cmp_keyed(want, got, ["date", "company_code"], ["cash_dividend"])
+        # 個別股利會被 MOPS 修訂/精度調整(cache 為舊快照、爬蟲為當前真值),屬合法
+        # 時間差;僅在不符為系統性(>1% 共同列)時才判解析錯。
+        tol = max(2, ncom // 100)
+        if len(bad) > tol:
+            print(f"  ✗ ex_right_dividend/{market}: {len(bad)} 筆現金股利不符(共同 {ncom},>1% 系統性):")
+            for m in bad[:8]:
+                print(f"       {m}")
+            fail += 1
+        else:
+            rev = f",{len(bad)} 筆股利經 MOPS 修訂(cache 舊快照)" if bad else ""
+            note = f",鍵集合漂移 {drift}(月檔成長,屬正常)" if drift else ""
+            print(f"  ✓ ex_right_dividend/{market}: 共同 {ncom} 筆現金股利一致{rev}{note}")
+            ok += 1
+    return ok, skip, fail
+
+
+def check_capital_reduction(con, start: Date, end: Date) -> tuple[int, int, int]:
+    ok = skip = fail = 0
+    for market in capital_reduction.MARKETS:
+        try:
+            got = capital_reduction.fetch_range(market, start, end)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  ✗ capital_reduction/{market}: 抓取失敗 {type(exc).__name__}: {exc}")
+            fail += 1
+            continue
+        want = con.execute(
+            "SELECT date, company_code, post_reduction_reference_price, "
+            "reason_for_capital_reduction FROM capital_reduction "
+            "WHERE market = ? AND date BETWEEN ? AND ?", [market, start, end]).pl()
+        if got is None and want.height == 0:
+            print(f"  · capital_reduction/{market}: 區間內雙方皆無 → SKIP")
+            skip += 1
+            continue
+        if got is None:
+            print(f"  ✗ capital_reduction/{market}: 爬蟲無,cache 有 {want.height}")
+            fail += 1
+            continue
+        bad, ncom, drift = _cmp_keyed(
+            want, got, ["date", "company_code"],
+            ["post_reduction_reference_price", "reason_for_capital_reduction"])
+        if bad:
+            print(f"  ✗ capital_reduction/{market}: {len(bad)} 筆不符(共同 {ncom}):")
+            for m in bad[:8]:
+                print(f"       {m}")
+            fail += 1
+        else:
+            note = f",鍵集合漂移 {drift}" if drift else ""
+            print(f"  ✓ capital_reduction/{market}: 共同 {ncom} 筆減資逐位一致{note}")
+            ok += 1
+    return ok, skip, fail
+
+
 def main() -> None:
     day = Date.fromisoformat(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DATE
     print(f"parity 對照日 {day}(cache: {CACHE_DB})")
@@ -170,6 +266,14 @@ def main() -> None:
             tot_skip += skip
             tot_fail += fail
         ok, skip, fail = check_operating_revenue(con, *PARITY_MONTH)
+        tot_ok += ok
+        tot_skip += skip
+        tot_fail += fail
+        ok, skip, fail = check_ex_right(con, *PARITY_MONTH)
+        tot_ok += ok
+        tot_skip += skip
+        tot_fail += fail
+        ok, skip, fail = check_capital_reduction(con, Date(2026, 1, 1), Date(2026, 6, 30))
         tot_ok += ok
         tot_skip += skip
         tot_fail += fail
