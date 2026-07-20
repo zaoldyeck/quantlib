@@ -54,6 +54,36 @@ def _summary_html(title: str, body: str) -> str:
             f"overflow-x:auto;font-size:12px\">{_html.escape(body)}</pre></div>")
 
 
+# ── 過量下單硬防護(使用者鐵律:雲端絕不可下超過信中計劃的股數)──────────────
+#: 每檔買入股數上限;1 股營運,任何 >此值 一律視為誤設 → 拒絕執行(不是夾住,是拒絕)
+_MAX_SHARES_PER_BUY = 5
+#: 單日買入腿數上限;S 每日進場 ≤2,遠超此值視為計劃檔損毀 → 拒絕執行
+_MAX_BUY_LEGS = 5
+
+
+def order_safety_error(n_shares: int, buys: list) -> str | None:
+    """過量下單守門(純函式,可測):回違規原因字串,或 None(安全)。
+
+    使用者鐵律:雲端絕不可下超過信中計劃的股數。違規一律「拒絕整批」,不夾住、不降級。
+    """
+    if n_shares > _MAX_SHARES_PER_BUY:
+        return f"每檔股數 {n_shares} 超過安全上限 {_MAX_SHARES_PER_BUY}(QL_S_SHARES_PER_BUY 誤設?)"
+    if len(buys) > _MAX_BUY_LEGS:
+        return f"買入腿數 {len(buys)} 異常(>{_MAX_BUY_LEGS};S 每日進場應 ≤2)——計劃檔恐損毀"
+    return None
+
+
+def _abort(notifier, date_str: str, reason: str) -> None:
+    """安全防護:一律不交易 + 告警 + 非零退出。過量寧可不下,不可下錯。"""
+    body = f"🛑 安全防護觸發,今日一律不交易(未送任何單):{reason}"
+    print(f"✗ [execute] {body}", file=sys.stderr)
+    try:
+        notifier.send_fill_summary(date_str, _summary_html("⚠️ 安全中止", body), body)
+    except Exception:  # noqa: BLE001 - 連告警都寄不出也要中止
+        pass
+    raise SystemExit(1)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="S 策略開盤執行(派工 execution.trade)")
     ap.add_argument("--date", default=None, help="計劃日(預設台北今日)")
@@ -114,6 +144,12 @@ def main() -> None:
     load_env_file()
     live = (not args.dry) and os.environ.get("FUBON_DRY_RUN", "true").lower() in {"0", "false", "no"}
     n = _shares_per_buy()
+
+    # ── 過量下單硬防護(下真單前的最後一道閘;寧可整批拒絕,不可下超量)──
+    err = order_safety_error(n, buys)
+    if err:
+        _abort(notifier, date_str, err)
+
     cmd = ["uv", "run", "--project", "research", "python", "-m",
            "research.trading.execution.trade"]
     if buys:
@@ -123,7 +159,10 @@ def main() -> None:
     if live:
         cmd += ["--live"]
     mode = "LIVE(真下單)" if live else "DRY-RUN(模擬)"
-    print(f"[execute] 派工 execution.trade [{mode}]:{' '.join(cmd[6:])}")
+    # 明確印出最大曝險:買入嚴格上限 = 每檔 n 股 × 腿數(執行器 own 模式只會更少)
+    print(f"[execute] 下單上限:買 {len(buys)} 檔 × {n} 股 = 最多 {n * len(buys)} 股"
+          f"(own 模式已持有則跳過);賣 {len(sells)} 檔全部庫存。模式 {mode}")
+    print(f"[execute] 派工 execution.trade:{' '.join(cmd[6:])}")
 
     # 4) 阻塞執行(execution.trade 內部自等 09:00);全程 log 落檔,尾段寄回
     LOG_DIR.mkdir(parents=True, exist_ok=True)
