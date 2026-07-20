@@ -12,6 +12,7 @@ from research.trading.live.s_plan import DayPlan
 def _plan() -> DayPlan:
     return DayPlan(
         date="2026-07-21", buys=["2408"], sells=["9999"],
+        protected_sells=["2059"],
         manual_review=[("1111", "無法取價(下市/停牌?)人工確認")],
         keeps=[("2330", "六道門全綠")], queued=[("5483", "⏸ 排隊 #3|…")],
         notes=["今日 fresh cohort 5 檔"])
@@ -71,9 +72,33 @@ def test_is_cancelled_mock() -> None:
         notify.imaplib.IMAP4_SSL = orig
 
 
+def test_confirm_sell_mailto_and_render() -> None:
+    """保留股確認鈕:mailto 主旨正確 + HTML 出現保留股區塊與確認鈕。"""
+    m = notify.confirm_sell_mailto("me@gmail.com", "2059", "2026-07-21")
+    assert m.startswith("mailto:me@gmail.com?subject=")
+    assert "CONFIRM-SELL-2059-2026-07-21" in m
+    h = notify.render_plan_html(_plan(), {"2059": "川湖"}, "me@gmail.com")
+    assert "保留股" in h and "確認賣出" in h and "2059 川湖" in h
+    t = notify.render_plan_text(_plan(), {"2059": "川湖"})
+    assert "保留股" in t and "2059 川湖" in t
+
+
+def test_is_sell_confirmed_mock() -> None:
+    """確認信在 → True(可賣);不在 → False(保守不賣)。"""
+    orig = notify.imaplib.IMAP4_SSL
+    try:
+        notify.imaplib.IMAP4_SSL = lambda h, p: _FakeIMAP(True)
+        assert notify.GmailNotifier("me@gmail.com", "pw").is_sell_confirmed("2059", "2026-07-21") is True
+        notify.imaplib.IMAP4_SSL = lambda h, p: _FakeIMAP(False)
+        assert notify.GmailNotifier("me@gmail.com", "pw").is_sell_confirmed("2059", "2026-07-21") is False
+    finally:
+        notify.imaplib.IMAP4_SSL = orig
+
+
 def main() -> None:
     for fn in (test_cancel_subject_and_mailto, test_render_html_has_button_and_names,
-               test_render_text_plain, test_is_cancelled_mock):
+               test_render_text_plain, test_is_cancelled_mock,
+               test_confirm_sell_mailto_and_render, test_is_sell_confirmed_mock):
         fn()
         print(f"✓ {fn.__name__}")
     print("✓ notify 全過")

@@ -36,7 +36,7 @@ def plan_path(date_str: str) -> Path:
 
 
 def _all_codes(plan) -> list[str]:
-    codes = set(plan.buys) | set(plan.sells)
+    codes = set(plan.buys) | set(plan.sells) | set(plan.protected_sells)
     codes |= {c for c, _ in plan.manual_review}
     codes |= {c for c, _ in plan.keeps}
     codes |= {c for c, _ in plan.queued}
@@ -54,7 +54,7 @@ def main() -> None:
     from research.apex import data
     from research.trading.execution.daily_context import lookup_names
     from research.trading.live import account, notify
-    from research.trading.live.s_plan import build_day_plan
+    from research.trading.live.s_plan import build_day_plan, protected_from_env
 
     today = notify.today_taipei()
     print(f"[premarket] 交易日 {today}")
@@ -77,8 +77,8 @@ def main() -> None:
         nav = account.estimate_nav(con, holdings, cash)
         print(f"[premarket] 持股 {len(holdings)} 檔、現金 {cash:,.0f}、NAV≈{nav:,.0f}")
 
-        # 3) 決策(重用 s_advisor)
-        plan = build_day_plan(con, holdings, today, nav)
+        # 3) 決策(重用 s_advisor)+ 套用保留股(使用者要自己控的持股不自動賣)
+        plan = build_day_plan(con, holdings, today, nav, protected_from_env())
         names = lookup_names(_all_codes(plan))
     finally:
         con.close()

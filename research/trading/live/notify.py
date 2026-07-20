@@ -29,6 +29,8 @@ _SMTP_HOST, _SMTP_PORT = "smtp.gmail.com", 587
 _IMAP_HOST, _IMAP_PORT = "imap.gmail.com", 993
 #: 取消信主旨模板;主旨內嵌交易日 → 天生 day-specific,昨日的取消不會誤觸今日
 CANCEL_SUBJECT_TMPL = "CANCEL-S-{date}"
+#: 保留股「確認賣出」主旨模板;內嵌代碼+日 → 每檔每日獨立確認
+CONFIRM_SELL_SUBJECT_TMPL = "CONFIRM-SELL-{code}-{date}"
 
 
 @runtime_checkable
@@ -86,10 +88,9 @@ class GmailNotifier:
                           summary_text: str) -> None:
         self._send(f"[S 策略] {date_str} 執行結果", summary_html, summary_text)
 
-    # ── IMAP 取消檢查 ──────────────────────────────────────────────
-    def is_cancelled(self, date_str: str) -> bool:
-        """收信匣有無今日取消信。IMAP/登入故障 → 上拋(呼叫端 fail-safe 不交易)。"""
-        subject = CANCEL_SUBJECT_TMPL.format(date=date_str)
+    # ── IMAP 取消 / 確認檢查 ───────────────────────────────────────
+    def _inbox_has_subject(self, subject: str) -> bool:
+        """收信匣是否有指定主旨的信。IMAP/登入故障 → 上拋(呼叫端 fail-safe)。"""
         im = imaplib.IMAP4_SSL(_IMAP_HOST, _IMAP_PORT)
         try:
             im.login(self.user, self.app_password)
@@ -105,6 +106,15 @@ class GmailNotifier:
             except Exception:  # noqa: BLE001 - logout 失敗不影響判定結果
                 pass
 
+    def is_cancelled(self, date_str: str) -> bool:
+        """收信匣有無今日取消信。IMAP/登入故障 → 上拋(呼叫端 fail-safe 不交易)。"""
+        return self._inbox_has_subject(CANCEL_SUBJECT_TMPL.format(date=date_str))
+
+    def is_sell_confirmed(self, code: str, date_str: str) -> bool:
+        """保留股是否已收到今日『確認賣出』信。故障 → 上拋(呼叫端保守:不賣)。"""
+        return self._inbox_has_subject(
+            CONFIRM_SELL_SUBJECT_TMPL.format(code=code, date=date_str))
+
 
 # ── 純函式:計劃 → HTML / 純文字(presentation;可獨立測試)───────────
 
@@ -118,6 +128,13 @@ def cancel_mailto(to: str, date_str: str) -> str:
     """取消鈕的 mailto 連結:點了 = 寄一封標好取消主旨的信給自己。"""
     subject = CANCEL_SUBJECT_TMPL.format(date=date_str)
     body = f"取消 S 策略 {date_str} 今日執行"
+    return f"mailto:{to}?subject={quote(subject)}&body={quote(body)}"
+
+
+def confirm_sell_mailto(to: str, code: str, date_str: str) -> str:
+    """保留股『確認賣出』鈕:點了 = 寄一封確認信,VM 才會賣這一檔保留股。"""
+    subject = CONFIRM_SELL_SUBJECT_TMPL.format(code=code, date=date_str)
+    body = f"確認賣出保留股 {code}({date_str})"
     return f"mailto:{to}?subject={quote(subject)}&body={quote(body)}"
 
 
@@ -143,6 +160,20 @@ def render_plan_html(plan, names: dict[str, str], to: str) -> str:
             "<h3 style='color:#b45309'>需人工複核(不自動下單)</h3>"
             f"<ul>{manual_html}</ul>")
 
+    protected_block = ""
+    if plan.protected_sells:
+        btn = ("display:inline-block;padding:6px 14px;margin-left:8px;background:#b45309;"
+               "color:#fff;text-decoration:none;border-radius:6px;font-size:13px")
+        prows = "".join(
+            f"<li style='margin:6px 0'>{e(_nm(c, names))}"
+            f"<a href='{confirm_sell_mailto(to, c, plan.date)}' style='{btn}'>✅ 確認賣出</a></li>"
+            for c in plan.protected_sells)
+        protected_block = (
+            "<h3 style='color:#b45309'>你的保留股(策略建議賣,但預設不動)</h3>"
+            "<p style='color:#52606d;margin-top:0'>這些是你指定<b>自己控</b>的股票。"
+            "VM <b>預設不賣、續抱</b>;唯有你按對應「確認賣出」鈕,開盤才會賣該檔。</p>"
+            f"<ul style='list-style:none;padding-left:0'>{prows}</ul>")
+
     return f"""\
 <div style="font-family:-apple-system,'Segoe UI',Roboto,'PingFang TC','Microsoft JhengHei',sans-serif;max-width:640px;margin:0 auto;color:#1f2933;line-height:1.6">
   <h2 style="margin-bottom:2px">S 策略 · {e(plan.date)} 交易計劃</h2>
@@ -156,8 +187,10 @@ def render_plan_html(plan, names: dict[str, str], to: str) -> str:
   <h3 style="color:#166534">買入(今日進場,各 1 股)</h3>
   <ul>{buys_html}</ul>
 
-  <h3 style="color:#991b1b">賣出(全部庫存)</h3>
+  <h3 style="color:#991b1b">賣出(全部庫存,非保留股)</h3>
   <ul>{sells_html}</ul>
+
+  {protected_block}
 
   {manual_block}
 
@@ -177,7 +210,10 @@ def render_plan_text(plan, names: dict[str, str]) -> str:
     lines = [f"S 策略 {plan.date} 交易計劃(買各 1 股、賣全部;不動作 09:00 自動執行)",
              "取消:08:55 前回覆本信(主旨含 CANCEL-S-" + plan.date + ")即中止今日執行", ""]
     lines.append("買入(今日進場):" + ("、".join(_nm(c, names) for c in plan.buys) or "無"))
-    lines.append("賣出(全部庫存):" + ("、".join(_nm(c, names) for c in plan.sells) or "無"))
+    lines.append("賣出(全部庫存,非保留):" + ("、".join(_nm(c, names) for c in plan.sells) or "無"))
+    if plan.protected_sells:
+        lines.append("保留股(策略建議賣,預設不動,需回信確認才賣):"
+                     + "、".join(_nm(c, names) for c in plan.protected_sells))
     if plan.manual_review:
         lines.append("需人工複核(不自動下單):"
                      + "、".join(f"{_nm(c, names)}[{r}]" for c, r in plan.manual_review))

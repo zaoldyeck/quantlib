@@ -44,6 +44,21 @@ def test_sells_exclude_manual() -> None:
     assert [c for c, _ in p.manual_review] == ["9999"]
 
 
+def test_protected_sells_split() -> None:
+    """保留股(使用者要自己控)即使建議賣也不進 sells,歸 protected_sells。"""
+    p = plan_from_advice(_adv(), Date(2026, 7, 21), protected={"2222", "4763"})
+    assert p.sells == ["1234"]                       # 非保留 → 自動賣
+    assert sorted(p.protected_sells) == ["2222", "4763"]  # 保留 → 待確認
+    assert [c for c, _ in p.manual_review] == ["9999"]    # 人工確認不受影響
+
+
+def test_protected_empty_default() -> None:
+    """未指定保留 → 賣單照舊全自動、protected_sells 為空。"""
+    p = plan_from_advice(_adv(), Date(2026, 7, 21))
+    assert p.sells == ["1234", "2222", "4763"]
+    assert p.protected_sells == []
+
+
 def test_has_actions_and_passthrough() -> None:
     p = plan_from_advice(_adv(), Date(2026, 7, 21))
     assert p.has_actions is True
@@ -68,6 +83,7 @@ def test_to_dict_shape() -> None:
 
 def main() -> None:
     for fn in (test_buys_only_enter_today, test_sells_exclude_manual,
+               test_protected_sells_split, test_protected_empty_default,
                test_has_actions_and_passthrough, test_empty_advice_no_actions,
                test_to_dict_shape):
         fn()

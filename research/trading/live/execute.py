@@ -112,13 +112,22 @@ def main() -> None:
     pp = plan_path(date_str)
     if not pp.exists():
         sys.exit(f"✗ [execute] 找不到今日計劃 {pp}(premarket 是否已於 07:20 執行?)")
+    from research.trading.live.s_plan import protected_from_env
+
+    load_env_file()
     plan = json.loads(pp.read_text(encoding="utf-8"))
     buys: list[str] = list(plan.get("buys") or [])
-    sells: list[str] = list(plan.get("sells") or [])
-    print(f"[execute] {date_str} 計劃:買 {buys or '無'}｜賣 {sells or '無'}")
+    # 所有被建議賣的股(計劃可能已拆保留、也可能沒拆)——execute 為權威閘,一律以
+    # env 保留清單重新判定,即使計劃檔沒拆保留股也擋得住(defense in depth)。
+    suggested_sells = list(plan.get("sells") or []) + list(plan.get("protected_sells") or [])
+    protected = protected_from_env()
+    auto_sells = [c for c in suggested_sells if c not in protected]
+    protected_suggested = [c for c in suggested_sells if c in protected]
+    print(f"[execute] {date_str} 計劃:買 {buys or '無'}｜自動賣 {auto_sells or '無'}"
+          + (f"｜保留股待確認 {protected_suggested}" if protected_suggested else ""))
 
-    if not buys and not sells:
-        print("[execute] 今日無自動下單腿,結束。")
+    if not buys and not suggested_sells:
+        print("[execute] 今日無下單腿,結束。")
         return
 
     # 2) 取消檢查(fail-safe:讀不到 → 不交易 + 告警)
@@ -142,8 +151,24 @@ def main() -> None:
             notifier.send_fill_summary(date_str, _summary_html("已取消今日執行", body), body)
             return
 
+    # 2b) 保留股確認檢查(fail-safe:讀不到確認 → 保守不賣;預設保留股一律續抱)
+    confirmed_sells: list[str] = []
+    for c in protected_suggested:
+        try:
+            if notifier.is_sell_confirmed(c, date_str):
+                confirmed_sells.append(c)
+        except Exception as exc:  # noqa: BLE001 - 讀不到確認 = 不賣(保守)
+            print(f"[execute] 保留股 {c} 確認狀態讀取失敗({exc});保守不賣", file=sys.stderr)
+    sells = auto_sells + confirmed_sells
+    if protected_suggested:
+        kept = [c for c in protected_suggested if c not in confirmed_sells]
+        print(f"[execute] 保留股:確認賣出 {confirmed_sells or '無'}、續抱保留 {kept or '無'}")
+
+    if not buys and not sells:
+        print("[execute] 過濾保留股後今日無下單腿(全數續抱),結束。")
+        return
+
     # 3) 組下單指令(買各 N 股、賣全部)
-    load_env_file()
     live = (not args.dry) and os.environ.get("FUBON_DRY_RUN", "true").lower() in {"0", "false", "no"}
     n = _shares_per_buy()
 
