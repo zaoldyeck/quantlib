@@ -1709,3 +1709,12 @@ pyramid {(.15,1,.5),(.15,1,1),(.30,1,.5),(.30,2,.5)} + recycle {(0.6,0.4),
 (tri 三臂),非改造 S。lumpiness 唯一真風險=年內深回撤(2020/21/15/26
 皆 −27~29%)→ 倉位保守勿裸槓(25% NAV 上限紀律正確),非重造策略。
 腳本:experiments/s01_pnl_distribution.py。
+
+## F13 — S × 融資槓桿 overlay(2026-07-21,同 EV54 跨策略預註冊)
+
+見 evergreen/LEDGER.md EV54(三策略統一 harness):S 微型股池的處置/停融資
+風險未建模,結果為上界。判準同:兩折 OOS P5 ≥ 未槓桿 baseline 才收編。
+
+**F13 結果(2026-07-21)**:S 融資 0/2 不採——折2 OOS CAGR 91.9→251.3% 但
+P5 −4.2→−44.3%/MDD −49.8%;P5 主尺判死(槓桿買 CAGR 的代價是尾部)。
+詳見 evergreen/LEDGER.md EV54。
