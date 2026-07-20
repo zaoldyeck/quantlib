@@ -1244,3 +1244,14 @@ evergreen_nav 刪 68 行手寫 → 呼叫官方引擎 walk-forward(逐年 refit-
 - **S 儀表板截窗事故**:為對齊 Evergreen 走查起點把顯示窗截到 2023-07,令 S 倍數
   11.2x→6.5x「看似變弱」(CAGR 其實 82.5%→85.7% 幾乎不變,是我截窗)。已改回全歷史
   2022-07 顯示,S 恢復 11.2x 全強度;各線自其誠實起點歸一。
+
+### #5 registry magic date 移除 + #2 Evergreen 一致起跑點(2026-07-20,使用者「全部做完」)
+
+- **#5**:`load_registry` 硬編碼 `≤2026-06`(magic date)移除;改讓 `midmonth_membership`
+  對「站位日不在資料窗內的月份」優雅略過(PIT 由日期窗處理)。效果:引擎與 advisor
+  在 live 日池子**完全一致**(都含當月 2026-07 標記,7→5 檔對齊);parity 守住
+  (316% 差 0.00%,證實回測不受影響——站位日 > 窗末即不活)。
+- **#2**:Evergreen walk-forward 加初始 in-sample 段(fold0 config 套自己 train 窗
+  2022-07~2023-07),線與 S/Serenity 同從起始標記池(2022-07)起。輸出加 in_sample
+  欄。儀表板三線 in-sample 段畫**虛線**、真前瞻畫實線(誠實 + 一致起跑點同時滿足);
+  Evergreen 全期 280.2%(含 in-sample 2022,虛線標示),OOS 段仍 226.9%。

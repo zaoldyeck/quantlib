@@ -34,6 +34,11 @@ sys.path.insert(0, str(REPO_ROOT / "research"))
 
 START = date(2022, 7, 11)            # 顯示/計算起點(起始標記池;暖機另加)
 ALL_OOS_START = date(2025, 7, 11)    # 三線皆真前瞻起點(Serenity 出場參數凍結最晚)
+OOS_STARTS = {  # 各策略線真前瞻起點;此前為 in-sample(繪成虛線)
+    "Evergreen(live-refit)": date(2023, 7, 11),   # walk-forward 首個 OOS
+    "apex_revcycle_S": date(2024, 1, 1),          # dev 2012-23 凍結後
+    "Serenity(ev_v3_wf)": date(2025, 7, 11),      # 出場參數 train 2022-25 凍結後(選股仍 PIT)
+}
 OUT_HTML = REPO_ROOT / "research" / "tri" / "reports" / "pnl_dashboard.html"
 RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
 # dataviz reference palette slots 1-7(validate_palette.js 七槽 PASS,2026-07-19)
@@ -177,9 +182,20 @@ def build_html(navs: dict[str, pd.Series], data_date: date) -> str:
         norm = nav / nav.iloc[0]
         dd = norm / norm.cummax() - 1
         c = COLORS[name]
-        fig.add_trace(go.Scatter(x=norm.index, y=norm, name=name, mode="lines",
-                                 line=dict(color=c, width=2),
-                                 hovertemplate=f"{name}: %{{y:.2f}}x<extra></extra>"), 1, 1)
+        oos = OOS_STARTS.get(name)
+        if oos is not None and bool((norm.index < pd.Timestamp(oos)).any()):
+            b = pd.Timestamp(oos)  # in-sample(虛)+ OOS(實);邊界點兩段共用以接續
+            ins, oosn = norm[norm.index <= b], norm[norm.index >= b]
+            fig.add_trace(go.Scatter(x=ins.index, y=ins, name=name, mode="lines",
+                                     line=dict(color=c, width=2, dash="dot"), showlegend=False,
+                                     hovertemplate=f"{name}(in-sample): %{{y:.2f}}x<extra></extra>"), 1, 1)
+            fig.add_trace(go.Scatter(x=oosn.index, y=oosn, name=name, mode="lines",
+                                     line=dict(color=c, width=2),
+                                     hovertemplate=f"{name}: %{{y:.2f}}x<extra></extra>"), 1, 1)
+        else:
+            fig.add_trace(go.Scatter(x=norm.index, y=norm, name=name, mode="lines",
+                                     line=dict(color=c, width=2),
+                                     hovertemplate=f"{name}: %{{y:.2f}}x<extra></extra>"), 1, 1)
         fig.add_trace(go.Scatter(x=dd.index, y=dd, name=name, mode="lines", showlegend=False,
                                  line=dict(color=c, width=1.5),
                                  hovertemplate=f"{name}: %{{y:.1%}}<extra></extra>"), 2, 1)
@@ -234,15 +250,14 @@ def build_html(navs: dict[str, pd.Series], data_date: date) -> str:
                          for n, row in yt.iterrows())
                + "</table>")
 
-    note = (f"資料日 <b>{data_date}</b> · 生成 {date.today()} · 顯示自 <b>{START}</b>"
-            f"(起始標記池)· 各線自其誠實起點歸一 · 基準含息調整 · "
-            f"由 <code>research.tri.daily</code> 自動更新(策略線一律呼叫官方引擎,禁重寫)。<br>"
-            f"<b>各線誠實基準</b>(左 in-sample、右真前瞻,起點/邊界不同):"
-            f"<b>Evergreen</b> = 官方引擎逐年 walk-forward refit,線自 <b>2023-07</b>"
-            f"(首個 OOS;2022-07~2023-07 為初訓期)起;"
-            f"<b>apex_revcycle_S</b> = 固定規則(dev 2012-23),真 OOS <b>2024-01</b> 起;"
-            f"<b>Serenity</b> = PIT 選股 + 出場參數凍結 <b>2025-07</b>。"
-            f"虛線(2025-07)後三線皆真前瞻。<b>三策略均為微型股集中回測,絕對數字含容量"
+    note = (f"資料日 <b>{data_date}</b> · 生成 {date.today()} · 三策略均自 <b>{START}</b>"
+            f"(起始標記池)起 · 基準含息調整 · 由 <code>research.tri.daily</code> 自動更新"
+            f"(策略線一律呼叫官方引擎,禁重寫)。<br>"
+            f"<b>虛線 = in-sample(參數看過該段)、實線 = 真前瞻(OOS)</b>,各線邊界不同:"
+            f"<b>Evergreen</b> 逐年 walk-forward refit,OOS 自 <b>2023-07</b>(前為初訓期);"
+            f"<b>apex_revcycle_S</b> 固定規則(dev 2012-23),OOS 自 <b>2024-01</b>;"
+            f"<b>Serenity</b> 選股全程 PIT,惟出場參數 train 2022-25 凍結,OOS 自 <b>2025-07</b>。"
+            f"點線(2025-07)後三線皆真前瞻。<b>三策略均為微型股集中回測,絕對數字含容量"
             f"膨脹,不可外推至大資本</b>。")
     return f"""<meta charset='utf-8'><title>三策略 PnL 追蹤</title>
 <style>body{{font-family:-apple-system,'PingFang TC',sans-serif;background:#fcfcfb;color:#0b0b0b;margin:24px auto;max-width:1180px}}

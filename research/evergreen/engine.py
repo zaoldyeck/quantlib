@@ -207,24 +207,34 @@ def _live_cfg() -> dict:
 
 def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFrame:
     """三策略儀表板用的 Evergreen 誠實前瞻線:逐段 refit-on-past → 拼 OOS。
-    回 (date, nav) 連續曲線,起於首個 OOS(2023-07;之前是初訓期,無可交易軌跡)。"""
+    回 (date, nav, in_sample) 連續曲線,起於起始標記池(2022-07);首年 2022-07~
+    2023-07 為初訓期(fold0 config 套自己 train 窗)標 in_sample=True,與 S/Serenity
+    同起跑點;2023-07 起為真走查 OOS(in_sample=False)。"""
     d = EvergreenData(con, end.isoformat())
     segs = []
-    for f in _folds(end):
+    for k, f in enumerate(_folds(end)):
+        cfg = refit(d, *f["tr"]) if f["refit"] else _live_cfg()
+        if k == 0:  # 初始 in-sample 段:fold0 config 套自己 train 窗 → 線從 2022-07 起
+            si = replay_nav(d, cfg, f["tr"][0], f["tr"][1])
+            if si.height:
+                segs.append(si.with_columns([
+                    (pl.col("nav") / pl.col("nav").first()).alias("r"),
+                    pl.lit(True).alias("in_sample")]))
         o0, o1 = f["oos"]
         if o1 <= o0:
             continue
-        cfg = refit(d, *f["tr"]) if f["refit"] else _live_cfg()
         nav = replay_nav(d, cfg, o0, o1)
         if nav.height:
-            segs.append(nav.with_columns(
-                (pl.col("nav") / pl.col("nav").first()).alias("r")))
+            segs.append(nav.with_columns([
+                (pl.col("nav") / pl.col("nav").first()).alias("r"),
+                pl.lit(False).alias("in_sample")]))
     if not segs:
         return pl.DataFrame({"date": [], "nav": []})
     # 拼接:逐段複利,前段終值 × 後段歸一
     out, base = [], 1.0
     for s in segs:
-        s = s.with_columns((pl.col("r") * base).alias("nav")).select(["date", "nav"])
+        s = s.with_columns((pl.col("r") * base).alias("nav")).select(
+            ["date", "nav", "in_sample"])
         out.append(s)
         base = float(s["nav"][-1])
     nav = pl.concat(out).unique(subset="date", keep="first").sort("date")
@@ -235,7 +245,7 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
 
 _WF_CACHE = Path("research/evergreen/data/_wf_nav_cache.parquet")
 _CACHE_DB = Path("research/cache.duckdb")
-_ENGINE_VER = "ev53wf-2"  # 改引擎邏輯時遞增,強制 walk-forward 重算(-2:midmonth last-day 修正)
+_ENGINE_VER = "ev53wf-4"  # 遞增即強制 wf 重算(-2 last-day、-3 移除 registry 硬切、-4 初始 in-sample 段)
 
 
 def _wf_key(end: Date) -> str:

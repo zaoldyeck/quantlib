@@ -31,9 +31,10 @@ def load_registry() -> pl.DataFrame:
     pilot = (pl.read_parquet("research/evergreen/data/ev28_pilot_labels.parquet")
              .filter(~pl.col("month").is_in(reg["month"].unique().implode())))
     cols = ["month", "code", "conviction"]
+    # PIT 由回測日期窗處理:標記站位日晚於窗末者,midmonth_membership 自然略過
+    # (2026-07-20:移除 magic date `≤2026-06`;live 需含當月標記,回測不受影響——
+    #  站位日 > 窗末即不活,parity 驗證)。
     return (pl.concat([reg.select(cols), pilot.select(cols)])
-            # 2026-07 標記站位日(07-13)在 OOS 終點(07-03)之後,窗外不載
-            .filter(pl.col("month") <= "2026-06")
             .sort(["month", "code"]))
 
 
