@@ -91,6 +91,8 @@ def main() -> None:
                     help="查取消前的緩衝秒數(讓臨界前寄出的取消信傳播;預設 60)")
     ap.add_argument("--no-cancel-check", action="store_true", help="跳過取消檢查(測試)")
     ap.add_argument("--dry", action="store_true", help="強制 dry-run(不加 --live,不論 env)")
+    ap.add_argument("--check", action="store_true",
+                    help="只驗證:載入計劃→過守門→印出將派工的確切指令,不真派工(上線前核對)")
     args = ap.parse_args()
 
     from research.brokers.fubon import load_env_file
@@ -163,6 +165,10 @@ def main() -> None:
     print(f"[execute] 下單上限:買 {len(buys)} 檔 × {n} 股 = 最多 {n * len(buys)} 股"
           f"(own 模式已持有則跳過);賣 {len(sells)} 檔全部庫存。模式 {mode}")
     print(f"[execute] 派工 execution.trade:{' '.join(cmd[6:])}")
+
+    if args.check:
+        print("[execute] --check:僅核對,不派工。上方即今日將送出的確切指令。")
+        return
 
     # 4) 阻塞執行(execution.trade 內部自等 09:00);全程 log 落檔,尾段寄回
     LOG_DIR.mkdir(parents=True, exist_ok=True)
