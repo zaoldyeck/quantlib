@@ -16,6 +16,7 @@ import json
 import os
 from dataclasses import dataclass, field
 from datetime import date as Date
+from datetime import timedelta
 
 import polars as pl
 
@@ -23,6 +24,35 @@ from research.trading.cost_basis import cost_of, levels_line
 
 C = "company_code"
 STATE_DIR = "research/tri/state"
+#: state 內記錄「S 自己買進的名單」的 meta key(前綴 _ 者由 update_state 保留)
+_S_BUYS = "_s_buys"
+#: 自買紀錄保留天數(成交 T+1;留緩衝給未成交/部分成交)
+_S_BUYS_TTL = 10
+#: live 計劃檔目錄(premarket 每日落盤);_s_buys 的可重建來源
+_PLANS_DIR = "research/trading/live/state/plans"
+
+
+def _s_buys_from_plans(days: int = _S_BUYS_TTL) -> dict[str, str]:
+    """從近日 live 計劃檔重建「S 自己買過哪些股票」→ {code: 決策日}。
+
+    **state 是可重建的衍生物,不是珍貴資料**:premarket 每日把決策落盤成
+    `plans/YYYY-MM-DD.json`,那才是 S 買進決策的權威紀錄。`_s_buys` 若因 VM 重建、
+    狀態清理或(本機制上線前的)歷史空窗而缺漏,一律據此自癒——不必人工編輯 state。
+    """
+    out: dict[str, str] = {}
+    try:
+        names = sorted(n for n in os.listdir(_PLANS_DIR) if n.endswith(".json"))[-days:]
+    except OSError:
+        return out
+    for name in names:
+        try:
+            with open(f"{_PLANS_DIR}/{name}", encoding="utf-8") as fh:
+                d = json.load(fh)
+        except (OSError, ValueError):
+            continue                      # 壞檔跳過:自癒不得因單一壞檔而失效
+        for code in (d.get("buys") or []):
+            out[str(code)] = str(d.get("date") or name[:-5])
+    return out
 
 
 # ── per-position 出場狀態(首見日 + 持有期收盤峰值)────────────────
@@ -48,8 +78,9 @@ def update_state(st: dict, holdings: dict[str, float], today: Date,
     以當日收盤回填——語義同「今日才收養」,時鐘以 first_seen 為準不重啟。
     2026-07-21:移除死狀態 peak_close——三 advisor 出場峰值一律由價格路徑重算
     (exit_replay,cum_max),此增量值從未被讀,且正是 exit_replay 警告的
-    『漏跑幾天漏掉期間高點 → 止損線偏低』陷阱殘留,刪除以防被重新接回。"""
-    out = {}
+    『漏跑幾天漏掉期間高點 → 止損線偏低』陷阱殘留,刪除以防被重新接回。
+    2026-07-22:保留 `_` 開頭的 meta key(如 `_s_buys` 自買紀錄),否則跨日即遺失。"""
+    out = {k: v for k, v in st.items() if k.startswith("_")}
     for code in holdings:
         prev = st.get(code)
         px = closes.get(code)
@@ -201,6 +232,20 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     fresh_all = dict(feat.filter(pl.col("date") == d0)
                      .select([C, "rev_fresh_days"]).iter_rows())
 
+    # ── S 自買部位認證(2026-07-22 修真實事故)────────────────────────────
+    # 事故:S 於 T 日決策買進(當時在新鮮池內)、T+1 成交、T+2 首次入庫存;此時
+    # 新鮮度已過 7 天掉出池子 → 舊邏輯把「自己剛買的股票」判為「非本策略標的」
+    # 隔天就砍(回測平均抱 17 天,live 抱 1 天)。**部位的合法性來自買進決策本身,
+    # 不是事後再檢查它還在不在池內**——故以 `_s_buys`(前次執行記下的今日進場名單)
+    # 認證新入庫存者,與池籍脫鉤。
+    # 來源合併:計劃檔(可重建的權威紀錄)為底、state 紀錄覆蓋 → 缺漏自癒。
+    _bought = {**_s_buys_from_plans(), **dict(st.get(_S_BUYS, {}))}
+    for code in holdings:
+        rec = st.get(code)
+        if rec is not None and code in _bought and not rec.get("vetted_pool"):
+            rec["vetted_pool"] = True
+            rec["vetted_src"] = f"S 自買 {_bought[code]}"   # 稽核用:認證來源可回溯
+
     # 逐檔:先過硬出場規則,倖存者過「池檢」——S 只持有它自己會買的名字。
     # 池檢語義(2026-07-13 二修,使用者:「不是 S 最推薦的就該賣」):
     # (a) 在今日進場池內(新鮮+資格+現金流濾網全過)→ 合法部位,記
@@ -281,7 +326,8 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
                                     f"{_sizing_hint(nav, 0.20, closes.get(code), holdings[code])}"))
         else:
             adv.sells.append((code, f"超額席位(S 上限 5 檔;{why}){lv}"))
-    save_state("s", st)
+    # 註:save_state 移到買入清單產生之後——需先記下今日進場名單(_s_buys),
+    # 明日該股入庫存時才認得出「這是 S 自己買的」(見上方自買認證段)。
 
     # 買入清單 = 通往完全體的完整隊列(使用者要求看得到終局):
     # 「今日進場」(空位內、每日上限 2)→「⏸ 排隊」(有席位、輪明日)→
@@ -310,6 +356,18 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             ideal_buys.append((r[C], f"排隊 #{rank_i}"))
         else:
             adv.buys.append((r[C], 0.20, f"🕒 遞補(席位已滿,等出缺才輪到)|{detail}"))
+    # 記下今日進場名單供「明日入庫存時認證自買部位」(見上方自買認證段)。
+    # 保留期 _S_BUYS_TTL 天:成交需 T+1,偶有未成交/部分成交,給足緩衝;
+    # 已入庫存並認證者即可移除,避免無限累積。
+    _keep_from = (d0 - timedelta(days=_S_BUYS_TTL)).isoformat()
+    new_buys = {c: dt for c, dt in st.get(_S_BUYS, {}).items()
+                if dt >= _keep_from and not st.get(c, {}).get("vetted_pool")}
+    for code, _w, reason in adv.buys:
+        if reason.startswith("今日進場"):
+            new_buys[code] = d0.isoformat()
+    st[_S_BUYS] = new_buys
+    save_state("s", st)
+
     adv.ideal_title = "理想持倉完全體(5 席 × 20% 等權)"
     adv.ideal = [(c, "續抱") for c, _ in adv.keeps] + ideal_buys
     n_ov = 0 if ov is None else ov.height
