@@ -164,3 +164,9 @@ research/log/
 # 每日重生的產物:留在版控等於每天塞一份全新 blob 進 git
 research/tri/reports/*.html
 research/apex/reports/
+
+# 本地資料快照與 runtime state(可重生,不進版控)
+research/cache_s_slim.duckdb
+research/market_data.db
+research/data/
+research/state/
