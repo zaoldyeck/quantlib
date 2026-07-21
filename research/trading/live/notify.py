@@ -25,6 +25,7 @@ from urllib.parse import quote
 
 from research.brokers.fubon import load_env_file
 from research.tri.advisors import S_CODE, S_FULL, S_NAME
+from research.trading.live.version import current as _deployment
 
 _SMTP_HOST, _SMTP_PORT = "smtp.gmail.com", 587
 _IMAP_HOST, _IMAP_PORT = "imap.gmail.com", 993
@@ -78,11 +79,14 @@ class GmailNotifier:
             s.send_message(msg)
 
     def send_plan_email(self, plan, names: dict[str, str], settle=None) -> None:
+        _dep = _deployment()
         subject = f"[{S_NAME}] {plan.date} 交易計劃"
         if not plan.has_actions:
             subject += "(今日無自動下單腿)"
         if settle is not None and settle.shortfall > 0:
             subject += f"　⚠️ 交割款不足約 {settle.shortfall:,.0f} 元"
+        if _dep.drifted:
+            subject += "　⚠️ 程式版本不一致"
         self._send(subject,
                    render_plan_html(plan, names, self.to, settle),
                    render_plan_text(plan, names, settle))
@@ -173,6 +177,7 @@ def _money_rows(legs, side: str, names: dict[str, str]) -> str:
 
 def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
     e = html.escape
+    _dep = _deployment()
 
     def _rows(items, fmt):
         return "".join(f"<li>{fmt(x)}</li>" for x in items) or "<li>（無）</li>"
@@ -268,12 +273,14 @@ def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
   <h3>備註</h3>
   <ul style="color:#52606d">{notes_html}</ul>
 
-  <p style="color:#9aa5b1;font-size:12px;margin-top:24px">{S_FULL}(代號 {S_CODE})· 自動產生 · 送單一律經富邦 execution.trade,收盤未竟自動盤後掛收盤價</p>
+  <p style="color:{"#c0392b" if _dep.drifted else "#9aa5b1"};font-size:12px;margin-top:24px">{e(_dep.line)}<br>{S_FULL}(代號 {S_CODE})· 自動產生 · 送單一律經富邦 execution.trade,收盤未竟自動盤後掛收盤價</p>
 </div>"""
 
 
 def render_plan_text(plan, names: dict[str, str], settle=None) -> str:
-    lines = [f"{S_NAME} {plan.date} 交易計劃(買各 1 股、賣全部;不動作 09:00 自動執行)",
+    _dep = _deployment()
+    lines = [_dep.line, "",
+             f"{S_NAME} {plan.date} 交易計劃(買各 1 股、賣全部;不動作 09:00 自動執行)",
              "取消:08:55 前回覆本信(主旨含 CANCEL-S-" + plan.date + ")即中止今日執行", ""]
     lines.append("買入(今日進場):" + ("、".join(_nm(c, names) for c in plan.buys) or "無"))
     lines.append("賣出(全部庫存,非保留):" + ("、".join(_nm(c, names) for c in plan.sells) or "無"))
