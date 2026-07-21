@@ -14,44 +14,65 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from dataclasses import dataclass, field
 from datetime import date as Date
-from datetime import timedelta
 
 import polars as pl
 
 from research.trading.cost_basis import cost_of, levels_line
 
 C = "company_code"
-STATE_DIR = "research/tri/state"
-#: state 內記錄「S 自己買進的名單」的 meta key(前綴 _ 者由 update_state 保留)
-_S_BUYS = "_s_buys"
-#: 自買紀錄保留天數(成交 T+1;留緩衝給未成交/部分成交)
-_S_BUYS_TTL = 10
-#: live 計劃檔目錄(premarket 每日落盤);_s_buys 的可重建來源
-_PLANS_DIR = "research/trading/live/state/plans"
+#: 路徑一律以 **repo 根**為錨,不依賴 cwd(同 exit_replay 慣例)。
+#: 相對路徑的靜默失效在此是災難級:讀不到成交紀錄 → 全部部位被判為「收養」
+#: → 角色純度會把 S 自己的部位全數賣光。
+_REPO = Path(__file__).resolve().parents[2]
+STATE_DIR = str(_REPO / "research" / "tri" / "state")
+#: 執行器逐腿成交紀錄目錄(檔名 YYYYMMDD_HHMMSS_{buy|sell}_{code}.jsonl,永久保存)
+_EXEC_DIR = str(_REPO / "research" / "out" / "trading" / "executions")
+
+#: 部位來源(事實,非判斷):S 自己成交買進的 vs 帳戶原有被收養的
+ORIGIN_STRATEGY = "strategy"
+ORIGIN_ADOPTED = "adopted"
 
 
-def _s_buys_from_plans(days: int = _S_BUYS_TTL) -> dict[str, str]:
-    """從近日 live 計劃檔重建「S 自己買過哪些股票」→ {code: 決策日}。
+def s_filled_buys(exec_dir: str | None = None) -> dict[str, str]:
+    """S **真正成交買進**過哪些股票 → {code: 最近一次成交日}。
 
-    **state 是可重建的衍生物,不是珍貴資料**:premarket 每日把決策落盤成
-    `plans/YYYY-MM-DD.json`,那才是 S 買進決策的權威紀錄。`_s_buys` 若因 VM 重建、
-    狀態清理或(本機制上線前的)歷史空窗而缺漏,一律據此自癒——不必人工編輯 state。
+    **唯一合法的來源是成交事實,不是計劃意圖**(2026-07-22 使用者指正):
+    計劃只是「打算買」——盤前重跑多次、資金不足、漲停鎖死、委託取消都會讓
+    「打算」與「事實」分家;若拿計劃當依據,重跑幾次就會認養一堆從沒買到的股票,
+    等於把「不同天跑就有不同結果」的老 bug 換個地方重演。
+
+    執行器對每一腿寫一份 jsonl,末尾 summary 事件帶 `filled`(實際成交股數)。
+    **只認 filled > 0 的買進腿**;這些檔案永久保存,故本函式的輸出可完全重建。
     """
     out: dict[str, str] = {}
+    d = exec_dir or _EXEC_DIR
     try:
-        names = sorted(n for n in os.listdir(_PLANS_DIR) if n.endswith(".json"))[-days:]
+        names = sorted(n for n in os.listdir(d)
+                       if n.endswith(".jsonl") and "_buy_" in n)
     except OSError:
-        return out
+        return out                        # 全新機器/尚無成交 → 空(不推估)
     for name in names:
         try:
-            with open(f"{_PLANS_DIR}/{name}", encoding="utf-8") as fh:
-                d = json.load(fh)
-        except (OSError, ValueError):
-            continue                      # 壞檔跳過:自癒不得因單一壞檔而失效
-        for code in (d.get("buys") or []):
-            out[str(code)] = str(d.get("date") or name[:-5])
+            with open(f"{d}/{name}", encoding="utf-8") as fh:
+                lines = fh.read().splitlines()
+        except OSError:
+            continue
+        for ln in reversed(lines):        # summary 在尾段
+            try:
+                ev = json.loads(ln)
+            except ValueError:
+                continue                  # 壞行跳過:單一壞檔不得讓重建失效
+            if ev.get("event") != "summary" or str(ev.get("side", "")).lower() != "buy":
+                continue
+            if float(ev.get("filled") or 0) > 0:
+                code = str(ev.get("code") or "")
+                day = str(ev.get("ts") or "")[:10] or name[:8]
+                if code:
+                    out[code] = max(out.get(code, ""), day)
+            break
     return out
 
 
@@ -79,7 +100,8 @@ def update_state(st: dict, holdings: dict[str, float], today: Date,
     2026-07-21:移除死狀態 peak_close——三 advisor 出場峰值一律由價格路徑重算
     (exit_replay,cum_max),此增量值從未被讀,且正是 exit_replay 警告的
     『漏跑幾天漏掉期間高點 → 止損線偏低』陷阱殘留,刪除以防被重新接回。
-    2026-07-22:保留 `_` 開頭的 meta key(如 `_s_buys` 自買紀錄),否則跨日即遺失。"""
+    2026-07-22:保留 `_` 開頭的 meta key(向後相容;現行設計不再於 state 存判斷,
+    部位來源 origin 記在各 code 的紀錄內,判斷一律每次現算)。"""
     out = {k: v for k, v in st.items() if k.startswith("_")}
     for code in holdings:
         prev = st.get(code)
@@ -142,20 +164,20 @@ def _sizing_hint(nav: float, weight: float, px: float | None, held: float) -> st
     return f"|目標 {weight:.0%} ≈ {tgt} 股(現持 {m} → {verb} {abs(tgt - m)} 股)"
 
 
-def _s_role_action(in_pool: bool, vetted: bool, adoption_day: bool) -> tuple[str, bool]:
-    """S 角色純度純函式(倖存持股未觸發出場後):→ (action, 新 vetted)。
-    action ∈ {keep_pool, keep_vetted, sell_role}。
+def s_hold_action(origin: str, in_pool: bool) -> str:
+    """S 的持股角色判決(**純函式,無 state、無日期**):→ keep_own | keep_pool | sell_role。
 
-    決定性關鍵(修 2026-07-21 狀態污染):vetted(合法部位認證)**只在收養當天**
-    (adoption_day)依當天池籍鎖定一次,之後恆讀不覆寫。舊碼每次「在池」都覆寫
-    vetted=True → 用不同交易日重跑會累積出不同認證集(哪幾天跑過就留哪些),
-    使用者實測抓到。改為收養日一次性鎖定後,同一部位重跑結果恆定。
+    設計原則(2026-07-22 根因重構):**「這是誰的部位」是身分問題,「這檔在不在
+    進場池」是訊號問題,兩者不得混用**。舊碼用池籍回答身分,於是「決策→成交(T+1)
+    →首次入庫存」的時間差會讓 S 自己買的股票掉出池子後被判成外人砍掉。
+
+    - `strategy`(S 真正成交買進的)→ **永遠 keep**,出場全權交給四條出場規則
+      (移動停損/時間/輸家/訊號過期)——與回測語義完全一致,回測本來就沒有池檢。
+    - `adopted`(帳戶原有、S 沒買過的)→ 角色純度:是今日標的才留,否則賣。
     """
-    if in_pool:
-        return "keep_pool", (vetted or adoption_day)
-    if vetted:
-        return "keep_vetted", vetted
-    return "sell_role", vetted
+    if origin == ORIGIN_STRATEGY:
+        return "keep_own"
+    return "keep_pool" if in_pool else "sell_role"
 
 
 def s_advisor(con, holdings: dict[str, float], today: Date,
@@ -232,26 +254,27 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     fresh_all = dict(feat.filter(pl.col("date") == d0)
                      .select([C, "rev_fresh_days"]).iter_rows())
 
-    # ── S 自買部位認證(2026-07-22 修真實事故)────────────────────────────
-    # 事故:S 於 T 日決策買進(當時在新鮮池內)、T+1 成交、T+2 首次入庫存;此時
-    # 新鮮度已過 7 天掉出池子 → 舊邏輯把「自己剛買的股票」判為「非本策略標的」
-    # 隔天就砍(回測平均抱 17 天,live 抱 1 天)。**部位的合法性來自買進決策本身,
-    # 不是事後再檢查它還在不在池內**——故以 `_s_buys`(前次執行記下的今日進場名單)
-    # 認證新入庫存者,與池籍脫鉤。
-    # 來源合併:計劃檔(可重建的權威紀錄)為底、state 紀錄覆蓋 → 缺漏自癒。
-    _bought = {**_s_buys_from_plans(), **dict(st.get(_S_BUYS, {}))}
+    # ── 部位來源(事實,非判斷)────────────────────────────────────────────
+    # 2026-07-22 根因重構:state 只存**事實**,不存判斷。`origin` 於部位首次出現
+    # 時依「執行器真實成交紀錄」認定一次,此後恆定——身分不會隨市場資料改變。
+    # 判斷(該續抱還是賣)一律每次執行由 `s_hold_action` 現算。
+    _filled = s_filled_buys()
     for code in holdings:
         rec = st.get(code)
-        if rec is not None and code in _bought and not rec.get("vetted_pool"):
-            rec["vetted_pool"] = True
-            rec["vetted_src"] = f"S 自買 {_bought[code]}"   # 稽核用:認證來源可回溯
+        if rec is None:
+            continue
+        if rec.get("origin") not in (ORIGIN_STRATEGY, ORIGIN_ADOPTED):
+            rec["origin"] = ORIGIN_STRATEGY if code in _filled else ORIGIN_ADOPTED
+            if code in _filled:
+                rec["origin_src"] = f"成交 {_filled[code]}"   # 稽核:可回溯到那一腿
+        elif rec["origin"] == ORIGIN_ADOPTED and code in _filled:
+            # 自癒:先前無成交紀錄(檔案尚未寫出/機器重建)而暫記為收養,
+            # 事後出現成交事實 → 更正為 S 自有。事實優先於既有推定。
+            rec["origin"] = ORIGIN_STRATEGY
+            rec["origin_src"] = f"成交 {_filled[code]}(更正)"
 
-    # 逐檔:先過硬出場規則,倖存者過「池檢」——S 只持有它自己會買的名字。
-    # 池檢語義(2026-07-13 二修,使用者:「不是 S 最推薦的就該賣」):
-    # (a) 在今日進場池內(新鮮+資格+現金流濾網全過)→ 合法部位,記
-    #     vetted_pool 於 state,之後即使離開新鮮池也續抱到出場規則(回測的
-    #     hold-until-exit 語義:S 不因出現更高排名者而中途換股);
-    # (b) 不在池內且從未通過池檢 → 賣出(S 不會買的名字沒有理由持有)。
+    # 逐檔:先過硬出場規則,倖存者依「來源」決定去留(見 s_hold_action):
+    # S 自買 → 只受四條出場規則管(與回測一致);收養 → 角色純度(非今日標的即賣)。
     pool_rank = {r[C]: i + 1 for i, r in enumerate(pool.to_dicts())}
     # 出場一律**逐日重放**(非今日快照):你沒跑報告那幾天觸發的規則也算數
     from research.trading.exit_replay import load_paths, replay, s_rule
@@ -264,6 +287,9 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
         info = st.get(code, {})
         px = closes.get(code)
         fresh = fresh_all.get(code)
+        # 無營收資料者 fresh=None;下方文案用 int(fresh) 會拋 TypeError →
+        # 當日整份計劃產不出來(交易 > 文案),故先正規化為可顯示值。
+        fresh_i = int(fresh) if fresh is not None else -1
         if px is None or code not in paths:
             adv.sells.append((code, "無法取價(下市/停牌?)人工確認"))
             continue
@@ -276,20 +302,19 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
                   f"({(px / fire.price - 1) * 100:+.1f}%)|" if fire.is_overdue(d0) else "")
             adv.sells.append((code, f"{od}{fire.reason}"))
             continue
-        action, new_vetted = _s_role_action(
-            in_pool=code in pool_rank, vetted=bool(info.get("vetted_pool")),
-            adoption_day=info.get("first_seen") == d0.isoformat())
-        if new_vetted:
-            st[code]["vetted_pool"] = True
-        if action == "keep_pool":
+        action = s_hold_action(st.get(code, {}).get("origin", ORIGIN_ADOPTED),
+                               code in pool_rank)
+        if action == "keep_own":
+            # 席位優先序最高:S 自有部位就是策略的實際組合,回測中它們佔著席位
+            # 直到出場規則觸發,絕不能被「今日排名更好的收養股」擠掉(超額席位)。
+            survivors.append((-10_000 + fresh_i, code,
+                              f"S 自有部位(成交建立,抱到出場規則;fresh={fresh_i})"))
+        elif action == "keep_pool":
             rk = pool_rank[code]
-            survivors.append((rk, code, f"今日進場池 geo 排名 #{rk}(fresh={int(fresh)})"))
-        elif action == "keep_vetted":
-            survivors.append((5_000 + int(fresh), code,
-                              f"既有合法部位(收養日通過池檢,fresh={int(fresh)} <26 續抱至出場規則)"))
+            survivors.append((rk, code, f"今日進場池 geo 排名 #{rk}(fresh={fresh_i})"))
         else:  # sell_role
-            adv.sells.append((code, "非本策略標的(不在進場池且收養日未通過池檢——"
-                                    "S 不會買的名字沒有理由持有)"))
+            adv.sells.append((code, "非本策略標的(S 未曾成交買進、且不在今日進場池"
+                                    "——S 不會買的名字沒有理由持有)"))
     survivors.sort()
     for i, (key, code, why) in enumerate(survivors, 1):
         info = st.get(code, {})
@@ -356,16 +381,6 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             ideal_buys.append((r[C], f"排隊 #{rank_i}"))
         else:
             adv.buys.append((r[C], 0.20, f"🕒 遞補(席位已滿,等出缺才輪到)|{detail}"))
-    # 記下今日進場名單供「明日入庫存時認證自買部位」(見上方自買認證段)。
-    # 保留期 _S_BUYS_TTL 天:成交需 T+1,偶有未成交/部分成交,給足緩衝;
-    # 已入庫存並認證者即可移除,避免無限累積。
-    _keep_from = (d0 - timedelta(days=_S_BUYS_TTL)).isoformat()
-    new_buys = {c: dt for c, dt in st.get(_S_BUYS, {}).items()
-                if dt >= _keep_from and not st.get(c, {}).get("vetted_pool")}
-    for code, _w, reason in adv.buys:
-        if reason.startswith("今日進場"):
-            new_buys[code] = d0.isoformat()
-    st[_S_BUYS] = new_buys
     save_state("s", st)
 
     adv.ideal_title = "理想持倉完全體(5 席 × 20% 等權)"
