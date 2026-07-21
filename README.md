@@ -5,17 +5,7 @@
 1. **資料層 (Scala)** — 從 TWSE / TPEx / MOPS / TDCC 爬取股價、財報、籌碼、MOPS 結構化公告，存入 PostgreSQL
 2. **研究層 (Python)** — 在本地 DuckDB cache 上跑策略 backtest、OOS 驗證、event study
 
-**Ship-ready 主策略**：[`Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)`](docs/strategy_ranking.md)
-- 子策略 A: iter_13 monthly mcap top 5 quality pool (TWSE+TPEx) — 5 檔
-- 子策略 B: iter_24 max=5 catalyst breakout + ATR trailing (TWSE+TPEx) — 5 檔
-- 持倉硬上限 = 10 檔（5+5），每年初 rebal 回 85/15
-- 21y in-sample CAGR +22.87% / Sortino 1.416 / MDD -44.85%
-- 16 fold walk-forward **OOS** CAGR **+24.39%** / Sortino **1.535** / Sharpe 1.032
-- Lo p=1.13e-5、Boot CAGR LB +11.74%、DSR 0.954
-- **三維全勝 2330 hold**（CAGR +0.16pp / Sortino +0.20 / MDD +0.86pp）
-- Cross-validation 證實非賭 TSMC（mcap 1.512 vs roa_med 0.635 合理差距）
-- ✅ Verdict: 6/6 OOS PASS real alpha（multi-config PBO 0.408 < 0.5）
-- ✅ 跨 cycle 切片驗證：2008 GFC -23.9% / 2009 +27.1% / 雙年合計 -1.6%（系統性熊市 vs 反彈互抵）
+**策略狀態**：目前正式 `production_scaled` champion 暫無。策略研究、驗證與升級標準以 [`docs/strategy_research/research_sop.md`](docs/strategy_research/research_sop.md) 為準；目前策略狀態與交易規則以 [`docs/strategy_ranking.md`](docs/strategy_ranking.md) 為準。
 
 ---
 
@@ -23,11 +13,14 @@
 
 | 想找 | 去哪 |
 |---|---|
-| **最終策略排行 + 執行手冊** | [`docs/strategy_ranking.md`](docs/strategy_ranking.md) |
+| **文件索引** | [`docs/README.md`](docs/README.md) |
+| **台股量化策略研發 SOP** | [`docs/strategy_research/research_sop.md`](docs/strategy_research/research_sop.md) |
+| **策略 production 狀態 + 交易規則** | [`docs/strategy_ranking.md`](docs/strategy_ranking.md) |
+| **產業分類資料層** | [`docs/data/industry_taxonomy.md`](docs/data/industry_taxonomy.md) |
 | **主動 ETF 同窗口比較** | [`docs/active_etf_analysis.md`](docs/active_etf_analysis.md) |
 | **各領域龍頭股 master 清單** | [`docs/leaders_by_domain.md`](docs/leaders_by_domain.md) |
 | **Python 研究目錄結構** | [`research/README.md`](research/README.md) |
-| **開發鐵則 / data / coding 規範** | [`CLAUDE.md`](CLAUDE.md) |
+| **開發鐵則 / data / coding 規範** | [`AGENTS.md`](AGENTS.md) |
 
 ---
 
@@ -47,13 +40,14 @@
 │
 ├── research/                      Python 量化研究（uv 管理）
 │   ├── prices.py                  ⭐ canonical 還原 OHLCV（cash_div + cap_red）
+│   ├── industry_taxonomy.py       ⭐ canonical PIT 產業分類
 │   ├── db.py                      DuckDB 連線（attach PG 或讀 cache.duckdb）
 │   ├── cache_tables.py            PG → DuckDB cache 同步
 │   ├── strat_lab/                 策略 + validator + tools
 │   │   ├── v4.py                  v4 RegimeAware baseline
 │   │   ├── iter_13.py             quality pool mcap-weighted（iter_21 子策略 80%）
 │   │   ├── iter_20.py             catalyst-confirmed breakout（iter_21 子策略 20%）
-│   │   ├── iter_21.py             🎯 80/20 hybrid 合成器（ship-ready）
+│   │   ├── iter_21.py             historical 80/20 hybrid 合成器
 │   │   ├── validate_iter21_v5.py  OOS validator（30s 完跑）
 │   │   ├── validate_all.py        multi-strategy 驗證 sweep
 │   │   ├── plot_strategies.py     NAV 對比圖
@@ -65,7 +59,10 @@
 │   └── README.md                  研究目錄詳細說明
 │
 ├── docs/                          User-facing canonical 文件
-│   ├── strategy_ranking.md        策略排行 + iter_21 執行手冊
+│   ├── README.md                  文件索引
+│   ├── strategy_research/         策略研發流程與 SOP
+│   ├── data/                      資料層與 methodology
+│   ├── strategy_ranking.md        策略 production 狀態 + 交易規則
 │   ├── active_etf_analysis.md     vs 11 主動 ETF 比較
 │   └── leaders_by_domain.md       Tier 1-5 龍頭清單
 │
@@ -108,29 +105,34 @@ uv run --project research python research/cache_tables.py
 
 跳過 step 2 → Python 跑舊資料；跳過 step 1 → cache 灌過時 PG。
 
-### 2. 跑主策略（Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx)）
+### 1b. 日內 1 分 K 回補（每天跑一次）
 
 ```bash
-# Step 1: 子策略 NAV 各自先跑
-uv run --project research python research/strat_lab/iter_13.py \
-    --freq monthly --ranker mcap --universe twse_tpex --mode mcap
-uv run --project research python research/strat_lab/iter_24.py \
-    --max-positions 5 --atr-trailing
-
-# Step 2: 全 hybrid sweep + cross-validation（包含 5+5_w85_atr 主策略）
-uv run --project research python research/strat_lab/sweep_hybrid.py
+uv run --project research python -m research.intraday.pull_kbars
 ```
 
-### 3. OOS 全套驗證（每次重大改動必跑）
+看進度不連線、不吃額度：
 
 ```bash
-uv run --project research python research/strat_lab/validate_hybrid.py --top 5
+uv run --project research python -m research.intraday.pull_kbars --status
 ```
 
-期望輸出 5+5_w85_atr_mcap 為 **6/6 PASS real alpha**：
-- CAGR retention ≥ 50% ✓ / Sharpe retention ≥ 70% ✓
-- Lo (2002) p < 0.05 ✓ / Bootstrap CAGR LB > 10% ✓
-- DSR > 0.95 ✓ / PBO multi-config CSCV < 0.5 ✓ (0.408)
+- **隨時 Ctrl-C 或關機都能續傳**，最多重做當下那一格（進度即磁碟上的檔案，無 state 檔）。
+- **會自己停**：永豐每日 2 GB 流量用完即停（不是錯誤），交易日 08:00 重置。
+- **一輪多久**：約十幾分鐘跑完當日 2 GB 額度（平行 6 路、限流 8 次/秒＝官方
+  上限的 80%）。開平行前程式會自證執行緒安全，未通過自動退回序列。
+- **全部補完要多久**：全市場 2,395 檔 × 77 個月 ≈ 18.4 萬格，實測每格約 321 KB
+  → 受 2 GB/日 上限綁住，**約 30 天**。加速沒有用，瓶頸是流量不是速度。
+
+### 2. 策略研究 SOP
+
+正式策略研究與升級流程見 [`docs/strategy_research/research_sop.md`](docs/strategy_research/research_sop.md)。目前沒有可直接大資金自動下單的 `production_scaled` champion；策略狀態見 [`docs/strategy_ranking.md`](docs/strategy_ranking.md)。
+
+### 3. 資料層 / 單元測試
+
+```bash
+uv run --project research pytest research/tests/test_db.py research/tests/test_prices.py research/tests/test_industry_taxonomy.py -q
+```
 
 ### 4. 單元測試
 
@@ -177,10 +179,11 @@ sbt "runMain Main strategy regime_aware --start 2018-01-02 --end 2026-04-17"
 
 ## 設計原則
 
-完整鐵則見 [`CLAUDE.md`](CLAUDE.md)。摘要：
+完整鐵則見 [`AGENTS.md`](AGENTS.md)，策略研發流程見 [`docs/strategy_research/research_sop.md`](docs/strategy_research/research_sop.md)。摘要：
 
 - **Python is canonical research engine** — Scala `strategy/` package frozen as historical reference
 - **NAV 模擬必經 `prices.py`** — 直接讀 raw `daily_quote.closing_price` 跑 daily NAV 系統性低估 ~3-6pp CAGR over 21y
+- **產業分類必經 `industry_taxonomy_pit`** — 不可把 `operating_revenue.industry` 最新分類套回全歷史
 - **PIT-fair 選股** — 不可 hardcode ticker；mcap ranker 也算（21y TSMC 從沒掉第一）
 - **Long-only / 不開槓桿 / 不做空** — 用戶風險偏好
 - **新策略 ship 前必跑 `quantlib-strategy-validator` agent**（walk-forward + MC + DSR + PBO）
