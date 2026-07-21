@@ -24,6 +24,7 @@ from typing import Protocol, runtime_checkable
 from urllib.parse import quote
 
 from research.brokers.fubon import load_env_file
+from research.tri.advisors import S_CODE, S_FULL, S_NAME
 
 _SMTP_HOST, _SMTP_PORT = "smtp.gmail.com", 587
 _IMAP_HOST, _IMAP_PORT = "imap.gmail.com", 993
@@ -77,7 +78,7 @@ class GmailNotifier:
             s.send_message(msg)
 
     def send_plan_email(self, plan, names: dict[str, str], settle=None) -> None:
-        subject = f"[S 策略] {plan.date} 交易計劃"
+        subject = f"[{S_NAME}] {plan.date} 交易計劃"
         if not plan.has_actions:
             subject += "(今日無自動下單腿)"
         if settle is not None and settle.shortfall > 0:
@@ -88,7 +89,7 @@ class GmailNotifier:
 
     def send_fill_summary(self, date_str: str, summary_html: str,
                           summary_text: str) -> None:
-        self._send(f"[S 策略] {date_str} 執行結果", summary_html, summary_text)
+        self._send(f"[{S_NAME}] {date_str} 執行結果", summary_html, summary_text)
 
     def send_text(self, subject: str, text: str) -> None:
         """通用純文字通知(年度 refit 報告等):純文字 + monospace HTML 後備。"""
@@ -134,7 +135,7 @@ def _nm(code: str, names: dict[str, str]) -> str:
 def cancel_mailto(to: str, date_str: str) -> str:
     """取消鈕的 mailto 連結:點了 = 寄一封標好取消主旨的信給自己。"""
     subject = CANCEL_SUBJECT_TMPL.format(date=date_str)
-    body = f"取消 S 策略 {date_str} 今日執行"
+    body = f"取消 {S_NAME} {date_str} 今日執行"
     return f"mailto:{to}?subject={quote(subject)}&body={quote(body)}"
 
 
@@ -240,7 +241,7 @@ def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
 
     return f"""\
 <div style="font-family:-apple-system,'Segoe UI',Roboto,'PingFang TC','Microsoft JhengHei',sans-serif;max-width:640px;margin:0 auto;color:#1f2933;line-height:1.6">
-  <h2 style="margin-bottom:2px">S 策略 · {e(plan.date)} 交易計劃</h2>
+  <h2 style="margin-bottom:2px">{S_NAME} · {e(plan.date)} 交易計劃</h2>
   <p style="color:#52606d;margin-top:0">營運模式:<b>買進每檔 1 股、賣出全部庫存</b>。你不動作 → 09:00 自動執行。</p>
 
   <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:14px 16px;margin:16px 0">
@@ -267,12 +268,12 @@ def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
   <h3>備註</h3>
   <ul style="color:#52606d">{notes_html}</ul>
 
-  <p style="color:#9aa5b1;font-size:12px;margin-top:24px">apex_revcycle_S · 自動產生 · 送單一律經富邦 execution.trade,收盤未竟自動盤後掛收盤價</p>
+  <p style="color:#9aa5b1;font-size:12px;margin-top:24px">{S_FULL}(代號 {S_CODE})· 自動產生 · 送單一律經富邦 execution.trade,收盤未竟自動盤後掛收盤價</p>
 </div>"""
 
 
 def render_plan_text(plan, names: dict[str, str], settle=None) -> str:
-    lines = [f"S 策略 {plan.date} 交易計劃(買各 1 股、賣全部;不動作 09:00 自動執行)",
+    lines = [f"{S_NAME} {plan.date} 交易計劃(買各 1 股、賣全部;不動作 09:00 自動執行)",
              "取消:08:55 前回覆本信(主旨含 CANCEL-S-" + plan.date + ")即中止今日執行", ""]
     lines.append("買入(今日進場):" + ("、".join(_nm(c, names) for c in plan.buys) or "無"))
     lines.append("賣出(全部庫存,非保留):" + ("、".join(_nm(c, names) for c in plan.sells) or "無"))

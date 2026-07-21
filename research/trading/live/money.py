@@ -8,28 +8,46 @@
 不得讓使用者誤以為是成交價。實際成交價由開盤後的執行器決定。
 
 **台股交割慣例**(用於「錢夠不夠」提醒):買進 T+2 扣款、賣出 T+2 入帳;兩者
-同日成交時淨額交割。手續費 0.1425% × 2 折(電子下單)、最低 20 元;賣出另課
-證交稅 0.3%。零股與整股同費率。
+同日成交時淨額交割。
+
+**費率一律取自 `research/execution/broker_fee.py`(唯一真源)**——那份 schedule
+同時餵回測與執行模擬,若此處另立常數,兩邊會靜默漂移(成本假設一漂移,ROI 與
+「錢夠不夠」就都不可信)。本模組只補一件 schedule 沒有的事:**零股最低手續費**。
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
-COMMISSION_RATE = 0.001425 * 0.2      # 2 折電子下單
-COMMISSION_MIN = 20.0                 # 單筆最低手續費(TWD)
-SELL_TAX_RATE = 0.003                 # 證交稅(賣出)
+from research.execution.broker_fee import FubonFeeSchedule
+
+_FEE = FubonFeeSchedule()             # 1.8 折(月成交額 100 萬內)、證交稅 0.3%
+COMMISSION_RATE = _FEE.low_tier_rate()
+SELL_TAX_RATE = _FEE.sell_tax_rate
+#: 整股單最低手續費(TWD);零股另有更低的最低收費,見 ODD_LOT_COMMISSION_MIN
+COMMISSION_MIN = _FEE.minimum_commission
+#: **零股最低手續費 1 元**(富邦盤中/盤後零股;使用者 2026-07-22 提供之帳戶費率)。
+#: 這對 1 股營運是決定性的:用整股的 20 元下限估,單筆 45 元的買進會被高估 19 元
+#: 成本,ROI 直接失真數十個百分點。
+ODD_LOT_COMMISSION_MIN = 1.0
+#: 一張 = 1,000 股;未滿一張即零股(交易所定義)
+LOT_SIZE = 1_000
 
 
-def fee_buy(amount: float) -> float:
-    """買進手續費(有最低收費;金額極小的零股單,手續費佔比會很高)。"""
-    return max(COMMISSION_MIN, amount * COMMISSION_RATE) if amount > 0 else 0.0
+def commission_min(shares: int) -> float:
+    """該筆委託適用的最低手續費:未滿一張走零股下限,整張走整股下限。"""
+    return ODD_LOT_COMMISSION_MIN if 0 < shares < LOT_SIZE else COMMISSION_MIN
 
 
-def fee_sell(amount: float) -> float:
+def fee_buy(amount: float, shares: int = LOT_SIZE) -> float:
+    """買進手續費(含最低收費)。`shares` 決定適用哪個最低收費(零股 vs 整股)。"""
+    return max(commission_min(shares), amount * COMMISSION_RATE) if amount > 0 else 0.0
+
+
+def fee_sell(amount: float, shares: int = LOT_SIZE) -> float:
     """賣出手續費 + 證交稅。"""
     if amount <= 0:
         return 0.0
-    return max(COMMISSION_MIN, amount * COMMISSION_RATE) + amount * SELL_TAX_RATE
+    return max(commission_min(shares), amount * COMMISSION_RATE) + amount * SELL_TAX_RATE
 
 
 @dataclass(frozen=True)
@@ -52,8 +70,8 @@ class Leg:
         if self.px is None:
             return 0.0
         if self.side == "buy":
-            return -(self.amount + fee_buy(self.amount))
-        return self.amount - fee_sell(self.amount)
+            return -(self.amount + fee_buy(self.amount, self.shares))
+        return self.amount - fee_sell(self.amount, self.shares)
 
     @property
     def pnl(self) -> float | None:

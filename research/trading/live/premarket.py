@@ -144,7 +144,12 @@ def main() -> None:
     #     置於計劃落盤之後、寄信之前:計劃已安全落盤(execute 有料),且不受 --no-email 影響。
     try:
         from research.trading.live import safety_net
-        if safety_net.enabled():
+        if args.positions is not None:
+            # **券商端狀態只能依據券商端事實同步**。用 --positions 餵假持倉時去 sync,
+            # 會拿測試資料撤掉真實部位的保護單(2026-07-22 實測:撤 7 掛 0,真倉
+            # 一度裸奔)。測試就該是測試,不得有真實副作用。
+            print("[premarket] 安全網:跳過(--positions 為測試持倉,不得改動券商端)")
+        elif safety_net.enabled():
             skip = set(plan.buys) | set(plan.sells) | set(plan.protected_sells)
             skip |= {c for c, _ in plan.manual_review}
             res = safety_net.sync(account.get_broker(), holdings, plan.peaks, skip)

@@ -24,59 +24,12 @@ from research.trading.cost_basis import cost_of, levels_line
 
 C = "company_code"
 #: 路徑一律以 **repo 根**為錨,不依賴 cwd(同 exit_replay 慣例)。
-#: 相對路徑的靜默失效在此是災難級:讀不到成交紀錄 → 全部部位被判為「收養」
-#: → 角色純度會把 S 自己的部位全數賣光。
 _REPO = Path(__file__).resolve().parents[2]
 STATE_DIR = str(_REPO / "research" / "tri" / "state")
-#: 執行器逐腿成交紀錄目錄(檔名 YYYYMMDD_HHMMSS_{buy|sell}_{code}.jsonl,永久保存)
-_EXEC_DIR = str(_REPO / "research" / "out" / "trading" / "executions")
 
-#: 部位來源(事實,非判斷):S 自己成交買進的 vs 帳戶原有被收養的
-ORIGIN_STRATEGY = "strategy"
-ORIGIN_ADOPTED = "adopted"
-
-
-def s_filled_buys(exec_dir: str | None = None) -> dict[str, str]:
-    """S **真正成交買進**過哪些股票 → {code: 最近一次成交日}。
-
-    **唯一合法的來源是成交事實,不是計劃意圖**(2026-07-22 使用者指正):
-    計劃只是「打算買」——盤前重跑多次、資金不足、漲停鎖死、委託取消都會讓
-    「打算」與「事實」分家;若拿計劃當依據,重跑幾次就會認養一堆從沒買到的股票,
-    等於把「不同天跑就有不同結果」的老 bug 換個地方重演。
-
-    執行器對每一腿寫一份 jsonl,末尾 summary 事件帶 `filled`(實際成交股數)。
-    **只認 filled > 0 的買進腿**;這些檔案永久保存,故本函式的輸出可完全重建。
-    """
-    out: dict[str, str] = {}
-    d = exec_dir or _EXEC_DIR
-    try:
-        names = sorted(n for n in os.listdir(d)
-                       if n.endswith(".jsonl") and "_buy_" in n)
-    except OSError:
-        return out                        # 全新機器/尚無成交 → 空(不推估)
-    for name in names:
-        try:
-            with open(f"{d}/{name}", encoding="utf-8") as fh:
-                lines = fh.read().splitlines()
-        except OSError:
-            continue
-        for ln in reversed(lines):        # summary 在尾段
-            try:
-                ev = json.loads(ln)
-            except ValueError:
-                continue                  # 壞行跳過:單一壞檔不得讓重建失效
-            if ev.get("event") != "summary" or str(ev.get("side", "")).lower() != "buy":
-                continue
-            if float(ev.get("filled") or 0) > 0:
-                code = str(ev.get("code") or "")
-                day = str(ev.get("ts") or "")[:10] or name[:8]
-                if code:
-                    out[code] = max(out.get(code, ""), day)
-            break
-    return out
-
-
-# ── per-position 出場狀態(首見日 + 持有期收盤峰值)────────────────
+# ── per-position 帳戶事實(首見日 + 成本)──────────────────────────
+# **這裡只存帳戶的事實,不存任何判斷。**「這是不是 S 的部位」「該不該出場」
+# 一律由市場資料每次現算(見 s_advisor 的進場錨),故 state 清掉只影響成本顯示。
 
 
 def load_state(name: str) -> dict:
@@ -100,8 +53,9 @@ def update_state(st: dict, holdings: dict[str, float], today: Date,
     2026-07-21:移除死狀態 peak_close——三 advisor 出場峰值一律由價格路徑重算
     (exit_replay,cum_max),此增量值從未被讀,且正是 exit_replay 警告的
     『漏跑幾天漏掉期間高點 → 止損線偏低』陷阱殘留,刪除以防被重新接回。
-    2026-07-22:保留 `_` 開頭的 meta key(向後相容;現行設計不再於 state 存判斷,
-    部位來源 origin 記在各 code 的紀錄內,判斷一律每次現算)。"""
+    2026-07-22:保留 `_` 開頭的 meta key(向後相容)。**state 只存帳戶事實**
+    (何時首次持有、成本);「這是不是 S 的部位」「該不該出場」全部改由市場資料
+    每次現算(見 `entry_anchors`),故清空 state 只影響成本顯示,不影響交易判決。"""
     out = {k: v for k, v in st.items() if k.startswith("_")}
     for code in holdings:
         prev = st.get(code)
@@ -138,6 +92,15 @@ class Advice:
 
 # ── S 策略顧問(apex_revcycle_S,STRATEGY.md 逐條)─────────────────
 
+#: 策略正名(2026-07-22 定名,唯一真源:對人顯示一律用它)。
+#: 代號 `apex_revcycle_S` 是研發期的戰役編號(apex 戰役 / revenue-cycle / 變體 S),
+#: 不是給人看的名字;引擎檔名、血統審計、回測產物維持代號不動,只換對外稱呼。
+#: 名字要說出策略的本質:alpha 源自台股獨有的**每月營收強制揭露**,動作是在揭露後
+#: 7 日內買進營收正在加速的名字,抱到訊號過期。
+S_NAME = "月報動能"
+S_FULL = "台股月營收揭露動能策略"
+S_CODE = "apex_revcycle_S"
+
 S_WTS = {"rev_yoy_accel": 1.0, "high_52w": 1.0, "close_pos_20": 1.0,
          "mom_126_5": 0.5, "rev_seq": 0.5, "accel_rel": 0.5}
 
@@ -164,20 +127,66 @@ def _sizing_hint(nav: float, weight: float, px: float | None, held: float) -> st
     return f"|目標 {weight:.0%} ≈ {tgt} 股(現持 {m} → {verb} {abs(tgt - m)} 股)"
 
 
-def s_hold_action(origin: str, in_pool: bool) -> str:
-    """S 的持股角色判決(**純函式,無 state、無日期**):→ keep_own | keep_pool | sell_role。
+def pool_history(feat: pl.DataFrame, elig: pl.DataFrame,
+                 tax: pl.DataFrame) -> pl.DataFrame:
+    """S 進場池的**逐日**成員 + geo 分數 → (date, company_code, geo, rev_fresh_days)。
 
-    設計原則(2026-07-22 根因重構):**「這是誰的部位」是身分問題,「這檔在不在
-    進場池」是訊號問題,兩者不得混用**。舊碼用池籍回答身分,於是「決策→成交(T+1)
-    →首次入庫存」的時間差會讓 S 自己買的股票掉出池子後被判成外人砍掉。
-
-    - `strategy`(S 真正成交買進的)→ **永遠 keep**,出場全權交給四條出場規則
-      (移動停損/時間/輸家/訊號過期)——與回測語義完全一致,回測本來就沒有池檢。
-    - `adopted`(帳戶原有、S 沒買過的)→ 角色純度:是今日標的才留,否則賣。
+    今日的買進候選與歷史部位的「進場錨」共用**這一份**池定義(引擎唯一真源):
+    池的定義只有一個,問「今天誰能買」與問「這檔當初哪天被選中」是同一支函式的
+    不同切片。逐條與 STRATEGY.md 一致——營收新鮮 ≤7 日、通過流動性/上市資格、
+    六因子齊全、當日 cfo/ni 中位數閘(覆蓋率 ≥30% 才啟用),再算幾何排名分數。
     """
-    if origin == ORIGIN_STRATEGY:
-        return "keep_own"
-    return "keep_pool" if in_pool else "sell_role"
+    day = feat.sort("date").join_asof(
+        tax.sort("effective_date"), left_on="date", right_on="effective_date",
+        by=C, strategy="backward")
+    # accel_rel = 營收加速度減去**同日同產業**中位數(產業未知者無此欄 → 稍後被剔除)
+    ind_med = (day.filter(pl.col("industry").is_not_null())
+               .group_by(["date", "industry"])
+               .agg(pl.col("rev_yoy_accel").median().alias("_im")))
+    cand = (day.join(ind_med, on=["date", "industry"], how="left")
+            .with_columns((pl.col("rev_yoy_accel") - pl.col("_im")).alias("accel_rel"))
+            .filter(pl.col("rev_fresh_days") <= 7)
+            .join(elig.filter(pl.col("eligible")).select(["date", C]),
+                  on=["date", C], how="semi")
+            .drop_nulls(subset=list(S_WTS)))
+    # 現金流品質閘:當日池內中位數以上;覆蓋率不足 30% 的日子不啟用(避免用少數樣本殺全池)
+    cand = cand.with_columns([
+        pl.col("cfo_ni_ratio_ttm").median().over("date").alias("_med"),
+        pl.col("cfo_ni_ratio_ttm").is_not_null().sum().over("date").alias("_ncov"),
+        pl.len().over("date").alias("_h"),
+    ])
+    gate = (pl.col("_ncov") >= 0.3 * pl.col("_h")) & pl.col("_med").is_not_null()
+    cand = cand.filter(~gate | (pl.col("cfo_ni_ratio_ttm") >= pl.col("_med")))
+    expr = None
+    for cname, wt in S_WTS.items():
+        term = (pl.col(cname).rank().over("date") / pl.len().over("date")) ** wt
+        expr = term if expr is None else expr * term
+    return cand.with_columns(expr.alias("geo"))
+
+
+def entry_anchors(ph: pl.DataFrame, acquired: dict[str, Date]) -> dict[str, Date]:
+    """每檔持股的**策略進場日** = 它進到帳戶之前(含當天)最後一次入池的那一天。
+
+    使用者定調(2026-07-22):「一旦標的入池,就應該以當時的出場條件制定計劃——
+    什麼時間點、什麼價格被選中,就從那時建立的出場條件決定現在該不該出場」。
+    S 叫你買、你買了,那就是 S 的部位;它的出場鐘從**被選中那天**開始走。
+
+    **為什麼用池籍推、不用成交紀錄檔**:成交 jsonl 在誰下單就留在誰身上(本機一份、
+    VM 一份、互不同步),拿它當身分依據會讓兩台機器對同一部位給出相反判決——
+    2026-07-22 實測:本機判 2466「續抱」、VM 判「賣出」。池籍是市場資料的函數,
+    任何機器、任何時間重算都得到同一個答案(stateless、可重現)。
+
+    回傳 {code: 進場日};**不在其中者 = 這兩年從未入池 → 不是 S 的標的**。
+    """
+    if not acquired:
+        return {}
+    ref = pl.DataFrame(
+        {C: list(acquired), "_by": [acquired[c] for c in acquired]},
+        schema={C: pl.Utf8, "_by": pl.Date})
+    hit = (ph.select([C, "date"]).join(ref, on=C, how="inner")
+           .filter(pl.col("date") <= pl.col("_by"))
+           .group_by(C).agg(pl.col("date").max().alias("entry")))
+    return {r[C]: r["entry"] for r in hit.to_dicts()}
 
 
 def s_advisor(con, holdings: dict[str, float], today: Date,
@@ -222,31 +231,11 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     tax = raw.sql("SELECT company_code, effective_date, industry FROM "
                   "industry_taxonomy_pit WHERE industry IS NOT NULL "
                   "ORDER BY effective_date").pl()
-    day = (feat.filter(pl.col("date") == d0)
-           .join_asof(tax.sort("effective_date"), left_on="date",
-                      right_on="effective_date", by=C, strategy="backward"))
-    ind_med = (day.filter(pl.col("industry").is_not_null())
-               .group_by("industry")
-               .agg(pl.col("rev_yoy_accel").median().alias("_im")))
-    day = (day.join(ind_med, on="industry", how="left")
-           .with_columns((pl.col("rev_yoy_accel") - pl.col("_im"))
-                         .alias("accel_rel")))
+    # 逐日池籍(唯一真源):今日的買進候選 = 今日切片;歷史部位的進場錨 = 過去切片。
+    ph = pool_history(feat, elig, tax)
+    pool = ph.filter(pl.col("date") == d0).sort("geo", descending=True)
 
-    el = elig.filter((pl.col("date") == d0) & pl.col("eligible")).select(C)
-    pool = (day.filter(pl.col("rev_fresh_days") <= 7)
-            .join(el, on=C, how="semi")
-            .drop_nulls(subset=list(S_WTS)))
-    med = pool["cfo_ni_ratio_ttm"].median()
-    n_cov = pool["cfo_ni_ratio_ttm"].drop_nulls().len()
-    if n_cov >= 0.3 * pool.height and med is not None:
-        pool = pool.filter(pl.col("cfo_ni_ratio_ttm") >= med)
-    expr = None
-    for cname, wt in S_WTS.items():
-        term = (pl.col(cname).rank() / pl.len()) ** wt
-        expr = term if expr is None else expr * term
-    pool = pool.with_columns(expr.alias("geo")).sort("geo", descending=True)
-
-    adv = Advice("S(apex_revcycle_S)")
+    adv = Advice(S_NAME)
     closes = dict(panel.filter(pl.col("date") == d0)
                   .select([C, "close"]).iter_rows())
     st = load_state("s")
@@ -254,37 +243,27 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     fresh_all = dict(feat.filter(pl.col("date") == d0)
                      .select([C, "rev_fresh_days"]).iter_rows())
 
-    # ── 部位來源(事實,非判斷)────────────────────────────────────────────
-    # 2026-07-22 根因重構:state 只存**事實**,不存判斷。`origin` 於部位首次出現
-    # 時依「執行器真實成交紀錄」認定一次,此後恆定——身分不會隨市場資料改變。
-    # 判斷(該續抱還是賣)一律每次執行由 `s_hold_action` 現算。
-    _filled = s_filled_buys()
-    for code in holdings:
-        rec = st.get(code)
-        if rec is None:
-            continue
-        if rec.get("origin") not in (ORIGIN_STRATEGY, ORIGIN_ADOPTED):
-            rec["origin"] = ORIGIN_STRATEGY if code in _filled else ORIGIN_ADOPTED
-            if code in _filled:
-                rec["origin_src"] = f"成交 {_filled[code]}"   # 稽核:可回溯到那一腿
-        elif rec["origin"] == ORIGIN_ADOPTED and code in _filled:
-            # 自癒:先前無成交紀錄(檔案尚未寫出/機器重建)而暫記為收養,
-            # 事後出現成交事實 → 更正為 S 自有。事實優先於既有推定。
-            rec["origin"] = ORIGIN_STRATEGY
-            rec["origin_src"] = f"成交 {_filled[code]}(更正)"
+    # ── 進場錨:每檔持股「被 S 選中」的那一天 ────────────────────────────
+    # 一旦入池,那天就是 S 的進場點;出場鐘與價位門全部從那天算起(見 entry_anchors)。
+    # 從未入池者才是外人。**身分與出場全由市場資料決定,零 state、跨機一致。**
+    acquired = {c: Date.fromisoformat(st.get(c, {}).get("first_seen", d0.isoformat()))
+                for c in holdings}
+    anchors = entry_anchors(ph, acquired)
+    _want = pl.DataFrame({C: list(anchors), "date": list(anchors.values())},
+                         schema={C: pl.Utf8, "date": pl.Date}) if anchors else None
+    entry_px = ({r[C]: r["close"] for r in
+                 panel.join(_want, on=[C, "date"], how="inner")
+                 .select([C, "close"]).to_dicts()} if _want is not None else {})
 
-    # 逐檔:先過硬出場規則,倖存者依「來源」決定去留(見 s_hold_action):
-    # S 自買 → 只受四條出場規則管(與回測一致);收養 → 角色純度(非今日標的即賣)。
     pool_rank = {r[C]: i + 1 for i, r in enumerate(pool.to_dicts())}
-    # 出場一律**逐日重放**(非今日快照):你沒跑報告那幾天觸發的規則也算數
+    # 出場一律**逐日重放**(非今日快照):你沒跑報告那幾天觸發的規則也算數。
+    # 進場價用**錨日收盤**而非你的成交價——出場規則是策略的屬性(回測的
+    # `peak_close = entry_close`),成本是帳戶的屬性,兩者不得互相污染。
     from research.trading.exit_replay import load_paths, replay, s_rule
-    entries = {c: Date.fromisoformat(st.get(c, {}).get("first_seen", d0.isoformat()))
-               for c in holdings}
+    entries = {c: anchors.get(c, acquired[c]) for c in holdings}
     paths = load_paths(sorted(entries), min(entries.values()) if entries else d0, d0)
-    fires: dict[str, object] = {}
-    survivors: list[tuple[float, str, str]] = []  # (排序鍵, code, keep理由)
+    survivors: list[tuple[tuple, str, str]] = []  # (席位排序鍵, code, keep理由)
     for code in sorted(holdings):
-        info = st.get(code, {})
         px = closes.get(code)
         fresh = fresh_all.get(code)
         # 無營收資料者 fresh=None;下方文案用 int(fresh) 會拋 TypeError →
@@ -293,34 +272,38 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
         if px is None or code not in paths:
             adv.sells.append((code, "無法取價(下市/停牌?)人工確認"))
             continue
-        cost0, _b = cost_of(code, fallback=info.get("cost"))
-        fire, now = replay(paths[code], entries[code], s_rule(cost0), peak_floor=cost0)
-        fires[code] = fire
-        held = now.days_held if now else 0
+        if code not in anchors:
+            adv.sells.append((code, "非本策略標的(S 有紀錄以來從未選中它——它不是"
+                                    "S 買的,也不會是;卡在哪一關可跑 "
+                                    "`python -m research.tri.pool_trace " + code + "`)"))
+            continue
+        entry, epx = entries[code], entry_px.get(code)
+        if epx is None:
+            # 錨日取不到收盤 → 止損/輸家門檻無從建立。**寧可交人工,不可靜默地
+            # 用一組較弱的規則跑下去**(那等於偷偷放寬風控)。
+            adv.sells.append((code, f"進場錨 {entry} 取不到收盤價,出場門檻無法建立"
+                                    "——人工確認"))
+            continue
+        fire, now = replay(paths[code], entry, s_rule(epx), peak_floor=epx)
         if fire:
             od = (f"🔴 **逾期未出場**:{fire.day} 觸發(當時 {fire.price:g}),今日 {px:g}"
                   f"({(px / fire.price - 1) * 100:+.1f}%)|" if fire.is_overdue(d0) else "")
-            adv.sells.append((code, f"{od}{fire.reason}"))
+            adv.sells.append((code, f"{od}{fire.reason}(S 進場錨 {entry}"
+                                    f"{f' @ {epx:g}' if epx else ''})"))
             continue
-        action = s_hold_action(st.get(code, {}).get("origin", ORIGIN_ADOPTED),
-                               code in pool_rank)
-        if action == "keep_own":
-            # 席位優先序最高:S 自有部位就是策略的實際組合,回測中它們佔著席位
-            # 直到出場規則觸發,絕不能被「今日排名更好的收養股」擠掉(超額席位)。
-            survivors.append((-10_000 + fresh_i, code,
-                              f"S 自有部位(成交建立,抱到出場規則;fresh={fresh_i})"))
-        elif action == "keep_pool":
-            rk = pool_rank[code]
-            survivors.append((rk, code, f"今日進場池 geo 排名 #{rk}(fresh={fresh_i})"))
-        else:  # sell_role
-            adv.sells.append((code, "非本策略標的(S 未曾成交買進、且不在今日進場池"
-                                    "——S 不會買的名字沒有理由持有)"))
+        rk = pool_rank.get(code)
+        why = (f"S 標的(進場錨 {entry}{f' @ {epx:g}' if epx else ''};出場規則未觸發)"
+               + (f"|今日仍在進場池 #{rk}" if rk else f"|fresh={fresh_i}"))
+        # 席位先到先得(與回測一致:部位佔著席位直到出場規則觸發),同日再比今日排名
+        survivors.append(((entry.toordinal(), rk or 9_999), code, why))
     survivors.sort()
     for i, (key, code, why) in enumerate(survivors, 1):
         info = st.get(code, {})
         px = closes.get(code)
+        # cost = **帳戶**的成本(顯示損益用);epx = **策略**的進場價(出場門檻用)
         cost, basis = cost_of(code, fallback=info.get("cost"))
-        _f, now = replay(paths[code], entries[code], s_rule(cost), peak_floor=cost)
+        epx = entry_px.get(code)
+        _f, now = replay(paths[code], entries[code], s_rule(epx), peak_floor=epx)
         peak = now.peak if now else None  # 峰值由價格路徑重算,不靠增量 state
         # S 的價位門只有 trail 35%;訊號過期 26 日 / 時間止損 30 日 / 輸家止損
         # (水下且 ≥15 日)都是時間門,沒有固定止盈。
@@ -338,7 +321,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             "gates": [("移動停損 −35%", f"{stop:g}(峰 {peak:g})" if stop else "—"),
                       ("訊號過期 26 日", f"距最近月營收 {fresh_all.get(code)} 日"),
                       ("時間止損 30 日", f"持有 {now.days_held if now else 0} 交易日"),
-                      ("輸家止損 15 日", f"{'水下' if cost and px < cost else '水上'}")],
+                      ("輸家止損 15 日", f"{'水下' if epx and px < epx else '水上'}(對進場錨)")],
             # S 是純量化,沒有 LLM 理由——「為什麼買」就是這六個因子的值與排名
             "factors": ({k: round(float(prow[k]), 3) for k in list(S_WTS) if prow.get(k) is not None}
                         if prow else {}),
@@ -351,18 +334,17 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
                                     f"{_sizing_hint(nav, 0.20, closes.get(code), holdings[code])}"))
         else:
             adv.sells.append((code, f"超額席位(S 上限 5 檔;{why}){lv}"))
-    # 註:save_state 移到買入清單產生之後——需先記下今日進場名單(_s_buys),
-    # 明日該股入庫存時才認得出「這是 S 自己買的」(見上方自買認證段)。
-
     # 買入清單 = 通往完全體的完整隊列(使用者要求看得到終局):
     # 「今日進場」(空位內、每日上限 2)→「⏸ 排隊」(有席位、輪明日)→
     # 「🕒 遞補」(席位已滿,等出缺)。照標記操作,持倉恆 ≤5 檔。
     n_slot = max(0, 5 - len(adv.keeps))
     rank_i = 0
     ideal_buys: list[tuple[str, str]] = []
-    for r in pool.head(n_slot + 3).to_dicts():
-        if r[C] in holdings:
-            continue
+    # 先剔除已持有再取窗口。**順序不可顛倒**:若對整個池取 head(n_slot+3) 再跳過
+    # 已持有,當 S 已經抱著池內前幾名時,窗口會被自己的持股佔滿 → 明明有空席卻
+    # 一檔都不推薦(2026-07-22 實測:持有池內第 1~4 名,空 1 席卻產不出候選)。
+    avail = pool.filter(~pl.col(C).is_in(list(holdings))) if holdings else pool
+    for r in avail.head(n_slot + 3).to_dicts():
         rank_i += 1
         detail = f"{shares_for(0.20, nav, closes.get(r[C]))}|fresh={int(r['rev_fresh_days'])}"
         # 買入候選的「為什麼買」= 六因子的值與幾何平均(S 是純量化,沒有敘事)
