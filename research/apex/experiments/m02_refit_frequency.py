@@ -29,8 +29,9 @@ from research.apex import data
 from research.apex.experiments.m01_window_length import GRID, prep, run_config, seg
 
 C = "company_code"
-SIM_START = Date(2012, 7, 2)
-REFIT_FIRST = Date(2016, 1, 1)      # 首個 refit 點(3 年前 = 2013,窗內已有資料)
+SIM_START = Date(2007, 1, 1)        # 延到 TWSE+TPEx 都在的最早乾淨起點(日報價 2004/TPEx 2007);
+                                    # 用月初界避免「永不」基準的 3 年前窗差 1 天被跳過
+REFIT_FIRST = Date(2010, 1, 1)      # 首個 refit 點(3 年前 = 2007,窗內已有資料)
 W_YEARS = 3
 SWITCH_COST = 0.004                 # config 切換保守全額換手(賣稅 0.3% + 手續 0.0285%×2 ≈ 0.36%,取 0.4%)
 BOOT_SEED = 20260721
@@ -86,11 +87,13 @@ def _metrics(full: pl.DataFrame, rng: np.random.Generator) -> dict:
     }
 
 
-def refit_sim(navs, data_end, freq_m, kpi, start_month=1, switch_cost=SWITCH_COST):
-    """在 freq_m 個月一次的 refit 頻率下串接連續策略,回 metrics + 換手次數。"""
-    points, t = [], Date(REFIT_FIRST.year, start_month, 1)
+def refit_sim(navs, data_end, freq_m, kpi, start_month=1, switch_cost=SWITCH_COST,
+              first_refit=REFIT_FIRST):
+    """在 freq_m 個月一次的 refit 頻率下串接連續策略,回 metrics + 換手次數。
+    first_refit 可覆寫以做前/後半段切分(檢驗最佳月份的一致性)。"""
+    points, t = [], Date(first_refit.year, start_month, 1)
     while t < data_end:
-        if t >= REFIT_FIRST:
+        if t >= first_refit:
             points.append(t)
         t = _add_months(t, freq_m)
     segs, prev = [], None
@@ -124,14 +127,15 @@ def refit_sim(navs, data_end, freq_m, kpi, start_month=1, switch_cost=SWITCH_COS
 def main() -> None:
     t0 = time.time()
     con = data.connect()
-    panel, feat = prep(con)
+    latest = data.latest_date(con).isoformat()
+    panel, feat = prep(con, prep_start="2006-06-01", end=latest)
     elig_map = {adv: (data.eligibility(panel, min_adv=adv)
                       .filter(pl.col("eligible")).select(["date", C]))
                 for adv in [5e6, 20e6]}
-    print(f"prep {time.time()-t0:.0f}s;跑 {len(GRID)} configs 全期連續 NAV…")
+    print(f"prep {time.time()-t0:.0f}s;跑 {len(GRID)} configs 全期連續 NAV(2007→{latest})…")
     navs = []
     for i, cfg in enumerate(GRID):
-        navs.append(run_config(panel, feat, elig_map, cfg))
+        navs.append(run_config(panel, feat, elig_map, cfg, sim_start="2007-01-02"))
         if (i + 1) % 6 == 0:
             print(f"  {i+1}/{len(GRID)}  ({time.time()-t0:.0f}s)")
     data_end = navs[0]["date"][-1]
@@ -148,14 +152,27 @@ def main() -> None:
         print("=== refit 頻率對照(3 年窗;含切換成本 0.4%/次)===")
         print(res.select(["KPI", "頻率", "cagr", "sharpe", "mdd", "p5", "final_x", "switches"]))
 
-    print("\n=== 年更的『起始月份』掃描(CAGR 選)===")
+    print("\n=== 年更『起始月份』掃描:全窗 vs 前半 vs 後半(檢驗最佳月是真訊號還是雜訊)===")
+    mid = Date(2018, 1, 1)
     mrows = []
     for mo in range(1, 13):
-        m = refit_sim(navs, data_end, 12, "cagr", start_month=mo)
-        if m:
-            mrows.append({"refit月": mo, **m})
+        full = refit_sim(navs, data_end, 12, "cagr", start_month=mo)
+        early = refit_sim(navs, mid, 12, "cagr", start_month=mo, first_refit=REFIT_FIRST)
+        late = refit_sim(navs, data_end, 12, "cagr", start_month=mo, first_refit=mid)
+        if full:
+            mrows.append({"refit月": mo, "全窗CAGR": full["cagr"], "全窗P5": full["p5"],
+                          "前半CAGR": (early or {}).get("cagr"),
+                          "後半CAGR": (late or {}).get("cagr")})
+    md = pl.DataFrame(mrows)
     with pl.Config(tbl_rows=13, float_precision=3):
-        print(pl.DataFrame(mrows).select(["refit月", "cagr", "sharpe", "mdd", "p5", "switches"]))
+        print(md.select(["refit月", "全窗CAGR", "全窗P5", "前半CAGR", "後半CAGR"]))
+
+    def top3(col):
+        return set(md.drop_nulls(col).sort(col, descending=True)["refit月"][:3].to_list())
+    e3, l3 = top3("前半CAGR"), top3("後半CAGR")
+    print(f"\n全窗最佳3月={sorted(top3('全窗CAGR'))}｜前半最佳3月={sorted(e3)}｜後半最佳3月={sorted(l3)}")
+    print(f"前後半重疊={sorted(e3 & l3)} → "
+          + ("有重疊,月份效應可能真實" if e3 & l3 else "零重疊 → 最佳月是雜訊,不可依賴,維持現行月份"))
 
     res.write_parquet("research/apex/ledger/m02_refit_frequency.parquet")
     print(f"\ntotal {time.time()-t0:.0f}s;結果 → research/apex/ledger/m02_refit_frequency.parquet")
