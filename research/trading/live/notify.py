@@ -88,6 +88,11 @@ class GmailNotifier:
                           summary_text: str) -> None:
         self._send(f"[S 策略] {date_str} 執行結果", summary_html, summary_text)
 
+    def send_text(self, subject: str, text: str) -> None:
+        """通用純文字通知(年度 refit 報告等):純文字 + monospace HTML 後備。"""
+        esc = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+        self._send(subject, f"<pre style='font-family:ui-monospace,monospace'>{esc}</pre>", text)
+
     # ── IMAP 取消 / 確認檢查 ───────────────────────────────────────
     def _inbox_has_subject(self, subject: str) -> bool:
         """收信匣是否有指定主旨的信。IMAP/登入故障 → 上拋(呼叫端 fail-safe)。"""
