@@ -195,6 +195,23 @@ def main() -> None:
         print("[execute] --check:僅核對,不派工。上方即今日將送出的確切指令。")
         return
 
+    # 3b) 賣出前必撤該標的的券商端安全網(money-path 命門,雙保險)
+    #     條件單掛在券商端會自己活著:我們把部位賣掉後若它仍武裝,日後觸發就會
+    #     賣掉不存在的部位(可能變成融券)。盤前 sync 已排除今日賣單,此處再撤一次
+    #     以防「盤前後才變更」與歷史殘留。撤不掉要響亮,但不擋交易(部位還在,
+    #     多一張停損單不會超賣;真正危險的是賣完還留著,而那由下一次 sync 收斂)。
+    if sells and live:
+        try:
+            from research.trading.live import safety_net
+            from research.brokers.fubon import FubonBroker
+            _b = FubonBroker.from_env()
+            _b.login()
+            gone = safety_net.cancel_for(_b, set(sells))
+            print(f"[execute] 賣出前撤安全網 {len(gone)} 張({sells})")
+        except Exception as exc:  # noqa: BLE001 - 撤不掉要響亮,不擋今日交易
+            print(f"⚠ [execute] 安全網撤單失敗({type(exc).__name__}: {exc});"
+                  f"賣出後請確認殘留條件單", file=sys.stderr)
+
     # 4) 阻塞執行(execution.trade 內部自等 09:00);全程 log 落檔,尾段寄回
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     log_path = LOG_DIR / f"execute_{date_str}.log"

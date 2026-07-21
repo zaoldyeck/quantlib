@@ -92,6 +92,26 @@ def main() -> None:
         json.dumps(plan.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"[premarket] 計劃 → {plan_path(today.isoformat())}")
 
+    # 4b) 券商端災難停損同步(VM 掛掉時的唯一保護層;定位與證據見 safety_net.py)
+    #     水位比策略自身 trail 35% 更寬(50%)→ 正常運作時日頻路徑一定先出場,不干擾。
+    #     今日要動的標的(買/賣/保留待確認/人工複核)一律排除,避免「賣掉後條件單裸奔」。
+    #     置於計劃落盤之後、寄信之前:計劃已安全落盤(execute 有料),且不受 --no-email 影響。
+    try:
+        from research.trading.live import safety_net
+        if safety_net.enabled():
+            skip = set(plan.buys) | set(plan.sells) | set(plan.protected_sells)
+            skip |= {c for c, _ in plan.manual_review}
+            res = safety_net.sync(account.get_broker(), holdings, plan.peaks, skip)
+            if res.get("skipped"):
+                print(f"[premarket] 安全網:{res['skipped']}")
+            else:
+                print(f"[premarket] 安全網:目標 {res.get('target')} 檔、"
+                      f"撤 {res.get('cancelled')}、新掛 {len(res.get('placed') or [])}"
+                      + (f";⚠ 錯誤 {res['errors']}" if res.get("errors") else ""))
+    except Exception as exc:  # noqa: BLE001 - 安全網失敗不得拖累今日交易
+        print(f"⚠ [premarket] 安全網同步失敗(不影響今日交易):{type(exc).__name__}: {exc}",
+              file=sys.stderr)
+
     # 5) 寄計劃信(含取消鈕)
     if args.no_email:
         print("[premarket] --no-email:略過寄信")

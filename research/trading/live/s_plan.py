@@ -47,6 +47,9 @@ class DayPlan:
     keeps: list[tuple[str, str]] = field(default_factory=list)    # 續抱(信件顯示用)
     queued: list[tuple[str, str]] = field(default_factory=list)   # ⏸排隊/🕒遞補(不執行)
     notes: list[str] = field(default_factory=list)
+    #: 各持股的持有期最高收盤(由 exit_replay 逐日重算,非增量 state)。
+    #: 唯一用途 = 券商端安全網水位(safety_net);不參與任何交易決策。
+    peaks: dict[str, float] = field(default_factory=dict)
 
     @property
     def has_actions(self) -> bool:
@@ -94,6 +97,12 @@ def plan_from_advice(adv, today: Date,
         else:
             sells.append(code)
 
+    # 峰值:s_advisor 已用 exit_replay 逐日重算(不靠增量 state),此處只轉出給
+    # 安全網用;缺值(無價格路徑/剛收養)自然不掛安全網,不做任何推估。
+    peaks = {code: float(d["peak"])
+             for code, d in (getattr(adv, "detail", None) or {}).items()
+             if isinstance(d, dict) and d.get("peak")}
+
     return DayPlan(
         date=today.isoformat(),
         buys=buys,
@@ -103,6 +112,7 @@ def plan_from_advice(adv, today: Date,
         keeps=list(adv.keeps),
         queued=queued,
         notes=list(adv.notes),
+        peaks=peaks,
     )
 
 

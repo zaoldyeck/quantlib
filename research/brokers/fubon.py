@@ -7,6 +7,7 @@ the broker adapter only translates approved orders into Fubon SDK calls.
 
 from __future__ import annotations
 
+import datetime as _dt
 from dataclasses import dataclass
 import os
 import threading
@@ -357,6 +358,95 @@ class FubonBroker:
             self.login()
         return self._call_with_relogin(
             lambda: self.sdk.accounting.inventories(self.account), what="查庫存")
+
+    # ── 券商端條件單(災難保險用;定位見 research/trading/live/safety_net.py)──
+    def get_condition_orders(self) -> Any:
+        """查現有條件單(唯讀 → 可無限重試)。無資料時 is_success=False/「查無資料」。"""
+        if self.sdk is None or self.account is None:
+            self.login()
+        return self._call_with_relogin(
+            lambda: self.sdk.stock.get_condition_order(self.account), what="查條件單")
+
+    def cancel_condition_order(self, guid: str) -> Any:
+        """撤條件單。重試安全:撤單 idempotent,重複撤已終態單只是無效呼叫。"""
+        if self.sdk is None or self.account is None:
+            self.login()
+        return self._call_with_relogin(
+            lambda: self.sdk.stock.cancel_condition_orders(self.account, guid),
+            what="撤條件單")
+
+    def place_condition_sell_stop(self, *, symbol: str, quantity: int,
+                                  trigger_price: float, days: int = 30,
+                                  odd_lot: bool = True) -> Any:
+        """掛「成交價 ≤ trigger_price 就賣出」的券商端停損。回原始結果(含 guid)。
+
+        **只賣、只賣既有部位**:呼叫端(safety_net)保證 quantity ≤ 實際庫存且
+        symbol 在庫存內;本層再防呆(quantity>0、trigger>0)。
+
+        三個實測到的 API 語義(2026-07-21 對真帳戶驗收,非文件推測):
+        1. **零股可行**:`ConditionMarketType.IntradayOdd` + qty=1 被接受
+           (回報 condition_type="盤中零股"、condition_volume="1股")。
+        2. **盤中零股不接受市價** → price_type 用 `LimitDown`(零股跌停價 ROD),
+           兼顧成交確定性與零股規則。
+        3. **start_date 不可用已過效期的當日**:盤後掛單以今日為起始會被拒
+           (「今日效期已過,限營業日當日 08:30~13:32 接受訂閱」)→ 先試今日,
+           被拒則自動改用下一營業日重掛(盤前 01:00 執行時兩者皆可能適用)。
+
+        `days` = 效期天數(預設 30):夠長到 VM 死一個月仍受保護,又短到孤兒單
+        會自行過期(對照 safety_net 的孤兒風險控管)。dry_run 時只回計畫、不送出。
+        """
+        if quantity <= 0 or not trigger_price > 0:
+            raise ValueError(f"條件單參數不合法:{symbol} qty={quantity} trig={trigger_price}")
+        trig = round(float(trigger_price), 2)
+        if self.dry_run:
+            return {"dry_run": True, "symbol": symbol, "quantity": quantity,
+                    "trigger_price": trig, "days": days, "odd_lot": odd_lot}
+
+        from fubon_neo.constant import (BSAction, ConditionMarketType,
+                                        ConditionOrderType, ConditionPriceType,
+                                        Operator, StopSign, TimeInForce,
+                                        TradingType, TriggerContent)
+        from fubon_neo.sdk import Condition, ConditionOrder
+
+        if self.sdk is None or self.account is None:
+            self.login()
+        condition = Condition(
+            market_type=TradingType.Reference,
+            symbol=symbol,
+            trigger=TriggerContent.MatchedPrice,
+            trigger_value=f"{trig}",
+            comparison=Operator.LessThanOrEqual,
+        )
+        order = ConditionOrder(
+            buy_sell=BSAction.Sell,
+            symbol=symbol,
+            quantity=quantity,
+            market_type=(ConditionMarketType.IntradayOdd if odd_lot
+                         else ConditionMarketType.Common),
+            price_type=ConditionPriceType.LimitDown,   # 零股不接受市價;跌停限價=確定成交
+            time_in_force=TimeInForce.ROD,
+            order_type=ConditionOrderType.Stock,
+        )
+
+        def _send(start: _dt.date) -> Any:
+            s = start.strftime("%Y%m%d")
+            e = (start + _dt.timedelta(days=days)).strftime("%Y%m%d")
+            # 送出型 → retry=False(「送出後才斷線」不得自動重送,對齊 place_stock_order)
+            return self._call_with_relogin(
+                lambda: self.sdk.stock.single_condition(
+                    self.account, s, e, StopSign.Full, condition, order),
+                what="掛條件單", retry=False)
+
+        res = _send(_dt.date.today())
+        if getattr(res, "is_success", False):
+            return res
+        msg = str(getattr(res, "message", "") or "")
+        if "效期" not in msg:                       # 非「效期」問題 → 照實回報,不亂重試
+            return res
+        nxt = _dt.date.today() + _dt.timedelta(days=1)
+        while nxt.weekday() >= 5:                    # 六日非營業日
+            nxt += _dt.timedelta(days=1)
+        return _send(nxt)
 
     def build_stock_order(self, request: StockOrderRequest) -> Any:
         from fubon_neo.constant import BSAction, MarketType, OrderType, PriceType, TimeInForce
