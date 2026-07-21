@@ -168,5 +168,11 @@ research/apex/reports/
 # 本地資料快照與 runtime state(可重生,不進版控)
 research/cache_s_slim.duckdb
 research/market_data.db
-research/data/
 research/state/
+
+# research/data/ 混住兩種東西,規則必須分開下:
+#   ✗ intraday/ = 可重下載的原始 1 分 K(194 MB)→ 不進版控
+#   ✓ revenue_first_seen / confcall_events / news_aliases = **不可重生的觀測紀錄**
+#     (「我們哪一天第一次看到這筆營收揭露」無法從資料庫回推,它正是 S 事件驅動
+#      進場的時間真相)+ 人工策展的別名表 → 必須進版控
+research/data/intraday/

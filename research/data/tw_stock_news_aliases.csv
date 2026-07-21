@@ -1,0 +1,31 @@
+company_code,company_name,alias,required_any,exclude_any,enabled,confidence,notes
+2330,台積電,台積電,,,true,high,Chinese common name
+2330,台積電,TSMC,,,true,high,Global common alias
+2330,台積電,Taiwan Semiconductor Manufacturing Company,,,true,high,Full English name
+2330,台積電,Taiwan Semiconductor,,,true,medium,Usually maps to TSMC in market news
+2317,鴻海,鴻海,,,true,high,Chinese common name
+2317,鴻海,Foxconn,,,true,high,Global common alias
+2317,鴻海,Hon Hai,,,true,high,English alias
+2317,鴻海,Hon Hai Precision,,,true,high,Full English name
+2454,聯發科,聯發科,,,true,high,Chinese common name
+2454,聯發科,MediaTek,,,true,high,Global common alias
+2308,台達電,台達電,,,true,high,Chinese common name
+2308,台達電,Delta Electronics,,,true,high,Full English name avoids Delta Air Lines
+2308,台達電,Delta,Electronics|台達,Air Lines|airline|flight,false,low,Disabled generic alias until stronger context is available
+2382,廣達,廣達電腦,,,true,high,Chinese full name
+2382,廣達,Quanta Computer,,,true,high,Full English name avoids Quanta Services
+2382,廣達,Quanta,Computer|廣達,Services|Infrastructure,false,low,Disabled generic alias until stronger context is available
+6669,緯穎,緯穎,,,true,high,Chinese common name
+6669,緯穎,Wiwynn,,,true,high,Global common alias
+3711,日月光投控,日月光投控,,,true,high,Chinese common name
+3711,日月光投控,ASE Technology Holding,,,true,high,Full English name
+3711,日月光投控,Advanced Semiconductor Engineering,,,true,medium,Legacy English name
+2303,聯電,聯電,,,true,high,Chinese common name
+2303,聯電,United Microelectronics,,,true,high,Full English name avoids UMC church collision
+2303,聯電,UMC,semiconductor|wafer|foundry|United Microelectronics,church|methodist|medical|university,false,low,Disabled generic alias until required context is present
+2412,中華電,中華電信,,,true,high,Chinese common name
+2412,中華電,Chunghwa Telecom,,,true,high,Full English name
+2881,富邦金,富邦金,,,true,high,Chinese common name
+2881,富邦金,Fubon Financial,,,true,high,Full English name
+2882,國泰金,國泰金,,,true,high,Chinese common name
+2882,國泰金,Cathay Financial,,,true,high,Full English name
