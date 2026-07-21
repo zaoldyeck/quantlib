@@ -76,13 +76,15 @@ class GmailNotifier:
             s.login(self.user, self.app_password)
             s.send_message(msg)
 
-    def send_plan_email(self, plan, names: dict[str, str]) -> None:
+    def send_plan_email(self, plan, names: dict[str, str], settle=None) -> None:
         subject = f"[S 策略] {plan.date} 交易計劃"
         if not plan.has_actions:
             subject += "(今日無自動下單腿)"
+        if settle is not None and settle.shortfall > 0:
+            subject += f"　⚠️ 交割款不足約 {settle.shortfall:,.0f} 元"
         self._send(subject,
-                   render_plan_html(plan, names, self.to),
-                   render_plan_text(plan, names))
+                   render_plan_html(plan, names, self.to, settle),
+                   render_plan_text(plan, names, settle))
 
     def send_fill_summary(self, date_str: str, summary_html: str,
                           summary_text: str) -> None:
@@ -143,14 +145,43 @@ def confirm_sell_mailto(to: str, code: str, date_str: str) -> str:
     return f"mailto:{to}?subject={quote(subject)}&body={quote(body)}"
 
 
-def render_plan_html(plan, names: dict[str, str], to: str) -> str:
+def _money_rows(legs, side: str, names: dict[str, str]) -> str:
+    """明細列:代碼/名稱 + 最近收盤 + 金額;賣出腿另附成本、ROI、持有損益。"""
+    e = html.escape
+    out = []
+    for l in legs:
+        if l.side != side:
+            continue
+        px = f"{l.px:,.2f}" if l.px is not None else "—"
+        if side == "buy":
+            out.append(f"<li><b>買 {l.shares} 股</b>　{e(_nm(l.code, names))}"
+                       f"　<span style='color:#52606d'>收盤 {px}"
+                       f"　約 −{abs(l.net):,.0f} 元(含費)</span></li>")
+        else:
+            roi = "" if l.roi is None else (
+                f"　<b style='color:{'#047857' if l.roi >= 0 else '#b91c1c'}'>"
+                f"ROI {l.roi:+.1%}(損益 {l.pnl:+,.0f} 元)</b>")
+            cost = "" if not l.cost else (
+                f"　<span style='color:#52606d'>成本 {l.cost:,.2f}"
+                f"{e(' ' + l.cost_basis) if l.cost_basis else ''}</span>")
+            out.append(f"<li><b>賣出全部 {l.shares} 股</b>　{e(_nm(l.code, names))}"
+                       f"　<span style='color:#52606d'>收盤 {px}"
+                       f"　約 +{l.net:,.0f} 元(扣費稅)</span>{cost}{roi}</li>")
+    return "".join(out) or "<li>（無）</li>"
+
+
+def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
     e = html.escape
 
     def _rows(items, fmt):
         return "".join(f"<li>{fmt(x)}</li>" for x in items) or "<li>（無）</li>"
 
-    buys_html = _rows(plan.buys, lambda c: f"<b>買 1 股</b>　{e(_nm(c, names))}")
-    sells_html = _rows(plan.sells, lambda c: f"<b>賣出全部</b>　{e(_nm(c, names))}")
+    if settle is not None:
+        buys_html = _money_rows(settle.legs, "buy", names)
+        sells_html = _money_rows(settle.legs, "sell", names)
+    else:
+        buys_html = _rows(plan.buys, lambda c: f"<b>買 1 股</b>　{e(_nm(c, names))}")
+        sells_html = _rows(plan.sells, lambda c: f"<b>賣出全部</b>　{e(_nm(c, names))}")
     manual_html = _rows(
         plan.manual_review,
         lambda x: f"⚠️ {e(_nm(x[0], names))}　<span style='color:#b45309'>{e(x[1])}</span>")
@@ -158,6 +189,34 @@ def render_plan_html(plan, names: dict[str, str], to: str) -> str:
     queued_html = _rows(plan.queued, lambda x: f"{e(_nm(x[0], names))}　{e(x[1])}")
     notes_html = _rows(plan.notes, lambda s: e(s))
     mailto = cancel_mailto(to, plan.date)
+
+    money_block = ""
+    if settle is not None:
+        warn = ""
+        if settle.shortfall > 0:
+            warn = (f"<div style='background:#fef2f2;border:1px solid #fecaca;"
+                    f"border-radius:8px;padding:12px 14px;margin-top:10px'>"
+                    f"<b style='color:#b91c1c'>⚠️ 資金可能不足,請補入交割款</b><br>"
+                    f"買進需 {settle.buy_cost:,.0f} 元,帳戶可用 {settle.cash:,.0f} 元,"
+                    f"<b>缺口約 {settle.shortfall:,.0f} 元</b>。"
+                    f"<span style='color:#52606d'>(賣出款 T+2 才入帳,故不計入)</span></div>")
+        sign = "+" if settle.net_change >= 0 else "−"
+        money_block = (
+            "<h3>資金試算</h3>"
+            "<table style='border-collapse:collapse;font-size:14px'>"
+            f"<tr><td style='padding:3px 14px 3px 0;color:#52606d'>帳戶可用現金</td>"
+            f"<td style='text-align:right'><b>{settle.cash:,.0f}</b> 元</td></tr>"
+            f"<tr><td style='padding:3px 14px 3px 0;color:#52606d'>預計買進(含手續費)</td>"
+            f"<td style='text-align:right'>−{settle.buy_cost:,.0f} 元</td></tr>"
+            f"<tr><td style='padding:3px 14px 3px 0;color:#52606d'>預計賣出(扣費稅)</td>"
+            f"<td style='text-align:right'>+{settle.sell_proceeds:,.0f} 元</td></tr>"
+            f"<tr><td style='padding:3px 14px 3px 0'><b>現金淨變動</b></td>"
+            f"<td style='text-align:right'><b>{sign}{abs(settle.net_change):,.0f}</b> 元</td></tr>"
+            "</table>"
+            "<p style='color:#8a94a6;font-size:12px;margin:6px 0 0'>"
+            "金額以<b>最近收盤價</b>試算(計劃於盤前產生,當下無即時報價);"
+            "實際成交價由開盤後執行決定。台股 T+2 交割。</p>"
+            f"{warn}")
 
     manual_block = ""
     if plan.manual_review:
@@ -197,6 +256,7 @@ def render_plan_html(plan, names: dict[str, str], to: str) -> str:
 
   {protected_block}
 
+  {money_block}
   {manual_block}
 
   <h3>續抱</h3>
@@ -211,7 +271,7 @@ def render_plan_html(plan, names: dict[str, str], to: str) -> str:
 </div>"""
 
 
-def render_plan_text(plan, names: dict[str, str]) -> str:
+def render_plan_text(plan, names: dict[str, str], settle=None) -> str:
     lines = [f"S 策略 {plan.date} 交易計劃(買各 1 股、賣全部;不動作 09:00 自動執行)",
              "取消:08:55 前回覆本信(主旨含 CANCEL-S-" + plan.date + ")即中止今日執行", ""]
     lines.append("買入(今日進場):" + ("、".join(_nm(c, names) for c in plan.buys) or "無"))
@@ -223,6 +283,20 @@ def render_plan_text(plan, names: dict[str, str]) -> str:
         lines.append("需人工複核(不自動下單):"
                      + "、".join(f"{_nm(c, names)}[{r}]" for c, r in plan.manual_review))
     lines.append("續抱:" + ("、".join(_nm(c, names) for c, _ in plan.keeps) or "無"))
+    if settle is not None:
+        lines += ["", "【資金試算(以最近收盤價估;實際成交價開盤後決定,T+2 交割)】",
+                  f"  帳戶可用現金 {settle.cash:,.0f} 元",
+                  f"  預計買進(含手續費)−{settle.buy_cost:,.0f} 元",
+                  f"  預計賣出(扣費稅)+{settle.sell_proceeds:,.0f} 元",
+                  f"  現金淨變動 {settle.net_change:+,.0f} 元"]
+        for l in settle.legs:
+            if l.side == "sell" and l.roi is not None:
+                lines.append(f"  {_nm(l.code, names)} ROI {l.roi:+.1%}"
+                             f"(成本 {l.cost:,.2f} → 收盤 {l.px:,.2f},"
+                             f"損益 {l.pnl:+,.0f} 元)")
+        if settle.shortfall > 0:
+            lines.append(f"  ⚠️ 資金不足,請補入交割款約 {settle.shortfall:,.0f} 元"
+                         f"(賣出款 T+2 才入帳,未計入)")
     if plan.notes:
         lines.append("")
         lines += [f"- {n}" for n in plan.notes]

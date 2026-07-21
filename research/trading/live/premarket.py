@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -41,6 +42,46 @@ def _all_codes(plan) -> list[str]:
     codes |= {c for c, _ in plan.keeps}
     codes |= {c for c, _ in plan.queued}
     return sorted(codes)
+
+
+def _build_settlement(con, plan, holdings: dict[str, float], cash: float):
+    """組出計劃信的金額試算;任何一步失敗都不得擋住交易計劃(交易 > 資訊)。"""
+    try:
+        from research.apex import data
+        from research.trading.cost_basis import cost_of
+        from research.trading.live.money import build_settlement
+
+        codes = sorted(set(plan.buys) | set(plan.sells))
+        prices: dict[str, float] = {}
+        if codes:
+            ph = ",".join("?" * len(codes))
+            d0 = data.latest_date(con)
+            prices = {str(k): float(v) for k, v in con.execute(
+                f"SELECT company_code, closing_price FROM daily_quote "
+                f"WHERE date = ? AND company_code IN ({ph})", [d0, *codes]).fetchall()
+                if v is not None}
+        costs = {}
+        for c in plan.sells:
+            try:
+                px, basis = cost_of(c)
+                if px:
+                    costs[c] = (float(px), "(收養價)" if basis == "adopted_close" else "")
+            except Exception:  # noqa: BLE001 - 單檔成本取不到就不顯示 ROI,不編造
+                continue
+        return build_settlement(cash, plan.buys, plan.sells, _shares_per_buy(),
+                                holdings, prices, costs)
+    except Exception as exc:  # noqa: BLE001 - 資訊層失敗不得拖垮交易計劃
+        print(f"⚠ [premarket] 資金試算失敗(信件將省略金額):{type(exc).__name__}: {exc}",
+              file=sys.stderr)
+        return None
+
+
+def _shares_per_buy() -> int:
+    """與 execute 同一環境變數(唯一真源),確保信中金額 = 實際下單股數。"""
+    try:
+        return max(1, int(os.environ.get("QL_S_SHARES_PER_BUY", "1")))
+    except ValueError:
+        return 1
 
 
 def main() -> None:
@@ -80,6 +121,9 @@ def main() -> None:
         # 3) 決策(重用 s_advisor)+ 套用保留股(使用者要自己控的持股不自動賣)
         plan = build_day_plan(con, holdings, today, nav, protected_from_env())
         names = lookup_names(_all_codes(plan))
+        # 金額/損益試算(信件用):價=cache 最新收盤(盤前無即時報價,已於信中註明);
+        # 成本走 cost_basis 唯一真源(收養者標「收養價」,不假裝是真實成本)。
+        settle = _build_settlement(con, plan, holdings, cash)
     finally:
         con.close()
 
@@ -118,7 +162,7 @@ def main() -> None:
         return
     email_ok = True
     try:
-        notify.GmailNotifier.from_env().send_plan_email(plan, names)
+        notify.GmailNotifier.from_env().send_plan_email(plan, names, settle)
         print("[premarket] 計劃信已寄出")
     except Exception as exc:  # noqa: BLE001 - 寄信失敗要響亮(否則你不知道今天要交易)
         print(f"✗ [premarket] 計劃信寄送失敗:{type(exc).__name__}: {exc}", file=sys.stderr)
