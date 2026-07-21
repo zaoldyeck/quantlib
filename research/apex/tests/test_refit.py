@@ -40,9 +40,21 @@ def test_deployed_is_s() -> None:
     assert DEPLOYED == "ax6-n5-t35-adv5"
 
 
+def test_should_refit_annual_gate() -> None:
+    """併入盤前的年度閘:只在 12 月、且今年還沒跑過時觸發(重跑當日不重複)。"""
+    from datetime import date
+
+    from research.apex.refit import should_refit
+    assert should_refit(date(2026, 12, 1), 2025) is True     # 12 月、今年未跑
+    assert should_refit(date(2026, 12, 20), 2026) is False    # 今年已跑過 → 不重複
+    assert should_refit(date(2026, 7, 20), 2025) is False     # 非 12 月
+    assert should_refit(date(2026, 11, 30), 2025) is False    # 11 月不跑
+    assert should_refit(date(2027, 12, 1), 2026) is True      # 隔年 12 月再跑
+
+
 def main() -> None:
     for fn in (test_render_confirm_s, test_render_drift_demands_human_certification,
-               test_deployed_is_s):
+               test_deployed_is_s, test_should_refit_annual_gate):
         fn()
         print(f"✓ {fn.__name__}")
     print("✓ refit 全過")

@@ -96,11 +96,25 @@ def main() -> None:
     if args.no_email:
         print("[premarket] --no-email:略過寄信")
         return
+    email_ok = True
     try:
         notify.GmailNotifier.from_env().send_plan_email(plan, names)
         print("[premarket] 計劃信已寄出")
     except Exception as exc:  # noqa: BLE001 - 寄信失敗要響亮(否則你不知道今天要交易)
         print(f"✗ [premarket] 計劃信寄送失敗:{type(exc).__name__}: {exc}", file=sys.stderr)
+        email_ok = False
+
+    # 6) 年度 refit(每年 12 月首個盤前自動跑一次;併入盤前=省一個 timer、爬完蟲即用最新
+    #    資料)。獨立 try:refit 失敗絕不影響今日交易計劃(交易計劃早已落盤供 execute)。
+    try:
+        from research.apex import refit
+        if refit.maybe_run_annual(today):
+            print("[premarket] 年度 refit 已跑並寄出")
+    except Exception as exc:  # noqa: BLE001 - refit 失敗不得拖累今日交易
+        print(f"⚠ [premarket] 年度 refit 失敗(不影響今日交易):{type(exc).__name__}: {exc}",
+              file=sys.stderr)
+
+    if not email_ok:
         raise SystemExit(1)
 
 

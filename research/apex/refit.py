@@ -1,4 +1,5 @@
-"""S 策略年度自主 refit —— 漂移監控 + 網格重選(systemd 每年 12/1,不依賴本機)。
+"""S 策略年度自主 refit —— 漂移監控 + 網格重選(併入每日盤前,12 月首個盤前自動跑一次;
+不依賴本機、省一個獨立 timer)。爬蟲已在盤前更新 cache,故 refit 此時吃到最新資料。
 
 VM 用自己的 cache 跑「近三年 24-config 選最優(P5 主尺)」,email 結果:
 - 最優仍是 S(六年穩定,幾乎每年)→ 確認、零動作。
@@ -16,6 +17,7 @@ Run(本機測):uv run --project research python -m research.apex.refit --date 20
 from __future__ import annotations
 
 import argparse
+import os
 from datetime import date as Date
 
 import numpy as np
@@ -72,6 +74,42 @@ def render(rep: dict) -> str:
         star = " ←S" if r["is_s"] else ""
         lines.append(f"  {r['config']:18s} | {r['p5']:.3f} | {r['cagr']:.3f} | {r['sharpe']:.2f}{star}")
     return "\n".join(lines)
+
+
+_STATE = "research/apex/state/last_refit_year.txt"
+
+
+def should_refit(today: Date, last_refit_year: int) -> bool:
+    """每年 12 月只自動跑一次 refit(併入盤前;省一個獨立 timer)。"""
+    return today.month == 12 and last_refit_year < today.year
+
+
+def _last_refit_year() -> int:
+    try:
+        return int(open(_STATE).read().strip())
+    except (OSError, ValueError):
+        return 0
+
+
+def maybe_run_annual(today: Date, email: bool = True) -> bool:
+    """盤前呼叫:今天是 12 月且今年還沒跑過 → 跑 refit + email + 記錄年份。回是否跑了。
+    爬蟲已在盤前更新 cache,故此時資料最新;失敗自癒(未記錄年份 → 隔日盤前重試)。"""
+    if not should_refit(today, _last_refit_year()):
+        return False
+    con = data.connect()
+    try:
+        rep = refit_report(con, today)
+    finally:
+        con.close()
+    body = render(rep)
+    print(body)
+    if email:
+        from research.trading.live.notify import GmailNotifier
+        subj = ("⚠ S refit 漂移需複核 " if rep["drift"] else "✅ S refit 確認 ") + today.isoformat()
+        GmailNotifier.from_env().send_text(subj, body)
+    os.makedirs(os.path.dirname(_STATE), exist_ok=True)
+    open(_STATE, "w").write(str(today.year))       # 記錄後才算完成 → email 失敗會重試
+    return True
 
 
 def main() -> None:
