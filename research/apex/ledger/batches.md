@@ -1719,6 +1719,114 @@ pyramid {(.15,1,.5),(.15,1,1),(.30,1,.5),(.30,2,.5)} + recycle {(0.6,0.4),
 P5 −4.2→−44.3%/MDD −49.8%;P5 主尺判死(槓桿買 CAGR 的代價是尾部)。
 詳見 evergreen/LEDGER.md EV54。
 
+# Q/V/T-LINE — 全譜系終掃戰役(2026-07-21;使用者 goal:「全面嘗試各種量化因子/系統/模型,直到完全沒有進步空間」)
+
+**範圍界定(蒐證後,先於執行)**:已測死者不重測——SMC/型態(F03)、籌碼(F10/B)、
+抗跌(F08)、ML(G01-05 雙蓋棺)、LLM overlay(L01)、動能容器(N01/F02-CONT)、
+季報 margin 事件池(F04)、時序統計(G06)、加減碼(F11)、槓桿(F13)、資格門檻
+(F06)、stale 延長(F07)。**真未測空間**:(Q) 財務分析法全譜——Z''/O-score/杜邦
+分解/Sloan accruals/GP:A/資產成長/淨增資/盈餘平滑(F02 品質側僅掃 5 因子);
+(V) 估值模型——PEG/DCF-proxy/CFO yield/EV-EBIT proxy/五線譜(ep/bp/dy 為已知 tilt);
+(T) 傳統擺盪指標(RSI/KD/MACD/布林從未掃過)+ anchored VWAP(hvn_dist 僅測 120d
+rolling 版)+ 海龜完整系統;(N2/N3) 純財務組合(不看股價選股)。
+
+**資料限制誠實聲明**:Beneish M-score 不可算(無應收/折舊明細);TPO/Market Profile
+不可測(無日內資料;POC proxy=hvn_dist 已測 tail 家族);O-score 缺 GNP deflator 與
+兩項明細,算 7/9 項變體;Z 用 Altman 1993 Z''(四項、無市值項)——RE 以
+(total_equity − capital_stock) 近似(含資本公積,聲明);ROIC 以 EBIT/(TA−CL) 近似
+(無固定資產明細)。
+
+**由大到小紀律(goal 1c)**:IC 廣篩(判準同 F01:|t'|≥3 + |mono|≥0.8 + spread
+同號晉級)→ 存活者組合/嫁接(判準同 F08:dev 窗 P5 > 74.4 且 MDD 劣化 ≤5pp;
+容器判準:W3 P5 > 45.9 挑戰 / > 33 存活)→ 過線者才進網格細掃 + 完整認證 battery。
+
+**收斂判準(預先宣告,goal 的停損)**:全部批次無一過線 → 「S 已優化到極限」於
+本輪全譜系擴充下成立(方向 1 證明完成;方向 2/3 為科學量測、如實報告不設門檻);
+任一過線 → 完整認證(walk-forward/DSR/PBO/perm)→ 使用者裁決。
+
+## Q01 — 財務分析法 IC 廣篩(預註冊)
+
+因子(raw_quarterly,PIT=法定期限,同 F02 慣例;dev 窗 2012-2023):
+z_pp(Altman Z'')、o_score_neg(−Ohlson 7 項)、杜邦四件套(margin/turnover/
+leverage 水準 + roe_ttm)+ Δ 杜邦(d_margin/d_leverage YoY;d_turnover 已有欄)、
+accruals_sloan(負向)、gpoa(Novy-Marx)、asset_g(負向)、net_iss(負向)、
+cfo_ta、liab_g(負向)、ni_vol8(負向)、gm_vol8(負向)+ 對照錨 f_score_raw(已知
+t'2.9)。**預測**:GP:A 最可能晉級(國際品質之王);accruals/net_iss/asset_g 邊緣
+(月營收擠壓);Δ 杜邦死(同 d_gm 死因:被月營收搶先);Z''/O 防禦型 IC 弱。
+
+**Q01 結果(2026-07-21,17 因子)**:
+- **晉級:`gm_vol8_neg`(毛利率 8 季穩定性)t' 8.9/7.2/7.1、spread +14.4/14.9/13.9%、
+  mono 0.89/0.82/0.95——品質側全 campaign 最強(h63 IC 0.092 > rev_yoy_accel),
+  「財務極度穩健」的可交易形態 = 穩定性而非水準**;`ni_vol8_neg`(盈餘穩定性,
+  t' 7.0/5.6/5.4、mono 至 0.82)緊隨;`cfo_ta`(現金 ROA,t' 5.3/3.6,mono 0.85)
+  與 cfo_ni 同族。注意:與 lowvol(七毒)**方向相反**——財務穩定 = 正 spread、
+  價格穩定 = 負 spread,非換皮。
+- 邊緣:o_score_neg/dupont_turnover/roe_ttm(IC 型無 tail);accruals_neg(tail 家族:
+  spread +13.4% mono 0.88 但 t' 2.3)。
+- 死:**z_pp 負向**(Z'' 安全 = 低報酬,distress premium 反向)、dupont_margin/
+  leverage、**Δ 杜邦全死**(d_margin/d_leverage,被月營收搶先——預測命中)、
+  **gpoa 意外不及格**(t' 2.7/1.8,台股 GP:A 不如美股文獻)、asset_g/net_iss/liab_g
+  (tail 弱)。對照錨 f_score_raw 復現 F02(t' 2.9)= 管線正確 ✓。
+
+## Q02 — 純財務組合(goal 方向 2 成長 + 方向 3 品質;預註冊)
+
+**選股零價格輸入**(排名只用財務;執行照市場:PIT 生效日再平衡、T+1 open、apex
+全成本)。成長書 G:月營收系幾何 rank(rev_yoy_accel×rev_3m_yoy×ni_mom_ta),
+月頻,N∈{10,20}。品質書 Q:f_score×gpoa×(−accruals)×cfo_ni×(−asset_g) 幾何 rank,
+季頻,N∈{10,20}。出場=下期 re-rank 掉出(純日曆制;對照變體 +trail35 披露價格
+出場的增量)。窗:全史 2007→2026 + W3;基準 0050/S/EW。**如實報告,不設晉升門檻**
+(P5 > S 才觸發挑戰程序)。**預測**:成長書正報酬但 MDD 深(無價格出場扛崩);
+品質書防禦型(CAGR 低於 S 一截、MDD 淺);兩者皆遠遜 S(缺事件時機軸)。
+
+**Q02 結果(2026-07-21;+穩定書為 Q01 驅動追加變體,post-hoc 標注)**:
+
+| 書(不看價選股) | 最佳全史 CAGR | MDD | Sharpe | W3 |
+|---|---|---|---|---|
+| 成長 G(月營收系,N20) | **17.0%** | −52.9% | 0.75 | 38.2% |
+| 品質 Q(F+GP:A+accr+cfo+ag,N10) | 13.3% | −47.8% | 0.73 | 17.2% |
+| 穩定 S*(gm_vol×ni_vol×cfo_ta,N20) | 13.9% | **−27.7%** | **1.01** | 23.7% |
+
+方向 2/3 科學答案:**純財務選股能賺(9-17%/年,約當或略勝大盤)但遠遜含價格
+時機的 S(全跨度 74.8%)**;成長 > 品質;+trail35 幾乎無差(−0.5~−1.7pp,慢週期
+書的瓶頸不在價格出場);穩定書 = 防禦形態之王(Sharpe 1.01/MDD 最淺)但報酬
+天花板 14%。缺的不是選股品質,是**事件時機軸**(揭露驅動的進場)。
+
+## Q03 — Q01 存活因子 → S 嫁接(預註冊)
+
+AOI 第七軸(^0.5)+ cfo 閘替換(cfo_ni median → 候選因子 median)。判準同 F08。
+**預測**:全敗(F08/F09/F10 同構——S cohort 內品質慢變數=稀釋);唯 GP:A 若 IC
+晉級有一絲機會。
+
+**Q03 結果(2026-07-21):全敗 0/5,預測命中**。S+gm_vol8^0.5 81.0/P5 44.5、
+S+ni_vol8 66.2/33.1、S+cfo_ta 66.3/28.1、閘替換 57.2/23.3、雙閘 73.9/40.1
+vs 基準 120.9/67.3(重現 ✓)。**F05「條件化改變一切」四度重現**:gm_vol8 於
+全市場無條件 IC 全 campaign 最強,入 S cohort(揭露事件+微型池)即稀釋——
+S 的 alpha 是進攻性動能,穩定性軸降權最爆的成長股。Q-LINE 收官:財務分析法
+全譜對 S 無增量;純財務書見 Q02 天花板。
+
+## V01 — 估值因子 IC 廣篩 + V02 神奇公式書(預註冊)
+
+V01:ep/bp(對照錨,已知 tilt)、peg_inv(EP×NI 成長)、dcf_proxy(兩階段:CFO_ttm
+基準、g1=3y 營收 CAGR cap 25%、terminal 2%、r=10% → value/mcap;誠實=基本面變換+
+常數假設)、cfo_yield(CFO_ttm/mcap)、ev_ebit_inv(EBIT/(mcap+TL),無現金扣除
+聲明)、fiveline_z(close 對 400d 對數迴歸 z,負向;使用者點名五線譜)。市值=
+capital_stock/10×close(面額 10)。判準同 F01。V02:Greenblatt 神奇公式現代版
+(EY=EBIT/EV proxy × ROC=EBIT/(TA−CL) 雙 rank,季頻 N=20,全史+W3,對照 Scala
+mf_piot 舊線)。**預測**:cfo_yield 最可能晉級;dcf_proxy≈cfo_yield 單調變換(相關
+>0.9);fiveline 均值回歸系=弱或反向(rev_5/21 前例);神奇公式書 CAGR 15-25% 級
+(全球證據)遠遜 S。
+
+## T01 — 傳統技術指標 + VWAP 系 IC 廣篩 + T02 海龜容器(預註冊)
+
+T01:rsi14、stoch_k14、macd_hist(12/26/9,÷close 正規化)、boll_pctb(20,2)、
+boll_bw_neg(squeeze,負向)、mfi14、obv_slope20、avwap_dev(錨=月營收生效日的
+anchored VWAP 偏離)、vwap20_dev(20d rolling,補 hvn_dist 的短窗版)。判準同 F01。
+**預測**:oscillator 在動能市「超買」為正相關(反教科書)、mono 差;macd_hist=mom
+換皮;avwap_dev 最有機會(事件錨定+未測)。T02:海龜完整版容器(20/55 Donchian
+進場、2N ATR 停損、10/20 反向出場、N=10;pyramid 簡化聲明)+ 亞當理論=純慣性
+(引 N01 蓋棺為證,僅補 donchian 進場變體)。判準:W3 P5>45.9 挑戰/>33 存活。
+**預測**:全滅(N01 天花板 P5 12.8 先例),ATR 風控或改善 MDD 但天花板仍低。
+
 # M02 — refit **頻率** meta-study(2026-07-21;使用者:「多久 refit 一次是最優?月更會更好嗎?幾月更?」)
 
 **動機**:M01 證了「用過去 3 年研發最優(窗長)」,但 refit 頻率(多久重選一次
