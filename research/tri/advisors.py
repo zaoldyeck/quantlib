@@ -41,23 +41,22 @@ def save_state(name: str, st: dict) -> None:
 
 def update_state(st: dict, holdings: dict[str, float], today: Date,
                  closes: dict[str, float], tdays_index: dict) -> dict:
-    """收養新持股、更新峰值、移除已出清者。
+    """收養新持股、回填成本、移除已出清者(峰值不存 state,由 exit_replay 逐日重算)。
 
     cost = 收養日收盤(輸家時間止損的水線;2026-07-13 修正:先前從未寫入,
     導致 S/Evergreen 的輸家止損是永不觸發的死代碼)。舊 state 缺 cost 者
-    以當日收盤回填——語義同「今日才收養」,時鐘以 first_seen 為準不重啟。"""
+    以當日收盤回填——語義同「今日才收養」,時鐘以 first_seen 為準不重啟。
+    2026-07-21:移除死狀態 peak_close——三 advisor 出場峰值一律由價格路徑重算
+    (exit_replay,cum_max),此增量值從未被讀,且正是 exit_replay 警告的
+    『漏跑幾天漏掉期間高點 → 止損線偏低』陷阱殘留,刪除以防被重新接回。"""
     out = {}
     for code in holdings:
         prev = st.get(code)
         px = closes.get(code)
         if prev is None:
-            out[code] = {"first_seen": today.isoformat(), "peak_close": px,
-                         "cost": px, "peak_missing": px is None}
+            out[code] = {"first_seen": today.isoformat(), "cost": px}
         else:
-            peak = prev.get("peak_close")
-            if px is not None:
-                peak = px if peak is None else max(peak, px)
-            entry = {**prev, "peak_close": peak}
+            entry = {**prev}
             if entry.get("cost") is None and px is not None:
                 entry["cost"] = px
             out[code] = entry
@@ -201,7 +200,6 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     st = update_state(st, holdings, d0, closes, {})
     fresh_all = dict(feat.filter(pl.col("date") == d0)
                      .select([C, "rev_fresh_days"]).iter_rows())
-    peaks = st
 
     # 逐檔:先過硬出場規則,倖存者過「池檢」——S 只持有它自己會買的名字。
     # 池檢語義(2026-07-13 二修,使用者:「不是 S 最推薦的就該賣」):
