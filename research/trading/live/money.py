@@ -78,7 +78,8 @@ class Settlement:
 
     @property
     def buy_cost(self) -> float:
-        return -sum(l.net for l in self.legs if l.side == "buy")
+        # + 0.0 消除 -0.0(否則版面會印出「−-0 元」)
+        return -sum(l.net for l in self.legs if l.side == "buy") + 0.0
 
     @property
     def sell_proceeds(self) -> float:

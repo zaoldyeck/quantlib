@@ -48,7 +48,7 @@ def _build_settlement(con, plan, holdings: dict[str, float], cash: float):
     """組出計劃信的金額試算;任何一步失敗都不得擋住交易計劃(交易 > 資訊)。"""
     try:
         from research.apex import data
-        from research.trading.cost_basis import cost_of
+        from research.trading.cost_basis import BASIS_LABEL, cost_of
         from research.trading.live.money import build_settlement
 
         codes = sorted(set(plan.buys) | set(plan.sells))
@@ -65,7 +65,9 @@ def _build_settlement(con, plan, holdings: dict[str, float], cash: float):
             try:
                 px, basis = cost_of(c)
                 if px:
-                    costs[c] = (float(px), "(收養價)" if basis == "adopted_close" else "")
+                    # 標註走 cost_basis 的唯一真源對照表,不自行造字串
+                    lbl = BASIS_LABEL.get(basis, "")
+                    costs[c] = (float(px), f"({lbl})" if lbl and lbl != "成交價" else "")
             except Exception:  # noqa: BLE001 - 單檔成本取不到就不顯示 ROI,不編造
                 continue
         return build_settlement(cash, plan.buys, plan.sells, _shares_per_buy(),
