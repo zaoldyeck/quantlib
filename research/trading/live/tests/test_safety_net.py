@@ -159,6 +159,24 @@ def test_sync_ignores_terminal_broker_orders() -> None:
         assert [c[0] for c in b.calls] == ["place"]
 
 
+def test_sync_never_double_arms_when_cancel_fails() -> None:
+    """**最嚴重的 money-path bug 守護**:舊單撤不掉時絕不可再掛同檔——
+    兩張都武裝會在觸發時賣掉超過持有量。寧可維持舊單,也不可雙重武裝。"""
+    class _CancelFails(_FakeBroker):
+        def cancel_condition_order(self, guid):
+            self.calls.append(("cancel", guid))
+            raise RuntimeError("模擬撤單失敗")
+
+    with tempfile.TemporaryDirectory() as td:
+        _tmp_state(Path(td))
+        sn.save_ledger({"2466": {"guid": "old-1", "quantity": 1, "trigger": 40.0}})
+        b = _CancelFails()
+        res = sn.sync(b, {"2466": 1}, {"2466": 120.0}, set())
+        assert not any(c[0] == "place" for c in b.calls), f"撤失敗卻仍掛單:{b.calls}"
+        assert res["placed"] == []
+        assert any("雙重武裝" in e for e in res["errors"]), res["errors"]
+
+
 def test_terminal_status_detection() -> None:
     """已刪除單不必再撤(實測 get_condition_order 會回傳已刪除單)。"""
     assert sn._is_terminal("條件單已刪除(C)")
@@ -174,6 +192,7 @@ def main() -> None:
                test_sync_failed_place_is_not_recorded,
                test_sync_records_guid_for_next_day_cancel,
                test_sync_kills_cross_machine_duplicate_arm,
+               test_sync_never_double_arms_when_cancel_fails,
                test_sync_ignores_terminal_broker_orders,
                test_sync_disabled_by_env,
                test_terminal_status_detection):

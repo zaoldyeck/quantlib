@@ -74,6 +74,16 @@ def test_empty_advice_no_actions() -> None:
     assert p.has_actions is False
 
 
+def test_peaks_extraction_never_breaks_the_plan() -> None:
+    """峰值只服務保險層(安全網);髒值不得讓今日交易計劃產不出來(交易 > 保險)。"""
+    a = _adv()
+    a.detail = {"2408": {"peak": 100.0}, "3006": {"peak": None},
+                "5483": {"peak": "壞掉的值"}, "6488": "不是 dict", "1234": {"peak": -5}}
+    p = plan_from_advice(a, Date(2026, 7, 21))
+    assert p.peaks == {"2408": 100.0}          # 只留合法正值,其餘靜默略過
+    assert p.buys == ["2408", "3006"]          # 計劃本身完全不受影響
+
+
 def test_to_dict_shape() -> None:
     d = plan_from_advice(_adv(), Date(2026, 7, 21)).to_dict()
     assert d["buys"] == ["2408", "3006"]
@@ -85,6 +95,7 @@ def main() -> None:
     for fn in (test_buys_only_enter_today, test_sells_exclude_manual,
                test_protected_sells_split, test_protected_empty_default,
                test_has_actions_and_passthrough, test_empty_advice_no_actions,
+               test_peaks_extraction_never_breaks_the_plan,
                test_to_dict_shape):
         fn()
         print(f"✓ {fn.__name__}")

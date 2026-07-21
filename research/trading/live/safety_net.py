@@ -151,6 +151,7 @@ def sync(broker, holdings: dict[str, float], peaks: dict[str, float],
         except Exception as exc:  # noqa: BLE001 - 讀不到券商端仍可撤自有台帳
             errs.append(f"讀券商端條件單失敗:{type(exc).__name__} {exc}")
 
+    stuck: set[str] = set()          # 撤失敗的標的:**絕不可再掛**(否則雙重武裝)
     for guid, sym in guid_syms.items():
         if dry:
             cancelled.append(guid); led.pop(sym, None); continue
@@ -159,10 +160,16 @@ def sync(broker, holdings: dict[str, float], peaks: dict[str, float],
             cancelled.append(guid)
             led.pop(sym, None)
         except Exception as exc:  # noqa: BLE001 - 單筆失敗不毀整批;留在台帳下次再撤
+            stuck.add(sym)
             errs.append(f"撤 {sym}/{guid[:8]}: {type(exc).__name__} {exc}")
 
     placed = []
     for p in target:                              # 2) 掛新單
+        if p.symbol in stuck:
+            # 舊單還武裝著卻撤不掉 → 再掛就是同檔兩張,觸發時會賣掉超過持有量。
+            # 寧可維持舊單(水位可能略舊)也不可雙重武裝;下次同步會再試著收斂。
+            errs.append(f"掛 {p.symbol}:跳過(舊單撤除失敗,避免雙重武裝)")
+            continue
         if dry:
             placed.append((p.symbol, p.quantity, p.trigger)); continue
         try:

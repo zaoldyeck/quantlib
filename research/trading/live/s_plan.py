@@ -99,9 +99,18 @@ def plan_from_advice(adv, today: Date,
 
     # 峰值:s_advisor 已用 exit_replay 逐日重算(不靠增量 state),此處只轉出給
     # 安全網用;缺值(無價格路徑/剛收養)自然不掛安全網,不做任何推估。
-    peaks = {code: float(d["peak"])
-             for code, d in (getattr(adv, "detail", None) or {}).items()
-             if isinstance(d, dict) and d.get("peak")}
+    # **絕不因取峰值失敗而拋**:峰值只服務保險層,若讓它炸掉會連今日交易計劃都產不出來
+    # (交易 > 保險)。單檔轉型失敗即略過該檔。
+    peaks: dict[str, float] = {}
+    for code, d in (getattr(adv, "detail", None) or {}).items():
+        if not isinstance(d, dict):
+            continue
+        try:
+            v = float(d.get("peak") or 0.0)
+        except (TypeError, ValueError):
+            continue
+        if v > 0:
+            peaks[code] = v
 
     return DayPlan(
         date=today.isoformat(),
