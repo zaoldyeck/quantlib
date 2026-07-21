@@ -142,3 +142,12 @@ research/trading/live/state/
 
 # 日內 1 分 K 原始資料(可由 Shioaji 重抓,不進版控;程式碼在 research/intraday/)
 /research/data/intraday/
+
+# 券商憑證/私鑰:任何位置都不得進版控(2026-07-21 事件:憑證被放到 repo 根目錄,
+# 當時只有 research/.gitignore 有 *.pfx 規則,根目錄完全無防護 → 補全域規則)。
+*.pfx
+*.p12
+*.pem
+*.key
+*.jks
+*.keystore
