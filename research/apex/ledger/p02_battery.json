@@ -1,0 +1,27 @@
+{
+  "bootstrap": {
+    "pass": true,
+    "detail": "CAGR 95% CI [+17.4%, +47.5%]"
+  },
+  "dsr": {
+    "pass": true,
+    "detail": "DSR 0.9840(N=79)"
+  },
+  "pbo": {
+    "pass": true,
+    "detail": "PBO 0.197(configs=74)"
+  },
+  "permutation": {
+    "pass": true,
+    "detail": "p=0.0000(null 中位 +10.6% vs +30.8%)"
+  },
+  "stress": {
+    "pass": false,
+    "detail": "2008-2009: CAGR +10.5% MDD -47.6% 最差年 -35.1% 曝險 76% | 2010-2011: CAGR -1.1% MDD -33.6% 最差年 -7.3% 曝險 74%"
+  },
+  "perturb": {
+    "pass": true,
+    "detail": "spread 12.8% (B10)"
+  },
+  "gate_pt_equiv": true
+}

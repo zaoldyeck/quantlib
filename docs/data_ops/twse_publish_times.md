@@ -1,69 +1,140 @@
-# TWSE 日頻資料公布時刻(第一手來源蒐證)
+# 台股日頻資料公布時刻與「全表齊備」政策(第一手蒐證)
 
-調查日:2026-07-15。用途:決定每日一次完整更新的排程時點(必須排在「全表齊備」之後)。
-方法:官方明文優先;查無明文者標 low 並說明推論依據。
+調查日:2026-07-15(TWSE 官方 / TPEx 官方 / MOPS+集保 / 本地爬蟲實證,四路平行查證)。
+用途:**決定每日「唯一一次完整更新」的排程時點**。本檔是唯一事實來源;
+`Task.scala` 的 publishAfter、`research/data_calendar.py` 的常數都必須指回這裡。
 
-## 結論
+---
 
-| 表 | 端點 | 官方公布時刻 | confidence |
-|---|---|---|---|
-| sbl_borrowing | TWT93U | **每日晚間二次更新,約 20:30 及 22:30**(視日結作業可能異動) | high |
-| margin_transactions | MI_MARGN | **次一營業日開市前公告**(法規保證;實務為 D 日晚間) | high(規則面) |
-| daily_quote / index | MI_INDEX | 無明文;**下界 15:30**(外幣成交值用當日 15:30 公告匯率) | low |
-| daily_trading_details | T86 | 無明文 | low |
-| stock_per_pbr | BWIBBU_d | 無明文 | low |
-| foreign_holding_ratio | MI_QFIIS | 無明文 | low |
+## 決策(政策)
 
-**最晚(同日)= TWT93U 約 22:30。**
+> **一天只跑一次完整更新,排在 D+1 凌晨 00:30 之後(實務上就是每日盤前 loop 07:20)。
+> D 日當天不期待 D 的資料——D 的資料在 D 日盤中/傍晚永遠是不完整的。**
 
-## 兩個會改排程的發現
+依據(逐條有據,不是慣例):
 
-1. **TWT93U 一天更新兩次(20:30 / 22:30)**,第二次才納入「原為上櫃、次日轉上市」個股。
-   現行 CLAUDE.md 假設借券 21:30 → 只會抓到**第一次**更新,系統性漏掉第二次的補正。
-2. **MI_MARGN 的官方保證只到「次一營業日開市前」**,不是 D 日晚間。D 日晚間抓得到是
-   實務結果,非官方承諾。要「官方保證齊備」只能等 D+1 09:00 前。
+1. **`MI_MARGN` 融資融券的官方保證只到「次一營業日開市前公告」**(法規原文見下)。
+   D 日晚間抓得到是實務結果,**不是官方承諾**。→ 唯一有官方保證齊備的時點是 D+1 開市前。
+2. **`TWT93U` / TPEx `sbl` 借券賣出餘額官方明文:每日晚間**二次**更新(約 20:30、22:30)**,
+   且自陳「實際視日結作業完成時間可能有所異動」。→ 同日 20:30–22:30 之間抓到的檔案
+   **看起來完整、大小正常、schema 正確,但 22:30 會被改寫**——這是無聲汙染,爬蟲收不到
+   任何失敗訊號。(現行 21:30 設定正落在這個窗內。)
+3. **本地實證**:`margin` / `sbl` / `foreign_holding_ratio` / `insider` 四表**全史零次同日
+   成功抓取**;唯一能證明「某日全表齊備」的紀錄是 D+1 凌晨(2026-05-21 00:33–00:38 的
+   一次 full update 抓齊 5/20 全部 8 張表)。
+4. **好處**:一次抓齊 → 零重複更新、零表間日期錯位。
 
-`次一營業日` 語義陷阱:MI_MARGN / TWT93U 的 notes 與欄位大量出現「次一營業日限額」
-「次一營業日進行額度分配」——那是**下一日的額度/狀態欄位**,不是公布延遲,勿誤讀。
+### 為什麼「表間錯位」是真傷害(2026-07-15 事故的根因鑑定)
+
+2026-07-14 15:40 的一次 update **早於 T86 的 16:00 閘門** → 報價與指數進了 7/14、
+三大法人停在 7/13 → **表間日期錯位**。Evergreen 的 `inst5` 進場閘門查不到 7/14 的法人
+資料 → `fill_null(False)` → 把 3 檔候選**靜靜砍光**,報告顯示「濾後候選 0」。
+**閘門邏輯是對的,錯的是排程時刻**——這正是本政策存在的理由。
+(另一層修正:閘門改用 asof 語義「取 ≤ 決策日的最新一筆」,與回測引擎的
+`row_latest_before` 一致;live 不得比回測嚴格。)
+
+---
+
+## 逐表結論
+
+| 表 | 端點 | 公布時刻 | 依據 | confidence |
+|---|---|---|---|---|
+| sbl_borrowing | TWSE TWT93U / TPEx sbl | **20:30(部分)+ 22:30(最終)** | 官方明文 | **high** |
+| margin_transactions | MI_MARGN / TPEx transactions | **次一營業日開市前**(實務 D 日晚間) | 法規明文 | **high**(規則面) |
+| daily_quote / index | MI_INDEX / mi-pricing | 無明文;下界 15:30、實證 ≤15:40 | 推論+實證 | low |
+| daily_trading_details | T86 / 3itrade_hedge | 無明文;實證 ≤16:07 | 實證上界 | low |
+| stock_per_pbr | BWIBBU_d / pera_result | 無明文;**實證 16:10 失敗、18:28 成功** | 實證閉環 | medium |
+| foreign_holding_ratio | MI_QFIIS | 無明文、無同日實證 | — | 未知 |
+| insider_holding | MOPS t56sb12 | 無明文、無同日實證 | — | 未知 |
+
+**同日最晚 = 22:30(借券第二次更新);官方保證齊備 = D+1 開市前。**
+
+`次一營業日` 語義陷阱:MI_MARGN / TWT93U 的 notes 大量出現「次一營業日限額」「次一營業日
+進行額度分配」——那是**下一日的額度欄位**,不是公布延遲,勿誤讀成次日才出表。
+
+---
 
 ## 第一手原文
 
-### TWT93U(信用額度總量管制餘額表 / 借券賣出餘額)
-來源:`https://www.twse.com.tw/rwd/zh/marginTrading/TWT93U?response=json&date=20260714` notes
+### TWT93U(借券賣出餘額)— 唯一明文寫出時刻的 TWSE 報表
+`https://www.twse.com.tw/rwd/zh/marginTrading/TWT93U?response=json&date=20260714` notes
 > 配合標的證券維護作業系統完成之時間點,本項資訊將於每日晚間執行二次更新作業,更新時間
 > 分別約為20時30分及22時30分,實際視日結作業完成時間可能有所異動。另本項資訊執行第二次
 > 更新時將納入原為上櫃次日將轉為上市交易之個股。
 
+TPEx 同一份資料的對應頁 `https://www.tpex.org.tw/zh-tw/mainboard/trading/margin-trading/sbl.html`
+有相同明文(20:30 / 22:30)。
+
 ### MI_MARGN(融資融券餘額)
-來源:證券商辦理有價證券買賣融資融券業務操作辦法(115.01.09)第 69 條
+證券商辦理有價證券買賣融資融券業務操作辦法(115.01.09)第 69 條
 `https://twse-regulation.twse.com.tw/m/LawContent.aspx?FID=FL007121`
-> 證券商每日應將委託人融資融券額度、交易明細與餘額等資料傳送證券交易所及櫃檯買賣中心,
-> 有關資券相抵交割部分應分開列示。證券交易所及櫃檯買賣中心彙計後,於次一營業日開市前
-> 公告融資融券餘額。
+> 證券商每日應將委託人融資融券額度、交易明細與餘額等資料傳送證券交易所及櫃檯買賣中心…
+> 證券交易所及櫃檯買賣中心彙計後,**於次一營業日開市前公告融資融券餘額**。
 
 (此條同時規範櫃買中心 → TPEx 融資融券亦同。)
 
-### MI_INDEX(每日收盤行情)——15:30 下界
-來源:`https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=json&type=ALLBUT0999&date=20260714` notes
-> 外幣成交值係以本公司當日下午3時30分公告匯率換算後加入成交金額。
+### MI_INDEX(每日收盤行情)— 15:30 下界
+`https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=json&type=ALLBUT0999&date=20260714` notes
+> 外幣成交值係以本公司**當日下午3時30分公告匯率**換算後加入成交金額。
 
-### T86(三大法人買賣超日報)——無公布時刻,但不等錯帳更正
-來源:`https://www.twse.com.tw/rwd/zh/fund/T86?response=json&selectType=ALLBUT0999&date=20260714` notes
+→ 含外幣成交值的收盤行情不可能早於 15:30 定稿。
+
+### T86(三大法人買賣超)— 無時刻,但不等錯帳更正
+`https://www.twse.com.tw/rwd/zh/fund/T86?response=json&selectType=ALLBUT0999&date=20260714` notes
 > 本資訊以當日原始成交情形統計,不以證券商申報錯帳、更正帳號等調整後資料統計。
+
+---
+
+## 本地實證(我們自己的爬蟲檔案 mtime;上界證據)
+
+| 表 | 全史最早「同日成功」 |
+|---|---|
+| daily_quote(TWSE/TPEx) | 15:40:05 / 15:40:04(2026-07-14) |
+| index | 15:41:55 |
+| daily_trading_details(T86) | 16:07:55(全史唯一一次同日成功) |
+| stock_per_pbr | 18:28:15(同日 15:56 與 16:10 皆失敗 → 實際發布在 16:10–18:28) |
+| margin / sbl / foreign / insider | **全史零次同日成功**(我們幾乎都在 D+1 清晨跑) |
+
+- mtime 只證明「該時刻去抓且成功」= 可得性**上界**,不是精確發布時刻。
+- 唯一的「全表齊備」證明:2026-05-21 00:33–00:38 一次 full update 抓齊 5/20 全部 8 表。
+
+---
+
+## 更正紀錄(避免以訛傳訛)
+
+- **2026-07-10 不是資料遺失,是颱風假**(全市場休市)。稽核 agent 曾依「週五=交易日」
+  的推定判為「真實交易日但資料永久遺失」——**該推定錯誤**,使用者當日親身確認休市,
+  且該日重抓多次皆為乾淨的「無資料」回應。0-byte sentinel 是**正確**行為。
+  教訓:平日 ≠ 交易日;颱風假無法從星期幾推得,必須以交易所回應或行事曆為準。
+- CLAUDE.md 舊述「借券 21:30」「stock_per_pbr 15:00」「外資持股 17:00」皆為**憑記憶的
+  推測**,已被本次蒐證推翻/降級為「無依據」。
+
+---
+
+## sentinel(無資料日)規則
+
+爬蟲把「乾淨的無資料回應」寫成 0-byte sentinel,代表「該日無交易」——它同時是我們的
+**休市日曆**(`research/data_calendar.py` 的 `is_trading_day` 讀它)。為了不把「還沒發布」
+誤記成「休市」:
+
+> **只有在「已過該日的齊備時刻(D+1 00:30)」之後,才允許為 D 寫 sentinel;
+> 在那之前的無資料一律 deferred(刪檔,下次重抓)。**
+
+這條取代了先前的「近 3 日不落 sentinel」(那是基於 7/10 誤判而過度保守的補丁,副作用是
+新出現的休市日連續 3 天觸發無謂刷新)。
+
+---
+
+## 未解(要釘死只能實測)
+
+T86 / BWIBBU / MI_QFIIS 的公布時刻無任何官方明文。若日後需要同日更新,
+在 D 日傍晚起每 5 分鐘輪詢 RWD endpoint、記錄首次 `stat=OK` 的時刻,連續數個交易日取穩定值。
+**但依現行政策(D+1 更新)並不需要這些數字**——它們只用來避免白跑的請求。
 
 ## 負結果(省下重查)
 
-- **openapi.twse.com.tw swagger 完全沒有更新時間**:`v1/swagger.json` 143 個 path,
-  全文 grep `更新|時間|每日|營業日|發布|公布` = **0 hits**;每個 endpoint 的 description
-  只是 summary 重複。「TWSE OpenAPI 會註明更新頻率/時間」的前提不成立。
-- **T86 不在 OpenAPI**:`/v1/fund/T86` 回 HTML 錯誤頁,swagger 無此 path。只能走 RWD。
-- **報表頁面無更新時間**:MI_MARGN/T86/TWT93U/BWIBBU/MI_QFIIS 頁面僅有
-  「※ 本資訊自民國XX年XX月XX日起提供」。且新站為 SPA,notes 需由 RWD JSON 取得。
-- **OpenAPI 無 Last-Modified header**(只有 `Cache-Control: no-cache`),無法用 header 推公布時刻。
-- **data.gov.tw metadata 只給頻率不給時刻**:`updateFrequency = {unittime:'日'}`。
-- 資訊服務/盤後資訊/問答集/報表索引頁面皆無逐表時刻表。
-
-## 未解
-
-- T86 / BWIBBU / MI_QFIIS 的公布時刻無任何官方明文。要釘死只能實測:
-  D 日傍晚起每 5 分鐘輪詢 RWD endpoint 記錄首次 `stat=OK` 的時刻,連續數個交易日取穩定值。
+- `openapi.twse.com.tw/v1/swagger.json`(143 paths)全文 grep `更新|時間|每日|營業日|發布|公布`
+  = **0 hits**;無 `Last-Modified` header。「TWSE OpenAPI 會註明更新頻率/時間」的前提不成立。
+- TPEx OpenAPI(225 endpoints)同樣零時刻資訊;`data.gov.tw` metadata 只給「每 1 日」不給時刻。
+- 兩所的報表頁面只寫「本資訊自民國XX年起提供」;新站為 SPA,notes 需由 RWD JSON 取得。
+- T86 不在 OpenAPI(`/v1/fund/T86` 回 HTML 錯誤頁),只能走 RWD。

@@ -1,7 +1,7 @@
 """Tests for `research/_adjusted_prices.py`.
 
 驗證 back-adjustment 數學正確：
-  1. 0050 21y cum return 跟 active_etf_metrics 的獨立實作 match (< 0.1pp drift)
+  1. 0050 21y cum return 跟獨立 dividend/split 實作 match (< 0.1pp drift)
   2. 最近一日 adj_close == raw_close（無未來事件）
   3. 除息日次日 adj_close 連續（無 raw 那種 div 跳空）
   4. ETF 個股有除息歷史 → adj_close < raw_close on early dates
@@ -37,11 +37,11 @@ def con():
 
 
 # ──────────────────────────────────────────────────────────
-# active_etf_metrics 跨實作一致性
+# 跨實作一致性
 # ──────────────────────────────────────────────────────────
 
 def _independent_total_return(con, code: str, market: str = "twse"):
-    """獨立實作（從 active_etf_metrics.py 抄）— 用 forward-pass back-prop。"""
+    """獨立實作 — dividend + suspension-gap split back-prop。"""
     prices = con.sql(f"""
         SELECT date, closing_price
         FROM daily_quote
@@ -54,8 +54,34 @@ def _independent_total_return(con, code: str, market: str = "twse"):
         WHERE market='{market}' AND company_code='{code}' AND cash_dividend > 0
         ORDER BY date
     """).pl()
+    splits = con.sql(f"""
+        WITH seq AS (
+          SELECT date, company_code, closing_price,
+                 LAG(date) OVER (PARTITION BY company_code ORDER BY date) AS prev_date,
+                 LAG(closing_price) OVER (PARTITION BY company_code ORDER BY date) AS prev_close
+          FROM daily_quote
+          WHERE market='{market}' AND company_code='{code}' AND closing_price > 0
+        )
+        SELECT date AS ex_date, closing_price / prev_close AS factor
+        FROM seq
+        WHERE prev_close IS NOT NULL AND closing_price > 0
+          AND (prev_close / closing_price BETWEEN 2.5 AND 100
+               OR prev_close / closing_price BETWEEN 0.01 AND 0.4)
+          AND (date - prev_date) BETWEEN 3 AND 14
+          AND NOT EXISTS (
+            SELECT 1 FROM ex_right_dividend
+            WHERE market='{market}' AND company_code=seq.company_code AND date=seq.date
+          )
+          AND NOT EXISTS (
+            SELECT 1 FROM capital_reduction
+            WHERE market='{market}' AND company_code=seq.company_code AND date=seq.date
+          )
+        ORDER BY ex_date
+    """).pl()
     s = prices.with_columns(adj_close=pl.col("closing_price")).sort("date")
-    for row in divs.sort("ex_date", descending=True).iter_rows(named=True):
+
+    events = []
+    for row in divs.iter_rows(named=True):
         ex, d = row["ex_date"], row["cash_dividend"]
         pre = s.filter(pl.col("date") < ex).tail(1)
         if pre.height == 0:
@@ -63,7 +89,11 @@ def _independent_total_return(con, code: str, market: str = "twse"):
         p_pre = pre["closing_price"][0]
         if p_pre <= d:
             continue
-        scale = (p_pre - d) / p_pre
+        events.append({"ex_date": ex, "factor": (p_pre - d) / p_pre})
+    events.extend(splits.iter_rows(named=True))
+
+    for row in sorted(events, key=lambda x: x["ex_date"], reverse=True):
+        ex, scale = row["ex_date"], row["factor"]
         s = s.with_columns(
             adj_close=pl.when(pl.col("date") < ex)
                        .then(pl.col("adj_close") * scale)
@@ -78,8 +108,13 @@ def test_0050_matches_independent_implementation(con):
                                   codes=["0050"], market="twse").sort("date")
     indep = _independent_total_return(con, "0050").sort("date")
 
-    cum_new = panel["close"][-1] / panel["close"][0] - 1
-    cum_indep = indep["adj_close"][-1] / indep["adj_close"][0] - 1
+    common_start = max(panel["date"][0], indep["date"][0])
+    common_end = min(panel["date"][-1], indep["date"][-1])
+    panel_window = panel.filter((pl.col("date") >= common_start) & (pl.col("date") <= common_end))
+    indep_window = indep.filter((pl.col("date") >= common_start) & (pl.col("date") <= common_end))
+
+    cum_new = panel_window["close"][-1] / panel_window["close"][0] - 1
+    cum_indep = indep_window["adj_close"][-1] / indep_window["adj_close"][0] - 1
     diff_pp = abs(cum_new - cum_indep) * 100
     print(f"\n0050 cum: new={cum_new*100:.2f}%, indep={cum_indep*100:.2f}%, "
           f"diff={diff_pp:.4f}pp")
@@ -93,8 +128,9 @@ def test_2330_matches_independent_implementation(con):
     indep = _independent_total_return(con, "2330").sort("date")
 
     common_start = max(panel["date"][0], indep["date"][0])
-    panel_window = panel.filter(pl.col("date") >= common_start)
-    indep_window = indep.filter(pl.col("date") >= common_start)
+    common_end = min(panel["date"][-1], indep["date"][-1])
+    panel_window = panel.filter((pl.col("date") >= common_start) & (pl.col("date") <= common_end))
+    indep_window = indep.filter((pl.col("date") >= common_start) & (pl.col("date") <= common_end))
 
     cum_new = panel_window["close"][-1] / panel_window["close"][0] - 1
     cum_indep = indep_window["adj_close"][-1] / indep_window["adj_close"][0] - 1
@@ -162,6 +198,38 @@ def test_no_dividend_jump_in_adj(con):
         # adj_ret 應該明顯小於 raw_ret（差距即是 dividend yield）
         assert abs(row["adj_ret"]) < abs(row["raw_ret"]) + 1e-6, \
                f"on {row['date']}: adj_ret {row['adj_ret']:.4f} should not exceed raw_ret {row['raw_ret']:.4f}"
+
+
+def test_0050_split_jump_removed(con):
+    """0050 2025-06-18 4:1 split should be continuous in adjusted space."""
+    panel = fetch_adjusted_panel(con, "2025-06-01", "2025-07-01",
+                                  codes=["0050"], market="twse").sort("date")
+    split_day = panel.filter(pl.col("date") == pl.date(2025, 6, 18))
+    if split_day.is_empty():
+        pytest.skip("0050 split day not present in local DB")
+    panel = panel.with_columns([
+        ((pl.col("close") / pl.col("close").shift(1)) - 1).alias("adj_ret"),
+        ((pl.col("raw_close") / pl.col("raw_close").shift(1)) - 1).alias("raw_ret"),
+    ])
+    row = panel.filter(pl.col("date") == pl.date(2025, 6, 18)).to_dicts()[0]
+    assert row["raw_ret"] < -0.70, f"raw split return should be large negative, got {row['raw_ret']:.4f}"
+    assert abs(row["adj_ret"]) < 0.05, f"adjusted split return should be continuous, got {row['adj_ret']:.4f}"
+
+
+def test_00631l_large_split_jump_removed(con):
+    """00631L 2026-03-31 large ETF split should be continuous in adjusted space."""
+    panel = fetch_adjusted_panel(con, "2026-03-20", "2026-04-10",
+                                  codes=["00631L"], market="twse").sort("date")
+    split_day = panel.filter(pl.col("date") == pl.date(2026, 3, 31))
+    if split_day.is_empty():
+        pytest.skip("00631L split day not present in local DB")
+    panel = panel.with_columns([
+        ((pl.col("close") / pl.col("close").shift(1)) - 1).alias("adj_ret"),
+        ((pl.col("raw_close") / pl.col("raw_close").shift(1)) - 1).alias("raw_ret"),
+    ])
+    row = panel.filter(pl.col("date") == pl.date(2026, 3, 31)).to_dicts()[0]
+    assert row["raw_ret"] < -0.90, f"raw split return should be very large negative, got {row['raw_ret']:.4f}"
+    assert abs(row["adj_ret"]) < 0.05, f"adjusted split return should be continuous, got {row['adj_ret']:.4f}"
 
 
 # ──────────────────────────────────────────────────────────

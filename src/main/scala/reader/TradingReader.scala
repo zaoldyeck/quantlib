@@ -1,5 +1,6 @@
 package reader
 
+import util.Log
 import java.time.LocalDate
 import java.time.chrono.MinguoChronology
 import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder}
@@ -38,6 +39,52 @@ class TradingReader extends Reader {
   // Normalize "1,234" / "87.8%" / " 100 " → "1234" / "87.8" / "100".
   private def cleanCell(s: String): String =
     s.replace(",", "").replace("%", "").replace(" ", "").trim
+
+  private val taifexDateFormatter: DateTimeFormatter = new DateTimeFormatterBuilder()
+    .parseLenient
+    .appendPattern("yyyy/M/d")
+    .toFormatter
+
+  private def taifexProductCode(productName: String): String =
+    productName.trim match {
+      case "臺股期貨" => "TX"
+      case "小型臺指期貨" => "MTX"
+      case "微型臺指期貨" => "TMF"
+      case "電子期貨" => "TE"
+      case "小型電子期貨" => "ZEF"
+      case "金融期貨" => "TF"
+      case "小型金融期貨" => "ZFF"
+      case "櫃買指數期貨" => "GTF"
+      case "非金電期貨" => "XIF"
+      case "富櫃200期貨" => "G2F"
+      case "臺灣中型100期貨" => "M1F"
+      case "臺灣永續期貨" => "E4F"
+      case "臺灣生技期貨" => "BTF"
+      case "半導體30期貨" => "SOF"
+      case "航運期貨" => "SHF"
+      case other => other
+    }
+
+  private def parseTaifexDate(value: String): Option[LocalDate] =
+    Try(LocalDate.parse(value.trim, taifexDateFormatter)).toOption
+
+  private def taifexOptDouble(value: String): Option[Double] = {
+    val v = cleanCell(value)
+    v match {
+      case "" | "-" | "--" => None
+      case x => Try(x.toDouble).toOption
+    }
+  }
+
+  private def taifexOptPrice(value: String): Option[Double] =
+    taifexOptDouble(value).filter(_ > 0.0)
+
+  private def taifexLong(value: String): Long =
+    taifexOptDouble(value).map(_.toLong).getOrElse(0L)
+
+  private def taifexOptLong(value: String): Option[Long] =
+    taifexOptDouble(value).map(_.toLong)
+
   def readDailyQuote(): Unit = {
     val dailyQuote = TableQuery[DailyQuote]
     val query = dailyQuote.map(d => (d.market, d.date)).distinct.result
@@ -45,7 +92,7 @@ class TradingReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
     val files = DailyQuoteSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read daily quote -", files.size)
+    val pb = progressBar("Read daily quote -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -117,7 +164,7 @@ class TradingReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
     val files = DailyTradingDetailsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read daily trading details -", files.size)
+    val pb = progressBar("Read daily trading details -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -205,7 +252,7 @@ class TradingReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf)
 
     val files = CapitalReductionSetting().getMarketFilesFromDirectory.par
-    val pb = new ProgressBar("Read capital reduction -", files.size)
+    val pb = progressBar("Read capital reduction -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -256,7 +303,7 @@ class TradingReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf)
 
     val files = ExRightDividendSetting().getMarketFilesFromDirectory.par
-    val pb = new ProgressBar("Read ex-right dividend -", files.size)
+    val pb = progressBar("Read ex-right dividend -", files.size)
     files.tasksupport = taskSupport
     val monthlyFilePattern = """(\d+)_(\d+)\.csv""".r
     files.foreach {
@@ -354,12 +401,13 @@ class TradingReader extends Reader {
     val dateTimeFormatter = DateTimeFormatter.ofPattern("yyyy_M_d")
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
-    val files = IndexSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read index -", files.size)
+    val files = IndexSetting().getMarketFilesFromDirectory
+      .filter(_.file.length > 1024)
+      .filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
+    val pb = progressBar("Read index -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        println(s"Read index of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -414,6 +462,191 @@ class TradingReader extends Reader {
     pb.close()
   }
 
+  def readTaifexFuturesDaily(): Unit = {
+    val taifexFuturesDaily = TableQuery[TaifexFuturesDaily]
+
+    val files = TaifexFuturesDailySetting().getMarketFilesFromDirectory
+      .filter(m => m.file.name.endsWith(".csv") && m.file.length > 200)
+      .sortBy(_.file.name)
+    val pb = progressBar("Read TAIFEX futures daily -", files.size)
+    files.foreach { marketFile =>
+      val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
+      val data = try {
+        reader.all()
+          .filter(row => row.size >= 16 && parseTaifexDate(row.head).isDefined)
+          .flatMap { row =>
+            val dateOpt = parseTaifexDate(row(0))
+            dateOpt.map { date =>
+              val contractCode = row(1).trim
+              val contractMonth = row(2).trim
+              val tradingSession = if (row.size > 17 && row(17).trim.nonEmpty) row(17).trim else "一般"
+              (
+                date,
+                contractCode,
+                contractMonth,
+                taifexOptPrice(row(3)),
+                taifexOptPrice(row(4)),
+                taifexOptPrice(row(5)),
+                taifexOptPrice(row(6)),
+                taifexOptDouble(row(7)),
+                taifexOptDouble(row(8)),
+                taifexLong(row(9)),
+                taifexOptPrice(row(10)),
+                taifexOptLong(row(11)),
+                taifexOptPrice(row(12)),
+                taifexOptPrice(row(13)),
+                taifexOptPrice(row(14)),
+                taifexOptPrice(row(15)),
+                if (row.size > 16) Option(row(16).trim).filter(_.nonEmpty) else None,
+                tradingSession,
+                if (row.size > 18) taifexOptLong(row(18)) else None
+              )
+            }
+          }
+      } finally {
+        reader.close()
+      }
+
+      if (data.nonEmpty) {
+        val dates = data.map(_._1).distinct
+        val deduped = data
+          .groupBy(r => (r._1, r._2, r._3, r._18))
+          .values
+          .map(_.maxBy(r =>
+            (if (r._11.isDefined) 1000 else 0) +
+              (if (r._12.isDefined) 100 else 0) +
+              (if (r._7.isDefined) 10 else 0) +
+              math.min(r._10, 9L).toInt
+          ))
+          .toSeq
+        val dbIO = taifexFuturesDaily.map(d => (
+          d.date, d.contractCode, d.contractMonth, d.open, d.high, d.low, d.close, d.change, d.changePercentage,
+          d.volume, d.settlementPrice, d.openInterest, d.bestBid, d.bestAsk, d.historicalHigh, d.historicalLow,
+          d.tradingHalt, d.tradingSession, d.spreadSingleVolume
+        )) ++= deduped
+        Await.result(db.run(DBIO.seq(
+          taifexFuturesDaily.filter(_.date inSet dates).delete,
+          dbIO
+        ).transactionally), Duration.Inf)
+      }
+      pb.step()
+    }
+    pb.close()
+  }
+
+  def readTaifexFuturesInstitutional(): Unit = {
+    val taifexFuturesInstitutional = TableQuery[TaifexFuturesInstitutional]
+
+    val files = TaifexFuturesInstitutionalSetting().getMarketFilesFromDirectory
+      .filter(m => m.file.name.endsWith(".csv") && m.file.length > 200)
+      .sortBy(_.file.name)
+    val pb = progressBar("Read TAIFEX futures institutional -", files.size)
+    files.foreach { marketFile =>
+      val reader = QuantlibCSVReader.open(marketFile.file.jfile, "Big5-HKSCS")
+      val data = try {
+        reader.all()
+          .filter(row => row.size >= 15 && parseTaifexDate(row.head).isDefined)
+          .flatMap { row =>
+            parseTaifexDate(row(0)).map { date =>
+              val productName = row(1).trim
+              val contractCode = taifexProductCode(productName)
+              val investorType = row(2).trim
+              (
+                date,
+                contractCode,
+                productName,
+                investorType,
+                taifexLong(row(3)),
+                taifexLong(row(4)),
+                taifexLong(row(5)),
+                taifexLong(row(6)),
+                taifexLong(row(7)),
+                taifexLong(row(8)),
+                taifexLong(row(9)),
+                taifexLong(row(10)),
+                taifexLong(row(11)),
+                taifexLong(row(12)),
+                taifexLong(row(13)),
+                taifexLong(row(14))
+              )
+            }
+          }
+      } finally {
+        reader.close()
+      }
+
+      if (data.nonEmpty) {
+        val dates = data.map(_._1).distinct
+        val deduped = data
+          .groupBy(r => (r._1, r._2, r._4))
+          .values
+          .map(_.maxBy(r => math.abs(r._15) + math.abs(r._16) + math.abs(r._11)))
+          .toSeq
+        val dbIO = taifexFuturesInstitutional.map(d => (
+          d.date, d.contractCode, d.productName, d.investorType,
+          d.longVolume, d.longValueThousands, d.shortVolume, d.shortValueThousands, d.netVolume, d.netValueThousands,
+          d.longOpenInterest, d.longOpenInterestValueThousands, d.shortOpenInterest, d.shortOpenInterestValueThousands,
+          d.netOpenInterest, d.netOpenInterestValueThousands
+        )) ++= deduped
+        Await.result(db.run(DBIO.seq(
+          taifexFuturesInstitutional.filter(_.date inSet dates).delete,
+          dbIO
+        ).transactionally), Duration.Inf)
+      }
+      pb.step()
+    }
+    pb.close()
+  }
+
+  def readTaifexFuturesFinalSettlement(): Unit = {
+    val taifexFuturesFinalSettlement = TableQuery[TaifexFuturesFinalSettlement]
+
+    val files = TaifexFuturesFinalSettlementSetting().getMarketFilesFromDirectory
+      .filter(m => m.file.name.endsWith(".html") && m.file.length > 1000)
+      .sortBy(_.file.name)
+    val pb = progressBar("Read TAIFEX futures final settlement -", files.size)
+    files.foreach { marketFile =>
+      val rows = parseMopsHtml(marketFile.file.jfile)
+      val data = rows.flatMap { cols =>
+        if (cols.size < 5) Seq.empty
+        else {
+          val dateOpt = parseTaifexDate(cols.head)
+          val contractMonth = cleanCell(cols(1))
+          if (dateOpt.isEmpty || contractMonth.isEmpty) Seq.empty
+          else {
+            val date = dateOpt.get
+            val txMtxTmf = cols(2)
+            val teZef = if (cols.size == 5) cols(3) else cols(4)
+            val tfZff = if (cols.size == 5) cols(4) else cols(5)
+            Seq(
+              "TX" -> txMtxTmf,
+              "MTX" -> txMtxTmf,
+              "TMF" -> txMtxTmf,
+              "TE" -> teZef,
+              "TF" -> tfZff
+            ).flatMap { case (contractCode, value) =>
+              taifexOptPrice(value).map(price => (date, contractCode, contractMonth, price))
+            }
+          }
+        }
+      }
+
+      if (data.nonEmpty) {
+        val dates = data.map(_._1).distinct
+        val deduped = data.distinctBy(d => (d._1, d._2, d._3))
+        val dbIO = taifexFuturesFinalSettlement.map(d => (
+          d.date, d.contractCode, d.contractMonth, d.finalSettlementPrice
+        )) ++= deduped
+        Await.result(db.run(DBIO.seq(
+          taifexFuturesFinalSettlement.filter(_.date inSet dates).delete,
+          dbIO
+        ).transactionally), Duration.Inf)
+      }
+      pb.step()
+    }
+    pb.close()
+  }
+
   def readMarginTransactions(): Unit = {
     val marginTransactions = TableQuery[MarginTransactions]
     val query = marginTransactions.map(m => (m.market, m.date)).distinct.result
@@ -421,11 +654,10 @@ class TradingReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
     val files = MarginTransactionsSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read margin transactions -", files.size)
+    val pb = progressBar("Read margin transactions -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
-        println(s"Read margin transactions of ${marketFile.market}-${marketFile.file.name}")
         val fileNamePattern = """(\d+)_(\d+)_(\d+).csv""".r
         val fileNamePattern(y, m, d) = marketFile.file.name
         val year = y.toInt
@@ -472,7 +704,7 @@ class TradingReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf).map { case (market, date) => (market, date.format(dateTimeFormatter) + ".csv") }
 
     val files = StockPER_PBR_DividendYieldSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read stock PER, PBR, dividend yield -", files.size)
+    val pb = progressBar("Read stock PER, PBR, dividend yield -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -538,8 +770,14 @@ class TradingReader extends Reader {
     val existingDates = Await.result(existingDatesFuture, Duration.Inf).toSet
 
     val files = TdccShareholdingSetting().getMarketFilesFromDirectory.par
-    val pb = new ProgressBar("Read TDCC shareholding -", files.size)
+    val pb = progressBar("Read TDCC shareholding -", files.size)
     files.tasksupport = taskSupport
+    // TDCC opendata only serves the current week, so the directory holds many
+    // files that all resolve to a handful of distinct data_dates — most runs
+    // skip nearly everything (dedupe by data_date). That's correct, not a bug;
+    // print one summary line instead of one line per skipped file (2026-07-16).
+    val insertedDates = java.util.concurrent.ConcurrentHashMap.newKeySet[LocalDate]()
+    val skipped = new java.util.concurrent.atomic.AtomicInteger(0)
     files.foreach {
       marketFile =>
         // TDCC opendata endpoint serves UTF-8 with a BOM on the header row.
@@ -562,15 +800,21 @@ class TradingReader extends Reader {
             val dbIO = tdccShareholding.map(t =>
               (t.dataDate, t.companyCode, t.holdingTier, t.numHolders, t.numShares, t.pctOfOutstanding)) ++= data
             dbRun(dbIO)
-            println(s"[tdcc] inserted ${data.size} rows for data_date=${dataDate} (file=${marketFile.file.name})")
+            insertedDates.add(dataDate)
+            Log.debug(s"[tdcc] inserted ${data.size} rows for data_date=${dataDate} (file=${marketFile.file.name})")
           } else {
-            println(s"[tdcc] data_date=${dataDate} already in DB — skipping ${marketFile.file.name}")
+            skipped.incrementAndGet()
+            Log.debug(s"[tdcc] data_date=${dataDate} already in DB — skipping ${marketFile.file.name}")
           }
         }
         reader.close()
         pb.step()
     }
     pb.close()
+    if (!insertedDates.isEmpty || skipped.get() > 0) {
+      val added = insertedDates.size()
+      println(s"[tdcc] 新增 $added 個資料日,略過 ${skipped.get()} 個既有(週頻快照,略過屬正常)")
+    }
   }
 
   def readSblBorrowing(): Unit = {
@@ -582,7 +826,7 @@ class TradingReader extends Reader {
     }
 
     val files = SblBorrowingSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read SBL borrowing -", files.size)
+    val pb = progressBar("Read SBL borrowing -", files.size)
     files.tasksupport = taskSupport
     val stockCode = """[0-9][0-9A-Z]*"""
     files.foreach { marketFile =>
@@ -648,7 +892,7 @@ class TradingReader extends Reader {
     }
 
     val files = ForeignHoldingRatioSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name))).par
-    val pb = new ProgressBar("Read foreign holding ratio -", files.size)
+    val pb = progressBar("Read foreign holding ratio -", files.size)
     files.tasksupport = taskSupport
     val stockCode = """[0-9][0-9A-Z]*"""
     files.foreach { marketFile =>
@@ -776,7 +1020,7 @@ class TradingReader extends Reader {
       Duration.Inf).toSet
 
     val files = TreasuryStockBuybackSetting().getMarketFilesFromDirectory.par
-    val pb = new ProgressBar("Read treasury stock buyback -", files.size)
+    val pb = progressBar("Read treasury stock buyback -", files.size)
     files.tasksupport = taskSupport
     files.foreach { mf =>
       val rows = parseMopsHtml(mf.file.jfile)
@@ -805,9 +1049,9 @@ class TradingReader extends Reader {
           (t.market, t.announceDate, t.companyCode, t.companyName, t.plannedShares,
            t.priceLow, t.priceHigh, t.periodStart, t.periodEnd, t.executedShares, t.pctOfCapital)) ++= filtered
         dbRun(dbIO)
-        println(s"[buyback] ${mf.market}/${mf.file.name}: inserted ${filtered.size} rows (parsed ${data.size}/${rows.size} rows from HTML)")
+        Log.debug(s"[buyback] ${mf.market}/${mf.file.name}: inserted ${filtered.size} rows (parsed ${data.size}/${rows.size} rows from HTML)")
       } else {
-        println(s"[buyback] ${mf.market}/${mf.file.name}: 0 new (parsed ${data.size}/${rows.size} rows)")
+        Log.debug(s"[buyback] ${mf.market}/${mf.file.name}: 0 new (parsed ${data.size}/${rows.size} rows)")
       }
       pb.step()
     }
@@ -851,7 +1095,7 @@ class TradingReader extends Reader {
 
     val dateFromName = """(\d+)_(\d+)_(\d+)\.html""".r
     val files = InsiderHoldingSetting().getMarketFilesFromDirectory.par
-    val pb = new ProgressBar("Read insider holding -", files.size)
+    val pb = progressBar("Read insider holding -", files.size)
     files.tasksupport = taskSupport
     files.foreach { mf =>
       val reportDateOpt = mf.file.name match {
@@ -898,7 +1142,7 @@ class TradingReader extends Reader {
              t.currentSharesOwn, t.currentSharesTrust,
              t.plannedSharesOwn, t.plannedSharesTrust)) ++= filtered
           dbRun(dbIO)
-          println(s"[insider] ${mf.market}/${mf.file.name}: inserted ${filtered.size} rows (parsed ${data.size}/${rows.size})")
+          Log.debug(s"[insider] ${mf.market}/${mf.file.name}: inserted ${filtered.size} rows (parsed ${data.size}/${rows.size})")
         }
       }
       pb.step()

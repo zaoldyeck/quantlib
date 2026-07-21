@@ -33,7 +33,7 @@ class FinancialReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf)
 
     val files = FinancialAnalysisSetting().getMarketFilesFromDirectory.filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name.split('_')(0).toInt))).par
-    val pb = new ProgressBar("Read financial analysis -", files.size)
+    val pb = progressBar("Read financial analysis -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -73,7 +73,7 @@ class FinancialReader extends Reader {
       }
       dataAlreadyInDB.contains((m.market, `type`, y.toInt, q.toInt))
     }).par
-    val pb = new ProgressBar("Read balance sheet -", files.size)
+    val pb = progressBar("Read balance sheet -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -124,7 +124,7 @@ class FinancialReader extends Reader {
       }
       dataAlreadyInDB.contains((m.market, `type`, y.toInt, q.toInt))
     }).par
-    val pb = new ProgressBar("Read income statement -", files.size)
+    val pb = progressBar("Read income statement -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -203,7 +203,7 @@ class FinancialReader extends Reader {
     }.reduce(_ ++ _).filterNot { case (market, year, quarter, companyCode, _) => dataAlreadyInDB.contains((market, year, quarter, companyCode)) }.par
     case class Data(balanceSheetData: Seq[(String, Int, Int, String, String, Double)], incomeStatementData: Seq[(String, Int, Int, String, String, Double)], cashFlowsProgressiveData: Seq[(String, Int, Int, String, String, Double)])
     val browser = JsoupBrowser()
-    val pb = new ProgressBar("Read financial statements -", files.size)
+    val pb = progressBar("Read financial statements -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       case (market, year, quarter, companyCode, file) =>
@@ -296,15 +296,23 @@ class FinancialReader extends Reader {
     val dataAlreadyInDB = Await.result(db.run(query), Duration.Inf)
     val fileNamePattern = """(\d+)_(\d+)_(\w).*""".r
     val browser = JsoupBrowser()
+    // Publication-window month gets re-imported (delete + insert) because its
+    // summary file keeps growing while companies file during the 1st-15th.
+    val nowDate = LocalDate.now
+    val prevMonthDate = nowDate.minusMonths(1)
+    val revenueRefreshWindow: Set[(Int, Int)] =
+      if (nowDate.getDayOfMonth <= 15) Set((prevMonthDate.getYear, prevMonthDate.getMonthValue))
+      else Set.empty
     val files = OperatingRevenueSetting().getMarketFilesFromDirectory.filterNot(mf => {
       val fileNamePattern(y, m, t) = mf.file.name
       val `type` = t match {
         case "i" => "individual"
         case "c" => "consolidated"
       }
-      dataAlreadyInDB.contains((mf.market, `type`, y.toInt, m.toInt))
+      dataAlreadyInDB.contains((mf.market, `type`, y.toInt, m.toInt)) &&
+        !revenueRefreshWindow.contains((y.toInt, m.toInt))
     }).par
-    val pb = new ProgressBar("Read operating revenue -", files.size)
+    val pb = progressBar("Read operating revenue -", files.size)
     files.tasksupport = taskSupport
     files.foreach {
       marketFile =>
@@ -374,6 +382,16 @@ class FinancialReader extends Reader {
             data
         }
 
+        if (revenueRefreshWindow.contains((year, month))) {
+          val marketValue = marketFile.market
+          val typeValue = `type`
+          val deleteAction = operatingRevenue
+            .filter(o =>
+              o.market === marketValue && o.`type` === typeValue && o.year === year && o.month === month
+            )
+            .delete
+          Await.result(db.run(deleteAction), Duration.Inf)
+        }
         val dbIO = operatingRevenue.map(o => (o.market, o.`type`, o.year, o.month, o.companyCode, o.companyName, o.industry, o.monthlyRevenue, o.lastMonthRevenue, o.lastYearMonthlyRevenue, o.monthlyRevenueComparedLastMonthPercentage, o.monthlyRevenueComparedLastYearPercentage, o.cumulativeRevenue, o.lastYearCumulativeRevenue, o.cumulativeRevenueComparedLastYearPercentage)) ++= data.distinctBy(o => (o._1, o._5))
         dbRun(dbIO)
         pb.step()

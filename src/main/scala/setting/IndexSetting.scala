@@ -11,7 +11,7 @@ case class IndexSetting(date: LocalDate = LocalDate.now) extends Setting {
     // Rejects TWSE's silent-fallback response (e.g. returning 2018-02-18 header for a date
     // it has no data for) — a 116-byte response that passes isHtmlResponse/empty checks
     // but contains zero data rows and the wrong date.
-    override def validate(downloaded: java.io.File): Option[String] = {
+    override def validate(downloaded: java.io.File): DownloadValidation = {
       val minguoDate = s"${date.getYear - 1911}年${"%02d".format(date.getMonthValue)}月${"%02d".format(date.getDayOfMonth)}日"
       validateCSVHeaderDate(downloaded, expectedDateMarker = minguoDate, minDataRows = 50)
     }
@@ -22,7 +22,7 @@ case class IndexSetting(date: LocalDate = LocalDate.now) extends Setting {
     val dir: String = conf.getString("data.index.tpex.dir")
 
     // TPEx index header has `Data Date:115/04/14` on the second line.
-    override def validate(downloaded: java.io.File): Option[String] = {
+    override def validate(downloaded: java.io.File): DownloadValidation = {
       val minguoDate = s"${date.getYear - 1911}/${"%02d".format(date.getMonthValue)}/${"%02d".format(date.getDayOfMonth)}"
       validateCSVHeaderDate(downloaded, expectedDateMarker = s"Data Date:$minguoDate", minDataRows = 10)
     }

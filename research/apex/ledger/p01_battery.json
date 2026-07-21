@@ -1,0 +1,26 @@
+{
+  "bootstrap": {
+    "pass": true,
+    "detail": "CAGR 95% CI [+17.0%, +43.2%] 下界>10%?"
+  },
+  "dsr": {
+    "pass": true,
+    "detail": "DSR 0.9865(N=71, V[SR]=7.48e-04, z=2.21)"
+  },
+  "pbo": {
+    "pass": true,
+    "detail": "PBO 0.147(configs=67, combos=12870)"
+  },
+  "perturb": {
+    "pass": false,
+    "detail": "spread 16.1% <15%? gates 11/11 ≥80%?"
+  },
+  "permutation": {
+    "pass": true,
+    "detail": "p=0.0000(null median +10.4%, real +28.4%)"
+  },
+  "stress_gfc": {
+    "pass": true,
+    "detail": "2008-11 CAGR -0.6% MDD -19.4% 最差年 -2.5%"
+  }
+}

@@ -26,14 +26,15 @@ case class ForeignHoldingRatioSetting(date: LocalDate = LocalDate.now) extends S
     val file: String = conf.getString("data.foreignHoldingRatio.twse.file")
     val dir: String = conf.getString("data.foreignHoldingRatio.twse.dir")
 
-    override def validate(downloaded: java.io.File): Option[String] =
+    override def validate(downloaded: java.io.File): DownloadValidation =
       // Header text changed in ~2009 ECFA era: 2005-2009 uses "外資投資持股統計",
       // 2010+ uses "外資及陸資投資持股統計". Match the common substring tokens.
       validateCSVSchema(
         downloaded,
         expectedHeaderKeywords = Seq("外資", "投資持股統計", "證券代號"),
         minDataRows = 20,
-        encoding = "Big5-HKSCS"
+        encoding = "Big5-HKSCS",
+        allowHeaderOnlyNoData = true
       )
   }
 
@@ -42,7 +43,7 @@ case class ForeignHoldingRatioSetting(date: LocalDate = LocalDate.now) extends S
     val dir: String = conf.getString("data.foreignHoldingRatio.tpex.dir")
 
     // TPEx JSON; empty days handled as holiday upstream.
-    override def validate(downloaded: java.io.File): Option[String] = None
+    override def validate(downloaded: java.io.File): DownloadValidation = DownloadValidation.Valid
   }
 
   val markets: Seq[Detail] = Seq(twse, tpex)

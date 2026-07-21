@@ -11,6 +11,18 @@
 `usage().remaining_bytes` 為準,剩餘不足一個工作單位(RESERVE)或 API 回報額度
 錯誤才停;額度於交易日 08:00 重置,launchd 每日 08:30 自動續跑。
 
+**兩道官方限制,綁住的是不同東西(2026-07-21 實測 + 官方文件)**
+  流量:每日 2 GB —— **這才是總工期的瓶頸**。實測 6,225 格用盡當日額度
+        (每格約 321 KB);全市場 2,395 檔 × 77 個月 ≈ 184,415 格 → 約 30 天補完。
+  頻率:行情類 50 次/5 秒 —— 綁的是「每天那一輪跑多久」。序列實測 1.76 格/秒
+        (單次 kbars 往返約 546 ms),一輪約 1 小時;開平行後由限流器頂到
+        8 次/秒(官方上限的 80%,見 ratelimit.py),一輪約十幾分鐘。
+  ⚠ 超頻的罰則是停用 1 分鐘、累犯封 IP 與帳號,故一律留 20% 安全邊際。
+
+**平行安全性不靠猜**:官方沒說 client 是否執行緒安全、SDK 核心又是編譯過的 .so,
+所以開平行前程式會**自己證明**一次(同批 chunk 序列與平行結果逐位比對),
+通過才用平行;結論以 shioaji 版本為 key 快取,升版自動重驗。
+
 **隨時中斷即可續傳(刻意無狀態檔)**:完成單位 = 磁碟上的檔案本身——
   kbars_1m/{YYYY-MM}/{code}.parquet  有資料
   kbars_1m/{YYYY-MM}/{code}.empty    確認無資料(未上市/停牌整月)
@@ -24,29 +36,44 @@
 
 用法:
   uv run --project research python -m research.intraday.pull_kbars             # 續傳回補
-  uv run --project research python -m research.intraday.pull_kbars --selftest  # 登入+單檔驗證
   uv run --project research python -m research.intraday.pull_kbars --status    # 只看進度(不連線)
+  uv run --project research python -m research.intraday.pull_kbars --workers 1 # 強制序列
+  uv run --project research python -m research.intraday.pull_kbars --selftest  # 登入+單檔驗證
 金鑰:research/.env 的 SHIOAJI_API_KEY / SHIOAJI_SECRET_KEY(資料查詢免 CA 憑證)。
 依賴 cache:是(流動性排序,缺 cache 則退回代碼序)。資料不進 git。
 """
 from __future__ import annotations
 
 import argparse
+import hashlib
+import json
 import os
 import sys
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date as Date
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import polars as pl
 
+from research.intraday.ratelimit import RateLimiter
+
 REPO = Path(__file__).resolve().parents[2]
 OUT = REPO / "research" / "data" / "intraday" / "kbars_1m"
 HIST_FLOOR = Date(2020, 3, 2)      # 官方股票/指數歷史下限
 RESERVE_BYTES = 2 * 1024 ** 2      # 一個工作單位的量級;剩餘低於此註定失敗,提早停
-PACE_SEC = 0.2
 MAX_RETRY = 3
+#: 預設平行度。真正的瓶頸是**每日 2 GB 流量**(實測 2026-07-21:6,225 格用盡當日
+#: 額度 → 每格約 321 KB),平行不會讓總工期變短,只讓「每天那一輪」從約 1 小時
+#: 縮到十幾分鐘。上限由官方頻率限制(行情 50 次/5 秒)決定,見 ratelimit.py。
+WORKERS = 6
+#: 額度查詢每 N 格一次(實測 usage() 往返僅 20 ms,但沒必要每格都問;
+#: 真的超額時 API 會回空/報錯,下方錯誤路徑會接住)
+USAGE_EVERY = 25
+#: 平行自證的結果(以 shioaji 版本為 key;升版即重驗)
+PARITY_FILE = REPO / "research" / "data" / "intraday" / "parallel_parity.json"
 
 PHASES: list[tuple[str, Date, Date, str]] = [
     ("P0 S實際持倉", HIST_FLOOR, Date.today(), "s_trades"),
@@ -75,11 +102,27 @@ def _env() -> tuple[str, str]:
     return key, sec
 
 
+#: SDK 在登入握手時把連線細節印到 stdout,對使用者是純噪音(不是錯誤、不需處理)。
+#: 在**程式內**吞掉,而不是要使用者在外面接 grep——輸出乾不乾淨是程式的責任。
+#: 非預期的行照樣印出來,不做無差別靜音。
+_SDK_NOISE = ("Response Code", "Event Code", "Session up", "Reconnect", "api = ")
+
+
 def _login():
+    import contextlib
+    import io
+    import warnings
+
     import shioaji as sj
+    warnings.filterwarnings("ignore", category=DeprecationWarning, module="shioaji")
     api = sj.Shioaji()
     key, sec = _env()
-    api.login(api_key=key, secret_key=sec, subscribe_trade=False)
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        api.login(api_key=key, secret_key=sec, subscribe_trade=False)
+    for ln in buf.getvalue().splitlines():
+        if ln.strip() and not any(k in ln for k in _SDK_NOISE):
+            print(ln)
     for _ in range(60):                      # 合約表非同步下載,等就緒才動手
         try:
             if len(list(api.Contracts.Stocks.TSE)) > 0:
@@ -248,20 +291,92 @@ def _phase_todo(api, kind: str, ps: Date, pe: Date, rank: dict[str, int]
     return todo
 
 
-def _pull(api, contract, code: str, tag: str, s: Date, e: Date) -> int:
-    kb = api.kbars(contract=contract, start=s.isoformat(), end=e.isoformat())
+def _to_frame(kb) -> pl.DataFrame | None:
+    """Kbars → polars(**純函式**:無 IO、無副作用,故可單測、可在平行 worker 內安全呼叫)。
+    無資料回 None(= 該檔該月沒開過盤,與「抓失敗」語義不同)。"""
     ts = list(kb.ts)
     if not ts:
-        _write_atomic(None, tag, code)
-        return 0
-    df = (pl.DataFrame({
+        return None
+    return (pl.DataFrame({
         "ts": pl.Series(ts, dtype=pl.Int64),
         "open": list(kb.Open), "high": list(kb.High), "low": list(kb.Low),
         "close": list(kb.Close), "volume": list(kb.Volume), "amount": list(kb.Amount),
     }).with_columns(pl.from_epoch("ts", time_unit="ns").alias("dt"))
       .sort("dt"))
+
+
+def _pull(api, contract, code: str, tag: str, s: Date, e: Date) -> int:
+    df = _to_frame(api.kbars(contract=contract, start=s.isoformat(), end=e.isoformat()))
     _write_atomic(df, tag, code)
-    return len(df)
+    return 0 if df is None else len(df)
+
+
+# ── 平行自證 ────────────────────────────────────────────────────────────
+# 官方文件沒有說 client 是否執行緒安全,SDK 核心又是編譯過的 .so(無原始碼可查),
+# 而 1.3.1 的 release note 才剛修過「race condition in contracts」。沒有證據就
+# 不准開平行——所以**讓程式自己證明**:同一批 chunk 序列抓一次、平行抓一次,
+# 兩邊資料指紋逐位相同才放行。證明結果以 shioaji 版本為 key 快取(升版即重驗)。
+# 成本:4 格 × 2 輪 ≈ 1.3 MB,佔每日 2 GB 的 0.07%,而且一個版本只付一次。
+
+
+def _fingerprint(df: pl.DataFrame | None) -> str:
+    if df is None or df.is_empty():
+        return "empty"
+    return f"{df.height}:{hashlib.sha256(df.sort('dt').write_ipc(None).getvalue()).hexdigest()[:16]}"
+
+
+def _sj_version() -> str:
+    import shioaji
+    return str(getattr(shioaji, "__version__", "unknown"))
+
+
+def _load_parity() -> bool | None:
+    try:
+        rec = json.loads(PARITY_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return rec.get("ok") if rec.get("shioaji") == _sj_version() else None
+
+
+def _prove_parallel_safe(api, workers: int) -> bool:
+    """→ 平行是否安全。已有同版本結論就直接用,否則實測一次並記錄。"""
+    cached = _load_parity()
+    if cached is not None:
+        print(f"[pull] 平行自證:沿用 shioaji {_sj_version()} 的既有結論 "
+              f"({'安全' if cached else '不安全'})")
+        return cached
+
+    probe = ["2330", "2317", "2454", "2308"]
+    m0 = Date.today().replace(day=1)
+    prev = Date(m0.year - (m0.month == 1), m0.month - 1 or 12, 1)
+    tag, s, e = _months(prev, m0 - timedelta(days=1))[0]
+    jobs = [(api.Contracts.Stocks[c], c) for c in probe]
+    print(f"[pull] 平行自證中({tag},{len(probe)} 格 × 2 輪 ≈ 1.3 MB)…")
+
+    def fetch(job):
+        contract, _code = job
+        return _fingerprint(_to_frame(
+            api.kbars(contract=contract, start=s.isoformat(), end=e.isoformat())))
+
+    lim = RateLimiter()
+    seq = []
+    for j in jobs:
+        lim.acquire(); seq.append(fetch(j))
+    if all(f == "empty" for f in seq):
+        print("[pull] 平行自證:序列抓不到資料(多半是當日額度已用盡)→ 本輪維持序列")
+        return False
+    with ThreadPoolExecutor(max_workers=workers) as ex:
+        par = list(ex.map(lambda j: (lim.acquire(), fetch(j))[1], jobs))
+
+    ok = seq == par
+    PARITY_FILE.parent.mkdir(parents=True, exist_ok=True)
+    PARITY_FILE.write_text(json.dumps(
+        {"shioaji": _sj_version(), "ok": ok, "workers": workers,
+         "probe": probe, "month": tag, "seq": seq, "par": par},
+        ensure_ascii=False, indent=1), encoding="utf-8")
+    print(f"[pull] 平行自證:{'✓ 逐位一致,開平行' if ok else '✗ 不一致,退回序列'}"
+          f"(紀錄 → {PARITY_FILE.name})")
+    return ok
 
 
 # ── 進度 ────────────────────────────────────────────────────────────────
@@ -287,10 +402,66 @@ def _status() -> None:
           f"{len(rows)} 個月")
 
 
+def _run_phase(api, todo, lim: RateLimiter, workers: int, t0: float,
+               n_done: int, n_empty: int) -> tuple[int, int]:
+    """跑完一個階段的待抓清單。workers=1 即序列;>1 走執行緒池(共用限流器)。
+
+    額度檢查刻意**不是每格一次**:usage() 往返 20 ms、且平行時會與抓取搶頻率額度。
+    每 `USAGE_EVERY` 格查一次已足夠——真的超額時 API 會回空或報錯,由錯誤路徑接住。
+    """
+    lock = threading.Lock()
+    stop = threading.Event()
+    state = {"done": n_done, "empty": n_empty, "quota": None}
+
+    def work(job) -> None:
+        if stop.is_set():
+            return
+        tag, s, e, code, contract = job
+        for attempt in range(1, MAX_RETRY + 1):
+            lim.acquire()
+            try:
+                n = _pull(api, contract, code, tag, s, e)
+                break
+            except Exception as exc:  # noqa: BLE001
+                if _is_quota_error(exc):
+                    state["quota"] = str(exc); stop.set(); return
+                if attempt == MAX_RETRY:
+                    print(f"  ! {code} {tag} 放棄:{type(exc).__name__} {exc}",
+                          file=sys.stderr)
+                    return
+                time.sleep(1.5 * attempt)
+        with lock:
+            state["done"] += 1
+            state["empty"] += (n == 0)
+            d = state["done"]
+        if d % USAGE_EVERY == 0:
+            rem = _remaining(api)
+            if rem is not None and rem < RESERVE_BYTES:
+                state["quota"] = f"剩餘 {rem/1e6:.1f} MB < 一個工作單位"; stop.set()
+            elif d % 200 == 0:
+                print(f"  … {d:,} 格(空 {state['empty']:,});剩餘 "
+                      f"{'?' if rem is None else f'{rem/1e6:.0f} MB'};"
+                      f"{time.time()-t0:.0f}s")
+
+    if workers <= 1:
+        for job in todo:
+            work(job)
+            if stop.is_set():
+                break
+    else:
+        with ThreadPoolExecutor(max_workers=workers) as ex:
+            list(ex.map(work, todo))
+    if state["quota"]:
+        raise QuotaExhausted(state["quota"])
+    return state["done"], state["empty"]
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="1 分 K 歷史回補(分階段/額度自適應/可中斷)")
     ap.add_argument("--selftest", action="store_true", help="登入 + 抓 2330 當月驗證")
     ap.add_argument("--status", action="store_true", help="只印進度(離線)")
+    ap.add_argument("--workers", type=int, default=WORKERS,
+                    help=f"平行度(預設 {WORKERS};1 = 序列)")
     ap.add_argument("--phase", type=int, default=None,
                     help="只跑指定階段(0=S實際持倉, 1-3=個股分段, 4=指數ETF)")
     args = ap.parse_args()
@@ -314,6 +485,13 @@ def main() -> None:
         api.logout()
         return
 
+    workers = max(1, args.workers)
+    if workers > 1 and not _prove_parallel_safe(api, workers):
+        workers = 1
+    lim = RateLimiter()
+    print(f"[pull] 平行度 {workers};限流 {lim.per_second:.1f} 次/秒"
+          f"(官方行情上限 10 次/秒,留 20% 安全邊際)")
+
     rank = _adv_rank()
     n_done = n_empty = 0
     t0 = time.time()
@@ -323,30 +501,8 @@ def main() -> None:
                 continue
             todo = _phase_todo(api, kind, ps, pe, rank)
             print(f"\n[{name}] {ps}→{pe};待抓 {len(todo):,} 格")
-            for tag, s, e, code, contract in todo:
-                rem = _remaining(api)
-                if rem is not None and rem < RESERVE_BYTES:
-                    raise QuotaExhausted(f"剩餘 {rem/1e6:.1f} MB < 一個工作單位")
-                for attempt in range(1, MAX_RETRY + 1):
-                    try:
-                        n = _pull(api, contract, code, tag, s, e)
-                        n_done += 1
-                        n_empty += (n == 0)
-                        break
-                    except Exception as exc:  # noqa: BLE001
-                        if _is_quota_error(exc):
-                            raise QuotaExhausted(str(exc)) from exc
-                        if attempt == MAX_RETRY:
-                            print(f"  ! {code} {tag} 放棄:{type(exc).__name__} {exc}",
-                                  file=sys.stderr)
-                        else:
-                            time.sleep(1.5 * attempt)
-                if n_done % 100 == 0 and n_done:
-                    rem = _remaining(api)
-                    print(f"  … {n_done:,} 格(空 {n_empty:,});剩餘 "
-                          f"{'?' if rem is None else f'{rem/1e6:.0f} MB'};"
-                          f"{time.time()-t0:.0f}s")
-                time.sleep(PACE_SEC)
+            d, em = _run_phase(api, todo, lim, workers, t0, n_done, n_empty)
+            n_done, n_empty = d, em
         print(f"\n[pull] 全部階段完成 ✅ 本輪 {n_done:,} 格")
     except QuotaExhausted as exc:
         print(f"\n[pull] 額度用盡而停({exc});進度已在磁碟,"

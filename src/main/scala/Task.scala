@@ -3,21 +3,25 @@ import setting.{Detail, _}
 import slick.jdbc.PostgresProfile.api._
 
 import java.io.File
-import java.time.LocalDate
+import java.time.{LocalDate, LocalTime, ZoneId, ZonedDateTime}
 import scala.io.Source
 //import slick.jdbc.MySQLProfile.api._
 //import slick.jdbc.H2Profile.api._
 import slick.lifted.TableQuery
 import util.Helpers.SeqExtension
+import util.Log
 
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future}
 import scala.jdk.StreamConverters._
 import scala.reflect.io.Path._
+import scala.util.Try
 
 class Task {
   private val crawler = new Crawler()
+
+  def close(): Unit = crawler.close()
 
   /** Idempotent schema setup for tables only. Views / materialized views are
     * NOT touched here because their `.sql` files use plain `CREATE VIEW` (no
@@ -44,6 +48,9 @@ class Task {
     val foreignHoldingRatio = TableQuery[ForeignHoldingRatio]
     val treasuryStockBuyback = TableQuery[TreasuryStockBuyback]
     val insiderHolding = TableQuery[InsiderHolding]
+    val taifexFuturesDaily = TableQuery[TaifexFuturesDaily]
+    val taifexFuturesInstitutional = TableQuery[TaifexFuturesInstitutional]
+    val taifexFuturesFinalSettlement = TableQuery[TaifexFuturesFinalSettlement]
     val setup = DBIO.sequence(Seq(
       balanceSheet.schema.createIfNotExists.asTry,
       conciseBalanceSheet.schema.createIfNotExists.asTry,
@@ -64,7 +71,10 @@ class Task {
       sblBorrowing.schema.createIfNotExists.asTry,
       foreignHoldingRatio.schema.createIfNotExists.asTry,
       treasuryStockBuyback.schema.createIfNotExists.asTry,
-      insiderHolding.schema.createIfNotExists.asTry))
+      insiderHolding.schema.createIfNotExists.asTry,
+      taifexFuturesDaily.schema.createIfNotExists.asTry,
+      taifexFuturesInstitutional.schema.createIfNotExists.asTry,
+      taifexFuturesFinalSettlement.schema.createIfNotExists.asTry))
 
     val db = Database.forConfig("db")
     try Await.result(db.run(setup), Duration.Inf)
@@ -189,26 +199,127 @@ class Task {
       month <- 1 to 12
     } yield (year, month)
     val thisYearToMonth = (1 to (if (LocalDate.now.getDayOfMonth > 10) thisMonth - 1 else thisMonth - 2)).map(month => (thisYear, month))
-    val future = firstYearToMonth.appendedAll(yearToMonth).appendedAll(thisYearToMonth).filterNot(existFiles).mapInSeries {
+    // Publication-window refresh: the previous month's summary file grows daily
+    // while companies file (1st-15th), so it is re-fetched unconditionally to
+    // make newly published rows usable the same day (event-driven revenue).
+    val prevMonthDate = LocalDate.now.minusMonths(1)
+    val inWindow =
+      if (LocalDate.now.getDayOfMonth <= 15) Seq((prevMonthDate.getYear, prevMonthDate.getMonthValue))
+      else Seq.empty
+    val gated = firstYearToMonth
+      .appendedAll(yearToMonth)
+      .appendedAll(thisYearToMonth)
+      .filterNot(existFiles)
+      .filterNot(inWindow.contains)
+    val future = gated.appendedAll(inWindow).mapInSeries {
       case (year, month) => crawler.getOperatingRevenue(year, month)
     }
     Await.result(future, Duration.Inf)
   }
 
-  def pullDailyQuote(): Unit = {
+  def pullDailyQuote(since: Option[LocalDate] = None): Unit = {
     //val dayOfWeek = date.getDayOfWeek.getValue
     //val linesSize = lines.size
     //if ((firstLineOption.isEmpty && dayOfWeek < 6) || firstLineOption == Option("<html>")) None else Some(date)
     //if (linesSize < 5 && dayOfWeek < 6) None else Some(date)
-    pullDailyFiles(DailyQuoteSetting().twse, crawler.getDailyQuote)
+    pullDailyFiles(DailyQuoteSetting().twse, crawler.getDailyQuote, since,
+      // 15:30 lower bound: MI_INDEX notes say FX turnover uses TWSE's 15:30 rate.
+      // Empirical: earliest same-day success 15:40 (see docs).
+      publishAfter = LocalTime.of(15, 30))
   }
 
-  def pullIndex(): Unit = {
-    pullDailyFiles(IndexSetting().twse, crawler.getIndex)
+  def pullIndex(since: Option[LocalDate] = None): Unit = {
+    val setting = IndexSetting()
+    val existFiles = setting.twse.getDatesOfExistFiles
+    val tradingDays = loadTwseTradingDays()
+    val startDate = since.getOrElse(setting.twse.firstDate)
+    val endExclusive = if (since.isDefined) LocalDate.now().plusDays(1) else dailyEndExclusive(LocalTime.of(15, 30))
+    val future = startDate.datesUntil(endExclusive).toScala(Seq)
+      .filterNot(existFiles)
+      .filter(d => since.isDefined || tradingDays.isEmpty || tradingDays.contains(d))
+      .mapInSeries(crawler.getIndex)
+    Await.result(future, Duration.Inf)
+  }
+
+  def pullTaifexFuturesDaily(since: Option[LocalDate] = None): Unit = {
+    val setting = TaifexFuturesDailySetting()
+    val detail = setting.taifex
+    val today = LocalDate.now()
+    val rollingMonths = taifexRollingMonths(today, taifexBackfillMonths("QL_TAIFEX_DAILY_BACKFILL_MONTHS", 3))
+    val staleMonths = loadTaifexStaleDailyMonths()
+    val forcedMonths = rollingMonths ++ staleMonths
+    Log.debug(s"TAIFEX futures daily forced months: ${forcedMonths.toSeq.sorted.map { case (y, m) => s"$y-$m" }.mkString(",")}")
+    val forcedYears = forcedMonths.map(_._1)
+    val lastCompletedYear = today.getYear - 1
+    val startYear = since.map(_.getYear).getOrElse(detail.firstDate.getYear)
+    val existingYears = detail.getYearsOfExistFiles
+
+    val missingAnnualYears =
+      if (startYear <= lastCompletedYear) (startYear to lastCompletedYear).filterNot(existingYears)
+      else Seq.empty[Int]
+    val annualYears = (missingAnnualYears ++ forcedYears.filter(_ <= lastCompletedYear)).distinct.sorted
+    if (annualYears.nonEmpty) Log.debug(s"TAIFEX futures daily annual refresh years: ${annualYears.mkString(",")}")
+    Await.result(annualYears.mapInSeries(crawler.getTaifexFuturesDailyYear), Duration.Inf)
+
+    val currentYearStartMonth = since match {
+      case Some(d) if d.getYear == today.getYear => d.getMonthValue
+      case Some(d) if d.getYear > today.getYear => 13
+      case _ => 1
+    }
+    val forcedCurrentYearStartMonth = forcedMonths.collect { case (year, month) if year == today.getYear => month }.minOption.getOrElse(currentYearStartMonth)
+    val effectiveCurrentYearStartMonth = math.min(currentYearStartMonth, forcedCurrentYearStartMonth)
+    val existingMonths = detail.getTuplesOfExistFiles
+    val currentYearMonths = (effectiveCurrentYearStartMonth to today.getMonthValue).filter { month =>
+      val ym = (today.getYear, month)
+      forcedMonths.contains(ym) || !existingMonths.contains(ym)
+    }
+    if (currentYearMonths.nonEmpty) Log.debug(s"TAIFEX futures daily monthly refresh months: ${currentYearMonths.map(m => s"${today.getYear}-$m").mkString(",")}")
+    Await.result(currentYearMonths.mapInSeries(month => crawler.getTaifexFuturesDailyMonth(today.getYear, month)), Duration.Inf)
+  }
+
+  def pullTaifexFuturesInstitutional(since: Option[LocalDate] = None): Unit = {
+    val setting = TaifexFuturesInstitutionalSetting()
+    val detail = setting.taifex
+    val today = LocalDate.now()
+    val freeStart = today.minusYears(3)
+    val requestedStart = since.getOrElse(freeStart)
+    val existingMonths = detail.getTuplesOfExistFiles
+    val rollingMonths = taifexRollingMonths(today, taifexBackfillMonths("QL_TAIFEX_INSTITUTIONAL_BACKFILL_MONTHS", 2))
+    val rollingStart = rollingMonths.map { case (year, month) => LocalDate.of(year, month, 1) }.minBy(_.toEpochDay)
+    val start = Seq(detail.firstDate, freeStart, Seq(requestedStart, rollingStart).minBy(_.toEpochDay)).maxBy(_.toEpochDay)
+
+    val months = monthsInclusive(start, today).filter { case (year, month) =>
+      val ym = (year, month)
+      rollingMonths.contains(ym) || !existingMonths.contains(ym)
+    }
+    if (months.nonEmpty) Log.debug(s"TAIFEX futures institutional monthly refresh months: ${months.map { case (y, m) => s"$y-$m" }.mkString(",")}")
+    Await.result(months.mapInSeries { case (year, month) =>
+      crawler.getTaifexFuturesInstitutionalMonth(year, month)
+    }, Duration.Inf)
+  }
+
+  def pullTaifexFuturesFinalSettlement(since: Option[LocalDate] = None): Unit = {
+    val detail = TaifexFuturesFinalSettlementSetting().taifex
+    val today = LocalDate.now()
+    val startYear = since.map(_.getYear).getOrElse(detail.firstDate.getYear)
+    val existingYears = taifexExistingHtmlYears(detail.dir)
+    val years = (startYear to today.getYear).filter { year =>
+      year == today.getYear || year == today.getYear - 1 || !existingYears.contains(year)
+    }
+    if (years.nonEmpty) Log.debug(s"TAIFEX futures final-settlement refresh years: ${years.mkString(",")}")
+    Await.result(years.mapInSeries(crawler.getTaifexFuturesFinalSettlementYear), Duration.Inf)
+  }
+
+  def pullTaifexIntradayRaw(): Unit = {
+    val setting = TaifexIntradayRawSetting()
+    Await.result(setting.sources.mapInSeries(crawler.getTaifexIntradayRawFiles), Duration.Inf)
   }
 
   def pullMarginTransactions(): Unit = {
-    pullDailyFiles(MarginTransactionsSetting().twse, crawler.getMarginTransactions)
+    pullDailyFiles(MarginTransactionsSetting().twse, crawler.getMarginTransactions,
+      // Official guarantee is only "before the next session opens" (融資融券操作辦法 §69);
+      // evening availability is practice, not promise. No same-day evidence on record.
+      publishAfter = LocalTime.of(21, 30))
   }
 
   def pullDailyTradingDetails(since: Option[LocalDate] = None): Unit = {
@@ -218,12 +329,15 @@ class Task {
     val setting = DailyTradingDetailsSetting()
     val existFiles = setting.twse.getDatesOfExistFiles & setting.tpex.getDatesOfExistFiles
     val startDate = since.getOrElse(setting.twse.firstDate)
-    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq).filterNot(existFiles).mapInSeries(crawler.getDailyTradingDetails)
+    val future = startDate.datesUntil(dailyEndExclusive(LocalTime.of(16, 0))).toScala(Seq).filterNot(existFiles).mapInSeries(crawler.getDailyTradingDetails)
     Await.result(future, Duration.Inf)
   }
 
   def pullStockPER_PBR_DividendYield(): Unit = {
-    pullDailyFiles(StockPER_PBR_DividendYieldSetting().twse, crawler.getStockPER_PBR_DividendYield)
+    pullDailyFiles(StockPER_PBR_DividendYieldSetting().twse, crawler.getStockPER_PBR_DividendYield,
+      // No official time. Empirical closed loop (2026-07-09): 15:56 fail, 16:10 fail,
+      // 18:28 success -> publishes between 16:10 and 18:28. The old 15:00 was 3h+ early.
+      publishAfter = LocalTime.of(18, 30))
   }
 
   def pullCapitalReduction(): Unit = {
@@ -250,9 +364,14 @@ class Task {
       if (y > firstYear || m >= firstMonth) && (y < today.getYear || m <= today.getMonthValue)
     } yield (y, m)
 
+    // A month is "done" once its file exists at all — including the 0-byte
+    // sentinel written when the month had no ex-right/dividend events yet.
+    // Exception: the CURRENT month keeps refetching (events accrue through the
+    // month), so an empty/small current-month file is never treated as final.
     def monthDone(year: Int, month: Int, dir: String): Boolean = {
       val f = new java.io.File(s"$dir/$year/${year}_${month}.csv")
-      f.exists() && f.length() > 200
+      val isCurrentMonth = year == today.getYear && month == today.getMonthValue
+      f.exists() && (!isCurrentMonth || f.length() > 200)
     }
 
     val setting = ExRightDividendSetting()
@@ -294,12 +413,42 @@ class Task {
   // backfill. Returns Set[LocalDate] for fast .contains() check.
   // Note: dates BEFORE daily_quote.minDate are kept (caller may want pre-2004).
   private def loadTwseTradingDays(): Set[LocalDate] = {
+    val localTradingDays = loadLocalTwseDailyQuoteTradingDays()
     val db = Database.forConfig("db")
     try {
       val q = sql"""SELECT DISTINCT date FROM daily_quote WHERE market='twse'""".as[java.sql.Date]
       val raw = Await.result(db.run(q), Duration.Inf)
-      raw.iterator.map(_.toLocalDate).toSet
+      raw.iterator.map(_.toLocalDate).toSet ++ localTradingDays
     } finally db.close()
+  }
+
+  private def loadLocalTwseDailyQuoteTradingDays(): Set[LocalDate] = {
+    val dir = DailyQuoteSetting().twse.dir.toDirectory
+    if (!dir.exists) Set.empty
+    else {
+      val fileNamePattern = """(\d+)_(\d+)_(\d+)\.csv""".r
+      dir.deepFiles.flatMap { file =>
+        file.name match {
+          case fileNamePattern(y, m, d) if file.length > 1024 =>
+            Try(LocalDate.of(y.toInt, m.toInt, d.toInt)).toOption.filter { expected =>
+              twseDailyQuoteFileDate(file.jfile).contains(expected)
+            }
+          case _ => None
+        }
+      }.toSet
+    }
+  }
+
+  private def twseDailyQuoteFileDate(file: File): Option[LocalDate] = {
+    val datePattern = """(\d{3})年(\d{2})月(\d{2})日""".r
+    val source = Source.fromFile(file, "Big5-HKSCS")
+    try {
+      source.getLines().take(5).collectFirst {
+        case line if datePattern.findFirstMatchIn(line).nonEmpty =>
+          val m = datePattern.findFirstMatchIn(line).get
+          LocalDate.of(m.group(1).toInt + 1911, m.group(2).toInt, m.group(3).toInt)
+      }
+    } finally source.close()
   }
 
   def pullSbl(since: Option[LocalDate] = None): Unit = {
@@ -308,7 +457,10 @@ class Task {
     val tpexExist = setting.tpex.getDatesOfExistFiles
     val tradingDays = loadTwseTradingDays()
     val startDate = since.getOrElse(setting.twse.firstDate)
-    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq)
+    // SBL is republished twice nightly (~20:30 partial, ~22:30 final; TWSE TWT93U /
+    // TPEx sbl notes). Fetching at 21:30 silently captures the PARTIAL file — it looks
+    // complete and would never be re-fetched. Only ask after the second update.
+    val future = startDate.datesUntil(dailyEndExclusive(LocalTime.of(22, 30))).toScala(Seq)
       .filterNot(d => coveredBoth(d, setting.twse, setting.tpex, twseExist, tpexExist))
       .filter(d => tradingDays.contains(d))   // skip weekends + holidays
       .mapInSeries(crawler.getSblBorrowing)
@@ -321,7 +473,9 @@ class Task {
     val tpexExist = setting.tpex.getDatesOfExistFiles
     val tradingDays = loadTwseTradingDays()
     val startDate = since.getOrElse(setting.twse.firstDate)
-    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq)
+    // No official time and no same-day evidence on record (the old 17:00 was a guess).
+    // Aligned with the other evening batches; the D+1 update is what actually gets it.
+    val future = startDate.datesUntil(dailyEndExclusive(LocalTime.of(21, 30))).toScala(Seq)
       .filterNot(d => coveredBoth(d, setting.twse, setting.tpex, twseExist, tpexExist))
       .filter(d => tradingDays.contains(d))   // skip weekends + holidays
       .mapInSeries(crawler.getForeignHoldingRatio)
@@ -385,16 +539,42 @@ class Task {
     val tpexExist = setting.tpex.getDatesOfExistFiles
     val tradingDays = loadTwseTradingDays()
     val startDate = since.getOrElse(setting.twse.firstDate)
-    val future = startDate.datesUntil(LocalDate.now()).toScala(Seq)
+    val future = startDate.datesUntil(dailyEndExclusive(LocalTime.of(22, 0))).toScala(Seq)
       .filterNot(d => coveredBoth(d, setting.twse, setting.tpex, twseExist, tpexExist))
       .filter(d => tradingDays.contains(d))
       .mapInSeries(crawler.getInsiderHolding)
     Await.result(future, Duration.Inf)
   }
 
-  private def pullDailyFiles(detail: Detail, crawlerFunction: LocalDate => Future[Seq[File]]): Unit = {
+  private val taipeiZone = ZoneId.of("Asia/Taipei")
+
+  /** End-exclusive crawl bound for daily sources.
+    *
+    * POLICY (docs/data_ops/twse_publish_times.md, first-hand sourced 2026-07-15):
+    * the ONE complete update runs at D+1 (pre-open loop), because D's data is only
+    * guaranteed complete then — margin balances are officially promised merely
+    * "before the next session opens", and SBL is republished at ~22:30 (a 20:30
+    * fetch silently captures a partial file that gets rewritten later).
+    *
+    * These per-source times therefore only avoid pointless same-day requests; they
+    * are NOT what makes the data correct. Crawler refuses to sentinel any date that
+    * has not passed its completeness time (D+1 00:30), so an over-optimistic time
+    * costs one wasted request — never data. Evidence level per source is noted at
+    * each call site; anything unsourced is flagged as such. */
+  private def dailyEndExclusive(publishAfter: LocalTime): LocalDate = {
+    val now = ZonedDateTime.now(taipeiZone)
+    if (now.toLocalTime.isBefore(publishAfter)) now.toLocalDate else now.toLocalDate.plusDays(1)
+  }
+
+  private def pullDailyFiles(detail: Detail, crawlerFunction: LocalDate => Future[Seq[File]],
+                             since: Option[LocalDate] = None,
+                             publishAfter: LocalTime = LocalTime.MAX): Unit = {
     val existFiles = detail.getDatesOfExistFiles
-    val future = detail.firstDate.datesUntil(LocalDate.now()).toScala(Seq).filterNot(existFiles).mapInSeries(crawlerFunction)
+    val startDate = since.getOrElse(detail.firstDate)
+    // Explicit --since is an operator override for after-close backfills and
+    // always includes today; the default bound is publish-time aware.
+    val endExclusive = if (since.isDefined) LocalDate.now().plusDays(1) else dailyEndExclusive(publishAfter)
+    val future = startDate.datesUntil(endExclusive).toScala(Seq).filterNot(existFiles).mapInSeries(crawlerFunction)
     Await.result(future, Duration.Inf)
   }
 
@@ -420,5 +600,94 @@ class Task {
       case (year, quarter) => crawlerFunction(year, quarter)
     }
     Await.result(future, Duration.Inf)
+  }
+
+  private def monthsInclusive(start: LocalDate, end: LocalDate): Seq[(Int, Int)] = {
+    val startMonth = LocalDate.of(start.getYear, start.getMonthValue, 1)
+    val endMonth = LocalDate.of(end.getYear, end.getMonthValue, 1)
+    Iterator.iterate(startMonth)(_.plusMonths(1))
+      .takeWhile(!_.isAfter(endMonth))
+      .map(d => (d.getYear, d.getMonthValue))
+      .toSeq
+  }
+
+  private def taifexBackfillMonths(envName: String, defaultValue: Int): Int =
+    sys.env.get(envName).flatMap(v => Try(v.toInt).toOption).filter(_ > 0).getOrElse(defaultValue)
+
+  private def taifexRollingMonths(today: LocalDate, monthCount: Int): Set[(Int, Int)] =
+    monthsInclusive(today.minusMonths(monthCount.toLong - 1L), today).toSet
+
+  private def taifexExistingHtmlYears(dir: String): Set[Int] = {
+    val fileNamePattern = """(\d{4})\.html""".r
+    val directory = dir.toDirectory
+    if (!directory.exists) Set.empty
+    else directory.deepFiles.flatMap(file => fileNamePattern.findFirstMatchIn(file.name).map(_.group(1).toInt)).toSet
+  }
+
+  private def loadTaifexStaleDailyMonths(): Set[(Int, Int)] = {
+    val db = Database.forConfig("db")
+    val scanDays = sys.env.get("QL_TAIFEX_STALE_SCAN_DAYS")
+      .flatMap(v => Try(v.toInt).toOption)
+      .filter(_ > 0)
+      .getOrElse(14)
+    val scanStart = java.sql.Date.valueOf(LocalDate.now().minusDays(scanDays.toLong))
+    try {
+      val staleDates = Await.result(db.run(sql"""
+        WITH ranked AS (
+          SELECT
+            date,
+            contract_code,
+            contract_month,
+            close,
+            settlement_price,
+            open_interest,
+            row_number() OVER (
+              PARTITION BY date, contract_code
+              ORDER BY contract_month
+            ) AS month_rank
+          FROM taifex_futures_daily
+          WHERE contract_code IN ('TX', 'MTX', 'TMF', 'TE', 'TF')
+            AND date >= $scanStart
+            AND trading_session = '一般'
+            AND contract_month ~ '^[0-9]{6}'
+            AND close IS NOT NULL
+        ),
+        terminal_contract_days AS (
+          SELECT
+            contract_code,
+            contract_month,
+            trading_session,
+            max(date) AS terminal_date
+          FROM taifex_futures_daily
+          WHERE contract_code IN ('TX', 'MTX', 'TMF', 'TE', 'TF')
+            AND trading_session = '一般'
+            AND contract_month ~ '^[0-9]{6}'
+          GROUP BY contract_code, contract_month, trading_session
+        )
+        SELECT DISTINCT r.date
+        FROM ranked r
+        LEFT JOIN terminal_contract_days t
+          ON r.contract_code = t.contract_code
+         AND r.contract_month = t.contract_month
+         AND r.trading_session = t.trading_session
+        WHERE r.month_rank = 1
+          AND (r.settlement_price IS NULL OR r.open_interest IS NULL)
+          -- TAIFEX daily market files keep the delivery-month contract's
+          -- settlement_price blank on many final trading days even after the
+          -- official annual archive is published. That is a stable source
+          -- semantic, not a stale download. Final settlement prices are a
+          -- separate TAIFEX clearing dataset.
+          AND NOT (
+            r.settlement_price IS NULL
+            AND r.open_interest IS NOT NULL
+            AND r.contract_month = to_char(r.date, 'YYYYMM')
+            AND r.date = t.terminal_date
+            AND r.date < CURRENT_DATE
+          )
+      """.as[java.sql.Date]), Duration.Inf)
+      staleDates.iterator.map(_.toLocalDate).map(d => (d.getYear, d.getMonthValue)).toSet
+    } catch {
+      case _: Throwable => Set.empty
+    } finally db.close()
   }
 }

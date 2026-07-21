@@ -1,19 +1,20 @@
 import akka.actor.ActorSystem
+import akka.actor.Scheduler
 import akka.stream.Materializer
 import play.api.libs.ws.ahc.{StandaloneAhcWSClient, StandaloneAhcWSRequest}
 
+import scala.concurrent.Await
+import scala.concurrent.duration._
+
 object Http {
-  private implicit val system = ActorSystem()
-  implicit val scheduler = system.scheduler
-  implicit val materializer = Materializer.matFromSystem
-  system.registerOnTermination {
-    System.exit(0)
-  }
+  private implicit val system: ActorSystem = ActorSystem()
+  implicit val scheduler: Scheduler = system.scheduler
+  implicit val materializer: Materializer = Materializer.matFromSystem
   val client = new StandaloneAhcWSClientWithProxyPool()
 
   def terminate(): Unit = {
     client.close()
-    system.terminate()
+    Await.result(system.terminate(), 30.seconds)
   }
 
   class StandaloneAhcWSClientWithProxyPool {

@@ -1,6 +1,11 @@
 ---
 name: quantlib-daily-briefing
-description: Use this skill when user requests a daily/morning market briefing (e.g. "daily briefing", "morning report", "今日重點", "盤前掃描", "早報", "今天該注意什麼"). Auto-generates: macro market summary + holdings signals + watchlist changes + key events + news classifier output. Designed to be the user's morning starting point before market opens.
+description: >-
+  Use this skill when user requests a daily/morning market briefing (e.g.
+  "daily briefing", "morning report", "今日重點", "盤前掃描", "早報",
+  "今天該注意什麼"). Auto-generates: macro market summary + holdings signals +
+  watchlist changes + key events + news classifier output. Designed to be the
+  user's morning starting point before market opens.
 ---
 
 # Daily Market Briefing — TWSE/TPEx morning report

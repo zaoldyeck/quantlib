@@ -11,7 +11,9 @@ import scopt.OParser
  *                            index | margin | stock_per_pbr | capital_reduction |
  *                            ex_right_dividend | operating_revenue | balance_sheet |
  *                            income_statement | financial_analysis | financial_statements |
- *                            etf | all
+ *                            etf | taifex_futures_daily | taifex_futures_institutional |
+ *                            taifex_futures_final_settlement | taifex_intraday_raw |
+ *                            taifex | all
  *   read    <target>       — reader only; same targets as pull
  *   strategy               — run MomentumValueStrategy backtest vs 0050
  *     --start YYYY-MM-DD
@@ -54,7 +56,7 @@ object Main {
         .children(
           arg[String]("<target>").action((x, c) => c.copy(target = x)),
           opt[LocalDate]("since").action((x, c) => c.copy(since = Some(x)))
-            .text("Start date (YYYY-MM-DD). Applies to daily_trading_details + sbl; other targets ignore it.")
+            .text("Start date (YYYY-MM-DD). Applies to incremental daily/monthly targets.")
         ),
       cmd("read")
         .action((_, c) => c.copy(command = "read"))
@@ -86,7 +88,7 @@ object Main {
   def main(args: Array[String]): Unit = {
     OParser.parse(parser, args, Config()) match {
       case Some(cfg) => run(cfg)
-      case None      => sys.exit(1)
+      case None      => throw new IllegalArgumentException("invalid arguments")
     }
   }
 
@@ -96,7 +98,8 @@ object Main {
     val financialReader = new FinancialReader
     val job = new Job
 
-    try cfg.command match {
+    try {
+      cfg.command match {
       case "init" =>
         println("[init] calling task.createTables() ...")
         try {
@@ -113,9 +116,9 @@ object Main {
 
       case "pull" =>
         cfg.target match {
-          case "daily_quote"            => task.pullDailyQuote()
+          case "daily_quote"            => task.pullDailyQuote(cfg.since)
           case "daily_trading_details"  => task.pullDailyTradingDetails(cfg.since)
-          case "index"                  => task.pullIndex()
+          case "index"                  => task.pullIndex(cfg.since)
           case "margin" | "margin_transactions" => task.pullMarginTransactions()
           case "stock_per_pbr"          => task.pullStockPER_PBR_DividendYield()
           case "capital_reduction"      => task.pullCapitalReduction()
@@ -131,6 +134,23 @@ object Main {
           case "foreign_holding_ratio" | "qfii" => task.pullForeignHoldingRatio(cfg.since)
           case "buyback" | "treasury_stock" => task.pullTreasuryStockBuyback(cfg.since)
           case "insider"                => task.pullInsiderHolding(cfg.since)
+          case "taifex_futures_daily" | "futures_daily" =>
+            task.pullTaifexFuturesDaily(cfg.since)
+          case "taifex_futures_institutional" | "futures_institutional" =>
+            task.pullTaifexFuturesInstitutional(cfg.since)
+          case "taifex_futures_final_settlement" | "futures_final_settlement" =>
+            task.pullTaifexFuturesFinalSettlement(cfg.since)
+          case "taifex_intraday_raw" | "taifex_futures_intraday" | "futures_intraday" =>
+            task.pullTaifexIntradayRaw()
+          case "taifex" =>
+            task.pullTaifexFuturesDaily(cfg.since)
+            task.pullTaifexFuturesInstitutional(cfg.since)
+            task.pullTaifexFuturesFinalSettlement(cfg.since)
+          case "taifex_all_free" =>
+            task.pullTaifexFuturesDaily(cfg.since)
+            task.pullTaifexFuturesInstitutional(cfg.since)
+            task.pullTaifexFuturesFinalSettlement(cfg.since)
+            task.pullTaifexIntradayRaw()
           case "all"                    => job.pullAllData()
           case t                        => sys.error(s"unknown pull target: $t")
         }
@@ -155,6 +175,16 @@ object Main {
           case "foreign_holding_ratio" | "qfii" => tradingReader.readForeignHoldingRatio()
           case "buyback" | "treasury_stock" => tradingReader.readTreasuryStockBuyback()
           case "insider"                => tradingReader.readInsiderHolding()
+          case "taifex_futures_daily" | "futures_daily" =>
+            tradingReader.readTaifexFuturesDaily()
+          case "taifex_futures_institutional" | "futures_institutional" =>
+            tradingReader.readTaifexFuturesInstitutional()
+          case "taifex_futures_final_settlement" | "futures_final_settlement" =>
+            tradingReader.readTaifexFuturesFinalSettlement()
+          case "taifex" =>
+            tradingReader.readTaifexFuturesDaily()
+            tradingReader.readTaifexFuturesInstitutional()
+            tradingReader.readTaifexFuturesFinalSettlement()
           case "all"                    => job.readAllData()
           case t                        => sys.error(s"unknown read target: $t")
         }
@@ -336,14 +366,18 @@ object Main {
           print(strategy.FactorResearch.report(results, corr))
         } finally db.close()
 
-      case c => sys.error(s"unknown command: $c")
-    }
-    finally {
+        case c => sys.error(s"unknown command: $c")
+      }
+    } catch {
+      case e: Throwable =>
+        Console.err.println(s"[fatal] ${e.getClass.getSimpleName}: ${e.getMessage}")
+        e.printStackTrace(Console.err)
+        throw e
+    } finally {
+      tradingReader.close()
+      financialReader.close()
+      task.close()
       job.complete()
-      // Reader.forkJoinPool holds non-daemon workers and Akka shutdown is async;
-      // without this the JVM idles for 30-60s after work is done. sbt reports
-      // `[success] Total time: Ns` only after the JVM cleanly exits.
-      sys.exit(0)
     }
   }
 }

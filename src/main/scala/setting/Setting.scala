@@ -15,10 +15,17 @@ trait Setting {
 //  val tpex: Detail
   val markets: Seq[Detail]
 
+  /** Files worth reading. 0-byte files are the crawler's "market closed" sentinels
+    * (weekends / national holidays / typhoon days) — they hold no rows by
+    * definition, so reading them inserts nothing, which leaves their date absent
+    * from the DB, which makes every later run treat them as unread and parse them
+    * again. Forever. As of 2026-07-16 that was 6,546 files re-opened on every
+    * `Main update` (and 6,546 lines of log noise). Skipping them here fixes every
+    * reader at once; the sentinels keep serving as our trading-day calendar on disk. */
   def getMarketFilesFromDirectory: Seq[MarketFile] = markets.map {
     detail =>
       val directory = detail.dir.toDirectory
-      val files = directory.deepFiles.filter(_.isFile)
+      val files = directory.deepFiles.filter(f => f.isFile && f.length > 0)
       files.map(file => MarketFile(directory.name, file))
   }.reduce(_ ++ _).toSeq
 

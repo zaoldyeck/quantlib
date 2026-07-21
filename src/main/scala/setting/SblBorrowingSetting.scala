@@ -16,13 +16,17 @@ case class SblBorrowingSetting(date: LocalDate = LocalDate.now) extends Setting 
     val dir: String = conf.getString("data.sbl.twse.dir")
 
     // TWT93U CSV: title row → group header (融券/借券賣出) → column header starting "代號".
-    override def validate(downloaded: java.io.File): Option[String] =
+    override def validate(downloaded: java.io.File): DownloadValidation =
       validateCSVSchema(
         downloaded,
         expectedHeaderKeywords = Seq("借券賣出", "代號"),
         minDataRows = 20,
         encoding = "Big5-HKSCS"
-      )
+      ) match {
+        case DownloadValidation.Invalid(reason) if date.getDayOfWeek.getValue >= 6 =>
+          DownloadValidation.NoData(reason)
+        case other => other
+      }
   }
 
   val tpex: TpexDetail = new TpexDetail(LocalDate.of(2013, 1, 2), None, date) {
@@ -32,7 +36,7 @@ case class SblBorrowingSetting(date: LocalDate = LocalDate.now) extends Setting 
     // TPEx returns JSON with totalCount=0 on non-trading days (before 2013 often empty).
     // Empty-data is treated by Crawler.isMarketHolidayResponse as holiday — good.
     // Genuine failures still land as HTML or empty file (< 50 bytes) → handled upstream.
-    override def validate(downloaded: java.io.File): Option[String] = None
+    override def validate(downloaded: java.io.File): DownloadValidation = DownloadValidation.Valid
   }
 
   val markets: Seq[Detail] = Seq(twse, tpex)

@@ -246,6 +246,7 @@ def run_backtest(start: date, end: date, capital: float,
                   freq: str = "monthly", universe: str = "twse_tpex",
                   min_roa: float = MIN_ROA_MEDIAN,
                   min_gm: float = MIN_GM_MEDIAN,
+                  topn: int = TOPN,
                   out_dir: str = "research/strat_lab/results",
                   out_suffix: str | None = None) -> dict:
     """
@@ -273,9 +274,9 @@ def run_backtest(start: date, end: date, capital: float,
         pool_sizes[rd] = len(pool)
         if pool.is_empty():
             rows.append({"rebal_d": rd, "company_code": "0050", "weight": 1.0})
-            fallback_count += TOPN
+            fallback_count += topn
             continue
-        top = pool.head(TOPN)
+        top = pool.head(topn)
         n = len(top)
         if weight_mode == "mcap":
             weights = (top["mcap"] / top["mcap"].sum()).to_list()
@@ -290,10 +291,10 @@ def run_backtest(start: date, end: date, capital: float,
         codes = top["company_code"].to_list()
         for c, w in zip(codes, weights):
             rows.append({"rebal_d": rd, "company_code": c, "weight": w})
-        if n < TOPN:
+        if n < topn:
             shortfall = 1.0 - total_w
             rows.append({"rebal_d": rd, "company_code": "0050", "weight": shortfall})
-            fallback_count += (TOPN - n)
+            fallback_count += (topn - n)
 
     picks_df = pl.DataFrame(rows) if rows else pl.DataFrame(
         schema={"rebal_d": pl.Date, "company_code": pl.Utf8, "weight": pl.Float64}
@@ -379,7 +380,7 @@ def run_backtest(start: date, end: date, capital: float,
     return {
         "iter": 13, "runtime_s": time.time() - t0,
         "weight_mode": weight_mode, "ranker": ranker, "freq": freq,
-        "universe": universe, "TOPN": TOPN,
+        "universe": universe, "TOPN": topn,
         "CAGR": cagr, "Sharpe": sharpe, "Sortino": sortino,
         "MDD": mdd, "Calmar": calmar,
         "vol_ann": vol_ann, "downvol_ann": downvol_ann,
@@ -406,6 +407,8 @@ def main() -> None:
                     help=f"Min 5y ROA TTM median (default {MIN_ROA_MEDIAN}).")
     ap.add_argument("--min-gm", type=float, default=MIN_GM_MEDIAN,
                     help=f"Min 5y GM TTM median (default {MIN_GM_MEDIAN}).")
+    ap.add_argument("--topn", type=int, default=TOPN,
+                    help=f"Number of quality holdings (default {TOPN}).")
     ap.add_argument("--suffix", default=None, help="Output filename suffix override")
     args = ap.parse_args()
 
@@ -413,9 +416,9 @@ def main() -> None:
     end = date.fromisoformat(args.end)
 
     print("=" * 78)
-    print(f"iter_13 = Quality Pool TOP {TOPN} ({args.weight_mode if hasattr(args, 'weight_mode') else args.mode}-weighted)")
+    print(f"iter_13 = Quality Pool TOP {args.topn} ({args.weight_mode if hasattr(args, 'weight_mode') else args.mode}-weighted)")
     print(f"  freq={args.freq}, ranker={args.ranker}, universe={args.universe}")
-    print(f"  TOPN={TOPN}, ROA≥{MIN_ROA_MEDIAN:.0%}, GM≥{MIN_GM_MEDIAN:.0%}, ADV≥${MIN_ADV/1e6:.0f}M")
+    print(f"  TOPN={args.topn}, ROA≥{MIN_ROA_MEDIAN:.0%}, GM≥{MIN_GM_MEDIAN:.0%}, ADV≥${MIN_ADV/1e6:.0f}M")
     print(f"  窗口（鐵則 21y）: {start} → {end}")
     print("=" * 78)
 
@@ -423,6 +426,7 @@ def main() -> None:
                         weight_mode=args.mode, ranker=args.ranker,
                         freq=args.freq, universe=args.universe,
                         min_roa=args.min_roa, min_gm=args.min_gm,
+                        topn=args.topn,
                         out_suffix=args.suffix)
     print(f"\n--- iter_13 ({res['out_suffix']}) 結果 ---")
     print(f"  CAGR:        {res['CAGR']:+.2%}")
