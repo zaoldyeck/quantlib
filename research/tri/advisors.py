@@ -112,6 +112,22 @@ def _sizing_hint(nav: float, weight: float, px: float | None, held: float) -> st
     return f"|目標 {weight:.0%} ≈ {tgt} 股(現持 {m} → {verb} {abs(tgt - m)} 股)"
 
 
+def _s_role_action(in_pool: bool, vetted: bool, adoption_day: bool) -> tuple[str, bool]:
+    """S 角色純度純函式(倖存持股未觸發出場後):→ (action, 新 vetted)。
+    action ∈ {keep_pool, keep_vetted, sell_role}。
+
+    決定性關鍵(修 2026-07-21 狀態污染):vetted(合法部位認證)**只在收養當天**
+    (adoption_day)依當天池籍鎖定一次,之後恆讀不覆寫。舊碼每次「在池」都覆寫
+    vetted=True → 用不同交易日重跑會累積出不同認證集(哪幾天跑過就留哪些),
+    使用者實測抓到。改為收養日一次性鎖定後,同一部位重跑結果恆定。
+    """
+    if in_pool:
+        return "keep_pool", (vetted or adoption_day)
+    if vetted:
+        return "keep_vetted", vetted
+    return "sell_role", vetted
+
+
 def s_advisor(con, holdings: dict[str, float], today: Date,
               nav: float = 0.0) -> Advice:
     import os
@@ -216,15 +232,20 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             od = (f"🔴 **逾期未出場**:{fire.day} 觸發(當時 {fire.price:g}),今日 {px:g}"
                   f"({(px / fire.price - 1) * 100:+.1f}%)|" if fire.is_overdue(d0) else "")
             adv.sells.append((code, f"{od}{fire.reason}"))
-        elif code in pool_rank:
+            continue
+        action, new_vetted = _s_role_action(
+            in_pool=code in pool_rank, vetted=bool(info.get("vetted_pool")),
+            adoption_day=info.get("first_seen") == d0.isoformat())
+        if new_vetted:
             st[code]["vetted_pool"] = True
+        if action == "keep_pool":
             rk = pool_rank[code]
             survivors.append((rk, code, f"今日進場池 geo 排名 #{rk}(fresh={int(fresh)})"))
-        elif info.get("vetted_pool"):
+        elif action == "keep_vetted":
             survivors.append((5_000 + int(fresh), code,
-                              f"既有合法部位(進場時通過池檢,fresh={int(fresh)} <26 續抱至出場規則)"))
-        else:
-            adv.sells.append((code, "非本策略標的(不在進場池且未曾通過池檢——"
+                              f"既有合法部位(收養日通過池檢,fresh={int(fresh)} <26 續抱至出場規則)"))
+        else:  # sell_role
+            adv.sells.append((code, "非本策略標的(不在進場池且收養日未通過池檢——"
                                     "S 不會買的名字沒有理由持有)"))
     survivors.sort()
     for i, (key, code, why) in enumerate(survivors, 1):
