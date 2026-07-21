@@ -139,3 +139,6 @@ project/plugins/project/
 
 # S 策略 live 執行期產物(每日計劃/成交 log,非源碼)
 research/trading/live/state/
+
+# 日內 1 分 K 原始資料(可由 Shioaji 重抓,不進版控;程式碼在 research/intraday/)
+/research/data/intraday/
