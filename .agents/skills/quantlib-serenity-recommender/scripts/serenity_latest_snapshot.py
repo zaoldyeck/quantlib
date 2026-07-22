@@ -15,7 +15,7 @@ from typing import Iterable
 
 
 DEFAULT_CANDIDATES = (
-    "research/strat_lab/results/"
+    "var/out/strat_lab/"
     "serenity_valuation_methods_replay_2025_scored_candidates.csv"
 )
 

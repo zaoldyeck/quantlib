@@ -10,6 +10,7 @@ import numpy as np
 import plotly.graph_objects as go
 import polars as pl
 from plotly.subplots import make_subplots
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -18,11 +19,11 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
 from iter_96_robust_alpha_research import load_benchmark_nav  # noqa: E402
 
 
-RESULTS = REPO_ROOT / "research/strat_lab/results"
+RESULTS = REPO_ROOT / f"{paths.OUT_STRAT_LAB}"
 OUT_DIR = REPO_ROOT / "docs/strategy_research"
 OUT_HTML = OUT_DIR / "iter100_ict_smc_tpo_overlay.html"
 PREFIX = "iter_100_ict_smc_tpo_overlay"

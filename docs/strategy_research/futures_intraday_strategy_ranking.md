@@ -33,6 +33,6 @@ RPT 5m/15m regular-session front-contract bars 截止：`2026-05-21`。本輪只
 
 ## Artifacts
 
-- `research/strat_lab/results/futures_tx_intraday/intraday_strategy_summary.csv`
-- `research/strat_lab/results/futures_tx_intraday/top_daily.csv`
-- `research/strat_lab/results/futures_tx_intraday/top_trades.csv`
+- `var/out/strat_lab/futures_tx_intraday/intraday_strategy_summary.csv`
+- `var/out/strat_lab/futures_tx_intraday/top_daily.csv`
+- `var/out/strat_lab/futures_tx_intraday/top_trades.csv`

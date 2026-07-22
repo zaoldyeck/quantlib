@@ -36,8 +36,8 @@ uv run --project research python -m research.trading.auto_trader smoke-test --lo
 uv run --project research python -m research.trading.auto_trader capital-check
 uv run --project research python -m research.trading.auto_trader plan
 uv run --project research python -m research.trading.auto_trader run-after-close
-uv run --project research python -m research.trading.auto_trader submit-plan research/out/trading/plans/<plan>.json
-uv run --project research python -m research.trading.auto_trader reconcile-plan research/out/trading/plans/<plan>.json --write
+uv run --project research python -m research.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json
+uv run --project research python -m research.trading.auto_trader reconcile-plan var/out/trading/plans/<plan>.json --write
 uv run --project research python -m research.trading.auto_trader run-daily
 ```
 
@@ -72,7 +72,7 @@ does not refresh data.
 Live trading requires both:
 
 ```bash
-uv run --project research python -m research.trading.auto_trader submit-plan research/out/trading/plans/<plan>.json --live
+uv run --project research python -m research.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json --live
 ```
 
 and `FUBON_DRY_RUN=false` in `research/.env`.
@@ -102,6 +102,6 @@ Iter95 target basket. `NT$1,000,000` remains the backtest-comparable size, not
 the minimum required to test live automation.
 
 The local managed-position ledger lives at
-`research/state/trading/managed_positions.json`. It exists because brokerage
+`var/state/trading/managed_positions.json`. It exists because brokerage
 inventory cannot distinguish bot-managed shares from manual holdings in the same
 account. Start a pilot from an empty ledger or import positions explicitly.

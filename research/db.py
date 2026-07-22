@@ -10,7 +10,8 @@ Views expose BOTH TWSE + TPEx rows. Research scripts must apply explicit
 import os
 import duckdb
 
-from industry_taxonomy import build_industry_taxonomy_pit
+from research.industry_taxonomy import build_industry_taxonomy_pit
+from research import paths
 
 DEFAULT_DSN = os.environ.get(
     "QL_PG_DSN",
@@ -18,7 +19,7 @@ DEFAULT_DSN = os.environ.get(
 )
 
 
-CACHE_DB = os.path.join(os.path.dirname(__file__), "cache.duckdb")
+CACHE_DB = str(paths.CACHE_DB)
 RAW_QUARTERLY_PARQUET = os.path.join(os.path.dirname(__file__), "raw_quarterly.parquet")
 
 
@@ -68,7 +69,7 @@ def _register_industry_taxonomy(con: duckdb.DuckDBPyConnection) -> None:
 def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
             use_cache: bool = True,
             register_raw_quarterly: bool = True) -> duckdb.DuckDBPyConnection:
-    """Return a DuckDB connection. If use_cache=True and `research/cache.duckdb`
+    """Return a DuckDB connection. If use_cache=True and `var/cache/cache.duckdb`
     exists, open it directly (millisecond queries). Otherwise attach live
     PostgreSQL as `pg` (slow — for ad-hoc cross-table queries only).
 

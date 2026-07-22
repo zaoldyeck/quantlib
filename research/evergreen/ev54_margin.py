@@ -16,8 +16,9 @@ import polars as pl
 
 from research.evergreen.ev36_walkforward import kpis_full
 from research.trading.margin_sim import constant_leverage, vol_target_leverage
+from research import paths
 
-NT = Path("research/tri/reports/_navtrade_cache")
+NT = Path(f"{paths.REPORTS / "tri"}/_navtrade_cache")
 FOLDS = [("折1", Date(2024, 7, 10), Date(2024, 7, 11), Date(2025, 7, 10)),
          ("折2", Date(2025, 7, 10), Date(2025, 7, 11), Date(2026, 7, 9))]
 TRAIN_START = {"S": Date(2022, 7, 11), "Serenity": Date(2022, 7, 11),

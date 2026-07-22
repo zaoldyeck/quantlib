@@ -17,11 +17,12 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "research"))
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 OOS0, OOS1 = date(2025, 7, 11), date(2026, 7, 3)
 
 from research.serenity.backfill.pool_quality_duel import boot_cagr_lb  # noqa: E402

@@ -10,7 +10,7 @@ Tests:
 Fixed: max=5 + ATR trailing (these were determined by Phase 0 / memory).
 
 Each backtest ~25s; total ~15 min sequential.
-Output: research/strat_lab/results/sweep_iter24_params_v6.csv
+Output: var/out/strat_lab/sweep_iter24_params_v6.csv
 
 Run:
     uv run --project research python research/strat_lab/sweep_iter24_params.py
@@ -27,9 +27,10 @@ from pathlib import Path
 import math
 import numpy as np
 import polars as pl
+from research import paths
 
 HERE = Path(__file__).parent
-RESULTS = HERE / "results"
+RESULTS = paths.OUT_STRAT_LAB
 
 START = "2005-01-03"
 END = "2026-04-25"

@@ -13,6 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
+from research import paths
 
 
 class StrategyStage(str, Enum):
@@ -51,7 +52,7 @@ STRATEGIES: dict[str, StrategyRegistration] = {
         validation_doc=Path("docs/serenity/serenity_event_engine_v1.md"),
         max_positions=10,
         target_weights_path=Path(
-            "research/strat_lab/results/serenity_event_engine_v1_ev_v2_thesis_inst_target_weights.csv"
+            f"{paths.OUT_STRAT_LAB}/serenity_event_engine_v1_ev_v2_thesis_inst_target_weights.csv"
         ),
         blocker=(
             "Thesis-registry curated event engine, user-selected single "
@@ -83,7 +84,7 @@ STRATEGIES: dict[str, StrategyRegistration] = {
         validation_doc=Path("docs/strategy_ranking.md"),
         max_positions=10,
         target_weights_path=Path(
-            "research/strat_lab/results/"
+            f"{paths.OUT_STRAT_LAB}/"
             "iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__"
             "time50_r-1_target_weights.csv"
         ),
@@ -109,7 +110,7 @@ STRATEGIES: dict[str, StrategyRegistration] = {
         validation_doc=Path("docs/strategy_ranking.md"),
         max_positions=11,
         target_weights_path=Path(
-            "research/strat_lab/results/iter_92_execution_meta_switch_target_weights.csv"
+            f"{paths.OUT_STRAT_LAB}/iter_92_execution_meta_switch_target_weights.csv"
         ),
         blocker=(
             "Former realistic-execution champion as of the 2026-05-18 "
@@ -128,7 +129,7 @@ STRATEGIES: dict[str, StrategyRegistration] = {
         validation_doc=Path("docs/strategy_ranking.md"),
         max_positions=10,
         target_weights_path=Path(
-            "research/strat_lab/results/"
+            f"{paths.OUT_STRAT_LAB}/"
             "iter_89_execution_champion_search_iter86_b20_b08_weekly_lb5_m2_hold40_c1_rw0_100_d75_target_weights.csv"
         ),
         blocker=(
@@ -148,7 +149,7 @@ STRATEGIES: dict[str, StrategyRegistration] = {
         validation_doc=Path("docs/strategy_ranking.md"),
         max_positions=6,
         target_weights_path=Path(
-            "research/strat_lab/results/iter_87_iter86_execution_validation_iter86_dual_target_weights_daily.csv"
+            f"{paths.OUT_STRAT_LAB}/iter_87_iter86_execution_validation_iter86_dual_target_weights_daily.csv"
         ),
         blocker=(
             "Backtest-validated champion as of the 2026-05-15 data cutoff. "

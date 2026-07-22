@@ -29,7 +29,7 @@ uv run --project research python -m research.tri.daily
 uv run --project research python -m research.serenity.daily run
 ```
 
-①的輸出:終端 + **`research/tri/reports/YYYY-MM-DD.md`(一天一份,重跑覆蓋)**。
+①的輸出:終端 + **`var/reports/tri/YYYY-MM-DD.md`(一天一份,重跑覆蓋)**。
 報告是寫給投資人看的,**純程式產生、零 LLM**——理由取自策展當時就落地的資料:
 
 | 區塊 | 內容 |
@@ -81,11 +81,11 @@ uv run --project research python -m research.tri.daily --positions-file my_posit
 
 | 東西 | 路徑 |
 |---|---|
-| 每日報告 | `research/tri/reports/YYYY-MM-DD.md` |
+| 每日報告 | `var/reports/tri/YYYY-MM-DD.md` |
 | Serenity brief | `research/serenity/out/briefs/YYYY-MM-DD.md` |
-| 出場狀態(首見日/峰值,自動維護) | `research/tri/state/*.json` |
+| 出場狀態(首見日/峰值,自動維護) | `var/state/positions/*.json` |
 | Evergreen 標記庫 | `research/evergreen/data/registry_v3.parquet` |
-| PnL 儀表板(七線,含安聯台灣科技基金) | `research/tri/pnl_dashboard.py` → `research/tri/reports/pnl_dashboard.html`;基金淨值來源見 `research/tri/allianz_fund.py` docstring |
+| PnL 儀表板(七線,含安聯台灣科技基金) | `research/tri/pnl_dashboard.py` → `var/reports/tri/pnl_dashboard.html`;基金淨值來源見 `research/tri/allianz_fund.py` docstring |
 | 策略規格書 | S: `research/apex/STRATEGY.md`;Serenity: skill `serenity-trading-system`;Evergreen: `research/evergreen/LEDGER.md`(EV30-33 定版) |
 
 ## 三策略一覽

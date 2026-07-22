@@ -24,15 +24,16 @@ from typing import Any
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from db import connect  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = ROOT / "research" / "out"
+OUT_DIR = paths.OUT
 DOC_PATH = ROOT / "docs" / "taiwan_equity_etf_ranking.md"
 DOMESTIC_JSON = ROOT / "data" / "etf" / "domestic.json"
 ALL_JSON = ROOT / "data" / "etf" / "all.json"
@@ -703,8 +704,8 @@ def _write_doc(
             "",
             "## 產出檔案",
             "",
-            "- `research/out/taiwan_equity_etf_ranking.csv`：正式排行、觀察名單與彙總欄位。",
-            "- `research/out/taiwan_equity_etf_window_metrics.csv`：每一檔 ETF 在每個窗口的完整 KPI。",
+            f"- `{paths.OUT}/taiwan_equity_etf_ranking.csv`：正式排行、觀察名單與彙總欄位。",
+            f"- `{paths.OUT}/taiwan_equity_etf_window_metrics.csv`：每一檔 ETF 在每個窗口的完整 KPI。",
             "",
             "## 資料來源",
             "",

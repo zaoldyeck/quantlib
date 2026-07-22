@@ -22,9 +22,10 @@ from validate_hybrid import (
     pbo_cscv,
     walk_forward_folds,
 )
+from research import paths
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CAPITAL = 1_000_000.0
 RF = 0.01
 

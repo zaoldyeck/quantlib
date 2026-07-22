@@ -1128,7 +1128,7 @@ LEO 衛星（SpaceX / Amazon Kuiper / OneWeb）
 ### T.4 SOP 工具
 
 - **WebSearch**：每家 thesis 補強（必須 + 不可省略）
-- **psql**：量化指標重計算（research/cache.duckdb）
+- **psql**：量化指標重計算（var/cache/cache.duckdb）
 - **`quantlib-emerging-leader-scan` skill**：找新興利基龍頭（pending Task #89）
 - **`twstock-confcall-analyzer` agent**：法說會內容 NLP 分析
 
@@ -1200,7 +1200,7 @@ LEO 衛星（SpaceX / Amazon Kuiper / OneWeb）
 
 下面數字僅作為「**質性 thesis 的事後驗證**」。如果你看到數字漂亮的公司本清單沒列入 → 可能 thesis 上不夠 dominant；如果本清單列入但數字不亮眼 → 可能是 forward thesis 強但量化還沒體現。
 
-主要量化來源：`research/cache.duckdb`（21 年 TWSE/TPEx 財報 + daily quote）。
+主要量化來源：`var/cache/cache.duckdb`（21 年 TWSE/TPEx 財報 + daily quote）。
 
 ### P.1 5y 量化基線（lagging）
 
@@ -1268,7 +1268,7 @@ LEO 衛星（SpaceX / Amazon Kuiper / OneWeb）
 3. **量化作為 sunset 確認** — 5y CAGR < 5% 且質性 thesis 也弱 → 直接 sunset（如 3034 聯詠）
 4. **量化高但未列名** — 必須補充 thesis WebSearch（如 3529 力旺，可能漏掉的 emerging leader）
 
-完整量化資料：`research/strat_lab/results/all_validation.md`，但**請勿用此 ranking 反推 watchlist**（量化是 lagging 結果，不是 forward thesis）。
+完整量化資料：`var/out/strat_lab/all_validation.md`，但**請勿用此 ranking 反推 watchlist**（量化是 lagging 結果，不是 forward thesis）。
 
 ---
 

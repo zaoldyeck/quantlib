@@ -2,13 +2,13 @@
 
 ## v12 專業決策排名（2026-05-21）
 
-**資料 cutoff**：PostgreSQL 與 `research/cache.duckdb` 均已同步至 **2026-05-21** 的 `daily_quote`。`stock_per_pbr`、`daily_trading_details`、`margin_transactions` 最新為 **2026-05-20**，但本節 ETF ranking 使用還原價格與成交值，不受 5/20 輔助表 cutoff 影響。
+**資料 cutoff**：PostgreSQL 與 `var/cache/cache.duckdb` 均已同步至 **2026-05-21** 的 `daily_quote`。`stock_per_pbr`、`daily_trading_details`、`margin_transactions` 最新為 **2026-05-20**，但本節 ETF ranking 使用還原價格與成交值，不受 5/20 輔助表 cutoff 影響。
 
 **計算口徑**：
 - 價格：`research/prices.py` 還原股價，股息與減資已納入。
 - 正式樣本：至少 60 個交易日；不足者列入 watchlist。
 - 最新共同區間：`2026-02-03~2026-05-21`，0050 同期間還原報酬 **+31.39%**。
-- 主排名改採 `research/out/active_etf_decision_rank.csv` 的 **Decision Score**，不再只看單一短窗 Score。
+- 主排名改採 `var/out/active_etf_decision_rank.csv` 的 **Decision Score**，不再只看單一短窗 Score。
 
 **v12 與舊版差異**：
 舊版 `score` 適合作為短期同窗 snapshot；v12 沿用 v11 的「主動式 ETF 長期選擇」口徑：
@@ -59,11 +59,11 @@
 **資料 freshness**：
 - 先執行 `sbt "runMain Main update"` 後，發現日資料仍停在 **2026-05-12**；根因是預設日更新為保守模式，不抓取當日資料，避免盤中或來源未發布時寫入空檔。
 - 已確認 2026-05-13 盤後 TWSE / TPEx `daily_quote` 來源已發布，並執行 `sbt "runMain Main pull daily_quote --since 2026-05-13"` + `sbt "runMain Main read daily_quote"` 補抓與匯入。
-- PostgreSQL `daily_quote` 最新日已更新至 **2026-05-13**；`research/cache.duckdb` 已重建，cache `daily_quote` 最新日同為 **2026-05-13**。
+- PostgreSQL `daily_quote` 最新日已更新至 **2026-05-13**；`var/cache/cache.duckdb` 已重建，cache `daily_quote` 最新日同為 **2026-05-13**。
 - 本節 ETF ranking 使用 `daily_quote` + `research/prices.py` 還原價格；股息與減資已納入。其他日資料輔助表仍可能停在 2026-05-12，但不影響本節 ETF 價格 ranking。
 - 00988A 為台灣掛牌、全球創新主題主動 ETF，不是純台股 ETF；本版依使用者要求納入同表，但解讀時須和台股型 ETF 分開看。
 - TDCC 為週資料，最新 `data_date` 為 **2026-05-08**。
-- 本節計算腳本：`research/analyses/active_etf_ladder.py`；結果 CSV：`research/out/active_etf_ladder_*.csv`。
+- 本節計算腳本：`research/analyses/active_etf_ladder.py`；結果 CSV：`var/out/active_etf_ladder_*.csv`。
 
 **v10.1 結論先行**：
 00993A 已達 60 個交易日，00988A 也已補入正式 universe。納入後，主結論沒有改變：**00994A 仍是最新全市場同窗冠軍**，00995A 與 00987A 仍緊追；00988A 排第 6，00993A 排第 12。
@@ -595,7 +595,7 @@ S&P 主動 vs 被動分析（SPIVA Report）28 年實證：
   - `daily_returns_from_panel(panel)` / `fetch_daily_returns(...)` → DRIP daily ret
   - `total_return_series(con, code, ...)` → 單檔 benchmark 序列
 - **計算腳本**：v7 以本地 ad hoc KPI 查詢重算全市場台股主動 ETF；v5/v6 歷史表使用 `research/analyses/active_etf_metrics.py`（ETF）+ `research/strat_lab/iter_*.py`（策略）
-- **iter_21 NAV**：`research/strat_lab/results/iter_21_daily.csv`（含 DRIP）
+- **iter_21 NAV**：`var/out/strat_lab/iter_21_daily.csv`（含 DRIP）
 - **單元測試**：`research/tests/test_prices.py`（10 tests，含 cross-implementation parity 對 active_etf_metrics 的獨立 back-prop）
 
 ### Fee 資料（v2 / v3 仍 active）

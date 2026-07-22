@@ -12,16 +12,17 @@ import sys
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
+from research.db import connect
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_40_research_campaign import CAPITAL, validate_daily
-from prices import fetch_adjusted_panel
+from research.prices import fetch_adjusted_panel
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 START = "2005-01-03"
 END = "2026-05-08"
 

@@ -12,6 +12,7 @@ import polars as pl
 import pytest
 
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
+from research import paths
 
 ZERO_COST = ExecSpec(commission=0.0, sell_tax=0.0, slippage=0.0, fill_at="next_close")
 COST = ExecSpec(commission=0.001, sell_tax=0.003, slippage=0.002, fill_at="next_close")
@@ -361,12 +362,10 @@ def test_exact_lock_sell_retry_on_locked_limit_down():
     assert len(t2) == 1 and t2[0]["exit_date"] == days[3]  # 未鎖死 → 當日 -9.9% 照樣賣出
 
 
-CACHE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "cache.duckdb"
-)
+CACHE = str(paths.CACHE_DB)
 
 
-@pytest.mark.skipif(not os.path.exists(CACHE), reason="cache.duckdb not present")
+@pytest.mark.skipif(not os.path.exists(CACHE), reason=f"{paths.CACHE_DB.name} not present")
 def test_buy_hold_parity_vs_canonical_prices():
     """引擎買進持有(零成本)必須與 prices.py 正典 total-return 精確一致。"""
     from research import prices

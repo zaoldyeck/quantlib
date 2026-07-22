@@ -15,7 +15,7 @@ Purpose: start from "which stocks 暴漲 in the past?" and work backward to find
 
 ## Prior-work reference
 
-Search repository docs, `research/strat_lab/results/`,
+Search repository docs, `var/out/strat_lab/`,
 `research/experiments/`, audit artifacts, and git history before running:
 
 - known factor IC results; avoid re-testing dead factors

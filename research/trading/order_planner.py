@@ -13,7 +13,7 @@ import duckdb
 import polars as pl
 
 from research.brokers.fubon import StockOrderRequest
-from research.execution.broker_fee import FubonFeeSchedule
+from research.execsim.broker_fee import FubonFeeSchedule
 from research.trading.live_config import LiveTradingConfig
 from research.trading.portfolio import PortfolioSnapshot
 from research.trading.strategy_registry import StrategyRegistration

@@ -59,9 +59,10 @@ from pathlib import Path
 import polars as pl
 
 from research.intraday.ratelimit import RateLimiter
+from research import paths
 
 REPO = Path(__file__).resolve().parents[2]
-OUT = REPO / "research" / "data" / "intraday" / "kbars_1m"
+OUT = paths.RAW_INTRADAY
 HIST_FLOOR = Date(2020, 3, 2)      # 官方股票/指數歷史下限
 RESERVE_BYTES = 2 * 1024 ** 2      # 一個工作單位的量級;剩餘低於此註定失敗,提早停
 MAX_RETRY = 3
@@ -73,7 +74,7 @@ WORKERS = 6
 #: 真的超額時 API 會回空/報錯,下方錯誤路徑會接住)
 USAGE_EVERY = 25
 #: 平行自證的結果(以 shioaji 版本為 key;升版即重驗)
-PARITY_FILE = REPO / "research" / "data" / "intraday" / "parallel_parity.json"
+PARITY_FILE = paths.RAW / "intraday" / "parallel_parity.json"
 
 PHASES: list[tuple[str, Date, Date, str]] = [
     ("P0 S實際持倉", HIST_FLOOR, Date.today(), "s_trades"),
@@ -177,7 +178,7 @@ def _adv_rank() -> dict[str, int]:
     """近 90 日均成交值排名(cache);缺 cache 或缺該檔 → 殿後。"""
     try:
         import duckdb
-        con = duckdb.connect(str(REPO / "research" / "cache.duckdb"), read_only=True)
+        con = duckdb.connect(str(paths.CACHE_DB), read_only=True)
         try:
             adv = con.execute(
                 "SELECT company_code, avg(trade_value) AS adv FROM daily_quote "

@@ -25,7 +25,7 @@ You are an **emerging dominance leader scanner** for the Taiwan equity market. Y
 
 ### Step 2：量化 pre-screening（DB 查詢）
 
-連 `psql -h localhost -p 5432 -d quantlib` 或 `research/cache.duckdb`，跑 candidate filter：
+連 `psql -h localhost -p 5432 -d quantlib` 或 `var/cache/cache.duckdb`，跑 candidate filter：
 
 ```sql
 WITH base AS (

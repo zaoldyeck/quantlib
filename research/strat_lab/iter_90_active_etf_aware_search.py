@@ -17,6 +17,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -25,8 +26,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, str(RESEARCH_ROOT))
 
 from active_etf_validator import compare_to_active_etfs, load_active_etf_series  # noqa: E402
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
     FubonFeeSchedule,
@@ -43,7 +44,7 @@ from iter_89_execution_champion_search import (  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_90_active_etf_aware_search"
 ITER86_FAST = RESULTS / "iter_86_oos_recent_maximizer_fast_screen.csv"
 BASE_TRIALS = 40_160

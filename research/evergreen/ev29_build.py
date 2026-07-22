@@ -8,12 +8,13 @@ from __future__ import annotations
 import json
 
 import duckdb
+from research import paths
 
 SKIP = {"2025-04"}  # pilot 已跑
 
 
 def main() -> None:
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     dates = [r[0] for r in raw.execute(
         "SELECT DISTINCT date FROM daily_quote WHERE date >= '2024-10-01' ORDER BY date").fetchall()]
     months = []

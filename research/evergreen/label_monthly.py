@@ -28,6 +28,7 @@ from pathlib import Path
 
 import duckdb
 import polars as pl
+from research import paths
 
 EG = Path("research/evergreen")
 REGISTRY = EG / "data" / "registry_v3.parquet"
@@ -45,7 +46,7 @@ DATE_PATS = [
 
 
 def cache() -> duckdb.DuckDBPyConnection:
-    return duckdb.connect("research/cache.duckdb", read_only=True)
+    return duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
 
 
 def stance_day(month: str) -> Date:

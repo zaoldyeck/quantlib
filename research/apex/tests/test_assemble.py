@@ -10,13 +10,12 @@ import os
 
 import polars as pl
 import pytest
+from research import paths
 
-CACHE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "cache.duckdb"
-)
+CACHE = str(paths.CACHE_DB)
 
 
-@pytest.mark.skipif(not os.path.exists(CACHE), reason="cache.duckdb not present")
+@pytest.mark.skipif(not os.path.exists(CACHE), reason=f"{paths.CACHE_DB.name} not present")
 def test_features_and_score_daily_groups_sane():
     from research.apex import data
     from research.apex.assemble import blend_score, build_features, entries_and_flags

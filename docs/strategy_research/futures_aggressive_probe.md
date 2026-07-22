@@ -34,4 +34,4 @@
 
 ## Artifacts
 
-- `research/strat_lab/results/futures_tx_aggressive_probe/aggressive_probe_summary.csv`
+- `var/out/strat_lab/futures_tx_aggressive_probe/aggressive_probe_summary.csv`

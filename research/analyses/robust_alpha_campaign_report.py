@@ -11,6 +11,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -19,15 +20,15 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from evaluation import drawdown_series, nav_metrics  # noqa: E402
 from iter_96_robust_alpha_research import load_benchmark_nav, relative_metrics  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 from validator import recent_one_year_metrics, validate_daily_nav  # noqa: E402
 
 
-RESULTS = REPO_ROOT / "research/strat_lab/results"
+RESULTS = REPO_ROOT / f"{paths.OUT_STRAT_LAB}"
 OUT_DIR = REPO_ROOT / "docs/strategy_research/robust_alpha_campaign"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 

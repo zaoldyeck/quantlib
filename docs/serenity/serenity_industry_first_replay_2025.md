@@ -7,7 +7,7 @@
 - 交易假設：月營收公布後第一個可交易 signal day，隔一交易日執行；使用 total-return adjusted price；含手續費、證交稅與 5 bps 買賣滑價。
 - 重要限制：這是 thesis-registry replay，不是完整人工新聞逐日 replay；若要升級，registry 每筆 thesis 都要補 source URL / evidence date / analyst note。
 
-![NAV and drawdown](../../research/strat_lab/results/serenity_industry_first_replay_2025_overview.png)
+![NAV and drawdown](../../var/out/strat_lab/serenity_industry_first_replay_2025_overview.png)
 
 ## KPI
 

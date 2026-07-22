@@ -12,10 +12,11 @@ import os
 from pathlib import Path
 
 from research.brokers.fubon import DEFAULT_ENV_PATH, load_env_file
+from research import paths
 
 
-STATE_DIR = Path("research/state/trading")
-OUT_DIR = Path("research/out/trading")
+STATE_DIR = Path(f"{paths.STATE}/trading")
+OUT_DIR = Path(f"{paths.OUT}/trading")
 
 
 @dataclass(frozen=True)

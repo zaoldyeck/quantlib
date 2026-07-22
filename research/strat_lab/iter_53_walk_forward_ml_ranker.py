@@ -23,6 +23,7 @@ from pathlib import Path
 import lightgbm as lgb
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
@@ -41,7 +42,7 @@ from iter_40_research_campaign import (  # noqa: E402
 from iter_52_ownership_flow_alpha import add_flow_scores, fetch_extra_features  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CAPITAL = 1_000_000.0
 TEST_START_YEAR = 2010
 

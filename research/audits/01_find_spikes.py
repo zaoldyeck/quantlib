@@ -7,7 +7,7 @@ fake spikes).
 Usage:
     uv run research/audits/01_find_spikes.py --min-gain 0.80 --window 60
 
-Writes `research/out/spikes.parquet` for downstream scripts.
+Writes `var/out/spikes.parquet` for downstream scripts.
 """
 from __future__ import annotations
 
@@ -16,9 +16,10 @@ import os
 import sys
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
+from research.db import connect
 
 
 def find_spikes(
@@ -105,7 +106,7 @@ def main():
     p.add_argument("--start", default="2015-01-01")
     p.add_argument("--end", default="2025-12-31")
     p.add_argument("--cooldown", type=int, default=30, help="Cooldown days to dedupe overlapping events")
-    p.add_argument("--out", default=None, help="Output parquet path (default: research/out/spikes_<params>.parquet)")
+    p.add_argument("--out", default=None, help=f"Output parquet path (default: {paths.OUT}/spikes_<params>.parquet)")
     args = p.parse_args()
 
     con = connect()
@@ -147,7 +148,7 @@ def main():
     with pl.Config(tbl_rows=10):
         print(by_company.head(10))
 
-    out_path = args.out or f"research/out/spikes_g{int(args.min_gain*100)}_w{args.window}.parquet"
+    out_path = args.out or f"f'{paths.OUT}/spikes_g'{int(args.min_gain*100)}_w{args.window}.parquet"
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     events.write_parquet(out_path)
     print(f"\n[01] saved {n_events:,} events → {out_path}")

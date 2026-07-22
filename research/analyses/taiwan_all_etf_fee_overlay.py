@@ -24,10 +24,11 @@ from zoneinfo import ZoneInfo
 
 import polars as pl
 import requests
+from research import paths
 
 
 ROOT = Path(__file__).resolve().parents[2]
-OUT_DIR = ROOT / "research" / "out"
+OUT_DIR = paths.OUT
 INPUT_CSV = OUT_DIR / "taiwan_all_equity_etf_decision_rank.csv"
 OUTPUT_CSV = OUT_DIR / "taiwan_all_equity_etf_decision_rank_with_fees.csv"
 OUTPUT_MD = ROOT / "docs" / "taiwan_all_etf_ranking_with_fees.md"

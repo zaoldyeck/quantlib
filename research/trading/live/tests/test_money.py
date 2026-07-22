@@ -4,7 +4,7 @@
 預計增減、不足要提醒補交割。金額是 money-path 的資訊面——算錯會誤導決策。
 
 **費率事實來源**(2026-07-22 更正,先前誤用 2 折 + 整股 20 元下限):
-- 折數與證交稅一律取自 `research/execution/broker_fee.py`(1.8 折、稅 0.3%),
+- 折數與證交稅一律取自 `research/execsim/broker_fee.py`(1.8 折、稅 0.3%),
   那份 schedule 同時餵回測與執行模擬,此處不得另立常數。
 - 零股最低手續費 **1 元**:富邦官方「盤中零股單筆手續費未滿新台幣 1 元者,
   按 1 元計收」。對 1 股營運是決定性的——用整股的 20 元下限估,單筆 45 元的買進
@@ -22,7 +22,7 @@ from research.trading.live.money import (COMMISSION_MIN, COMMISSION_RATE,
 
 def test_rate_comes_from_broker_fee_schedule() -> None:
     """費率必須來自唯一真源(1.8 折),不得在此另立常數而與回測靜默漂移。"""
-    from research.execution.broker_fee import FubonFeeSchedule
+    from research.execsim.broker_fee import FubonFeeSchedule
     s = FubonFeeSchedule()
     assert abs(COMMISSION_RATE - s.standard_commission_rate * 0.18) < 1e-12
     assert COMMISSION_RATE < s.standard_commission_rate * 0.2, "1.8 折應低於 2 折"

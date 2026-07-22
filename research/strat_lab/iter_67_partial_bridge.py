@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -31,7 +32,7 @@ from iter_66_core_bridge import CUMULATIVE_TRIALS as ITER66_CUMULATIVE_TRIALS  #
 from iter_66_core_bridge import Sleeve, Spec, fast_row, load_base  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_67_partial_bridge"
 VALIDATE_TOP_N = 56
 

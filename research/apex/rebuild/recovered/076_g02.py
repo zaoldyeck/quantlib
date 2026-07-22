@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T17:24:13.847Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/g02_lambdarank.py)
-涵蓋 trials(6):g02_lambdarank_W3, g02_lambdarank_fullOOS, g02_rankmse_W3, g02_rankmse_fullOOS, g02_raw_W3, g02_raw_fullOOS
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T17:24:13.847Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/g02_lambdarank.py)
+# 涵蓋 trials(6):g02_lambdarank_W3, g02_lambdarank_fullOOS, g02_rankmse_W3, g02_rankmse_fullOOS, g02_raw_W3, g02_raw_fullOOS
 """G02 — LambdaRank cohort 排名器(修 G01:真交易日曆 + top-k 目標)。
 
 三 objective 對照:lambdarank(NDCG@5,主)/ raw-reg(fwd_ret 直接回歸)/

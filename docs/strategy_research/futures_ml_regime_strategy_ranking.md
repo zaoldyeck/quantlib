@@ -29,6 +29,6 @@
 
 ## Artifacts
 
-- `research/strat_lab/results/futures_tx_ml_regime/ml_regime_strategy_summary.csv`
-- `research/strat_lab/results/futures_tx_ml_regime/top_daily.csv`
-- `research/strat_lab/results/futures_tx_ml_regime/top_trades.csv`
+- `var/out/strat_lab/futures_tx_ml_regime/ml_regime_strategy_summary.csv`
+- `var/out/strat_lab/futures_tx_ml_regime/top_daily.csv`
+- `var/out/strat_lab/futures_tx_ml_regime/top_trades.csv`

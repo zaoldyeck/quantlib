@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:04:35.923Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b12_new_families2.py)
-涵蓋 trials(8):b12ab_tpex_only, b12ab_twse_only, b12c_minprice20, b12d_fscore_gate, b12e_revmonthly_abs20, b12f_4axis_mom, b12g_fresh_breakout, b12h_revmonthly_d15
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:04:35.923Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b12_new_families2.py)
+# 涵蓋 trials(8):b12ab_tpex_only, b12ab_twse_only, b12c_minprice20, b12d_fscore_gate, b12e_revmonthly_abs20, b12f_4axis_mom, b12g_fresh_breakout, b12h_revmonthly_d15
 """B12 — 新家族探索 II(8 trials × 6 家族;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b12_new_families2

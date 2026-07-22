@@ -16,9 +16,10 @@ import json
 import os
 import sys
 from pathlib import Path
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-STATE_DIR = REPO_ROOT / "research" / "trading" / "live" / "state" / "plans"
+STATE_DIR = paths.STATE_LIVE / "plans"
 
 
 def _parse_positions(spec: str) -> dict[str, float]:

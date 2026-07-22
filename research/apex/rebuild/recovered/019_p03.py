@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:06:15.662Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/p03_gauntlet_v3.py)
-涵蓋 trials(2):p03_v3_dev, p03_v3_val
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:06:15.662Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/p03_gauntlet_v3.py)
+# 涵蓋 trials(2):p03_v3_dev, p03_v3_val
 """P03 — apex_revcycle_v3(= v1s26 + 0.5×mom126 軸)完整憲法 gauntlet。
 
 序:G1 dev+±20%(12 變體)→ G2 val(touch #4)→ G3 fill 雙測 → G4 battery

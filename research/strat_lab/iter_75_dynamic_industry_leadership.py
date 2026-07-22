@@ -20,6 +20,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
+from research import paths
 
 os.environ.setdefault("POLARS_MAX_THREADS", str(os.cpu_count() or 1))
 
@@ -32,12 +33,12 @@ from iter_40_research_campaign import CAPITAL, COMMISSION, RF, SELL_TAX, metrics
 from validator import validate_daily_nav  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
-from industry_taxonomy import TAXONOMY_VERSION  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.industry_taxonomy import TAXONOMY_VERSION  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CACHE_DIR = RESULTS / "cache"
 START = date(2005, 1, 3)
 FEATURE_VERSION = f"iter75-dynamic-industry-v2-{TAXONOMY_VERSION}"

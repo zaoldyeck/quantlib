@@ -9,7 +9,7 @@ from typing import Iterable
 import duckdb
 import polars as pl
 
-from prices import total_return_series
+from research.prices import total_return_series
 
 
 ACTIVE_ETFS: tuple[str, ...] = (

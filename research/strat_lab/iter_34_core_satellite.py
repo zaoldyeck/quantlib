@@ -26,12 +26,13 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 
 CAPITAL = 1_000_000.0
 RF = 0.01
 TDPY = 252
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 
 
 def metrics(nav: np.ndarray, days: list, capital: float | None = None) -> dict[str, float]:

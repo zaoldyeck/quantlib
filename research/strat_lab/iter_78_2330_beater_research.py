@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_75_dynamic_industry_leadership import (  # noqa: E402
@@ -31,11 +32,11 @@ from iter_75_dynamic_industry_leadership import (  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 
 
 def build_2330_benchmark(con, start: date, end: date) -> tuple[pl.DataFrame, dict[str, object]]:

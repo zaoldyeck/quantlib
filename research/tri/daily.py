@@ -10,7 +10,7 @@
   uv run --project research python -m research.tri.daily                 # 富邦 API(庫存+現金)
   uv run --project research python -m research.tri.daily --positions "2330:1000" --cash 500000
 
-報告:終端輸出 + research/tri/reports/YYYY-MM-DD.md 存檔。
+報告:終端輸出 + var/reports/tri/YYYY-MM-DD.md 存檔。
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import argparse
 import os
 import sys
 from pathlib import Path
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 from datetime import date as Date
@@ -27,7 +28,7 @@ import polars as pl
 from research.tri.advisors import (Advice, evergreen_advisor, s_advisor,
                                    serenity_advisor)  # noqa: F401
 
-REPORTS = "research/tri/reports"
+REPORTS = f"{paths.REPORTS / "tri"}"
 
 
 def order_example() -> str:
@@ -97,7 +98,7 @@ def get_account(args) -> tuple[dict[str, float], float]:
 def market_maps(codes: list[str]) -> tuple[dict, dict, str]:
     """(收盤價, 公司名, 資料日)——一次查 cache。"""
     import duckdb
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     d0 = raw.execute("SELECT max(date) FROM daily_quote").fetchone()[0]
     px, names = {}, {}
     if codes:
@@ -137,7 +138,7 @@ def ensure_fresh_cache(no_refresh: bool) -> None:
     # 要的是「有沒有正常跑」,不是 6,500 行下載明細(QL_VERBOSE=true 可全開)。
     import os as _os
 
-    log_dir = REPO_ROOT / "research" / "out" / "trading" / "update_logs"
+    log_dir = paths.OUT / "trading" / "update_logs"
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"update_{Date.today()}.log"
     with open(log_path, "w", encoding="utf-8") as lf:
@@ -206,7 +207,7 @@ def ensure_serenity_current(no_curation: bool) -> list[str]:
     lines: list[str] = []
     if no_curation:
         return ["- ⚠ --no-curation 指定:跳過策展狀態機(建議僅基於既有冊)"]
-    state_p = REPO_ROOT / "research" / "serenity" / "state" / "curation_state.json"
+    state_p = paths.STATE / "serenity" / "curation_state.json"
     state = _json.loads(state_p.read_text()) if state_p.exists() else {}
     today = Date.today()
     prev_month = f"{today.year - (today.month == 1)}-{(today.month - 2) % 12 + 1:02d}"
@@ -250,7 +251,7 @@ def ensure_serenity_current(no_curation: bool) -> list[str]:
     state_p.write_text(_json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # 3) 引擎 brief:今日未產 → 跑 serenity daily(引擎 rerun + live book 對帳 + brief)
-    brief_p = REPO_ROOT / "research" / "out" / "trading" / "briefs" / f"{today}.md"
+    brief_p = paths.OUT / "trading" / "briefs" / f"{today}.md"
     if not brief_p.exists():
         print("⟳ serenity daily run(引擎 + live book + brief)…", flush=True)
         r = subprocess.run(
@@ -264,7 +265,7 @@ def ensure_serenity_current(no_curation: bool) -> list[str]:
     # 4) 策展摘要進報告
     for f, title in (("curation_monthly_latest.json", "月度策展"),
                      ("curation_sweep_latest.json", "每日輕掃")):
-        p = REPO_ROOT / "research" / "serenity" / "state" / f
+        p = paths.STATE / "serenity" / f
         if p.exists():
             try:
                 d = _json.loads(p.read_text())

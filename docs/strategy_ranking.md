@@ -96,10 +96,10 @@ Iter93 的結論是：**沒有找到全勝現有全部策略的候選**。`ALL_W
 Iter93 artifacts：
 
 - `research/strat_lab/iter_93_unconstrained_all_win_search.py`
-- `research/strat_lab/results/iter_93_unconstrained_all_win_search/sleeve_universe.csv`
-- `research/strat_lab/results/iter_93_unconstrained_all_win_search/selected_sleeves.csv`
-- `research/strat_lab/results/iter_93_unconstrained_all_win_search/quick_summary.csv`
-- `research/strat_lab/results/iter_93_unconstrained_all_win_search/final_summary.csv`
+- `var/out/strat_lab/iter_93_unconstrained_all_win_search/sleeve_universe.csv`
+- `var/out/strat_lab/iter_93_unconstrained_all_win_search/selected_sleeves.csv`
+- `var/out/strat_lab/iter_93_unconstrained_all_win_search/quick_summary.csv`
+- `var/out/strat_lab/iter_93_unconstrained_all_win_search/final_summary.csv`
 
 ## Iter95 策略內容
 
@@ -195,13 +195,13 @@ Iter95 可重跑腳本：
 
 Iter95 主要結果：
 
-- `research/strat_lab/results/iter_95_global_exit_aware_search_summary.csv`
-- `research/strat_lab/results/iter_95_global_exit_aware_search_stage1_summary.csv`
-- `research/strat_lab/results/iter_95_global_exit_aware_search_coarse_summary.csv`
-- `research/strat_lab/results/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_daily.csv`
-- `research/strat_lab/results/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_fills.csv`
-- `research/strat_lab/results/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_trades.csv`
-- `research/strat_lab/results/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_target_weights.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_summary.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_stage1_summary.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_coarse_summary.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_daily.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_fills.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_trades.csv`
+- `var/out/strat_lab/iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_target_weights.csv`
 
 Iter92 可重跑腳本：
 
@@ -209,12 +209,12 @@ Iter92 可重跑腳本：
 
 Iter92 主要結果：
 
-- `research/strat_lab/results/iter_92_execution_meta_switch_summary.csv`
-- `research/strat_lab/results/iter_92_execution_meta_switch_daily.csv`
-- `research/strat_lab/results/iter_92_execution_meta_switch_fills.csv`
-- `research/strat_lab/results/iter_92_execution_meta_switch_target_weights.csv`
-- `research/strat_lab/results/iter_92_execution_meta_switch_state.csv`
+- `var/out/strat_lab/iter_92_execution_meta_switch_summary.csv`
+- `var/out/strat_lab/iter_92_execution_meta_switch_daily.csv`
+- `var/out/strat_lab/iter_92_execution_meta_switch_fills.csv`
+- `var/out/strat_lab/iter_92_execution_meta_switch_target_weights.csv`
+- `var/out/strat_lab/iter_92_execution_meta_switch_state.csv`
 
 研發搜尋摘要：
 
-- `research/strat_lab/results/codex_meta_execution_search_fast/final_summary.csv`
+- `var/out/strat_lab/codex_meta_execution_search_fast/final_summary.csv`

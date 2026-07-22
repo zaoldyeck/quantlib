@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T08:21:48.652Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r05_winner_ind.py)
-涵蓋 trials(9):r03d_n8, r05a_n8_extend, r05b_n20_extend, r05c_n8_ind, r05d_n20_ind, r05e_n8_geo, r05f_n8_streak, r05g_n8_ind_extend, r05h_n12_ind
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T08:21:48.652Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r05_winner_ind.py)
+# 涵蓋 trials(9):r03d_n8, r05a_n8_extend, r05b_n20_extend, r05c_n8_ind, r05d_n20_ind, r05e_n8_geo, r05f_n8_streak, r05g_n8_ind_extend, r05h_n12_ind
 """R05 — 贏家展期 × 產業動能軸 × 幾何集中 × streak(8 trials;預註冊見 batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.r05_winner_ind

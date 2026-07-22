@@ -12,6 +12,7 @@ from datetime import date as Date
 
 import duckdb
 import polars as pl
+from research import paths
 
 OUT = "research/evergreen/data/registry_v3.parquet"
 
@@ -32,7 +33,7 @@ def main() -> None:
     df = pl.DataFrame(rows).drop("arm", strict=False)
     n0 = df.height
 
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     dates = [r[0] for r in raw.execute(
         "SELECT DISTINCT date FROM daily_quote ORDER BY date").fetchall()]
     stance = {}

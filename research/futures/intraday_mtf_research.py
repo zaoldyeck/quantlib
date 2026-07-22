@@ -13,6 +13,7 @@ import sys
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from research import paths
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -32,9 +33,9 @@ from strat_lab.validator import ValidationConfig, recent_one_year_metrics
 
 
 BASE = Path(__file__).resolve().parents[2]
-DB_PATH = BASE / "research" / "cache.duckdb"
+DB_PATH = paths.CACHE_DB
 RPT_LAKE = BASE / "data" / "taifex" / "rpt" / "lake"
-OUT_DIR = BASE / "research" / "strat_lab" / "results" / "futures_tx_intraday_mtf"
+OUT_DIR = paths.OUT_STRAT_LAB / "futures_tx_intraday_mtf"
 DOC_PATH = BASE / "docs" / "strategy_research" / "futures_intraday_mtf_strategy_ranking.md"
 CAPITAL = 1_000_000.0
 
@@ -502,9 +503,9 @@ def _write_doc(summary: pl.DataFrame, cutoff: str, elapsed: float, pbo: float) -
         "",
         "## Artifacts",
         "",
-        "- `research/strat_lab/results/futures_tx_intraday_mtf/intraday_mtf_summary.csv`",
-        "- `research/strat_lab/results/futures_tx_intraday_mtf/top_daily.csv`",
-        "- `research/strat_lab/results/futures_tx_intraday_mtf/top_trades.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_intraday_mtf/intraday_mtf_summary.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_intraday_mtf/top_daily.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_intraday_mtf/top_trades.csv`",
     ]
     DOC_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

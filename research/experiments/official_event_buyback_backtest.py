@@ -28,22 +28,23 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
 STRAT_LAB = RESEARCH_ROOT / "strat_lab"
-OUT_DIR = RESEARCH_ROOT / "experiments" / "out"
+OUT_DIR = paths.OUT_EXPERIMENTS
 DOC_PATH = REPO_ROOT / "docs" / "strategy_research" / "official_event_buyback_study.md"
 CHART_PATH = REPO_ROOT / "docs" / "strategy_research" / "official_event_buyback_nav_drawdown.png"
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from evaluation import nav_metrics  # noqa: E402
 from experiments.spike_factor_analysis import load_panel  # noqa: E402
 from iter_32_first_principles import COMMISSION, SELL_TAX  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 from validator import recent_one_year_metrics  # noqa: E402
 
 

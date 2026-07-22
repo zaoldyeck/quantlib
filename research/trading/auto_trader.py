@@ -41,10 +41,11 @@ from research.trading.strategy_registry import (
     best_backtest_validated_strategy,
     best_execution_ready_strategy,
 )
+from research import paths
 
 
-CACHE_DB = Path("research/cache.duckdb")
-OUT_DIR = Path("research/out/trading")
+CACHE_DB = Path(f"{paths.CACHE_DB}")
+OUT_DIR = Path(f"{paths.OUT}/trading")
 
 
 @dataclass(frozen=True)

@@ -57,7 +57,7 @@ def main() -> None:
     con = data.connect()
     panel, feat, elig = build_features(con, "2014-06-01", "2026-07-15",
                                        warmup_days=300)
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect("var/cache/cache.duckdb", read_only=True)
     # 擴充軸:多窗動能/波動/量增/log 價格與 ADV + dm 因子
     mkt = (raw.execute("SELECT date, close FROM market_index "
                        "WHERE name = '發行量加權股價指數' ORDER BY date").pl()

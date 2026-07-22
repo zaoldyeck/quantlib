@@ -33,18 +33,19 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
 STRAT_LAB = RESEARCH_ROOT / "strat_lab"
-OUT_DIR = RESEARCH_ROOT / "experiments" / "out"
+OUT_DIR = paths.OUT_EXPERIMENTS
 RAW_DIR = OUT_DIR / "gdelt_gkg_raw"
 DOC_PATH = REPO_ROOT / "docs" / "strategy_research" / "gdelt_tw_news_alpha_survey.md"
 CHART_PATH = REPO_ROOT / "docs" / "strategy_research" / "gdelt_tw_news_alpha_survey.png"
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 from experiments.spike_factor_analysis import load_panel  # noqa: E402
 from experiments.news_alpha_common import (  # noqa: E402
     AliasRule,
@@ -56,7 +57,7 @@ from experiments.news_alpha_common import (  # noqa: E402
     pct,
     summarize_labeled_news,
 )
-from prices import total_return_series  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 TAIPEI = ZoneInfo("Asia/Taipei")
 PANEL_START = date(2012, 1, 3)
@@ -299,7 +300,7 @@ def write_report(sample_dates: list[date], hour_step: int, summary: pl.DataFrame
         "",
         "資料來源：GDELT 2.1 GKG raw metadata。此 pilot 使用 source domain、URL、themes、organizations 與 tone，不保存新聞全文。",
         "",
-        "股票映射：使用 `research/data/tw_stock_news_aliases.csv`，只啟用高可信 alias，排除容易誤判的簡稱。事件日為 GDELT timestamp 轉 Asia/Taipei 日期，下一個台股交易日收盤為 entry reference。",
+        f"股票映射：使用 `{paths.RECORDS}/tw_stock_news_aliases.csv`，只啟用高可信 alias，排除容易誤判的簡稱。事件日為 GDELT timestamp 轉 Asia/Taipei 日期，下一個台股交易日收盤為 entry reference。",
         "",
     ]
     if CHART_PATH.exists():

@@ -24,7 +24,7 @@ Then mapped to daily PIT via v4 deadline logic
 Validation: TSMC 2024Q4 standalone gross_margin should be ~0.59
             (Q4 YTD - Q3 YTD = 8685 / 5124 = 0.59)
 
-Output: research/strat_lab/results/raw_quarterly.parquet
+Output: var/out/strat_lab/raw_quarterly.parquet
 """
 from __future__ import annotations
 
@@ -37,7 +37,7 @@ from datetime import date
 import polars as pl
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
+from research.db import connect
 
 
 # Income Statement line items.

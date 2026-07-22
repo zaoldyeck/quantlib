@@ -32,7 +32,7 @@ FUBON_DRY_RUN=true
 預設使用本地 managed-position ledger：
 
 ```text
-research/state/trading/managed_positions.json
+var/state/trading/managed_positions.json
 ```
 
 原因是券商庫存只能告訴我們帳戶總庫存，無法區分這些股票是手動買入，還是策略買入。小額實盤應該從空 ledger 開始，或由使用者明確匯入要交給策略管理的既有持股。
@@ -54,19 +54,19 @@ uv run --project research python -m research.trading.auto_trader run-after-close
 隔天盤前 dry-run：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader submit-plan research/out/trading/plans/<plan>.json
+uv run --project research python -m research.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json
 ```
 
 成交後 reconcile：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader reconcile-plan research/out/trading/plans/<plan>.json --write
+uv run --project research python -m research.trading.auto_trader reconcile-plan var/out/trading/plans/<plan>.json --write
 ```
 
 隔天盤前真實送單：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader submit-plan research/out/trading/plans/<plan>.json --live
+uv run --project research python -m research.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json --live
 ```
 
 真實送單還必須在 `research/.env` 設定：

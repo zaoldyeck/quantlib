@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:44:30.146Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b07_revcycle_v2.py)
-涵蓋 trials(6):b07a_v2_base, b07b_requal2n, b07c_requal4n, b07d_fresh6, b07e_n16, b07f_n24
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:44:30.146Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b07_revcycle_v2.py)
+# 涵蓋 trials(6):b07a_v2_base, b07b_requal2n, b07c_requal4n, b07d_fresh6, b07e_n16, b07f_n24
 """B07 — apex_revcycle_v2:事件錨定再資格出場(6 trials;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b07_revcycle_v2

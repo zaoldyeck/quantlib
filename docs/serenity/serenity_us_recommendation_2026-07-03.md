@@ -16,7 +16,7 @@
 
 - 美股價格：使用 Yahoo Finance / `yfinance` 取得 2026-07-02 美股 regular session close。2026-07-03 查詢時沒有更晚的 regular close。
 - 技術停損：使用近 6 個月日線、20 日 ATR 與近 20 日低點估算。
-- 本專案 PostgreSQL / DuckDB：本次排名沒有使用台股 PostgreSQL 或 `research/cache.duckdb`，因為專案目前沒有美股基本面與價格 source-of-truth 資料表；因此不執行台股資料刷新。
+- 本專案 PostgreSQL / DuckDB：本次排名沒有使用台股 PostgreSQL 或 `var/cache/cache.duckdb`，因為專案目前沒有美股基本面與價格 source-of-truth 資料表；因此不執行台股資料刷新。
 - 網路來源：優先使用官方公司頁面、投資人關係資料與公司新聞稿，查詢日為 2026-07-03。
 
 ## 10 檔推薦排名

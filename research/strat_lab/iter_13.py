@@ -28,10 +28,11 @@ from datetime import date
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from prices import fetch_daily_returns
+from research.db import connect
+from research.prices import fetch_daily_returns
 
 
 TRAILING_YEARS_QUALITY = 5
@@ -247,7 +248,7 @@ def run_backtest(start: date, end: date, capital: float,
                   min_roa: float = MIN_ROA_MEDIAN,
                   min_gm: float = MIN_GM_MEDIAN,
                   topn: int = TOPN,
-                  out_dir: str = "research/strat_lab/results",
+                  out_dir: str = f"{paths.OUT_STRAT_LAB}",
                   out_suffix: str | None = None) -> dict:
     """
     Args:

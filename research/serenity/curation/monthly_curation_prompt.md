@@ -31,7 +31,7 @@
 2. 機械種子(與回測同一腳本、同 PIT 語義):在 repo root 執行
    `uv run --project research python -m research.serenity.backfill.seed_signals --months <M>`
    → Read `research/serenity/backfill/seeds/<M>.json`(動能/營收加速聚類)。
-3. 每日積累材料:Read `research/serenity/state/watch_log.jsonl`(若存在,取 M 月段)
+3. 每日積累材料:Read `var/state/serenity/watch_log.jsonl`(若存在,取 M 月段)
    ——每日輕掃累積的訊號與 warning。
 4. 對每個種子聚類與 watch 候選:搜尋 M 月當時新聞找供應鏈敘事(來源包含但不限於
    工商時報、經濟日報、MoneyDJ、鉅亨、科技新報、公司公告與法說,亦可用任何你認為
@@ -43,7 +43,7 @@
    = 今日)並同步 member_roles.csv 與 registry/evidence/ 材料**。
 6. 在冊主題健康度(M 月證據):invalidation 確認 → 設 active_until;證據演化 →
    調 conviction(月粒度);僅苗頭 → warnings。
-7. 寫入 `/Users/zaoldyeck/Documents/scala/quantlib/research/serenity/state/curation_monthly_latest.json`:
+7. 寫入 `/Users/zaoldyeck/Documents/scala/quantlib/var/state/serenity/curation_monthly_latest.json`:
    {"curation_month":"<M>","run_date","queries":[...],
     "actions":[{"type":"admit|invalidate|conviction_change","theme_id","codes","detail",
                 "evidence":[{"date","source","claim"}]}],

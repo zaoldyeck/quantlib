@@ -3,7 +3,7 @@
 策略(故意樸素):月頻,決策日 = 每月最後交易日,買 126d 動能(跳過近 5d)
 top 10,跌出 top 30 訊號出場 + trailing 25%。dev 窗 2012-2023。
 
-Requires: research/cache.duckdb(cache_tables.py 最新即可)。
+Requires: var/cache/cache.duckdb(cache_tables.py 最新即可)。
 Run: uv run --project research python research/apex/experiments/smoke_momentum.py
 """
 from __future__ import annotations

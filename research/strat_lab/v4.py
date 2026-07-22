@@ -4,7 +4,7 @@ Design:
   * Heavy joins in DuckDB SQL (columnar + parallel).
   * Python / Polars only assembles plan + cumprod.
   * Zero per-day Python loops in hot path.
-  * Cache DB: research/cache.duckdb (regen via cache_tables.py).
+  * Cache DB: var/cache/cache.duckdb (regen via cache_tables.py).
 
 Parity target vs Scala v4: CAGR 27.67%, Sharpe 0.96, MDD -39%, Excess +247pp.
 """
@@ -21,8 +21,8 @@ import numpy as np
 import polars as pl
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from prices import fetch_adjusted_panel, fetch_daily_returns
+from research.db import connect
+from research.prices import fetch_adjusted_panel, fetch_daily_returns
 
 TOPN = 10
 REGIME_THRESHOLD = 0.05

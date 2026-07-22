@@ -24,6 +24,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -55,7 +56,7 @@ from iter_67_partial_bridge import CUMULATIVE_TRIALS as ITER67_CUMULATIVE_TRIALS
 from iter_67_partial_bridge import PartialSpec, simulate_partial  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_68_position_level_bridge"
 SWITCH_COST = 0.00357
 

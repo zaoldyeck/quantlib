@@ -27,7 +27,7 @@ Write to `research/experiments/factor_<name>.py`:
 ```python
 """Factor: <name>. Hypothesis: <1-line>."""
 import polars as pl
-from db import connect  # reads research/cache.duckdb
+from db import connect  # reads var/cache/cache.duckdb
 
 def factor_<name>(asof_dates: list) -> pl.DataFrame:
     """Returns (asof, company_code, score). PIT-safe."""

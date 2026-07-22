@@ -13,6 +13,7 @@ import sys
 import time
 from dataclasses import replace
 from pathlib import Path
+from research import paths
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -31,16 +32,16 @@ from futures.simulator import combine_sleeve_returns, simulate_single_product
 from futures.specs import FuturesCostConfig
 from futures.strategies import StrategyCandidate, build_signal, default_candidate_grid, load_product_frame
 from futures.validation import add_recent_window_returns, futures_objective, multi_config_pbo, validate_futures_daily, verdict
-from prices import total_return_series
+from research.prices import total_return_series
 from strat_lab.evaluation import CAPITAL_DEFAULT, nav_metrics
 from strat_lab.validator import ValidationConfig, recent_one_year_metrics
 
 
 BASE = Path(__file__).resolve().parents[2]
-DB_PATH = BASE / "research" / "cache.duckdb"
-DAILY_RESULTS = BASE / "research" / "strat_lab" / "results" / "futures_tx_professional" / "futures_strategy_summary.csv"
-INTRADAY_RESULTS = BASE / "research" / "strat_lab" / "results" / "futures_tx_intraday" / "intraday_strategy_summary.csv"
-OUT_DIR = BASE / "research" / "strat_lab" / "results" / "futures_tx_advanced"
+DB_PATH = paths.CACHE_DB
+DAILY_RESULTS = paths.OUT_STRAT_LAB / "futures_tx_professional" / "futures_strategy_summary.csv"
+INTRADAY_RESULTS = paths.OUT_STRAT_LAB / "futures_tx_intraday" / "intraday_strategy_summary.csv"
+OUT_DIR = paths.OUT_STRAT_LAB / "futures_tx_advanced"
 DOC_PATH = BASE / "docs" / "strategy_research" / "futures_advanced_strategy_ranking.md"
 
 
@@ -425,10 +426,10 @@ def _write_doc(summary: pl.DataFrame, daily_cutoff: str, rpt_cutoff: str, elapse
         "",
         "## Artifacts",
         "",
-        "- `research/strat_lab/results/futures_tx_advanced/futures_advanced_summary.csv`",
-        "- `research/strat_lab/results/futures_tx_advanced/futures_advanced_base_summary.csv`",
-        "- `research/strat_lab/results/futures_tx_advanced/top_daily.csv`",
-        "- `research/strat_lab/results/futures_tx_advanced/top_weights.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_advanced/futures_advanced_summary.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_advanced/futures_advanced_base_summary.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_advanced/top_daily.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_advanced/top_weights.csv`",
     ]
     DOC_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

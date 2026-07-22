@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_40_research_campaign import CAPITAL, metrics_from_rets, validate_daily  # noqa: E402
@@ -27,7 +28,7 @@ from iter_55_squeeze_switch_refinement import add_refined_gates  # noqa: E402
 from iter_57_cost_aware_switch import confirmed, scheduled_dates  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 SWITCH_COST = 0.00357
 VALIDATE_TOP_N = 140
 SWITCH_BASE_SLEEVES = {

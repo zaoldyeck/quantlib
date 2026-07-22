@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T09:47:12.191Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r09_finlab_harvest.py)
-涵蓋 trials(10):r09a_size50, r09b_size25, r09c_buyback, r09d_breadth_halt, r09e_rev_stability, r09f_yoy_cap150, r09g_frn20, r09h_low_margin_usage, r09i_lowvol5, r09j_size_bb
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T09:47:12.191Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r09_finlab_harvest.py)
+# 涵蓋 trials(10):r09a_size50, r09b_size25, r09c_buyback, r09d_breadth_halt, r09e_rev_stability, r09f_yoy_cap150, r09g_frn20, r09h_low_margin_usage, r09i_lowvol5, r09j_size_bb
 """R09 — FinLab 全站收割批(10 trials;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.r09_finlab_harvest

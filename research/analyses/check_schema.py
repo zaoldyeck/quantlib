@@ -3,8 +3,7 @@ import sys
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import db
-
+from research import db
 def main():
     con = db.connect()
     df = con.sql("DESCRIBE raw_quarterly").df()

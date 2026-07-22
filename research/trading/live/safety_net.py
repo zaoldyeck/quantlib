@@ -34,12 +34,12 @@ import os
 from dataclasses import dataclass
 from datetime import date as Date
 from pathlib import Path
+from research import paths
 
 WIDE = 0.50            # 安全網回撤水位(> 策略自身 35%,故正常不干擾)
 DAYS = 30              # 條件單效期(天);孤兒單自行過期的上限
 _ENV_FLAG = "QL_S_SAFETY_NET"   # "0"/"false" → 停用
-STATE = (Path(__file__).resolve().parents[3]
-         / "research" / "trading" / "live" / "state" / "safety_net.json")
+STATE = (paths.STATE_LIVE / "safety_net.json")
 
 
 @dataclass(frozen=True)

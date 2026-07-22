@@ -23,6 +23,7 @@ import re
 from datetime import date as Date, timedelta
 
 import duckdb
+from research import paths
 
 SCRATCH = ("/private/tmp/claude-501/-Users-zaoldyeck-Documents-scala-quantlib/"
            "3d5413eb-b7db-45c8-bf62-efdef11c1375/scratchpad")
@@ -49,7 +50,7 @@ def fin_asof(t0: Date) -> list[tuple[int, int]]:
 
 class Enricher:
     def __init__(self) -> None:
-        self.raw = duckdb.connect("research/cache.duckdb", read_only=True)
+        self.raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
 
     def q1(self, sql: str, args: list):
         return self.raw.execute(sql, args).fetchone()

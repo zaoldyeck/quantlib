@@ -20,13 +20,14 @@ from research.apex import data
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.apex.experiments.g01_ml_ranker import kpi
 from research.evergreen.harvest import build_feats, monthly_membership
+from research import paths
 
 C = "company_code"
 
 
 def industry_momentum(panel: pl.DataFrame) -> pl.DataFrame:
     """(date, company_code, industry, ind_mom):PIT 產業 × 產業動能截面。"""
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     tax = (raw.sql("SELECT company_code, effective_date, industry "
                    "FROM industry_taxonomy_pit WHERE industry IS NOT NULL "
                    "ORDER BY effective_date").pl())

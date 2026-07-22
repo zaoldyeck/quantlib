@@ -41,7 +41,7 @@ def prep():
     feat = (feat.sort("date")
             .join_asof(rev, left_on="date", right_on="avail", by=C,
                        strategy="backward", tolerance="70d").sort([C, "date"]))
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect("var/cache/cache.duckdb", read_only=True)
     tax = raw.sql("SELECT company_code, effective_date, industry FROM "
                   "industry_taxonomy_pit WHERE industry IS NOT NULL "
                   "ORDER BY effective_date").pl()

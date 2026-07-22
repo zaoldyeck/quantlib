@@ -18,6 +18,7 @@ import polars as pl
 from research.evergreen.ev36_walkforward import seg_kpi
 from research.evergreen.ev38_exhaust import LabX
 from research.evergreen.ev40_validation import oos_navs
+from research import paths
 
 W0, W1 = Date(2025, 1, 2), Date(2026, 7, 3)
 
@@ -38,7 +39,7 @@ def main() -> None:
     s = (pl.read_parquet("research/apex/ledger/curves/T0334.parquet")
          .select(["date", pl.col("nav").alias("S")]))
     ser = (pl.read_csv(
-        "research/strat_lab/results/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
+        f"{paths.OUT_STRAT_LAB}/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
         schema_overrides={"date": pl.Date}).select(["date", pl.col("nav").alias("SER")]))
     j = (ev.join(s, on="date", how="inner").join(ser, on="date", how="inner")
          .filter((pl.col("date") >= W0) & (pl.col("date") <= W1)).sort("date"))

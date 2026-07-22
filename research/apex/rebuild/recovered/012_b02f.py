@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:47:00.919Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b08_dual_rhythm.py)
-涵蓋 trials(1):b02f_core_trail35
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:47:00.919Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b08_dual_rhythm.py)
+# 涵蓋 trials(1):b02f_core_trail35
 """B08 — 雙節奏 blend(b02f ⊕ revcycle_v1, 50/50;預註冊見 ledger/batches.md)。
 
 判準依序:dev → 擾動 → val(既有曲線合成,零新參數)。

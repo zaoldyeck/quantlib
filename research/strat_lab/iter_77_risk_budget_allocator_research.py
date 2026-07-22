@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from pm_allocator import (  # noqa: E402
@@ -26,7 +27,7 @@ from pm_allocator import (  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CAPITAL = 1_000_000.0
 TDPY = 252
 

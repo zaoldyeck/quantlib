@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -26,7 +27,7 @@ from iter_70_hierarchical_position_audit import build_hierarchical_books  # noqa
 from iter_79_lagged_hierarchical_executor import benchmark_2330, l1_distance  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_80_top_heavy_hierarchical_executor"
 TOP_KS = (2, 3, 4)
 MAX_POSITIONS = (5, 6, 10)

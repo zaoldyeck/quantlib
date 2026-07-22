@@ -23,6 +23,7 @@ import warnings
 import numpy as np
 import polars as pl
 from scipy.stats import norm
+from research import paths
 
 warnings.filterwarnings("ignore")
 
@@ -30,7 +31,7 @@ TDPY = 252
 RISK_FREE = 0.01         # 1% annualised
 CAPITAL = 1_000_000.0
 
-RESULTS_DIR = "research/strat_lab/results"
+RESULTS_DIR = f"{paths.OUT_STRAT_LAB}"
 NAV_21_PATH  = os.path.join(RESULTS_DIR, "iter_21_daily.csv")
 NAV_13_PATH  = os.path.join(RESULTS_DIR, "iter_13_mcap_daily.csv")
 

@@ -24,18 +24,19 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
 STRAT_LAB = RESEARCH_ROOT / "strat_lab"
-OUT_DIR = RESEARCH_ROOT / "experiments" / "out"
+OUT_DIR = paths.OUT_EXPERIMENTS
 RAW_DIR = OUT_DIR / "tw_news_rss_raw"
 DOC_PATH = REPO_ROOT / "docs" / "strategy_research" / "tw_news_rss_alpha_survey.md"
 CHART_PATH = REPO_ROOT / "docs" / "strategy_research" / "tw_news_rss_alpha_survey.png"
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 from experiments.news_alpha_common import (  # noqa: E402
     AliasRule,
     classify_news_metadata,
@@ -49,7 +50,7 @@ from experiments.news_alpha_common import (  # noqa: E402
     summarize_labeled_news,
 )
 from experiments.spike_factor_analysis import load_panel  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 PANEL_START = date(2012, 1, 3)
 PRICE_END = date(2026, 6, 16)

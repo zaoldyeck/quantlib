@@ -20,7 +20,7 @@ import sys
 import polars as pl
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
+from research.db import connect
 
 
 def daily_row_count_anomalies(con, table: str, market_filter: str = "twse") -> pl.DataFrame:

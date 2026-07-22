@@ -142,8 +142,8 @@
 
 ## 產出檔案
 
-- `research/out/taiwan_equity_etf_ranking.csv`：正式排行、觀察名單與彙總欄位。
-- `research/out/taiwan_equity_etf_window_metrics.csv`：每一檔 ETF 在每個窗口的完整 KPI。
+- `var/out/taiwan_equity_etf_ranking.csv`：正式排行、觀察名單與彙總欄位。
+- `var/out/taiwan_equity_etf_window_metrics.csv`：每一檔 ETF 在每個窗口的完整 KPI。
 
 ## 資料來源
 

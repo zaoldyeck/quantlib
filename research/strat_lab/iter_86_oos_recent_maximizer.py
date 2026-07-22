@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -32,7 +33,7 @@ from iter_84_aggressive_champion_validation import (  # noqa: E402
 from iter_83_blended_oos_recent_allocator import MAX_POSITIONS  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_86_oos_recent_maximizer"
 ITER84_FAST = RESULTS / "iter_84_aggressive_champion_validation_refinement_fast_screen.csv"
 ITER84_DETAIL = RESULTS / "iter_84_aggressive_champion_validation_refinement_summary.csv"

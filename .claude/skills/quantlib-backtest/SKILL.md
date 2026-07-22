@@ -25,7 +25,7 @@ Classify:
 
 ## Step 2: Freshness check
 
-`research/cache.duckdb` mtime > 24h old → advise user to run `quantlib-data-refresh`
+`var/cache/cache.duckdb` mtime > 24h old → advise user to run `quantlib-data-refresh`
 first(don't auto-refresh)。
 
 ## Step 3: Run(apex 標準路徑)

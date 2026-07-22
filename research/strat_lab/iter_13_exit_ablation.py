@@ -13,7 +13,7 @@ Background: User push back — Phase A 只測固定 % trailing stop（marginal +
 | atr_qual | Combined: ATR trailing + qual_fade |
 | atr_qual_rev | Combined: ATR + qual_fade + rev_neg |
 
-Output: research/strat_lab/results/iter_13_exit_ablation_v8.csv
+Output: var/out/strat_lab/iter_13_exit_ablation_v8.csv
 
 Run:
     uv run --project research python research/strat_lab/iter_13_exit_ablation.py
@@ -28,12 +28,13 @@ from datetime import date
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from prices import fetch_adjusted_panel, fetch_daily_returns
+from research.db import connect
+from research.prices import fetch_adjusted_panel, fetch_daily_returns
 
-RESULTS = "research/strat_lab/results"
+RESULTS = f"{paths.OUT_STRAT_LAB}"
 TDPY = 252
 RF = 0.01
 SELL_TAX = 0.003

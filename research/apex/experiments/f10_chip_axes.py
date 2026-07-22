@@ -14,7 +14,7 @@ from research.apex.experiments.f08_downmkt import (C, DEV0, DEV1, WREL, prep,
 
 def main() -> None:
     panel, feat, elig = prep()
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect("var/cache/cache.duckdb", read_only=True)
     mg = (raw.execute("SELECT date, company_code, margin_balance "
                       "FROM margin_transactions").pl()
           .sort([C, "date"])

@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T17:33:39.240Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/g03_residual_ml.py)
-涵蓋 trials(6):g03_a_geo_W3, g03_a_geo_fullOOS, g03_b_ext_W3, g03_b_ext_fullOOS, g03_c_expand_W3, g03_c_expand_fullOOS
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T17:33:39.240Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/g03_residual_ml.py)
+# 涵蓋 trials(6):g03_a_geo_W3, g03_a_geo_fullOOS, g03_b_ext_W3, g03_b_ext_fullOOS, g03_c_expand_W3, g03_c_expand_fullOOS
 """G03 — 殘差學習 + 特徵擴充 + expanding window(ML 線最後攻勢)。
 
 疊加式三變體(全 lambdarank NDCG@5):

@@ -3,9 +3,9 @@
 「盡可能買在低點/賣在高點」不能只看今日盤中——開盤初期 TPO/SMC 樣本太少。
 本模組把兩種跨日結構餵給 MicrostructureDetector 當掛單錨:
 
-1. **日線結構位**(`research/cache.duckdb` 近 30 個交易日 OHLC):
+1. **日線結構位**(`var/cache/cache.duckdb` 近 30 個交易日 OHLC):
    前日低/高、前日收盤、5 根分形 swing 低/高、日線 FVG 中線、20 日極值。
-2. **昨日價值區 prior**(`research/out/trading/candles/<date>_<code>.json`,
+2. **昨日價值區 prior**(`var/out/trading/candles/<date>_<code>.json`,
    執行器每次收盤自動 dump 的 1 分 K 自建歷史):昨日 VAL/POC/VAH。
    台股沒有免費的歷史 1 分 K 端點,這份存檔從 2026-07-09 起自我累積。
 
@@ -18,10 +18,11 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CACHE_DB = REPO_ROOT / "research" / "cache.duckdb"
-CANDLES_DIR = REPO_ROOT / "research" / "out" / "trading" / "candles"
+CACHE_DB = paths.CACHE_DB
+CANDLES_DIR = paths.OUT / "trading" / "candles"
 
 
 def _load_daily_bars(code: str, before: date, limit: int = 30) -> list[dict]:

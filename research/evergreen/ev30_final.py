@@ -13,6 +13,7 @@ import polars as pl
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev30_campaign import SW0, SW1, Lab3
 from research.evergreen.harvest import C
+from research import paths
 
 
 def run_reg(lab: Lab3, reg: pl.DataFrame):
@@ -53,7 +54,7 @@ def main() -> None:
 
     # 置換:每月同數量隨機股(從當月站位日全池抽)
     import duckdb
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     per_month = dict(reg.group_by("month").len().iter_rows())
     stance_pool = {}
     for ym in per_month:

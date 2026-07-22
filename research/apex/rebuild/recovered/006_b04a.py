@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:25:28.670Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b04_crash_defense.py)
-涵蓋 trials(8):b04a_abs15, b04b_abs20, b04c_abs25, b04d_brake_v1, b04e_brake_v2, b04f_abs20_brake, b04g_halt_v1, b04h_ma200_halt
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:25:28.670Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b04_crash_defense.py)
+# 涵蓋 trials(8):b04a_abs15, b04b_abs20, b04c_abs25, b04d_brake_v1, b04e_brake_v2, b04f_abs20_brake, b04g_halt_v1, b04h_ma200_halt
 """B04 — 出場堆疊補完:崩盤防禦(8 trials;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b04_crash_defense

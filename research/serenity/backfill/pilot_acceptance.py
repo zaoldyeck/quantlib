@@ -19,9 +19,10 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import duckdb
+from research import paths
 
 HERE = Path(__file__).parent
-CACHE = HERE.parents[2] / "research" / "cache.duckdb"
+CACHE = paths.CACHE_DB
 _ap = argparse.ArgumentParser()
 _ap.add_argument("--months", nargs="+", default=[f"2023-0{i}" for i in range(1, 7)])
 _ap.add_argument("--tag", default="2023H1")

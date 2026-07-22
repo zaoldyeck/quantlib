@@ -28,10 +28,11 @@ import numpy as np
 import plotly.graph_objects as go
 import polars as pl
 from plotly.subplots import make_subplots
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 
 CAPITAL = 1_000_000.0
@@ -40,7 +41,7 @@ TDPY = 252
 START = date(2005, 1, 3)
 END = date(2026, 5, 8)
 RECENT_1Y_START = date(2025, 5, 8)
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 
 
 @dataclass(frozen=True)

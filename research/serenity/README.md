@@ -21,9 +21,9 @@
 
 ## 產出位置(pipeline 慣例,不在本目錄)
 
-- 引擎輸出:`research/strat_lab/results/serenity_event_engine_v1_*`(state/book/target_weights/picks——registry 的 target_weights_path 指向此處)
-- 日報/訂單計畫:`research/out/trading/{briefs,plans}/`
-- 營收首見日:`research/data/revenue_first_seen.parquet`
+- 引擎輸出:`var/out/strat_lab/serenity_event_engine_v1_*`(state/book/target_weights/picks——registry 的 target_weights_path 指向此處)
+- 日報/訂單計畫:`var/out/trading/{briefs,plans}/`
+- 營收首見日:`research/records/revenue_first_seen.parquet`
 - 文件:`docs/serenity/`(戰役報告、trials ledger、curation SOP、驗證、每日推薦)
 
 ## 鐵律

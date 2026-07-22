@@ -20,7 +20,7 @@ panel = data.common_stocks(data.load_panel(con, "2022-01-01", "2026-07-09", warm
 dates_all = panel.select("date").unique().sort("date")["date"].to_list()
 months = month_firsts([d for d in dates_all if d >= Date(2022, 7, 1)])
 TRAIN_END = Date(2025, 7, 1)
-raw = duckdb.connect('research/cache.duckdb', read_only=True)
+raw = duckdb.connect('var/cache/cache.duckdb', read_only=True)
 rev = raw.sql("""SELECT company_code, year, month, monthly_revenue_yoy AS yoy
                  FROM (SELECT *, row_number() OVER (PARTITION BY company_code, year, month
                        ORDER BY monthly_revenue DESC) rn FROM operating_revenue) WHERE rn=1""").pl()

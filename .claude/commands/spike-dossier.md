@@ -14,7 +14,7 @@ Expected format: `<4-digit ticker> <YYYY-MM-DD start date>` (e.g. `3138 2020-12-
 
 ### Step 1: Locate the event
 
-1. Query `research/cache.duckdb` for this ticker around the given date
+1. Query `var/cache/cache.duckdb` for this ticker around the given date
 2. Compute actual 60-trading-day return from the given start date → identify peak_date
 3. Verify this qualifies as a spike (gain ≥ 50% over ≤ 90 trading days)
 4. If not, suggest the nearest spike event for this ticker (search ±30 trading days)

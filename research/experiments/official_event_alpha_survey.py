@@ -20,16 +20,17 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
 STRAT_LAB = RESEARCH_ROOT / "strat_lab"
-OUT_DIR = RESEARCH_ROOT / "experiments" / "out"
+OUT_DIR = paths.OUT_EXPERIMENTS
 DOC_PATH = REPO_ROOT / "docs" / "strategy_research" / "official_event_alpha_survey.md"
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 from experiments.spike_factor_analysis import load_panel  # noqa: E402
 
 

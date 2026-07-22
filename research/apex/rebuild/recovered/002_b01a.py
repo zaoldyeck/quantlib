@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:07:49.965Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b01_assembly.py)
-涵蓋 trials(8):b01a_rev_accel_solo, b01b_high52w_solo, b01c_rev_x_pos, b01d_tri_axis, b01e_tri_cfo_gate, b01f_tri_n20, b01g_fresh_event, b01h_rev_x_hvn
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:07:49.965Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b01_assembly.py)
+# 涵蓋 trials(8):b01a_rev_accel_solo, b01b_high52w_solo, b01c_rev_x_pos, b01d_tri_axis, b01e_tri_cfo_gate, b01f_tri_n20, b01g_fresh_event, b01h_rev_x_hvn
 """B01 — 策略原型組裝批(8 trials;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b01_assembly

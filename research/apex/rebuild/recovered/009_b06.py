@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:32:19.577Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/v02_validate_revcycle.py)
-涵蓋 trials(14):b06_revcycle_top10, b06_revcycle_top20, b06_vt12_e20, b06_vt12_e60, b06_vt15_e20, b06_vt15_e60, b06_vt18_e20, b06_vt18_e60, b06_vt21_e20, b06_vt21_e60, v02_dev_next_close, v02_dev_next_open, v02_val_next_close, v02_val_next_open
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:32:19.577Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/v02_validate_revcycle.py)
+# 涵蓋 trials(14):b06_revcycle_top10, b06_revcycle_top20, b06_vt12_e20, b06_vt12_e60, b06_vt15_e20, b06_vt15_e60, b06_vt18_e20, b06_vt18_e60, b06_vt21_e20, b06_vt21_e60, v02_dev_next_close, v02_dev_next_open, v02_val_next_close, v02_val_next_open
 """V02 — b06_revcycle_top20 validation(val 動用第 2 次;預註冊見 ledger/batches.md)。
 
 凍結 config:fresh≤5 cohort 內 TRI rank + cfo p50 閘、N=20、stale≥22 signal exit、

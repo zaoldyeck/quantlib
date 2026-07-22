@@ -8,7 +8,7 @@ import polars as pl
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / "research"))
 
-from industry_taxonomy import attach_industry_asof, build_industry_taxonomy_pit, normalize_industry_name
+from research.industry_taxonomy import attach_industry_asof, build_industry_taxonomy_pit, normalize_industry_name
 
 
 def _seed_revenue(con: duckdb.DuckDBPyConnection) -> None:

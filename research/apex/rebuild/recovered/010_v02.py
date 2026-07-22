@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:35:44.142Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/p01_battery_revcycle.py)
-涵蓋 trials(4):v02_dev_next_close, v02_dev_next_open, v02_val_next_close, v02_val_next_open
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:35:44.142Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/p01_battery_revcycle.py)
+# 涵蓋 trials(4):v02_dev_next_close, v02_dev_next_open, v02_val_next_close, v02_val_next_open
 """P01 — apex_revcycle_v1 完整驗證 battery(預註冊見 ledger/batches.md)。
 
 A. bootstrap CI / DSR / PBO(用既有 curves)

@@ -24,10 +24,11 @@ from pathlib import Path
 from typing import Callable
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CACHE_DB = REPO_ROOT / "research" / "cache.duckdb"
-FIRST_SEEN = REPO_ROOT / "research" / "data" / "revenue_first_seen.parquet"
+CACHE_DB = paths.CACHE_DB
+FIRST_SEEN = paths.REVENUE_FIRST_SEEN
 
 
 @dataclass(frozen=True)

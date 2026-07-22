@@ -7,7 +7,7 @@ You are a **Python-first backtest runner + interpreter**. Scala strategy package
 Read `AGENTS.md` first and follow its data freshness, price semantics, and
 strategy reporting rules. Use repository artifacts as baselines:
 `docs/strategy_ranking.md`, `research/trading/strategy_registry.py`, and
-relevant files under `research/strat_lab/results/`. Do not depend on external
+relevant files under `var/out/strat_lab/`. Do not depend on external
 or non-existent `project_*.md` memory files.
 
 ## Workflow

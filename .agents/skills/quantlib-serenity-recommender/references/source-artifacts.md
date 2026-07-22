@@ -18,12 +18,12 @@
 
 ## Generated Result Files
 
-- `research/strat_lab/results/serenity_industry_first_replay_2025_picks.csv`
-- `research/strat_lab/results/serenity_industry_first_replay_2025_summary.csv`
-- `research/strat_lab/results/serenity_industry_first_replay_2025_target_weights.csv`
-- `research/strat_lab/results/serenity_valuation_methods_replay_2025_scored_candidates.csv`
-- `research/strat_lab/results/serenity_valuation_methods_replay_2025_summary.csv`
-- `research/strat_lab/results/serenity_valuation_methods_replay_2025_target_weights.csv`
+- `var/out/strat_lab/serenity_industry_first_replay_2025_picks.csv`
+- `var/out/strat_lab/serenity_industry_first_replay_2025_summary.csv`
+- `var/out/strat_lab/serenity_industry_first_replay_2025_target_weights.csv`
+- `var/out/strat_lab/serenity_valuation_methods_replay_2025_scored_candidates.csv`
+- `var/out/strat_lab/serenity_valuation_methods_replay_2025_summary.csv`
+- `var/out/strat_lab/serenity_valuation_methods_replay_2025_target_weights.csv`
 
 ## Helper
 

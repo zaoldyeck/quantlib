@@ -15,6 +15,7 @@ import time
 from typing import Any
 
 from research.brokers.fubon import FubonBroker, classify_login_exception, redacted_account
+from research import paths
 
 
 DEFAULT_PRODUCTS = ("TXF", "MXF", "TMF", "EXF", "FXF")
@@ -217,7 +218,7 @@ def main() -> None:
             "placed_order": False,
             **classify_login_exception(exc),
         }
-        write_json(Path("research/out/fubon_futures_marketdata_capture_error.json"), summary)
+        write_json(Path(f"{paths.OUT}/fubon_futures_marketdata_capture_error.json"), summary)
     print(json.dumps(summary, ensure_ascii=False, indent=2, default=_json_default))
 
 

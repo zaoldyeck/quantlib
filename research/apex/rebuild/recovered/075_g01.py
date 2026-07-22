@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T17:21:10.836Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/g01_ml_ranker.py)
-涵蓋 trials(4):g01_ML_W3, g01_ML_fullOOS, g01_S_W3, g01_S_fullOOS
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T17:21:10.836Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/g01_ml_ranker.py)
+# 涵蓋 trials(4):g01_ML_W3, g01_ML_fullOOS, g01_S_W3, g01_S_fullOOS
 """G01 — LightGBM cohort 排名器(walk-forward 全 OOS)。
 
 保留 apex_revcycle_S 的事件框架(fresh≤7 池、adv5、n5/mn2、五出場),

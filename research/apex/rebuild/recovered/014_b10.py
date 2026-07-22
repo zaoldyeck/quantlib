@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:51:18.683Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b10_v1s26.py)
-涵蓋 trials(2):b10_v1s26_dev, b10_v1s26_val
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:51:18.683Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b10_v1s26.py)
+# 涵蓋 trials(2):b10_v1s26_dev, b10_v1s26_val
 """B10 — v1s26 單一候選:dev + ±20% 網格(Gate1);過了才開 val(Gate2)。
 
 Run: uv run --project research python -m research.apex.experiments.b10_v1s26

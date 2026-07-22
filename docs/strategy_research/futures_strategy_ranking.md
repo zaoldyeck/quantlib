@@ -56,6 +56,6 @@
 
 ## Artifacts
 
-- `research/strat_lab/results/futures_tx_professional/futures_strategy_summary.csv`
-- `research/strat_lab/results/futures_tx_professional/futures_fast_screen.csv`
+- `var/out/strat_lab/futures_tx_professional/futures_strategy_summary.csv`
+- `var/out/strat_lab/futures_tx_professional/futures_fast_screen.csv`
 - 本輪無通過 gate 的 champion，因此未輸出 champion 交易 artifacts；未通過候選只保留在 summary 與 fast screen 診斷檔。

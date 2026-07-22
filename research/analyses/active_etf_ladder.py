@@ -4,7 +4,7 @@ Prerequisite: refresh PostgreSQL and DuckDB cache before running:
   sbt "runMain Main update"
   uv run --project research python research/cache_tables.py
 
-This script intentionally reads from `research/cache.duckdb` through
+This script intentionally reads from `var/cache/cache.duckdb` through
 `research.db.connect()` and adjusted prices through `research.prices.py`.
 """
 from __future__ import annotations
@@ -17,11 +17,12 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from db import connect  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 
 @dataclass(frozen=True)
@@ -55,7 +56,7 @@ TAIWAN_ACTIVE_ETFS = [
 MIN_FORMAL_TRADING_DAYS = 60
 LADDER_MIN_ROWS = [60, 80, 120, 190, 225]
 LIQUIDITY_GATE_TWD = 100_000_000.0
-OUT_DIR = Path("research/out")
+OUT_DIR = Path(f"{paths.OUT}")
 
 
 def _pct_rank(values: list[float], higher_is_better: bool = True) -> list[float]:

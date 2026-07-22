@@ -12,7 +12,7 @@ Two-step pipeline, never skip step 2:
 Check actual source cutoffs, not only file mtime:
 
 - Latest date in relevant PostgreSQL source tables.
-- Latest date in `research/cache.duckdb`.
+- Latest date in `var/cache/cache.duckdb`.
 - Whether the standard refresh sequence already completed on the same Taiwan
   calendar day.
 
@@ -69,7 +69,7 @@ cd /Users/zaoldyeck/Documents/scala/quantlib && \
 
 Run v4 backtest; compare against repository baselines in
 `docs/strategy_ranking.md`, `research/trading/strategy_registry.py`, and recent
-`research/strat_lab/results/*` artifacts:
+`var/out/strat_lab/*` artifacts:
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
   uv run --project research python research/strat_lab/v4.py \

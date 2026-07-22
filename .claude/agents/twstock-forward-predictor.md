@@ -36,7 +36,7 @@ df.filter(pl.col('company_code') == '{TICKER}').to_pandas()
 讀取該 ticker 在最近 quality screen 的 17 個 factor 值。如果不在 quality 池內 → 回報「ticker 不在電子業 quality 池內，model 不適用」。
 
 ### Step 2: Load trained model + predict
-從 `research/strat_lab/results/multi_factor_*` 讀已訓練的 LightGBM model（如有 saved），或重新跑 walk-forward 用最近 5 年訓練 + 預測。
+從 `var/out/strat_lab/multi_factor_*` 讀已訓練的 LightGBM model（如有 saved），或重新跑 walk-forward 用最近 5 年訓練 + 預測。
 
 預測值是「該 ticker 未來 12 個月的 total return」。
 

@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T08:03:58.659Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r02_regime_momentum.py)
-涵蓋 trials(10):r02a_52wh_tb, r02b_tb_halt, r02c_tb_derisk, r02d_tb_derisk_t25, r02e_tb_crashstate, r02f_mom61_derisk, r02g_v3_mom_5050, r02h_v3_mom_7030, r02i_tb_derisk_top5, r02j_tb_derisk_t35
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T08:03:58.659Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r02_regime_momentum.py)
+# 涵蓋 trials(10):r02a_52wh_tb, r02b_tb_halt, r02c_tb_derisk, r02d_tb_derisk_t25, r02e_tb_crashstate, r02f_mom61_derisk, r02g_v3_mom_5050, r02h_v3_mom_7030, r02i_tb_derisk_top5, r02j_tb_derisk_t35
 """R02 — tie-break × regime 開關 × 雙線合成(10 trials;預註冊見 batches.md R-LINE)。
 
 Run: uv run --project research python -m research.apex.experiments.r02_regime_momentum

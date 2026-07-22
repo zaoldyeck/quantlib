@@ -29,6 +29,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -37,8 +38,8 @@ sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT / "serenity"))
 sys.path.insert(0, str(RESEARCH_ROOT / "strat_lab"))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 
 from validate_hybrid import (  # noqa: E402
     TDPY,
@@ -63,7 +64,7 @@ from replay_2025 import (  # noqa: E402
     score_candidates,
 )
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 DOCS = REPO_ROOT / "docs" / "serenity"
 CHAMPION_NAV = (
     RESULTS / "iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_daily.csv"

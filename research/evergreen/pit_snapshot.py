@@ -10,7 +10,7 @@ filtered to prints whose publish date (~10th of following month) <= asof. The
 revenue cutoff is DERIVED from asof (do NOT hardcode a month — that leaks future
 prints when the tool is reused for an earlier as-of date).
 
-Depends on: research/cache.duckdb being current (has history; we only read <= asof).
+Depends on: var/cache/cache.duckdb being current (has history; we only read <= asof).
 Run (defaults to the 2024-08 map):
     uv run --project research python -m research.evergreen.pit_snapshot
 Run for another month / tickers:
@@ -20,9 +20,10 @@ from __future__ import annotations
 import sys
 import duckdb
 from datetime import date
+from research import paths
 
 ASOF = date(2024, 8, 12)
-DB = "research/cache.duckdb"
+DB = f"{paths.CACHE_DB}"
 
 # candidate universe spanning the live 2024-08 theme map (disciplined down later)
 CANDS: dict[str, str] = {

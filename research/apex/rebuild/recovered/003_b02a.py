@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:19:05.788Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b02_exits_and_scale.py)
-涵蓋 trials(10):b02a_core, b02b_core_xr2, b02c_core_xr6, b02d_core_xr8, b02e_core_minhold10, b02f_core_trail35, b02g_hvn_core, b02h_4axis, b02i_core_n30, b02j_core_regime
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:19:05.788Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b02_exits_and_scale.py)
+# 涵蓋 trials(10):b02a_core, b02b_core_xr2, b02c_core_xr6, b02d_core_xr8, b02e_core_minhold10, b02f_core_trail35, b02g_hvn_core, b02h_4axis, b02i_core_n30, b02j_core_regime
 """B02 — 出場消融 × 規模 × 合體 × regime(10 trials;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b02_exits_and_scale

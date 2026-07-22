@@ -6,7 +6,7 @@
 - 交易假設：月營收公布後 signal，下一交易日執行；total-return adjusted price；含手續費、證交稅與 5 bps 買賣滑價。
 - 階段：這是 `research_candidate` 估值 overlay，尚未取代正式策略。
 
-![NAV and drawdown](../../research/strat_lab/results/serenity_valuation_methods_replay_2025_overview.png)
+![NAV and drawdown](../../var/out/strat_lab/serenity_valuation_methods_replay_2025_overview.png)
 
 ## 策略回測 KPI
 

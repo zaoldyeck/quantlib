@@ -19,8 +19,9 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_60_recency_regime_framework"
 CAPITAL = 1_000_000.0
 RF = 0.01

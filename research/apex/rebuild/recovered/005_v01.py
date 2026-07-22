@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:22:33.064Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/v01_validate_champion.py)
-涵蓋 trials(4):v01_dev_next_close, v01_dev_next_open, v01_val_next_close, v01_val_next_open
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:22:33.064Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/v01_validate_champion.py)
+# 涵蓋 trials(4):v01_dev_next_close, v01_dev_next_open, v01_val_next_close, v01_val_next_open
 """V01 — b02f 冠軍候選 validation 確認(預註冊見 ledger/batches.md)。
 
 config 凍結:TRI 等權 + cfo p50 閘 + N20 + exit_rank 80 + trail 35% + max_new 3。

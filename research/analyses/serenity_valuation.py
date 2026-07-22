@@ -5,8 +5,7 @@ import pandas as pd
 import numpy as np
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import db
-
+from research import db
 def main():
     parser = argparse.ArgumentParser(description='Serenity Quantitative Valuation Engine V2')
     parser.add_argument('--codes', type=str, help='Comma separated list of stock codes to value (e.g., 2330,3661)', default=None)

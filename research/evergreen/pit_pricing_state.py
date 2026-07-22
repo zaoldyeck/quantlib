@@ -9,14 +9,15 @@ Used by the mid-month labeling day to distinguish 醞釀待發 (unpriced, near-t
 trigger) from 利多出盡 / sell-the-news (already run) and from divergence (price up
 but current revenue down). Mirrors the ev28 2024-10 "定價狀態量測(PIT)" discipline.
 
-Requires: research/cache.duckdb fresh (see CLAUDE.md Data Refresh Workflow).
+Requires: var/cache/cache.duckdb fresh (see CLAUDE.md Data Refresh Workflow).
 Run: uv run --project research python -m research.evergreen.pit_pricing_state --date 2024-06-11 --codes 6187,5443,...
 """
 from __future__ import annotations
 import argparse
 import duckdb
+from research import paths
 
-CACHE = "research/cache.duckdb"
+CACHE = f"{paths.CACHE_DB}"
 
 
 def snapshot(codes: list[str], obs_date: str) -> None:

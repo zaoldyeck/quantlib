@@ -17,7 +17,7 @@ activation dates with optional lag stress. Unstructured news is deliberately
 NOT part of the backtest (no PIT news archive) — it stays a live-monitoring
 layer only.
 
-Data freshness: requires `research/cache.duckdb` current (see research SOP).
+Data freshness: requires `var/cache/cache.duckdb` current (see research SOP).
 
 Run:
   uv run --project research python research/serenity/engine.py \
@@ -33,6 +33,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import matplotlib
+from research import paths
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -46,9 +47,9 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT / "serenity"))
 
-from constants import CAPITAL, COMMISSION, SELL_TAX  # noqa: E402
-from db import connect  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.constants import CAPITAL, COMMISSION, SELL_TAX  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 from replay_2025 import set_ablate, set_conv_weight, set_fresh, set_pe_pen_mode, set_role_bonus  # noqa: E402
 from replay_2025 import (  # noqa: E402
@@ -69,7 +70,7 @@ from replay_2025 import (  # noqa: E402
 sys.path.insert(0, str(RESEARCH_ROOT / "strat_lab"))
 from evaluation import nav_metrics, trade_distribution_metrics  # noqa: E402
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 DOCS = REPO_ROOT / "docs" / "serenity"
 OUT_PREFIX = "serenity_event_engine_v1"
 
@@ -944,7 +945,7 @@ def main() -> None:
         import os as _os
         panel_cache = RESULTS / ".panel_cache"
         panel_cache.mkdir(parents=True, exist_ok=True)
-        db_mtime = int(_os.path.getmtime(REPO_ROOT / "research" / "cache.duckdb"))
+        db_mtime = int(_os.path.getmtime(paths.CACHE_DB))
         _key = hashlib.sha1(
             ("|".join(sorted(universe["company_code"])) + f"|{load_start}|{cutoff}|{db_mtime}").encode()
         ).hexdigest()[:16]

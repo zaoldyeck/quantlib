@@ -15,6 +15,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -23,8 +24,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
     ExitConfig,
@@ -49,7 +50,7 @@ from iter_96_robust_alpha_research import (  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_97_regime_risk_overlay_research"
 
 

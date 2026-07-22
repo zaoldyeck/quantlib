@@ -12,8 +12,9 @@ import duckdb
 import polars as pl
 
 from research import prices
+from research import paths
 
-CACHE_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache.duckdb")
+CACHE_DB = str(paths.CACHE_DB)
 RAW_QUARTERLY_PARQUET = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "raw_quarterly.parquet"
 )

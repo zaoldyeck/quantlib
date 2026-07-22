@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -35,7 +36,7 @@ from validate_hybrid import (  # noqa: E402
     pbo_cscv,
 )
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 DOCS = REPO_ROOT / "docs" / "strategy_research"
 CHAMPION_NAV = (
     RESULTS / "iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_daily.csv"

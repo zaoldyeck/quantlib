@@ -26,6 +26,7 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 from dateutil.relativedelta import relativedelta
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -33,8 +34,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, str(RESEARCH_ROOT))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from evaluation import nav_metrics  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
@@ -46,7 +47,7 @@ from iter_82_oos_recent_pm_allocator import expand_book_targets, load_execution_
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_DIR = RESULTS / "iter_93_unconstrained_all_win_search"
 N_TRIALS = 41_116 + 320
 

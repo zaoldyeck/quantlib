@@ -38,20 +38,21 @@ from pathlib import Path
 from typing import Iterable
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
 STRAT_LAB = RESEARCH_ROOT / "strat_lab"
-OUT_DIR = RESEARCH_ROOT / "experiments" / "out"
+OUT_DIR = paths.OUT_EXPERIMENTS
 RAW_DIR = OUT_DIR / "mops_t05st02_material_info"
 DOC_PATH = REPO_ROOT / "docs" / "strategy_research" / "mops_material_info_alpha_survey.md"
 CHART_PATH = REPO_ROOT / "docs" / "strategy_research" / "mops_material_info_alpha_survey.png"
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 from experiments.spike_factor_analysis import load_panel  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 SOURCE_URL = "https://mopsov.twse.com.tw/mops/web/ajax_t05st02"
 PANEL_START = date(2012, 1, 3)

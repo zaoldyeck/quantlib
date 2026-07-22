@@ -30,6 +30,7 @@ import time
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
+from research import paths
 
 os.environ.setdefault("POLARS_MAX_THREADS", str(os.cpu_count() or 1))
 
@@ -50,12 +51,12 @@ from iter_32_first_principles import (  # noqa: E402
 )
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 
 FEATURE_VERSION = "iter33-pm-v4-prices-split"
-CACHE_DIR = Path("research/strat_lab/results/cache")
+CACHE_DIR = Path(f"{paths.OUT_STRAT_LAB}/cache")
 
 PM_PANEL_COLUMNS = [
     "date",

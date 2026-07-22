@@ -30,10 +30,11 @@ import pandas as pd
 import polars as pl
 import vectorbt as vbt
 import empyrical as ep
+from research import paths
 
 HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, ".."))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 
 sys.path.insert(0, HERE)
 from chase_trailing_stop import (  # noqa: E402
@@ -44,7 +45,7 @@ from chase_trailing_stop import (  # noqa: E402
 
 START = "2015-01-02"
 END = "2026-04-17"
-OUT_DIR = "research/experiments/out"
+OUT_DIR = f"{paths.OUT_EXPERIMENTS}"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 

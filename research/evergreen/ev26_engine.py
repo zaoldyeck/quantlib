@@ -18,6 +18,7 @@ from research.apex import data
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.apex.experiments.g01_ml_ranker import kpi
 from research.evergreen.harvest import build_feats, monthly_membership
+from research import paths
 
 C = "company_code"
 TRAIN_END = Date(2025, 6, 30)
@@ -55,7 +56,7 @@ class Lab:
                           .sort("date")["date"].to_list())
         self.feats = build_feats(self.panel)
         import duckdb
-        raw = duckdb.connect("research/cache.duckdb", read_only=True)
+        raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
         self.taiex = (raw.sql("SELECT date, close FROM market_index "
                               "WHERE name = '發行量加權股價指數' ORDER BY date").pl())
         self.regs = {n: pl.read_parquet(

@@ -45,7 +45,7 @@ def build_features(
     """回傳 (panel, features, elig)。features = (date, code, FEATURE_COLS...)決策日值。
 
     avail_override: (company_code, year, month, avail_date) — 逐筆覆蓋月營收
-    生效日。live 決策傳入實際首見日(`research/data/revenue_first_seen.parquet`,
+    生效日。live 決策傳入實際首見日(`research/records/revenue_first_seen.parquet`,
     事件驅動:資料庫一有該公司新月報即生效,不等法定 10 日);回測不傳,
     維持保守「次月 10 日」語義(歷史無逐公司公告日資料,保守下界)。
     """

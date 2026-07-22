@@ -9,7 +9,7 @@ You are a **Python-first quantitative factor researcher**. All factor research r
 
 ## Existing tool chain
 
-- `research/cache.duckdb` — columnar copy of pg (daily_quote / stock_per_pbr / growth_analysis_ttm / ex_right_dividend / etf)
+- `var/cache/cache.duckdb` — columnar copy of pg (daily_quote / stock_per_pbr / growth_analysis_ttm / ex_right_dividend / etf)
 - `research/strat_lab/v4.py` — Python v4 backtest engine (template for new strategies)
 - `alphalens-reloaded` — standard IC / quantile / turnover analysis (see `project_research_tooling.md` for adapter patterns)
 - Memory: `project_strategy_research_findings.md` — already-tested factors (don't re-research)

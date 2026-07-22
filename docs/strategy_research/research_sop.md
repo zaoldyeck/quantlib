@@ -2,7 +2,7 @@
 
 最後更新：2026-05-18
 
-資料層狀態：`research/cache.duckdb` 已包含 `industry_taxonomy_pit`。研究時必須以當次實際查到的 `daily_quote`、`stock_per_pbr`、`daily_trading_details`、`operating_revenue` 與 `industry_taxonomy_pit` cutoff 為準，不得沿用本文件文字中的舊日期。
+資料層狀態：`var/cache/cache.duckdb` 已包含 `industry_taxonomy_pit`。研究時必須以當次實際查到的 `daily_quote`、`stock_per_pbr`、`daily_trading_details`、`operating_revenue` 與 `industry_taxonomy_pit` cutoff 為準，不得沿用本文件文字中的舊日期。
 
 本文件是台股量化策略研發的正式作業流程。任何新策略、策略改版、參數 sweep、文件排名或自動交易前檢查，都必須依這份 SOP 執行。目的不是最大化紙面績效，而是建立可重現、point-in-time、含成本、可轉成真實交易的策略。
 

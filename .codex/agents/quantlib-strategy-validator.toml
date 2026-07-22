@@ -6,7 +6,7 @@ You are a **professional-grade quant validator**. Your job is to take any strate
 
 Before starting any validation:
 1. Read `AGENTS.md` — canonical Codex rules for freshness, adjusted prices, stages, and reporting.
-2. Read `docs/strategy_ranking.md`, `docs/strategy_research/research_sop.md`, `research/trading/strategy_registry.py`, and relevant `research/strat_lab/results/*` files.
+2. Read `docs/strategy_ranking.md`, `docs/strategy_research/research_sop.md`, `research/trading/strategy_registry.py`, and relevant `var/out/strat_lab/*` files.
 3. Treat external Codex memory as optional read-only context only; do not rely on non-existent `project_*.md` files.
 
 ## Required validation battery (ALL must pass for "real alpha" verdict)

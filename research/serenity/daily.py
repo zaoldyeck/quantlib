@@ -34,17 +34,18 @@ import subprocess
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "research"))
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
-OUT_DIR = REPO_ROOT / "research" / "out" / "trading"
+RESULTS = paths.OUT_STRAT_LAB
+OUT_DIR = paths.OUT / "trading"
 BRIEFS = OUT_DIR / "briefs"
 PLANS = OUT_DIR / "plans"
-OVERRIDES = Path(__file__).parent / "state" / "overrides.json"
-LIVE_BOOK = Path(__file__).parent / "state" / "live_positions.json"
+OVERRIDES = paths.STATE / "serenity" / "overrides.json"
+LIVE_BOOK = paths.STATE / "serenity" / "live_positions.json"
 STRATEGY_ID = "serenity_ev_v3_wf"
 VARIANT = "ev_v3_wf"  # 2026-07-17 換帥(battle 18);計分側旗標見 cmd_run 的 engine 呼叫
 ENGINE = REPO_ROOT / "research" / "serenity" / "engine.py"
@@ -242,7 +243,7 @@ def cmd_run(args: argparse.Namespace) -> None:
         if r.returncode != 0:
             raise SystemExit("cache rebuild failed — no plan today (fail-closed).")
 
-    con = duckdb.connect(str(REPO_ROOT / "research" / "cache.duckdb"), read_only=True)
+    con = duckdb.connect(str(paths.CACHE_DB), read_only=True)
     cutoff = con.sql("select max(date) from daily_quote").fetchone()[0]
     staleness = (today - cutoff).days
     brief.append(f"- data cutoff: **{cutoff}**(距今 {staleness} 天)")
@@ -252,7 +253,7 @@ def cmd_run(args: argparse.Namespace) -> None:
     # This builds the timestamp dataset that will make the event-driven
     # revenue upgrade backtestable in the future.
     prev_m = date(today.year - (today.month == 1), (today.month - 2) % 12 + 1, 1)
-    seen_path = REPO_ROOT / "research" / "data" / "revenue_first_seen.parquet"
+    seen_path = paths.REVENUE_FIRST_SEEN
     try:
         import pandas as pd
 
@@ -503,7 +504,7 @@ def cmd_run(args: argparse.Namespace) -> None:
                 for r in recent.itertuples(index=False):
                     link = f"[簡報]({r.pdf})" if r.pdf else "(無簡報連結)"
                     brief.append(f"- 已開:{r.company_code} {r.company_name} {r.date} —— {link} → read-through(客戶/供應商指引回讀註冊表)")
-            evp = REPO_ROOT / "research" / "data" / "confcall_events.parquet"
+            evp = paths.CONFCALL_EVENTS
             old = (
                 pd.read_parquet(evp)
                 if evp.exists()

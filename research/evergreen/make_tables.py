@@ -25,6 +25,7 @@ import duckdb
 import polars as pl
 
 from research.apex import data
+from research import paths
 
 C = "company_code"
 OUT = "research/evergreen/data/ev13_tables"
@@ -66,7 +67,7 @@ def main() -> None:
     if not months:
         raise SystemExit("usage: make_tables.py YYYY-MM ...")
     con = data.connect()
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     panel = data.common_stocks(
         data.load_panel(con, "2021-07-01", "2026-07-09", warmup_days=300))
     E = (data.eligibility(panel, min_adv=5_000_000.0)

@@ -17,7 +17,7 @@ repository.
   repository. Reusable operations should live in package-manager commands,
   scripts, `.agents/skills/`, or `.codex/agents/`, not in Claude command files.
 - Durable project facts belong in repository artifacts such as `docs/`,
-  `research/trading/strategy_registry.py`, and `research/strat_lab/results/`.
+  `research/trading/strategy_registry.py`, and `var/out/strat_lab/`.
 - External Codex memory is read-only context unless the user explicitly asks to
   remember something. Do not write or reference non-existent `project_*.md`
   memory files as the source of truth.
@@ -28,7 +28,7 @@ Before any data-related conclusion, ranking, backtest, KPI table, or investment
 analysis:
 
 1. Check the latest date in the relevant PostgreSQL source tables.
-2. Check the latest date in `research/cache.duckdb` when Python research scripts
+2. Check the latest date in `var/cache/cache.duckdb` when Python research scripts
    will read from the cache.
 3. If either side is stale, update data first, then recompute results.
 4. State the actual data cutoff used in the output or document.
@@ -47,6 +47,23 @@ uv run --project research python research/cache_tables.py
 ```
 
 Do not publish rankings or backtest conclusions from stale cached data.
+
+### TAIFEX Intraday Partial-Data Guard
+
+For TAIFEX free recent tick / intraday archives, never let an in-progress
+current trading day enter research or backtests.
+
+- Default latest safe intraday date is Taiwan today minus one calendar day until
+  `16:00:00` Asia/Taipei.
+- After `16:00:00` Asia/Taipei, today may be downloaded or parsed only if the
+  official archive exists and downstream daily contract metadata is consistent.
+- `QL_TAIFEX_INTRADAY_SAFE_AFTER` may move the cutoff later, but not earlier
+  for research runs unless the user explicitly asks for live/paper intraday
+  capture.
+- `QL_TAIFEX_INTRADAY_ALLOW_TODAY=true` is only for live capture or manual
+  diagnostics; never use it for historical backtests.
+- Strategy research must state the actual intraday cutoff, and it must be the
+  minimum completed cutoff across official daily data and tick-derived features.
 
 ## Performance First
 
@@ -133,3 +150,20 @@ design.
 - daily trading must block when no `execution_ready` strategy exists;
 - live execution requires both an explicit live command and `FUBON_DRY_RUN=false`;
 - all generated plans and broker calls must record whether any order was placed.
+
+## Strategy Reporting
+
+When reporting any trading strategy result, always include the strategy's most
+recent 1-year CAGR in addition to full-window and OOS metrics. If the latest
+available data end date is not today, state the exact 1-year window used.
+
+Strategy research, rankings, backtests, challenger comparisons, and deployment
+candidate reports must include visual charts, not only tables. At minimum,
+include an equity/NAV or P&L curve, a drawdown curve, and benchmark comparisons
+against the relevant buy-and-hold alternatives. When the strategy involves
+rotation, regime switching, changing exposure, or execution costs, add the
+appropriate supporting charts such as rolling return/CAGR, rolling drawdown,
+exposure, turnover, position count, or cost/fill diagnostics. Prefer HTML or a
+similarly chart-friendly format when Markdown would make the report hard to
+review.
+

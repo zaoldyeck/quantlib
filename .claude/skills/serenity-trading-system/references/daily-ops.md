@@ -20,7 +20,7 @@ uv run --project research python -m research.serenity.daily run
 / time-stop 50 日 / **法人分佈出場 inst_20d<0 且虧損(戰役八採納,最快的事實級利空代理)**
 / 營收論點停損 yoy_3m<0;外加 overrides 人工出場)→ 席位補進(引擎最新計分,3 檔/日,
 遵守 guards)→ 產生 Fubon 訂單計畫(換手 >60% 且非換股窗 → 標記需人工複核)→
-寫日報 `research/out/trading/briefs/YYYY-MM-DD.md`(append-only 前瞻證據)。
+寫日報 `var/out/trading/briefs/YYYY-MM-DD.md`(append-only 前瞻證據)。
 
 **07:40 判斷段**(Claude 每日 session 的固定清單):
 1. 讀今日 brief(持倉、guard 狀態、計畫摘要、**法說行事曆**)
@@ -60,7 +60,7 @@ uv run --project research python -m research.trading.execution.sell --code XXXX 
 uv run --project research python -m research.trading.auto_trader submit-plan <plan.json>
 ```
 安全:賣出前庫存夾緊(live 以券商 inventories 為準)、今日已成交防重複、
-kill switch `research/state/trading/HALT`、TCA 日誌。細節見
+kill switch `var/state/trading/HALT`、TCA 日誌。細節見
 `research/trading/execution/README.md`。
 
 **14:35 盤後(每個交易日)**:補存當日 1 分 K(執行器跨日結構的資料源;
@@ -79,7 +79,7 @@ uv run --project research python -m research.trading.auto_trader reconcile-plan 
 
 - **每月 1-15 日 = 營收公布窗(事件驅動,2026-07-07 升級)**:爬蟲每天重抓上月彙總、
   引擎以 `--live-revenue` 每日滾動計分——**公司一公布營收,隔天就進決策**,不等 10 日;
-  首見日寫入 `research/data/revenue_first_seen.parquet`(未來回測用)。11-14 日仍是
+  首見日寫入 `research/records/revenue_first_seen.parquet`(未來回測用)。11-14 日仍是
   傳統換股高峰(多數公司集中壓線公布),換手保險絲在此窗自動放寬;判斷層多花時間核名單
 - **每週(週末)**:`sbt "runMain Main pull tdcc"` + `pull buyback`(週頻資料);skill 上游同步 `update_from_upstream.sh`;檢視 overrides.json 是否有已生效可清除的條目
 - **每季**:註冊表全表複審(`review_by` 到期強制降級)、regime kill-switch 基本面四指標(hyperscaler capex/TSM 展望/記憶體價格/光學 backlog)人工判定
@@ -90,7 +90,7 @@ uv run --project research python -m research.trading.auto_trader reconcile-plan 
 1. 爬蟲失敗 / cache 失敗 / book 日期不符 / 資料過期 → 拒絕產計畫
 2. 換手異常(>60% 非換股窗)→ 計畫標記,人工複核才可送
 3. **全帳戶管理 + 收養協定(live-book 架構)**:券商庫存 = 單一真相來源,每日開盤前
-   reconcile 進 live ledger(`research/serenity/state/live_positions.json`)。**帳戶內既有持股不因
+   reconcile 進 live ledger(`var/state/serenity/live_positions.json`)。**帳戶內既有持股不因
    「不在名單」被賣**——自動收養:視同過去某時點由本系統買入,錨 = 收養日收盤(五條出場
    規則的時鐘自此重啟),當日判斷層必須完成該股的完整 Serenity 檢核(註冊表歸屬/瓶頸論點/
    計分位置)並寫入論點註記;此後與引擎進場的部位一視同仁,**管理到它自己的出場價**

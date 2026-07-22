@@ -19,13 +19,14 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_40_research_campaign import CAPITAL, COMMISSION, SELL_TAX, metrics_from_rets, validate_daily  # noqa: E402
 from iter_45_fallback_gate_sweep import load_base  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 
 
 @dataclass(frozen=True)

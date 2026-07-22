@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:27:52.869Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b05_dual_book.py)
-涵蓋 trials(8):b05a_def_solo, b05b_main_def_8020, b05c_main_def_7030, b05d_main_def_6040, b05e_mega_solo, b05f_main_mega_8020, b05g_main_mega_7030, b05h_main_bench_7030
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:27:52.869Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b05_dual_book.py)
+# 涵蓋 trials(8):b05a_def_solo, b05b_main_def_8020, b05c_main_def_7030, b05d_main_def_6040, b05e_mega_solo, b05f_main_mega_8020, b05g_main_mega_7030, b05h_main_bench_7030
 """B05 — 雙書結構(8 trials;預註冊見 ledger/batches.md)。
 
 兩書獨立模擬,日報酬常數比例混合(近似日再平衡的 constant-mix)。

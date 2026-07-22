@@ -21,7 +21,7 @@ import empyrical as ep
 HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "strat_lab"))  # v4 lives here since 2026-04-30
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 import v4 as v4_mod  # noqa: E402
 
 sys.path.insert(0, HERE)

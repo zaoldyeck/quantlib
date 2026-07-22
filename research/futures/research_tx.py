@@ -12,6 +12,7 @@ import sys
 import time
 from dataclasses import replace
 from pathlib import Path
+from research import paths
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -39,14 +40,14 @@ from futures.validation import (
     validate_futures_daily,
     verdict,
 )
-from prices import total_return_series
+from research.prices import total_return_series
 from strat_lab.evaluation import CAPITAL_DEFAULT, nav_metrics
 from strat_lab.validator import ValidationConfig, recent_one_year_metrics
 
 
 BASE = Path(__file__).resolve().parents[2]
-DB_PATH = BASE / "research" / "cache.duckdb"
-OUT_DIR = BASE / "research" / "strat_lab" / "results" / "futures_tx_professional"
+DB_PATH = paths.CACHE_DB
+OUT_DIR = paths.OUT_STRAT_LAB / "futures_tx_professional"
 DOC_PATH = BASE / "docs" / "strategy_research" / "futures_strategy_ranking.md"
 
 
@@ -286,15 +287,15 @@ def _write_doc(summary: pl.DataFrame, champion: dict[str, object] | None, daily_
         "",
         "## Artifacts",
         "",
-        "- `research/strat_lab/results/futures_tx_professional/futures_strategy_summary.csv`",
-        "- `research/strat_lab/results/futures_tx_professional/futures_fast_screen.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_professional/futures_strategy_summary.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_professional/futures_fast_screen.csv`",
     ]
     if champion:
         lines += [
-            "- `research/strat_lab/results/futures_tx_professional/champion_daily.csv`",
-            "- `research/strat_lab/results/futures_tx_professional/champion_fills.csv`",
-            "- `research/strat_lab/results/futures_tx_professional/champion_trades.csv`",
-            "- `research/strat_lab/results/futures_tx_professional/champion_vs_benchmarks.png`",
+            f"- `{paths.OUT_STRAT_LAB}/futures_tx_professional/champion_daily.csv`",
+            f"- `{paths.OUT_STRAT_LAB}/futures_tx_professional/champion_fills.csv`",
+            f"- `{paths.OUT_STRAT_LAB}/futures_tx_professional/champion_trades.csv`",
+            f"- `{paths.OUT_STRAT_LAB}/futures_tx_professional/champion_vs_benchmarks.png`",
         ]
     else:
         lines.append("- 本輪無通過 gate 的 champion，因此未輸出 champion 交易 artifacts；未通過候選只保留在 summary 與 fast screen 診斷檔。")

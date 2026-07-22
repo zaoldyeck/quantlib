@@ -15,9 +15,10 @@ import argparse
 
 import duckdb
 import polars as pl
+from research import paths
 
 REGISTRY = "research/serenity/registry/thesis_registry_2025.csv"
-CACHE = "research/cache.duckdb"
+CACHE = f"{paths.CACHE_DB}"
 
 # 與 replay_2025.score_candidates 同源的動能子分數(僅價格動能三項)
 MOM_TERMS = (("ret_60d", -0.5, 1.8, 14.0), ("ret_20d", -0.35, 0.9, 5.0), ("ret_252d", -0.8, 3.2, 3.0))

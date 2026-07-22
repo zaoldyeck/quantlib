@@ -20,6 +20,7 @@ from datetime import date as Date
 import duckdb
 
 from research.evergreen.ev18_make_packs import fin_asof
+from research import paths
 
 SRC = "research/evergreen/data/ev17_tables"
 OUT = "research/evergreen/data/ev19_tables"
@@ -79,7 +80,7 @@ def main() -> None:
     tags = sys.argv[1:]
     if not tags:
         raise SystemExit("usage: ev19_make_tables.py YYYY-MM-DD ...")
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     os.makedirs(OUT, exist_ok=True)
     for tag in tags:
         src = open(f"{SRC}/{tag}.txt").read().splitlines()

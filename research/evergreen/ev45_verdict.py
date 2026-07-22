@@ -16,6 +16,7 @@ from datetime import date as Date
 
 import duckdb
 import polars as pl
+from research import paths
 
 STANCE = {"2023-08": Date(2023, 8, 11), "2025-04": Date(2025, 4, 11)}
 C = "company_code"
@@ -62,7 +63,7 @@ def pool_metric(con, codes: list[str], stance: Date) -> tuple[float, int, int]:
 
 
 def main() -> None:
-    con = duckdb.connect("research/cache.duckdb", read_only=True)
+    con = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     fable = {}
     for ym in STANCE:
         import json, os

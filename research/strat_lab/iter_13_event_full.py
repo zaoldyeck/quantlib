@@ -35,12 +35,13 @@ from datetime import date
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from prices import fetch_adjusted_panel, fetch_daily_returns
+from research.db import connect
+from research.prices import fetch_adjusted_panel, fetch_daily_returns
 
-RESULTS = "research/strat_lab/results"
+RESULTS = f"{paths.OUT_STRAT_LAB}"
 TDPY = 252
 RF = 0.01
 SELL_TAX = 0.003

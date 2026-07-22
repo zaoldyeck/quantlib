@@ -8,6 +8,7 @@ from datetime import date as Date
 
 import numpy as np
 import polars as pl
+from research import paths
 
 SW0, SW1 = Date(2025, 1, 2), Date(2026, 7, 3)
 
@@ -15,7 +16,7 @@ SW0, SW1 = Date(2025, 1, 2), Date(2026, 7, 3)
 def load_navs() -> pl.DataFrame:
     s = (pl.read_parquet("research/apex/ledger/curves/T0334.parquet")
          .select(["date", pl.col("nav").alias("S")]))
-    ser = (pl.read_csv("research/strat_lab/results/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
+    ser = (pl.read_csv(f"{paths.OUT_STRAT_LAB}/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
                        try_parse_dates=True)
            .select(["date", pl.col("nav").alias("SER")]))
     # v3.3 NAV:重跑一次落檔(決定性)

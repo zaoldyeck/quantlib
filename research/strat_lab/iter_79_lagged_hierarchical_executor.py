@@ -13,12 +13,13 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from db import connect  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 from iter_40_research_campaign import CAPITAL, START, build_price_lookup, simulate, validate_daily  # noqa: E402
 from iter_64_active_etf_beater_confirm import compare_active_etfs, load_active_etfs, strict_dsr, window_metrics  # noqa: E402
 from iter_67_partial_bridge import CUMULATIVE_TRIALS as ITER67_CUMULATIVE_TRIALS  # noqa: E402
@@ -26,7 +27,7 @@ from iter_68_position_level_bridge import Book, BookByDate  # noqa: E402
 from iter_70_hierarchical_position_audit import build_hierarchical_books  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_79_lagged_hierarchical_executor"
 CAPS = (3, 4, 5, 6, 7, 8, 10)
 MODES = ("cash", "renorm")

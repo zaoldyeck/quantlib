@@ -37,7 +37,7 @@
 
 ## Artifacts
 
-- `research/strat_lab/results/futures_tx_advanced/futures_advanced_summary.csv`
-- `research/strat_lab/results/futures_tx_advanced/futures_advanced_base_summary.csv`
-- `research/strat_lab/results/futures_tx_advanced/top_daily.csv`
-- `research/strat_lab/results/futures_tx_advanced/top_weights.csv`
+- `var/out/strat_lab/futures_tx_advanced/futures_advanced_summary.csv`
+- `var/out/strat_lab/futures_tx_advanced/futures_advanced_base_summary.csv`
+- `var/out/strat_lab/futures_tx_advanced/top_daily.csv`
+- `var/out/strat_lab/futures_tx_advanced/top_weights.csv`

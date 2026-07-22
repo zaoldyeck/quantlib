@@ -2,7 +2,7 @@
 
 前置條件
 ========
-- research/cache.duckdb 已 sync（Sprint A 擴充後）
+- var/cache/cache.duckdb 已 sync（Sprint A 擴充後）
 - sbl_borrowing: TWSE + TPEx 3 天（2026-04-21~23）
 - foreign_holding_ratio: TWSE + TPEx 3 天（2026-04-21~23）
 - daily_quote: 2000-01-04 ~ 2026-04-21（max 比 SBL/QFII 晚一天）
@@ -33,7 +33,7 @@ import polars as pl
 
 HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, ".."))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 
 
 def main() -> None:

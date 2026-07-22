@@ -16,6 +16,7 @@ import polars as pl
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev36_walkforward import C, kpis_full, seg_kpi
 from research.evergreen.ev38_exhaust import FOLDS, LabX, bench
+from research import paths
 
 OUT = "research/evergreen/data/ev46_results.parquet"
 SCORES = ("base", "x_dm_rs", "x_dm_win")
@@ -23,7 +24,7 @@ GATES = ("none", "f5", "inst5", "dm_pos")
 
 
 def taiex_returns() -> pl.DataFrame:
-    con = duckdb.connect("research/cache.duckdb", read_only=True)
+    con = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     idx = con.execute(
         "SELECT date, close FROM market_index WHERE name = '發行量加權股價指數' "
         "ORDER BY date").pl()

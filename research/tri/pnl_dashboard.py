@@ -27,6 +27,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT))
@@ -39,8 +40,8 @@ OOS_STARTS = {  # 各策略線真前瞻起點;此前為 in-sample(繪成虛線)
     "apex_revcycle_S": date(2024, 1, 1),          # dev 2012-23 凍結後
     "Serenity(ev_v3_wf)": date(2025, 7, 11),      # 出場參數 train 2022-25 凍結後(選股仍 PIT)
 }
-OUT_HTML = REPO_ROOT / "research" / "tri" / "reports" / "pnl_dashboard.html"
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+OUT_HTML = paths.REPORTS / "tri" / "pnl_dashboard.html"
+RESULTS = paths.OUT_STRAT_LAB
 # dataviz reference palette slots 1-7(validate_palette.js 七槽 PASS,2026-07-19)
 COLORS = {"Serenity(ev_v3_wf)": "#2a78d6", "Evergreen(live-refit)": "#008300", "apex_revcycle_S": "#e87ba4",
           "0050": "#eda100", "00685L 正2": "#1baf7a", "2330": "#eb6834", "安聯台灣科技基金": "#4a3aa7"}
@@ -56,11 +57,11 @@ def _cache_latest() -> date:
         con.close()
 
 
-_TRCACHE = REPO_ROOT / "research" / "tri" / "reports" / "_navtrade_cache"
+_TRCACHE = paths.REPORTS / "tri" / "_navtrade_cache"
 
 
 def _cache_mtime() -> float:
-    return (REPO_ROOT / "research" / "cache.duckdb").stat().st_mtime
+    return (paths.CACHE_DB).stat().st_mtime
 
 
 def _norm_trades(df) -> pd.DataFrame:
@@ -222,7 +223,7 @@ def yearly_table(navs: dict[str, pd.Series]) -> pd.DataFrame:
 def _load_names() -> dict:
     """code → 最新中文公司名(operating_revenue,與 tri.daily 同源;唯一真源)。"""
     import duckdb
-    raw = duckdb.connect(str(REPO_ROOT / "research" / "cache.duckdb"), read_only=True)
+    raw = duckdb.connect(str(paths.CACHE_DB), read_only=True)
     try:
         return dict(raw.execute(
             "SELECT company_code, last(company_name ORDER BY year*100+month) "

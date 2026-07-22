@@ -9,7 +9,7 @@ A pre-market briefing that pulls together everything a TW investor needs to star
 
 ## Preconditions
 
-- `research/cache.duckdb` updated within last 24h (if not → suggest `quantlib-data-refresh`)
+- `var/cache/cache.duckdb` updated within last 24h (if not → suggest `quantlib-data-refresh`)
 - User has provided **holdings list** (in chat memory or in `~/portfolio.json`) — if not, ask once
 - User has provided **watchlist** (5-20 tickers being tracked) — if not, ask once
 

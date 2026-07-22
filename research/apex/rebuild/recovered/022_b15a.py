@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:22:59.376Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b15_last_push.py)
-涵蓋 trials(8):b15a_mom_sa, b15b_geometric, b15c_dualgate_ni, b15d_pos60, b15e_twostage, b15f_profit100, b15g_maxnew3, b15h_price15
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:22:59.376Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b15_last_push.py)
+# 涵蓋 trials(8):b15a_mom_sa, b15b_geometric, b15c_dualgate_ni, b15d_pos60, b15e_twostage, b15f_profit100, b15g_maxnew3, b15h_price15
 """B15 — 最後一擊探索批(8 trials × 8 家族;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b15_last_push

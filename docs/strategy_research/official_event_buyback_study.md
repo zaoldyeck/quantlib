@@ -8,8 +8,8 @@
 
 | 市場 | 原始檔 | 解析事件數 |
 |---|---|---:|
-| sii | `research/experiments/out/mops_t35sc09_buyback_sii_2026-06-17.html` | 3,559 |
-| otc | `research/experiments/out/mops_t35sc09_buyback_otc_2026-06-17.html` | 2,154 |
+| sii | `var/out/experiments/mops_t35sc09_buyback_sii_2026-06-17.html` | 3,559 |
+| otc | `var/out/experiments/mops_t35sc09_buyback_otc_2026-06-17.html` | 2,154 |
 
 ## 事件標籤
 

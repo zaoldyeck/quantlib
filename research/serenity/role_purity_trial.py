@@ -20,12 +20,13 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pandas as pd
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ENGINE = Path(__file__).parent / "engine.py"
 REGISTRY = Path(__file__).parent / "registry" / "thesis_registry_2025.csv"
 ROLES = Path(__file__).parent / "registry" / "member_roles.csv"
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 VARIANT = "ev_v2_thesis_inst"
 LAGS = (0, 90, 180)
 

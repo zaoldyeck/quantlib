@@ -20,9 +20,10 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-CACHE_DB = REPO_ROOT / "research" / "cache.duckdb"
+CACHE_DB = paths.CACHE_DB
 QUOTE_DIR = REPO_ROOT / "data" / "daily_quote" / "twse"
 
 #: D 的資料自 D+1 的此時刻起視為齊備(見模組 docstring 的依據)

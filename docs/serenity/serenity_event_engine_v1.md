@@ -99,5 +99,5 @@
 
 ## Artifacts
 
-- `research/strat_lab/results/serenity_event_engine_v1_*`(lag0/lag90/lag180/mech 全套 daily/trades/summary/picks/png)
+- `var/out/strat_lab/serenity_event_engine_v1_*`(lag0/lag90/lag180/mech 全套 daily/trades/summary/picks/png)
 - `docs/strategy_research/serenity_event_engine_v1_validation_ev_full_tp60.md`(驗證輸出)

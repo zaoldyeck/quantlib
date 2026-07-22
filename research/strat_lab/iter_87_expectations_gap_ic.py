@@ -23,9 +23,10 @@ from pathlib import Path
 import duckdb
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 
 R, N_YEARS, GT = 0.09, 10, 0.025
 START, END = "2019-01-01", "2026-07-06"
@@ -49,7 +50,7 @@ def implied_g_from_pe(pe_grid: np.ndarray) -> np.ndarray:
 
 
 def main() -> None:
-    con = duckdb.connect("research/cache.duckdb", read_only=True)
+    con = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
 
     # ── 調整後價格面板(雙市場)──
     panels = [fetch_adjusted_panel(con, START, END, market=m) for m in ("twse", "tpex")]
@@ -198,8 +199,8 @@ def main() -> None:
         y = monthly_ic(sub, "yoy3")
         print(f"[{tag}] gap_rank IC {s['ic'].mean():.4f} | gap_resid IC {r['ic'].mean():.4f} | yoy3 IC {y['ic'].mean():.4f}")
 
-    base.write_parquet("research/strat_lab/results/iter_87_expectations_gap_sections.parquet")
-    print("\nsections → research/strat_lab/results/iter_87_expectations_gap_sections.parquet")
+    base.write_parquet(f"{paths.OUT_STRAT_LAB}/iter_87_expectations_gap_sections.parquet")
+    print(f"\nsections → {paths.OUT_STRAT_LAB}/iter_87_expectations_gap_sections.parquet")
 
 
 if __name__ == "__main__":

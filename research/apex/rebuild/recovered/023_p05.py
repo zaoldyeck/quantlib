@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:25:17.283Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/p05_gauntlet_v5.py)
-涵蓋 trials(2):p05_v5_dev, p05_v5_val
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:25:17.283Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/p05_gauntlet_v5.py)
+# 涵蓋 trials(2):p05_v5_dev, p05_v5_val
 """P05 — v5(幾何 rank-乘積分數)完整 gauntlet(預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.p05_gauntlet_v5

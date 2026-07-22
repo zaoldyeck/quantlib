@@ -27,6 +27,7 @@ from research.apex import data
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev30_baseline import midmonth_membership
 from research.evergreen.ev36_walkforward import kpis_full, load_registry, seg_kpi
+from research import paths
 
 C = "company_code"
 LOAD_START = "2021-06-01"          # 暖機起點(與 LabX 一致,保 rolling 訊號逐位相同)
@@ -288,7 +289,7 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
 
 
 _WF_CACHE = Path("research/evergreen/data/_wf_nav_cache.parquet")
-_CACHE_DB = Path("research/cache.duckdb")
+_CACHE_DB = Path(f"{paths.CACHE_DB}")
 _ENGINE_VER = "ev53wf-4"  # 遞增即強制 wf 重算(-2 last-day、-3 移除 registry 硬切、-4 初始 in-sample 段)
 
 

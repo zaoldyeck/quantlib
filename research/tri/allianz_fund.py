@@ -19,7 +19,7 @@
   這支基金不需要,因為配息從未發生)。
 
 Run: uv run --project research python -m research.tri.allianz_fund
-依賴 cache: 否(獨立外部 API,與 research/cache.duckdb 無關)。
+依賴 cache: 否(獨立外部 API,與 var/cache/cache.duckdb 無關)。
 """
 
 from __future__ import annotations

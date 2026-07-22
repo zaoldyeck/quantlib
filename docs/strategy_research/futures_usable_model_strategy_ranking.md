@@ -37,6 +37,6 @@
 
 ## Artifacts
 
-- `research/strat_lab/results/futures_tx_usable_model/usable_model_summary.csv`
-- `research/strat_lab/results/futures_tx_usable_model/top_daily.csv`
-- `research/strat_lab/results/futures_tx_usable_model/top_trades.csv`
+- `var/out/strat_lab/futures_tx_usable_model/usable_model_summary.csv`
+- `var/out/strat_lab/futures_tx_usable_model/top_daily.csv`
+- `var/out/strat_lab/futures_tx_usable_model/top_trades.csv`

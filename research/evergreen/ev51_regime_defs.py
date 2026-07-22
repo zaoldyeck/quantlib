@@ -14,6 +14,7 @@ import polars as pl
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev36_walkforward import C, kpis_full, seg_kpi
 from research.evergreen.ev38_exhaust import FOLDS, LabX, bench
+from research import paths
 
 CORE = [dict(gate=g, pool_months=pm, h120=h1, trail=tr, lts=lt,
              n_slots=5, max_new=2)
@@ -22,7 +23,7 @@ CORE = [dict(gate=g, pool_months=pm, h120=h1, trail=tr, lts=lt,
 
 
 def regime_bool(kind: str, lab: LabX) -> pl.DataFrame:
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     idx = (raw.execute("SELECT date, close FROM market_index "
                        "WHERE name = '發行量加權股價指數' ORDER BY date").pl()
            .sort("date"))

@@ -9,7 +9,7 @@ Synthesize evidence from 6 specialist subagents into one integrated report. User
 
 ## Preconditions
 
-- `research/cache.duckdb` exists (suggest `quantlib-data-refresh` if > 3 days old)
+- `var/cache/cache.duckdb` exists (suggest `quantlib-data-refresh` if > 3 days old)
 - Ticker is valid TWSE/TPEx 4-digit code
 
 ## Step 1: Analyst phase (parallel)

@@ -41,7 +41,7 @@ cost pass-through rather than durable structural bottleneck power.
 Before ranking:
 
 - Verify PostgreSQL latest dates for relevant source tables.
-- Verify `research/cache.duckdb` latest dates if Python research artifacts are
+- Verify `var/cache/cache.duckdb` latest dates if Python research artifacts are
   used.
 - Check the latest available adjusted-price date.
 - Check monthly revenue freshness, valuation data freshness, and liquidity.

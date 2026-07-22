@@ -13,6 +13,7 @@ import sys
 import time
 from dataclasses import dataclass, replace
 from pathlib import Path
+from research import paths
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -35,8 +36,8 @@ from strat_lab.validator import ValidationConfig
 
 
 BASE = Path(__file__).resolve().parents[2]
-DB_PATH = BASE / "research" / "cache.duckdb"
-OUT_DIR = BASE / "research" / "strat_lab" / "results" / "futures_tx_ml_regime"
+DB_PATH = paths.CACHE_DB
+OUT_DIR = paths.OUT_STRAT_LAB / "futures_tx_ml_regime"
 DOC_PATH = BASE / "docs" / "strategy_research" / "futures_ml_regime_strategy_ranking.md"
 
 FEATURE_COLUMNS = [
@@ -332,9 +333,9 @@ def _write_doc(summary: pl.DataFrame, daily_cutoff: str, elapsed: float) -> None
         "",
         "## Artifacts",
         "",
-        "- `research/strat_lab/results/futures_tx_ml_regime/ml_regime_strategy_summary.csv`",
-        "- `research/strat_lab/results/futures_tx_ml_regime/top_daily.csv`",
-        "- `research/strat_lab/results/futures_tx_ml_regime/top_trades.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_ml_regime/ml_regime_strategy_summary.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_ml_regime/top_daily.csv`",
+        f"- `{paths.OUT_STRAT_LAB}/futures_tx_ml_regime/top_trades.csv`",
     ]
     DOC_PATH.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

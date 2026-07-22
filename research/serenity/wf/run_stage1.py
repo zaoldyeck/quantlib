@@ -16,12 +16,13 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 ENGINE = REPO_ROOT / "research" / "serenity" / "engine.py"
 REGISTRY = Path(__file__).parent / "registry_wf.csv"
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 VARIANT = "ev_v2_thesis_inst"
 
 from research.serenity.backfill.pool_quality_duel import boot_cagr_lb  # noqa: E402

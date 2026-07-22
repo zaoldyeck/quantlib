@@ -16,13 +16,14 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_40_research_campaign import CAPITAL, validate_daily  # noqa: E402
 from iter_54_cross_family_switch import SLEEVES, load_switch_base, slot_count  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 N_TRIALS_EFFECTIVE = 420
 
 DEFENSES = ["iter42_w59_champion", "iter44_w74_q3_trend"]

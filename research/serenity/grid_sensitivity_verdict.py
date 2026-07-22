@@ -12,8 +12,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
+from research import paths
 
-RESULTS = Path(__file__).resolve().parents[2] / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 CURRENT = "g_tp0.6_tr0.2_ab0.15_td50"
 
 

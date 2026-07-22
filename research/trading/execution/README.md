@@ -32,7 +32,7 @@ uv run --project research python -m research.trading.execution.buy --code 2408 -
 # 盤前啟動自動等開盤、盤中啟動立即執行)
 FUBON_DRY_RUN=false \
 uv run --project research python -m research.trading.execution.buy \
-    --plan research/out/trading/plans/<plan>.json --live
+    --plan var/out/trading/plans/<plan>.json --live
 
 # 買賣混合一行指令(全部腿併發;買腿撈低點、賣腿撈高點+保證當日完成)
 FUBON_DRY_RUN=false \
@@ -145,7 +145,7 @@ uv run --project research python -m research.trading.execution.trade \
 6. 全部腿結束(成交/放棄/中止)→ 每腿 JSON 總結(成交均價、對 arrival 滑價 bps)→ **自行終止**。
 
 **Ctrl+C 語意**:第一次 = 全部腿本輪撤單退出;第二次 = 立刻強制(之後跑
-`cancel_all` 確認無殘留)。**全域急停**:`touch research/state/trading/HALT`
+`cancel_all` 確認無殘留)。**全域急停**:`touch var/state/trading/HALT`
 (所有執行器 ≤1 輪內撤單退出;`rm` 解除)。
 
 ---
@@ -183,7 +183,7 @@ uv run --project research python -m research.trading.execution.trade \
 
 ## 8. TCA 日誌與事件字典
 
-每筆執行寫 `research/out/trading/executions/<時間>_<side>_<code>.jsonl`。
+每筆執行寫 `var/out/trading/executions/<時間>_<side>_<code>.jsonl`。
 關鍵事件:`start`(arrival/collar/參數)、`place`/`cancel`/`modify_price`、
 `fill`(價量/累計/剩餘)、`round`(每輪 bid/ask/掛價)、§6 與 §7 的所有標籤、
 `session_end_unfilled`、`halt_detected`、`summary`(**shortfall_bps** = 對 arrival
@@ -245,7 +245,7 @@ uv run --project research python -m research.serenity.daily run --execute-live  
 | **沒網路 / 斷線** | 已根治(2026-07-15 事故:開盤瞬間斷網 → 整支 traceback 退出、錯過整天)。現在會印 `[net] …網路異常…程式保持執行`,網路回來自動重登續管;掛單保留、恢復後先對帳再動作。見 §10 |
 | 印 `quote_stale` | 行情停擺(ws 死亡/斷網)→ 設計行為:停止改價、保留在途單,等看門狗重建行情鏈;不拿舊價下單 |
 | 成交後才隔一會兒停止 | 已修(2026-07-14):成交即時推播(`set_on_filled`)瞬間喚醒,輪詢只是備援節拍 |
-| 想全部停 | 第一優先 `touch research/state/trading/HALT`;或各終端 Ctrl+C |
+| 想全部停 | 第一優先 `touch var/state/trading/HALT`;或各終端 Ctrl+C |
 | 強殺後怕有殘單 | `cancel_all` 列出 → `--live` 撤;重跑主程式會自動接管/續傳 |
 | 「另一個執行器正在跑(PID)」 | 真的有程序活著;要換手先終止它 |
 | price/exit 收盤未成交 | 先看盤後收尾(收盤價在護欄內會自動掛,14:30 撮合);盤後未中籤或破欄未掛 = 設計內結果,明日規則重評 |

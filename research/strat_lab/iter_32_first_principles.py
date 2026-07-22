@@ -37,14 +37,15 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from industry_taxonomy import attach_industry_asof
-from prices import fetch_adjusted_panel, total_return_series
+from research.db import connect
+from research.industry_taxonomy import attach_industry_asof
+from research.prices import fetch_adjusted_panel, total_return_series
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CAPITAL = 1_000_000.0
 COMMISSION = 0.000285
 SELL_TAX = 0.003

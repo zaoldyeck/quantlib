@@ -15,6 +15,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO_ROOT / "research"))
@@ -22,7 +23,7 @@ sys.path.insert(0, str(REPO_ROOT / "research" / "strat_lab"))
 
 from validate_hybrid import TDPY, metrics  # noqa: E402
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 DOCS = REPO_ROOT / "docs" / "serenity"
 
 SERENITY = RESULTS / "serenity_event_engine_v1_ev_full_tp60_v2_exec_daily.csv"

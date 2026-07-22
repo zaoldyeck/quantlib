@@ -13,6 +13,7 @@ import polars as pl
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev36_walkforward import C, kpis_full, seg_kpi
 from research.evergreen.ev38_exhaust import FOLDS, LabX, bench
+from research import paths
 
 OUT = "research/evergreen/data/ev48_results"
 SCORES = ("base", "x_margin_inv", "x_sbl_inv", "x_fhold")
@@ -22,7 +23,7 @@ GATES = ("none", "f5", "fut_pos")
 class LabC(LabX):
     def __init__(self):
         super().__init__()
-        raw = duckdb.connect("research/cache.duckdb", read_only=True)
+        raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
         codes = self.reg["code"].unique().to_list()
         ph = ",".join(f"'{c}'" for c in codes)
         mg = (raw.execute(

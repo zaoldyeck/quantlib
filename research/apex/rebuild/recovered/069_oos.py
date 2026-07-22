@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T16:46:48.712Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/m01_window_length.py)
-涵蓋 trials(6):oos_r03d_n8, oos_r03h_n10_momw75, oos_r06e_geo_n8_t30, oos_r07d_revlevel, oos_r07f_t35, oos_r08a_t35_revlevel
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T16:46:48.712Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/m01_window_length.py)
+# 涵蓋 trials(6):oos_r03d_n8, oos_r03h_n10_momw75, oos_r06e_geo_n8_t30, oos_r07d_revlevel, oos_r07f_t35, oos_r08a_t35_revlevel
 """M01 meta-study:研發窗長 vs 未來 OOS 表現。
 
 問題:要研發「未來最強」的策略,應該用過去多久的資料?

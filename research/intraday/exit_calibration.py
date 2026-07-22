@@ -13,7 +13,7 @@
 成本一致(賣出手續費+證交稅+滑價),per-trade 比較 + 總體彙總。
 
 Run: uv run --project research python -m research.intraday.exit_calibration
-依賴:research/data/intraday/kbars_1m(P0 已備);cache(daily close/open)。
+依賴:data/intraday/kbars_1m(P0 已備);cache(daily close/open)。
 """
 from __future__ import annotations
 
@@ -23,9 +23,10 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 REPO = Path(__file__).resolve().parents[2]
-KB = REPO / "research" / "data" / "intraday" / "kbars_1m"
+KB = paths.RAW_INTRADAY
 TRAIL = 0.35            # S 規格
 WIDE = 0.50             # 安全網變體
 SLIP = 0.001            # apex 慣例單邊滑價

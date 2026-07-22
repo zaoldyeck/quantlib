@@ -857,7 +857,7 @@ f 二波確認池:fresh≤5 ∪(fresh≤12 ∧ 自揭露日累積報酬 >+3%)
 **判準**:同 R09(CAGR ≥ 62.9 或 Sharpe ≥ 1.82∧CAGR ≥ 60.9,MDD ≥ −45);
 晉級 → 舊時代確認(2012-2018 ≥ 旗艦同段 −2pp)→ 過者升級旗艦。
 
-**公告日資料現況(記錄)**:`research/data/revenue_first_seen.parquet` 已上線
+**公告日資料現況(記錄)**:`research/records/revenue_first_seen.parquet` 已上線
 (Serenity 事件驅動爬蟲),first_seen 自 2026-07-07 起、無歷史深度 → 實盤資訊優勢
 (多數公司早於「10 日」3+ 天),回測維持保守規則不變。
 

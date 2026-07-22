@@ -4,8 +4,7 @@ import argparse
 import pandas as pd
 
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
-import db
-
+from research import db
 def main():
     parser = argparse.ArgumentParser(description='Serenity Momentum Scanner')
     parser.add_argument('--top', type=int, default=20, help='Number of top momentum stocks to return')

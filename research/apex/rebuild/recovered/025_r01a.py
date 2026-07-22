@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T08:01:33.908Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r01_momentum_containers.py)
-涵蓋 trials(16):r01a_52wh_top10, r01b_52wh_top20, r01c_52wh_t40, r01d_52wh_adv300, r01e_mom61_adv100, r01f_mom61_mega5, r01g_blend, r01h_52wh_cfo, r01i_52wh_revpos, r01j_v3_baseline, r01k_breakout_hold, r01l_frn_modern, 現代era_R3, 現代era_S, 現代era_r08a, 現代era_v6
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T08:01:33.908Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/r01_momentum_containers.py)
+# 涵蓋 trials(16):r01a_52wh_top10, r01b_52wh_top20, r01c_52wh_t40, r01d_52wh_adv300, r01e_mom61_adv100, r01f_mom61_mega5, r01g_blend, r01h_52wh_cfo, r01i_52wh_revpos, r01j_v3_baseline, r01k_breakout_hold, r01l_frn_modern, 現代era_R3, 現代era_S, 現代era_r08a, 現代era_v6
 """R01 — 動能為主容器 × 現代 dev 窗(12 trials;預註冊見 ledger/batches.md R-LINE)。
 
 Run: uv run --project research python -m research.apex.experiments.r01_momentum_containers

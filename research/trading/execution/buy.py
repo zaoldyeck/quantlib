@@ -4,7 +4,7 @@
     uv run --project research python -m research.trading.execution.buy \
         --code 2408 --qty 20                    # dry-run 模擬(預設)
     uv run --project research python -m research.trading.execution.buy \
-        --plan research/out/trading/plans/serenity_daily_YYYYMMDD.json   # 吃 plan 的 Buy 腿
+        --plan var/out/trading/plans/serenity_daily_YYYYMMDD.json   # 吃 plan 的 Buy 腿
     ... --live    # 真實下單:需使用者自行設 FUBON_DRY_RUN=false + QL_STRATEGY_CAPITAL_TWD
 """
 

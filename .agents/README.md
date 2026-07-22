@@ -6,4 +6,4 @@ secrets, strategy stages, performance, and reporting.
 
 Skills should not write external memory files. Durable results belong in
 repository artifacts such as `docs/`, `research/experiments/`,
-`research/trading/strategy_registry.py`, and `research/strat_lab/results/`.
+`research/trading/strategy_registry.py`, and `var/out/strat_lab/`.

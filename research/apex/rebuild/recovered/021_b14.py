@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:19:51.974Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b14_v4_gauntlet.py)
-涵蓋 trials(2):b14_v4_dev, b14_v4_val_synth
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:19:51.974Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b14_v4_gauntlet.py)
+# 涵蓋 trials(2):b14_v4_dev, b14_v4_val_synth
 """B14 — v4(v3 + next_mid 分批執行)gauntlet(預註冊見 ledger/batches.md)。
 
 G0 合成近似品質(dev)→ G1 dev+±20% → G2 val(既有曲線合成)→ G3 fill 雙測

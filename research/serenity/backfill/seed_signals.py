@@ -23,9 +23,10 @@ from datetime import date
 from pathlib import Path
 
 import duckdb
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-CACHE = REPO_ROOT / "research" / "cache.duckdb"
+CACHE = paths.CACHE_DB
 SEEDS = Path(__file__).parent / "seeds"
 
 

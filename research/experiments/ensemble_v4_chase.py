@@ -22,12 +22,13 @@ import pandas as pd
 import polars as pl
 import vectorbt as vbt
 import empyrical as ep
+from research import paths
 
 # Allow importing sibling db.py + strat_lab/v4.py (v4 was moved 2026-04-30)
 HERE = os.path.dirname(__file__)
 sys.path.insert(0, os.path.join(HERE, ".."))
 sys.path.insert(0, os.path.join(HERE, "..", "strat_lab"))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 import v4 as v4_mod  # noqa: E402
 
 # Reuse helpers from chase_trailing_stop.py
@@ -43,7 +44,7 @@ from chase_trailing_stop import (  # noqa: E402
 # is constrained by v4's warmup requirement.
 START = "2009-01-02"
 END   = "2026-04-17"
-OUT_DIR = "research/experiments/out"
+OUT_DIR = f"{paths.OUT_EXPERIMENTS}"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 

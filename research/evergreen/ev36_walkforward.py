@@ -19,6 +19,7 @@ from research.apex import data
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev30_baseline import midmonth_membership
 from research.evergreen.harvest import C
+from research import paths
 
 TRAIN0, TRAIN1 = Date(2022, 7, 11), Date(2025, 7, 10)
 OOS0, OOS1 = Date(2025, 7, 11), Date(2026, 7, 3)
@@ -142,7 +143,7 @@ def run_cfg(lab: Lab, *, pool_months, h120, trail, lts, n_slots, max_new,
 
 def bench_same_window() -> dict:
     s = pl.read_parquet("research/apex/ledger/curves/T0334.parquet")
-    ser = (pl.read_csv("research/strat_lab/results/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
+    ser = (pl.read_csv(f"{paths.OUT_STRAT_LAB}/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
                        schema_overrides={"date": pl.Date}))
     out = {}
     for name, df in (("S", s), ("Serenity", ser)):

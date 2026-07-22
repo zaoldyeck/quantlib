@@ -9,6 +9,7 @@ research/
 ├── 資料層（infra）
 │   ├── db.py              DuckDB 連線（attach PG 或讀 cache.duckdb）
 │   ├── prices.py          ★ canonical OHLCV 還原模組（cash_div + cap_red back-adjust）
+│   ├── industry_taxonomy.py ★ canonical PIT 產業分類
 │   ├── cache_tables.py    PG → DuckDB cache 同步（每次 data refresh 必跑）
 │   └── constants.py       共用常數（commission / sell_tax / TDPY 等）
 │
@@ -16,7 +17,7 @@ research/
 │   ├── v4.py              v4 RegimeAware（TWSE-only, monthly rebal）
 │   ├── iter_13.py         quality pool mcap-weighted top 5（iter_21 子策略 80%）
 │   ├── iter_20.py         catalyst-confirmed breakout（iter_21 子策略 20%）
-│   ├── iter_21.py         🎯 80/20 hybrid 合成器（ship-ready）
+│   ├── iter_21.py         historical 80/20 hybrid 合成器
 │   ├── iter_24.py         pyramid scale-in 變體（參考）
 │   ├── _engine.py         shared backtest engine（dollar-tracking simulator）
 │   ├── _types.py          shared dataclasses
@@ -27,7 +28,8 @@ research/
 │   └── results/           [gitignored] daily NAV / picks / trades CSV
 │
 ├── tests/
-│   ├── test_prices.py     10 tests（含 cross-impl parity vs active_etf_metrics）
+│   ├── test_prices.py     還原價格 regression
+│   ├── test_industry_taxonomy.py 產業分類 PIT regression
 │   └── test_engine.py     backtest engine smoke
 │
 ├── audits/                一次性資料 audit 腳本（CLI 個別執行）
@@ -66,30 +68,13 @@ research/
 
 ## 常用命令
 
-### 跑主策略（執行手冊見 [`docs/strategy_ranking.md`](../docs/strategy_ranking.md)）
-```bash
-# Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) ship-ready
-uv run --project research python research/strat_lab/iter_13.py \
-    --freq monthly --ranker mcap --universe twse_tpex --mode mcap
-uv run --project research python research/strat_lab/iter_24.py \
-    --max-positions 5 --atr-trailing
-uv run --project research python research/strat_lab/sweep_hybrid.py
-# 取得 5+5_w85_atr_mcap 結果與全 sweep 排行
+### 策略研究 SOP
 
-# v4 baseline regression
-uv run --project research python research/strat_lab/v4.py \
-    --start 2018-01-02 --end 2026-04-17 --capital 1000000
-```
-
-### OOS 驗證（每次重大改動必跑）
-```bash
-uv run --project research python research/strat_lab/validate_iter21_v5.py
-```
-期望輸出：6/6 PASS（CAGR retention ≥ 50% / Sharpe retention ≥ 70% / Lo p < 0.05 / Boot LB > 10% / DSR > 0.95 / PBO < 0.5）
+策略研究、驗證與升級流程見 [`../docs/strategy_research/research_sop.md`](../docs/strategy_research/research_sop.md)。目前策略狀態與交易規則見 [`../docs/strategy_ranking.md`](../docs/strategy_ranking.md)。
 
 ### 單元測試
 ```bash
-uv run --project research python -m pytest research/tests/ -v
+uv run --project research pytest research/tests/ -v
 ```
 
 ### 資料 audit（CLI 個別執行）
@@ -126,15 +111,18 @@ uv run --project research python research/cache_tables.py
 
 | 想找 | 去哪 |
 |---|---|
+| 文件索引 | [`../docs/README.md`](../docs/README.md) |
+| 台股量化策略研發 SOP | [`../docs/strategy_research/research_sop.md`](../docs/strategy_research/research_sop.md) |
 | 最終策略排行 + 執行手冊 | [`../docs/strategy_ranking.md`](../docs/strategy_ranking.md) |
+| 產業分類資料層 | [`../docs/data/industry_taxonomy.md`](../docs/data/industry_taxonomy.md) |
 | 主動 ETF 同窗口比較 | [`../docs/active_etf_analysis.md`](../docs/active_etf_analysis.md) |
 | 各領域龍頭股清單 | [`../docs/leaders_by_domain.md`](../docs/leaders_by_domain.md) |
-| TW data endpoint reference + MOPS gotchas | memory `reference_tw_data_endpoints.md` |
-| 失敗的研究方向（GRR / regime gate / contrarian etc.）| memory `project_grr_v1_research.md` 等 + `docs/strategy_ranking.md §七` |
-| 取消的 crawler 決策 rationale | memory `feedback_data_acquisition_strategy.md` |
-| Strategy / data / coding 鐵則 | [`../CLAUDE.md`](../CLAUDE.md) |
-| 失敗實驗為何失敗 | memory `~/.claude/projects/.../memory/MEMORY.md` 索引 |
+| TW data endpoint reference + MOPS gotchas | `src/main/scala/setting/`、[`../docs/data/`](../docs/data/) |
+| 失敗的研究方向（GRR / regime gate / contrarian etc.）| [`../docs/strategy_ranking.md`](../docs/strategy_ranking.md)、[`../docs/strategy_research/`](../docs/strategy_research/) |
+| 取消的 crawler 決策 rationale | [`../AGENTS.md`](../AGENTS.md)、[`../docs/data/`](../docs/data/) |
+| Strategy / data / coding 鐵則 | [`../AGENTS.md`](../AGENTS.md) |
+| 失敗實驗為何失敗 | [`../docs/strategy_research/`](../docs/strategy_research/) 與實驗輸出 artifacts |
 
 ---
 
-_最後更新：2026-04-30 — v6 全面重驗 + Quality + Catalyst Hybrid (5+5, NAV 85/15, ATR trailing, TWSE+TPEx) ship verdict_
+_最後更新：2026-05-17 — 新增 canonical PIT industry taxonomy 與策略研發 SOP_

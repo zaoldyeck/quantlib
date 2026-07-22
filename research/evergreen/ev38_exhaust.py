@@ -13,6 +13,7 @@ import polars as pl
 from research.apex import data
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev36_walkforward import C, Lab, seg_kpi
+from research import paths
 
 FOLDS = [
     {"name": "折1", "t0": Date(2022, 7, 11), "t1": Date(2024, 7, 10),
@@ -131,7 +132,7 @@ def run(lab: LabX, fold: dict, *, gate, exitf, pool_months, h120, trail, lts,
 def bench(fold: dict) -> dict:
     s = pl.read_parquet("research/apex/ledger/curves/T0334.parquet")
     ser = pl.read_csv(
-        "research/strat_lab/results/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
+        f"{paths.OUT_STRAT_LAB}/abl_adv_l0_ev_v2_thesis_inst_daily.csv",
         schema_overrides={"date": pl.Date})
     out = {}
     for name, df in (("S", s), ("Serenity", ser)):

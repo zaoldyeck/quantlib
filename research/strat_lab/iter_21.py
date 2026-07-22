@@ -23,6 +23,7 @@ from datetime import date
 
 import numpy as np
 import polars as pl
+from research import paths
 
 
 TDPY = 252
@@ -38,9 +39,9 @@ def main():
     args = ap.parse_args()
 
     # 讀兩 daily NAV
-    n13 = pl.read_csv("research/strat_lab/results/iter_13_mcap_daily.csv",
+    n13 = pl.read_csv(f"{paths.OUT_STRAT_LAB}/iter_13_mcap_daily.csv",
                       try_parse_dates=True).sort("date")
-    n20 = pl.read_csv("research/strat_lab/results/iter_20_daily.csv",
+    n20 = pl.read_csv(f"{paths.OUT_STRAT_LAB}/iter_20_daily.csv",
                       try_parse_dates=True).sort("date")
     print(f"iter_13 mcap NAV rows: {len(n13)}")
     print(f"iter_20 v8  NAV rows: {len(n20)}")
@@ -94,7 +95,7 @@ def main():
 
     # 寫 result
     pl.DataFrame({"date": days_list, "nav": nav_arr}).write_csv(
-        "research/strat_lab/results/iter_21_daily.csv")
+        f"{paths.OUT_STRAT_LAB}/iter_21_daily.csv")
 
     print("\n--- iter_21 hybrid 結果 ---")
     print(f"  CAGR:    {cagr:+.2%}")

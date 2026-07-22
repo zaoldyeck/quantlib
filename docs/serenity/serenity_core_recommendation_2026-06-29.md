@@ -42,4 +42,4 @@
 - 保留它們作為 tactical overlay 的可能性，但必須獨立評估。
 - Serenity Core 排名允許出現多檔 `觀察`，不為了湊滿 10 檔而強行推薦。
 
-計算檔：`research/strat_lab/results/serenity_core_recommendation_2026-06-29.csv`。
+計算檔：`var/out/strat_lab/serenity_core_recommendation_2026-06-29.csv`。

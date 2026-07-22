@@ -88,5 +88,5 @@
 
 ## 產出檔案
 
-- `research/out/taiwan_all_equity_etf_decision_rank_with_fees.csv`：完整全 ETF 排名與費用欄位。
-- `research/out/etfinfo_fee_snapshot_20260525.json`：ETFInfo 費率快照。
+- `var/out/taiwan_all_equity_etf_decision_rank_with_fees.csv`：完整全 ETF 排名與費用欄位。
+- `var/out/etfinfo_fee_snapshot_20260525.json`：ETFInfo 費率快照。

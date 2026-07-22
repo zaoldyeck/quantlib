@@ -1,6 +1,6 @@
 """Build spike event study dataset — 10 pre-window features + 3 forward returns.
 
-Reads `research/out/spikes_g80_w60.parquet` (produced by 01_find_spikes.py).
+Reads `var/out/spikes_g80_w60.parquet` (produced by 01_find_spikes.py).
 For each spike event (T=spike_date, company=C), computes:
 
 Pre-window features (PIT-safe, use only data with date <= T-1):
@@ -32,12 +32,13 @@ import os
 import sys
 import time
 import polars as pl
+from research import paths
 
 # Make sibling db.py importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 
-SPIKES_PATH = "research/out/spikes_g80_w60.parquet"
+SPIKES_PATH = f"{paths.OUT}/spikes_g80_w60.parquet"
 OUT_PATH = "research/experiments/spike_dataset.parquet"
 
 

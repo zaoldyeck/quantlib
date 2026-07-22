@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -23,8 +24,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
     ExitConfig,
@@ -39,7 +40,7 @@ from iter_96_robust_alpha_research import load_benchmark_nav, relative_metrics  
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = REPO_ROOT / "research/strat_lab/results"
+RESULTS = REPO_ROOT / f"{paths.OUT_STRAT_LAB}"
 OUT_PREFIX = "iter_100_ict_smc_tpo_overlay"
 SOURCE_TARGETS = RESULTS / "iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_target_weights.csv"
 SOURCE_DAILY = RESULTS / "iter_95_global_exit_aware_search_iter92_unconstrained_meta_switch__time50_r-1_daily.csv"

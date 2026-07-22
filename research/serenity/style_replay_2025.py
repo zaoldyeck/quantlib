@@ -27,18 +27,19 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 
-from constants import CAPITAL, COMMISSION, SELL_TAX, TDPY  # noqa: E402
-from db import connect  # noqa: E402
-from prices import fetch_adjusted_panel, total_return_series  # noqa: E402
+from research.constants import CAPITAL, COMMISSION, SELL_TAX, TDPY  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import fetch_adjusted_panel, total_return_series  # noqa: E402
 
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 OUT_PREFIX = "serenity_style_replay_2025"
 
 

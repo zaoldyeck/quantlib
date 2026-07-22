@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T21:51:25.147Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/n01_momentum_single.py)
-涵蓋 trials(48):n01_lb10s0n10b1, n01_lb10s0n10b2, n01_lb10s0n12b1, n01_lb10s0n12b2, n01_lb10s0n8b1, n01_lb10s0n8b2, n01_lb10s5n10b1, n01_lb10s5n10b2, n01_lb10s5n12b1, n01_lb10s5n12b2, n01_lb10s5n8b1, n01_lb10s5n8b2, n01_lb21s0n10b1, n01_lb21s0n10b2, n01_lb21s0n12b1, n01_lb21s0n12b2, n01_lb21s0n8b1, n01_lb21s0n8b2, n01_lb21s5n10b1, n01_lb21s5n10b2 …
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T21:51:25.147Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/n01_momentum_single.py)
+# 涵蓋 trials(48):n01_lb10s0n10b1, n01_lb10s0n10b2, n01_lb10s0n12b1, n01_lb10s0n12b2, n01_lb10s0n8b1, n01_lb10s0n8b2, n01_lb10s5n10b1, n01_lb10s5n10b2, n01_lb10s5n12b1, n01_lb10s5n12b2, n01_lb10s5n8b1, n01_lb10s5n8b2, n01_lb21s0n10b1, n01_lb21s0n10b2, n01_lb21s0n12b1, n01_lb21s0n12b2, n01_lb21s0n8b1, n01_lb21s0n8b2, n01_lb21s5n10b1, n01_lb21s5n10b2 …
 """N01 — 自研動能單策略(Codex 概念的正確規格移植)。
 
 月頻輪換 top-N 動能書:分散(N 8-12)、換倉壓縮(buffer)、無停損

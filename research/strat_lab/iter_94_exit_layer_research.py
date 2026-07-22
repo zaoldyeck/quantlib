@@ -16,6 +16,7 @@ from pathlib import Path
 
 import polars as pl
 from dateutil.relativedelta import relativedelta
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -23,8 +24,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, str(RESEARCH_ROOT))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from evaluation import trade_distribution_metrics  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
@@ -37,7 +38,7 @@ from iter_82_oos_recent_pm_allocator import load_execution_targets  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_94_exit_layer_research"
 SOURCE_DAILY = RESULTS / "iter_92_execution_meta_switch_daily.csv"
 SOURCE_TARGETS = RESULTS / "iter_92_execution_meta_switch_target_weights.csv"

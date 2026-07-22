@@ -10,7 +10,7 @@ This script:
   2. Sweeps hybrid combinations: slot ratios {1+9, 2+8, ..., 9+1, 0+10, 10+0} × NAV weights
      {50/50, 60/40, 70/30, 80/20, 90/10}
   3. Computes IS metrics (CAGR / Sortino / MDD / Sharpe) for each combination
-  4. Outputs: research/strat_lab/results/hybrid_sweep_v6.csv (sortable verdict table)
+  4. Outputs: var/out/strat_lab/hybrid_sweep_v6.csv (sortable verdict table)
 
 Hard constraint enforced: total hold count ≤ 10 (slot_a + slot_b ≤ 10).
 
@@ -29,9 +29,10 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 HERE = Path(__file__).parent
-RESULTS = HERE / "results"
+RESULTS = paths.OUT_STRAT_LAB
 RESULTS.mkdir(exist_ok=True)
 
 START = "2005-01-03"

@@ -19,10 +19,11 @@ from research.evergreen.ev36_walkforward import seg_kpi
 from research.evergreen.ev38_exhaust import FOLDS, LabX, bench
 from research.evergreen.ev43_live_refit import run_live  # noqa: F401(文件參照)
 from research.evergreen.ev47_ml_axis import run as run_cfg_base
+from research import paths
 
 
 def regime_series() -> pl.DataFrame:
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     idx = (raw.execute("SELECT date, close FROM market_index "
                        "WHERE name = '發行量加權股價指數' ORDER BY date").pl()
            .with_columns(pl.col("close").rolling_mean(120).alias("ma120"))

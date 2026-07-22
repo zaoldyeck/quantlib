@@ -22,8 +22,9 @@ import os
 import duckdb
 
 from research.crawl.sink import CACHE_DB
+from research import paths
 
-OUT = os.path.join(os.path.dirname(CACHE_DB), "cache_s_slim.duckdb")
+OUT = os.path.join(os.path.dirname(CACHE_DB), paths.CACHE_SLIM_DB.name)
 
 #: S 決策 + 爬蟲會讀寫的表(唯一依賴集;見 research/apex/data.py 溯源)
 DAILY_TABLES = ["daily_quote", "daily_trading_details", "stock_per_pbr"]

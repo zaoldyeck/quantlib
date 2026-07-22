@@ -19,7 +19,7 @@ Classify:
 Follow `AGENTS.md` Mandatory Data Freshness before publishing any number:
 
 - Check the latest relevant PostgreSQL source date.
-- Check the latest date in `research/cache.duckdb`.
+- Check the latest date in `var/cache/cache.duckdb`.
 - If the standard refresh already completed on the same Taiwan calendar day and
   both cutoffs are still verified, reuse the cache.
 - If either cutoff is stale or inconsistent, run `quantlib-data-refresh` first.
@@ -56,7 +56,7 @@ print(pl.DataFrame(results).sort("CAGR", descending=True))
 
 Compare against repository baselines in `docs/strategy_ranking.md`,
 `research/trading/strategy_registry.py`, and relevant
-`research/strat_lab/results/*` artifacts:
+`var/out/strat_lab/*` artifacts:
 
 | ΔCAGR vs baseline | Interpretation |
 |---|---|

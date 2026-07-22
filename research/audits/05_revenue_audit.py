@@ -13,7 +13,7 @@ import sys
 import polars as pl
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
+from research.db import connect
 
 
 def main():

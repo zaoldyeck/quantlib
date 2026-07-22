@@ -4,7 +4,7 @@
 
 資料來源：GDELT 2.1 GKG raw metadata。此 pilot 使用 source domain、URL、themes、organizations 與 tone，不保存新聞全文。
 
-股票映射：使用 `research/data/tw_stock_news_aliases.csv`，只啟用高可信 alias，排除容易誤判的簡稱。事件日為 GDELT timestamp 轉 Asia/Taipei 日期，下一個台股交易日收盤為 entry reference。
+股票映射：使用 `research/records/tw_stock_news_aliases.csv`，只啟用高可信 alias，排除容易誤判的簡稱。事件日為 GDELT timestamp 轉 Asia/Taipei 日期，下一個台股交易日收盤為 entry reference。
 
 ![GDELT TW news alpha survey](gdelt_tw_news_alpha_survey.png)
 

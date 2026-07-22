@@ -8,7 +8,7 @@ This directory contains Codex-facing repository configuration.
 - Codex agents: `.codex/agents/*.toml`
 - Codex skills: `.agents/skills/*/SKILL.md`
 - Durable project facts: `docs/`, `research/trading/strategy_registry.py`, and
-  `research/strat_lab/results/`
+  `var/out/strat_lab/`
 
 Claude-specific files are intentionally not used as Codex policy.
 

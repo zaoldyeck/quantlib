@@ -9,9 +9,10 @@ from __future__ import annotations
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CAPITAL = 1_000_000.0
 
 

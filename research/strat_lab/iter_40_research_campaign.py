@@ -27,10 +27,11 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 
 from validate_hybrid import (  # noqa: E402
     N_TRIALS_DSR,
@@ -47,7 +48,7 @@ from iter_33_pm_first_principles import (  # noqa: E402
 )
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 CACHE_DIR = RESULTS / "cache"
 CAPITAL = 1_000_000.0
 COMMISSION = 0.000285

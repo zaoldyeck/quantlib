@@ -23,6 +23,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 EV_REGISTRY = REPO_ROOT / "research" / "evergreen" / "data" / "registry_v3.parquet"
@@ -30,7 +31,7 @@ EV_NEWS_DIRS = (REPO_ROOT / "research" / "evergreen" / "data" / "ev28_news",
                 REPO_ROOT / "research" / "evergreen" / "data" / "ev45_news",
                 REPO_ROOT / "research" / "evergreen" / "data" / "ev27_news")
 SER_REGISTRY = REPO_ROOT / "research" / "serenity" / "registry" / "thesis_registry_2025.csv"
-SER_LEDGER = REPO_ROOT / "research" / "serenity" / "state" / "live_positions.json"
+SER_LEDGER = paths.STATE / "serenity" / "live_positions.json"
 
 
 @dataclass

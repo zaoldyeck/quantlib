@@ -21,8 +21,8 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "research"))
 
-from db import connect  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 
 REG_DIR = REPO_ROOT / "research" / "serenity" / "registry"
 EV_REG = REPO_ROOT / "research" / "evergreen" / "data" / "registry_v3.parquet"

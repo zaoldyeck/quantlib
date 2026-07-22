@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:21:05.473Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b03_combine_push.py)
-涵蓋 trials(10):b03a_t35_mh10, b03b_t45, b03c_no_trail, b03d_w211, b03e_w121, b03f_w112, b03g_dualgate, b03h_gate_p25, b03i_gate_p75, b03j_maxnew5
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T00:21:05.473Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b03_combine_push.py)
+# 涵蓋 trials(10):b03a_t35_mh10, b03b_t45, b03c_no_trail, b03d_w211, b03e_w121, b03f_w112, b03g_dualgate, b03h_gate_p25, b03i_gate_p75, b03j_maxnew5
 """B03 — 合體與極限推進(10 trials;預註冊見 ledger/batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b03_combine_push

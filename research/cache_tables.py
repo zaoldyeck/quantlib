@@ -10,7 +10,11 @@ import duckdb
 import os
 import time
 
-DB_PATH = "research/cache.duckdb"
+from research.futures.taifex import build_taifex_futures_tables
+from research.industry_taxonomy import build_industry_taxonomy_pit
+from research import paths
+
+DB_PATH = f"{paths.CACHE_DB}"
 PG_DSN = os.environ.get("QL_PG_DSN",
     f"host=localhost port=5432 dbname=quantlib user={os.environ.get('USER', 'zaoldyeck')}")
 
@@ -39,6 +43,7 @@ def main():
         ("capital_reduction",    "SELECT market, date, company_code, post_reduction_reference_price, reason_for_capital_reduction FROM pg.public.capital_reduction"),
         ("operating_revenue",    'SELECT market, type, year, month, company_code, company_name, industry, monthly_revenue, "monthly_revenue_compared_last_year(%))" AS monthly_revenue_yoy FROM pg.public.operating_revenue'),
         ("daily_trading_details", "SELECT market, date, company_code, foreign_investors_difference, securities_investment_trust_companies_difference AS trust_difference, dealers_difference, total_difference FROM pg.public.daily_trading_details"),
+        ("market_index",          'SELECT market, date, name, close, change, "change(%)" AS change_pct FROM pg.public."index"'),
         ("margin_transactions",  "SELECT market, date, company_code, margin_balance_of_the_day AS margin_balance, short_balance_of_the_day AS short_balance, margin_quota, short_quota FROM pg.public.margin_transactions"),
         ("etf",                  "SELECT company_code FROM pg.public.etf"),
         # Sprint A additions (籌碼面 signal sources).
@@ -55,6 +60,21 @@ def main():
         # 「鉅額逐筆」+「一般交易」是真 sell signal (forward 5-30d -2~-5% CAR per TW academic literature).
         # 「信託」+「贈與」是 ownership re-allocation, transfer_shares=0, 較弱訊號.
         ("insider_holding", "SELECT market, report_date, declare_date, company_code, company_name, reporter_title, reporter_name, transfer_method, transferee, transfer_shares, max_intraday_shares, current_shares_own, current_shares_trust, planned_shares_own, planned_shares_trust FROM pg.public.insider_holding"),
+        # TAIFEX futures daily OHLC/settlement/OI and rolling-three-year institutional positioning.
+        ("taifex_futures_daily",
+         "SELECT date, contract_code, contract_month, open, high, low, close, change, change_pct, "
+         "       volume, settlement_price, open_interest, best_bid, best_ask, historical_high, historical_low, "
+         "       trading_halt, trading_session, spread_single_volume "
+         "FROM pg.public.taifex_futures_daily"),
+        ("taifex_futures_institutional",
+         "SELECT date, contract_code, product_name, investor_type, long_volume, long_value_thousands, "
+         "       short_volume, short_value_thousands, net_volume, net_value_thousands, "
+         "       long_open_interest, long_oi_value_thousands, short_open_interest, short_oi_value_thousands, "
+         "       net_open_interest, net_oi_value_thousands "
+         "FROM pg.public.taifex_futures_institutional"),
+        ("taifex_futures_final_settlement",
+         "SELECT date, contract_code, contract_month, final_settlement_price "
+         "FROM pg.public.taifex_futures_final_settlement"),
         # REMOVED: financial_index_quarterly (was a PG VIEW with margin derivation
         # we couldn't fully verify). See research/strat_lab/raw_quarterly.py for
         # first-principles replacement (gross_margin_q, operating_margin_q, roa_ttm, etc.
@@ -79,6 +99,13 @@ def main():
         n = con.sql(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
         print(f"  {name:25} {n:>10,} rows in {time.time()-t0:.1f}s")
 
+    t0 = time.time()
+    industry_taxonomy = build_industry_taxonomy_pit(con)
+    con.register("_industry_taxonomy_pit", industry_taxonomy)
+    con.sql("CREATE TABLE industry_taxonomy_pit AS SELECT * FROM _industry_taxonomy_pit")
+    n = con.sql("SELECT COUNT(*) FROM industry_taxonomy_pit").fetchone()[0]
+    print(f"  {'industry_taxonomy_pit':25} {n:>10,} rows in {time.time()-t0:.1f}s")
+
     # Indexes for fast lookups
     con.sql("CREATE INDEX idx_dq_code_date ON daily_quote(company_code, date)")
     con.sql("CREATE INDEX idx_dq_date ON daily_quote(date)")
@@ -87,6 +114,7 @@ def main():
     con.sql("CREATE INDEX idx_cr_code_date ON capital_reduction(company_code, date)")
     con.sql("CREATE INDEX idx_or_code_year_month ON operating_revenue(company_code, year, month)")
     con.sql("CREATE INDEX idx_dtd_code_date ON daily_trading_details(company_code, date)")
+    con.sql("CREATE INDEX idx_market_index_date ON market_index(date)")
     con.sql("CREATE INDEX idx_mt_code_date ON margin_transactions(company_code, date)")
     con.sql("CREATE INDEX idx_tdcc_code_date_tier ON tdcc_shareholding(company_code, data_date, holding_tier)")
     con.sql("CREATE INDEX idx_tdcc_date ON tdcc_shareholding(data_date)")
@@ -94,10 +122,22 @@ def main():
     con.sql("CREATE INDEX idx_fhr_code_date ON foreign_holding_ratio(company_code, date)")
     con.sql("CREATE INDEX idx_tsb_code_date ON treasury_stock_buyback(company_code, announce_date)")
     con.sql("CREATE INDEX idx_ih_code_date ON insider_holding(company_code, report_date)")
+    con.sql("CREATE INDEX idx_tfd_contract_date ON taifex_futures_daily(contract_code, date)")
+    con.sql("CREATE INDEX idx_tfd_date ON taifex_futures_daily(date)")
+    con.sql("CREATE INDEX idx_tfi_contract_date ON taifex_futures_institutional(contract_code, date)")
+    con.sql("CREATE INDEX idx_tffs_contract_date ON taifex_futures_final_settlement(contract_code, date)")
     # idx_fiq_code_yq removed (financial_index_quarterly no longer cached)
     con.sql("CREATE INDEX idx_isp_code_yq ON is_progressive_raw(company_code, year, quarter)")
     con.sql("CREATE INDEX idx_bsr_code_yq ON bs_concise_raw(company_code, year, quarter)")
     con.sql("CREATE INDEX idx_cfr_code_yq ON cf_progressive_raw(company_code, year, quarter)")
+    con.sql("CREATE INDEX idx_itp_code_date ON industry_taxonomy_pit(company_code, effective_date)")
+    con.sql("CREATE INDEX idx_itp_market_code_date ON industry_taxonomy_pit(market, company_code, effective_date)")
+
+    t0 = time.time()
+    build_taifex_futures_tables(con)
+    for name in ["taifex_futures_contract_rank", "taifex_futures_continuous", "taifex_futures_daily_factors"]:
+        n = con.sql(f"SELECT COUNT(*) FROM {name}").fetchone()[0]
+        print(f"  {name:25} {n:>10,} rows in {time.time()-t0:.1f}s")
     print(f"\n[done] cache at {DB_PATH}")
 
 if __name__ == "__main__":

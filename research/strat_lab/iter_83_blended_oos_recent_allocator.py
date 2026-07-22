@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -45,7 +46,7 @@ from iter_82_oos_recent_pm_allocator import (  # noqa: E402
 )
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_83_blended_oos_recent_allocator"
 MAX_POSITIONS = 10
 ITER82_TRIALS = 480

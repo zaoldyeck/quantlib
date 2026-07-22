@@ -1,14 +1,13 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-08T23:51:54.150Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/smoke_momentum.py)
-涵蓋 trials(1):mom126_top10_monthly
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-08T23:51:54.150Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/smoke_momentum.py)
+# 涵蓋 trials(1):mom126_top10_monthly
 """Smoke run — 驗證 apex 管線端到端(非假設檢定;記帳 batch=B00-smoke)。
 
 策略(故意樸素):月頻,決策日 = 每月最後交易日,買 126d 動能(跳過近 5d)
 top 10,跌出 top 30 訊號出場 + trailing 25%。dev 窗 2012-2023。
 
-Requires: research/cache.duckdb(cache_tables.py 最新即可)。
+Requires: var/cache/cache.duckdb(cache_tables.py 最新即可)。
 Run: uv run --project research python research/apex/experiments/smoke_momentum.py
 """
 from __future__ import annotations

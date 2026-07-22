@@ -11,7 +11,7 @@ Two-step pipeline, never skip step 2:
 
 Check when cache was last synced:
 ```bash
-ls -la research/cache.duckdb 2>&1 | awk '{print $6, $7, $8}'
+ls -la var/cache/cache.duckdb 2>&1 | awk '{print $6, $7, $8}'
 ```
 - If mtime within 24h and user didn't explicitly say "force refresh" → ask "cache was synced X hours ago, refresh anyway?"
 - If mtime > 24h OR user said "force" → proceed

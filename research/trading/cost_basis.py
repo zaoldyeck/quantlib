@@ -8,7 +8,7 @@
    (2026-07-09 那批有 `order_results` 佐證)。
 2. Serenity ledger 的收養部位(`cost_basis == "adopted_close"`)→ **收養日收盤,
    是成本代理不是真實成本**(那些股票在系統接手前就持有,真實成本不可考)。
-3. tri 自己的 state(`research/tri/state/*_positions.json` 的 `cost`)→ 同樣是
+3. tri 自己的 state(`var/state/positions/*_positions.json` 的 `cost`)→ 同樣是
    收養日收盤代理。
 
 為什麼不問券商:富邦 `inventories` **沒有成本欄位**(只有當日的 buy_value /
@@ -21,9 +21,10 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-SER_LEDGER = REPO_ROOT / "research" / "serenity" / "state" / "live_positions.json"
+SER_LEDGER = paths.STATE / "serenity" / "live_positions.json"
 
 #: 成本來源標記 → 給人看的短標籤
 BASIS_LABEL = {"fill": "成交價", "adopted_close": "收養價", "state": "收養價"}

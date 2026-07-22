@@ -30,6 +30,7 @@ import numpy as np
 import plotly.graph_objects as go
 import polars as pl
 from plotly.subplots import make_subplots
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -38,8 +39,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from evaluation import drawdown_series, nav_metrics  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
@@ -49,12 +50,12 @@ from execution import (  # noqa: E402
     load_adjusted_execution_bars,
 )
 from iter_96_robust_alpha_research import load_benchmark_nav, relative_metrics  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
 START = date(2010, 1, 4)
-RESULTS = REPO_ROOT / "research/strat_lab/results"
+RESULTS = REPO_ROOT / f"{paths.OUT_STRAT_LAB}"
 OUT_DIR = REPO_ROOT / "docs/strategy_research/mf_piot"
 OUT_PREFIX = "iter_98_magic_formula_piot"
 N_TRIALS_PRIOR = 41_116 + 229 + 960

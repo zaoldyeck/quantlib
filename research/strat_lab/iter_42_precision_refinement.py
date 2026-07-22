@@ -14,9 +14,10 @@ import polars as pl
 
 from iter_38_next_open_hybrid_validation import annual_rebalanced_blend
 from iter_40_research_campaign import validate_daily
+from research import paths
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 
 
 def main() -> None:

@@ -11,6 +11,7 @@ import polars as pl
 import numpy as np
 import duckdb
 from datetime import date
+from research import paths
 
 con = duckdb.connect()
 con.sql("INSTALL postgres; LOAD postgres;")
@@ -133,7 +134,7 @@ for tk in sorted(set(prices['company_code'].to_list()), key=lambda x: (x[0] != '
           f"{m['vol']*100:>6.1f}%{beta:>6.2f}{alpha*100:>8.1f}%{excess*100:>13.1f}pp")
 
 # strict 5+5 NAV 85/15 with C+B same-window (v6 ship candidate)
-strat = pl.read_csv("research/strat_lab/results/strict_5_5_w85_atr_daily.csv").with_columns(pl.col("date").str.to_date())
+strat = pl.read_csv(f"{paths.OUT_STRAT_LAB}/strict_5_5_w85_atr_daily.csv").with_columns(pl.col("date").str.to_date())
 print(f"\n=== 我方 strict 5+5 NAV 85/15 with C+B 對齊各主動 ETF 上市窗口（apples-to-apples，皆 dividend-adjusted）===")
 print(f"{'ETF':<8}{'window start':<13}{'days':>5}"
       f"{'5+5 cum':>10}{'ETF cum':>9}"

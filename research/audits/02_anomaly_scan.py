@@ -6,7 +6,7 @@ ex_right_dividend or capital_reduction event. These dates indicate that
 the crawler captured a partial/test/stale CSV instead of the final
 end-of-day data.
 
-Output: research/out/anomaly_dates.parquet — one row per suspicious date
+Output: var/out/anomaly_dates.parquet — one row per suspicious date
 with per-market stats. Review then feed to 03_refetch_anomalies.py.
 """
 from __future__ import annotations
@@ -15,9 +15,10 @@ import os
 import sys
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
+from research.db import connect
 
 
 def scan(con, min_stocks: int = 20, market: str = "twse") -> pl.DataFrame:
@@ -102,7 +103,7 @@ def main():
     with pl.Config(tbl_rows=200, tbl_width_chars=160, fmt_str_lengths=80):
         print(combined.sort("date"))
 
-    out = "research/out/anomaly_dates.parquet"
+    out = f"{paths.OUT}/anomaly_dates.parquet"
     os.makedirs(os.path.dirname(out), exist_ok=True)
     combined.write_parquet(out)
     print(f"\n[02] saved {len(combined)} dates → {out}")

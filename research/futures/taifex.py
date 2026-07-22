@@ -13,6 +13,7 @@ from __future__ import annotations
 import os
 
 import duckdb
+from research import paths
 
 
 TAIFEX_PRODUCTS = ("TX", "MTX", "TMF", "TE", "TF")
@@ -248,7 +249,7 @@ def build_taifex_futures_tables(con: duckdb.DuckDBPyConnection) -> None:
 
 
 def main() -> None:
-    db_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "cache.duckdb")
+    db_path = str(paths.CACHE_DB)
     con = duckdb.connect(db_path)
     try:
         build_taifex_futures_tables(con)

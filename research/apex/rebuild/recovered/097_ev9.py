@@ -51,7 +51,7 @@ pool_ret = (panel.sort([C, "date"])
             .group_by("date").agg(pl.col("r").mean()).sort("date")
             .with_columns((1 + pl.col("r").fill_null(0)).cum_prod().alias("idx")))
 pool_ret = pool_ret.with_columns((pl.col("idx") / pl.col("idx").cum_max() - 1).alias("dd"))
-inst = duckdb.connect('research/cache.duckdb', read_only=True).sql("""
+inst = duckdb.connect('var/cache/cache.duckdb', read_only=True).sql("""
     SELECT date, company_code,
            COALESCE(foreign_investors_difference,0) + COALESCE(trust_difference,0) AS net
     FROM daily_trading_details

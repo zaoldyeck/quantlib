@@ -1,8 +1,8 @@
 """apex_revcycle_S vs 0050 vs 00631L(正2)PnL 比較圖。
 
-需要 cache_tables.py 為最新(讀 research/cache.duckdb)。
+需要 cache_tables.py 為最新(讀 var/cache/cache.duckdb)。
 重跑 S 於兩窗口(正2 全史同窗 2014-10-31 起、現代 era 2019-01-02 起),
-與含息基準同窗歸一化,輸出互動 HTML 至 research/apex/reports/。
+與含息基準同窗歸一化,輸出互動 HTML 至 var/reports/apex/。
 
 窗口紀律披露:S 的參數最佳化窗 = dev 2019-01-02 → 2025-06-30;
 圖中 2014-2018 與 2025-07 之後為最佳化窗外(evaluation-only)。

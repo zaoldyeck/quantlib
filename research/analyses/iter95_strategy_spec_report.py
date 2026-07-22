@@ -22,6 +22,7 @@ from typing import Iterable
 
 import numpy as np
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -30,8 +31,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from evaluation import nav_metrics  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
@@ -41,11 +42,11 @@ from execution import (  # noqa: E402
     load_adjusted_execution_bars,
 )
 from iter_82_oos_recent_pm_allocator import load_execution_targets  # noqa: E402
-from prices import fetch_adjusted_panel  # noqa: E402
+from research.prices import fetch_adjusted_panel  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = REPO_ROOT / "research/strat_lab/results"
+RESULTS = REPO_ROOT / f"{paths.OUT_STRAT_LAB}"
 OUT_DIR = REPO_ROOT / "docs/strategy_research"
 ASSET_DIR = OUT_DIR / "iter95_strategy_spec_assets"
 

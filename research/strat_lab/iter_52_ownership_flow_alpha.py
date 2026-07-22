@@ -23,9 +23,10 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_40_research_campaign import (  # noqa: E402
@@ -42,7 +43,7 @@ from iter_40_research_campaign import (  # noqa: E402
 )
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 
 
 @dataclass(frozen=True)

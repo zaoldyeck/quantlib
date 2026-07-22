@@ -19,6 +19,7 @@ import polars as pl
 from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 from research.evergreen.ev36_walkforward import C, seg_kpi
 from research.evergreen.ev38_exhaust import FOLDS, LabX, bench
+from research import paths
 
 # EV49 各折 train 段內 top-1(攻擊 / 防禦)
 CFGS = {
@@ -44,7 +45,7 @@ MONO = {  # EV49 全窗單引擎對照(該折 train 全窗 top-1)
 
 
 def regime_segments(confirm: int, d0, d1) -> list[tuple]:
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     idx = (raw.execute("SELECT date, close FROM market_index "
                        "WHERE name = '發行量加權股價指數' ORDER BY date").pl()
            .with_columns(pl.col("close").rolling_mean(120).alias("ma"))

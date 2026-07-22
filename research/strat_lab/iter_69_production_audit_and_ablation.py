@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -46,7 +47,7 @@ from iter_68_position_level_bridge import (  # noqa: E402
 )
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_69_production_audit"
 HARD_CAP_POSITIONS = 5
 SWITCH_COST = 0.00357

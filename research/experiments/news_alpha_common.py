@@ -12,9 +12,10 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-ALIAS_PATH = REPO_ROOT / "research" / "data" / "tw_stock_news_aliases.csv"
+ALIAS_PATH = paths.NEWS_ALIASES
 TAIPEI = ZoneInfo("Asia/Taipei")
 
 NEWS_LABEL_RULES: tuple[tuple[str, tuple[str, ...]], ...] = (

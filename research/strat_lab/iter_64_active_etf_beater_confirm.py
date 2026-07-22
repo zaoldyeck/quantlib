@@ -22,12 +22,13 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from db import connect  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 from iter_40_research_campaign import (  # noqa: E402
     CAPITAL,
     N_TRIALS_DSR,
@@ -40,7 +41,7 @@ from iter_59_costed_exposure_overlay import load_gates  # noqa: E402
 from iter_63_sector_meta_risk_overlay import apply_overlay, load_strategy  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 ITER62_SUMMARY = RESULTS / "iter_62_sector_leadership_meta_summary.csv"
 OUT_PREFIX = "iter_64_active_etf_beater_confirm"
 

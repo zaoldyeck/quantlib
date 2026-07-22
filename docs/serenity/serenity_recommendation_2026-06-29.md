@@ -108,8 +108,8 @@ AI server PCB 從普通多層板升級到高速、高層、高精度背鑽，會
 本地數據：
 
 - PostgreSQL / DuckDB：`daily_quote`、`stock_per_pbr`、`daily_trading_details`、`operating_revenue`、`industry_taxonomy_pit`。
-- Serenity artifacts：`research/strat_lab/results/serenity_valuation_methods_replay_2025_scored_candidates.csv`、`research/strat_lab/results/serenity_industry_first_replay_2025_picks.csv`。
-- 本次計算輸出：`research/strat_lab/results/serenity_recommendation_2026-06-29.csv`。
+- Serenity artifacts：`var/out/strat_lab/serenity_valuation_methods_replay_2025_scored_candidates.csv`、`var/out/strat_lab/serenity_industry_first_replay_2025_picks.csv`。
+- 本次計算輸出：`var/out/strat_lab/serenity_recommendation_2026-06-29.csv`。
 
 外部來源：
 

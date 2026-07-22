@@ -53,7 +53,7 @@ from iter_33_pm_first_principles import (  # noqa: E402
 )
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 
 RF = 0.01
 TDPY = 252

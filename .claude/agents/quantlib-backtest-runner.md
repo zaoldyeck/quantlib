@@ -22,7 +22,7 @@ Read `project_v4_baseline.md` first — canonical v4 numbers (CAGR 27.09% / Shar
 
 ### Run
 
-1. **Verify cache is fresh** — if `research/cache.duckdb` mtime > 24h, say "cache stale, recommend `uv run python research/cache_tables.py` first" (don't auto-refresh unless user asks)
+1. **Verify cache is fresh** — if `var/cache/cache.duckdb` mtime > 24h, say "cache stale, recommend `uv run python research/cache_tables.py` first" (don't auto-refresh unless user asks)
 2. **Run**:
    ```bash
    cd /Users/zaoldyeck/Documents/scala/quantlib && \

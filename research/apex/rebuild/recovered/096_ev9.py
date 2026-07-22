@@ -53,7 +53,7 @@ pool_ret = (panel.sort([C, "date"])
 pool_ret = pool_ret.with_columns((pl.col("idx") / pl.col("idx").cum_max() - 1).alias("dd"))
 
 # 法人 20 日淨買(出場用):inst_neg = 外資+投信 20 日累積 < 0
-inst = duckdb.connect('research/cache.duckdb', read_only=True).sql("""
+inst = duckdb.connect('var/cache/cache.duckdb', read_only=True).sql("""
     SELECT date, company_code,
            COALESCE(foreign_buy_sell,0) + COALESCE(trust_buy_sell,0) AS net
     FROM daily_trading_details

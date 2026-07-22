@@ -8,7 +8,7 @@
 本測試把單日算法當作**參考實作**寫死在這裡,對真實 cache 逐位比對成員集合與
 geo 分數。任何對 `pool_history` 的修改都必須先讓這支綠燈。
 
-依賴:`research/cache.duckdb` 需為最新(見 CLAUDE.md「Data Refresh Workflow」)。
+依賴:`var/cache/cache.duckdb` 需為最新(見 CLAUDE.md「Data Refresh Workflow」)。
 Run: uv run --project research python -m research.tri.tests.test_pool_history
 """
 from __future__ import annotations
@@ -21,6 +21,7 @@ import polars as pl
 from research.apex import data
 from research.apex.assemble import apply_avail_override, build_features
 from research.tri.advisors import C, S_WTS, entry_anchors, pool_history
+from research import paths
 
 TODAY = Date(2026, 7, 22)
 
@@ -29,7 +30,7 @@ def _build(con):
     """重建 s_advisor 的特徵輸入(與 advisors.s_advisor 前半段同構)。"""
     import os
     ov = None
-    fs = "research/data/revenue_first_seen.parquet"
+    fs = f"{paths.RECORDS}/revenue_first_seen.parquet"
     if os.path.exists(fs):
         ov = (pl.read_parquet(fs)
               .with_columns(pl.col("first_seen").str.to_date().alias("avail_date"))
@@ -50,7 +51,7 @@ def _build(con):
     feat = (feat.sort("date")
             .join_asof(rev, left_on="date", right_on="avail", by=C,
                        strategy="backward", tolerance="70d").sort([C, "date"]))
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     tax = raw.sql("SELECT company_code, effective_date, industry FROM "
                   "industry_taxonomy_pit WHERE industry IS NOT NULL "
                   "ORDER BY effective_date").pl()

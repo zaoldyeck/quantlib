@@ -12,13 +12,14 @@ import sys
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_40_research_campaign import validate_daily
 from iter_45_fallback_gate_sweep import annual_blend, load_base
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 N_TRIALS_EFFECTIVE = 1200
 
 

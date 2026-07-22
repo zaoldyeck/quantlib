@@ -9,7 +9,7 @@ Purpose: start from "which stocks 暴漲 in the past?" and work backward to find
 
 ## Preconditions
 
-- `research/cache.duckdb` fresh (< 24h). If stale, advise `quantlib-data-refresh`.
+- `var/cache/cache.duckdb` fresh (< 24h). If stale, advise `quantlib-data-refresh`.
 - Cache must have `daily_quote`, `ex_right_dividend`, `capital_reduction`, and ideally `operating_revenue`, `daily_trading_details`, `margin_transactions` (for pre-event features).
 
 ## Memory-first reference

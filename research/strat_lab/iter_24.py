@@ -50,10 +50,11 @@ from datetime import date
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from prices import fetch_adjusted_panel
+from research.db import connect
+from research.prices import fetch_adjusted_panel
 
 
 # Signal 參數 (v4: v1 entry/exit + 15% position size)
@@ -192,7 +193,7 @@ def fetch_industry(con) -> dict[str, str]:
 
 
 def run_backtest(start: date, end: date, capital: float,
-                  out_dir: str = "research/strat_lab/results",
+                  out_dir: str = f"{paths.OUT_STRAT_LAB}",
                   out_suffix: str | None = None) -> dict:
     t0 = time.time()
     con = connect()

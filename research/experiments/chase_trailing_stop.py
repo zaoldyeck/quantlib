@@ -32,9 +32,10 @@ import pandas as pd
 import polars as pl
 import vectorbt as vbt
 import empyrical as ep
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 
 
 # --- Config: longest possible window (daily_quote starts 2004-02-11; 60d warmup
@@ -49,7 +50,7 @@ COMMISSION = 0.000285
 SELL_TAX = 0.003
 FEES_SYM = (2 * COMMISSION + SELL_TAX) / 2  # 0.001785
 
-OUT_DIR = "research/experiments/out"
+OUT_DIR = f"{paths.OUT_EXPERIMENTS}"
 os.makedirs(OUT_DIR, exist_ok=True)
 
 

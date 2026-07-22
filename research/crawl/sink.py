@@ -11,9 +11,9 @@ from datetime import date as Date
 
 import duckdb
 import polars as pl
+from research import paths
 
-CACHE_DB = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "cache.duckdb")
+CACHE_DB = str(paths.CACHE_DB)
 
 
 class Sink:

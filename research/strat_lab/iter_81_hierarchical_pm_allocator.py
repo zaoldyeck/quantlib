@@ -19,6 +19,7 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -31,7 +32,7 @@ from iter_70_hierarchical_position_audit import build_hierarchical_books  # noqa
 from iter_79_lagged_hierarchical_executor import benchmark_2330, lagged_capped_targets  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_81_hierarchical_pm_allocator"
 
 

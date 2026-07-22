@@ -5,7 +5,7 @@
 ——絕不用任何回測模擬簿的成員資格當判準(2026-07-13 教訓)。
 
 規格來源:S = research/apex/STRATEGY.md(逐條移植;per-position 狀態存
-research/tri/state/,cost=收養日收盤);Evergreen v3.3 = LEDGER EV30-33
+var/state/positions/,cost=收養日收盤);Evergreen v3.3 = LEDGER EV30-33
 (參數外部化:`research/evergreen/data/live_config.json`,EV43 年度 refit 產物);
 Serenity = live ledger 錨 × `research/serenity/exit_rules.py`(與執行系統
 同一份六道門規則源)。
@@ -21,11 +21,12 @@ from datetime import date as Date
 import polars as pl
 
 from research.trading.cost_basis import cost_of, levels_line
+from research import paths
 
 C = "company_code"
 #: 路徑一律以 **repo 根**為錨,不依賴 cwd(同 exit_replay 慣例)。
 _REPO = Path(__file__).resolve().parents[2]
-STATE_DIR = str(_REPO / "research" / "tri" / "state")
+STATE_DIR = str(paths.STATE_POSITIONS)
 
 # ── per-position 帳戶事實(首見日 + 成本)──────────────────────────
 # **這裡只存帳戶的事實,不存任何判斷。**「這是不是 S 的部位」「該不該出場」
@@ -198,7 +199,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
 
     # 月營收事件驅動生效:資料庫首見即納入(不等法定 10 日)。
     # 歷史回測維持保守 10 日語義;此 override 僅 live 決策使用。
-    fs_path = "research/data/revenue_first_seen.parquet"
+    fs_path = f"{paths.RECORDS}/revenue_first_seen.parquet"
     ov = None
     if os.path.exists(fs_path):
         ov = (pl.read_parquet(fs_path)
@@ -227,7 +228,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             .join_asof(rev, left_on="date", right_on="avail", by=C,
                        strategy="backward", tolerance="70d").sort([C, "date"]))
     import duckdb
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     tax = raw.sql("SELECT company_code, effective_date, industry FROM "
                   "industry_taxonomy_pit WHERE industry IS NOT NULL "
                   "ORDER BY effective_date").pl()
@@ -587,9 +588,9 @@ def evergreen_advisor(con, holdings: dict[str, float], today: Date,
 # lot(錨=實際成交價)的判決相左。出場門是 lot 錨定的,評判必須對「你的
 # lot」做,規則必須與 serenity.daily 同一份。
 
-SER_LEDGER = "research/serenity/state/live_positions.json"
-SER_OVERRIDES = "research/serenity/state/overrides.json"
-SER_BRIEFS = "research/out/trading/briefs"
+SER_LEDGER = f"{paths.STATE}/serenity/live_positions.json"
+SER_OVERRIDES = f"{paths.STATE}/serenity/overrides.json"
+SER_BRIEFS = f"{paths.OUT}/trading/briefs"
 
 
 def serenity_advisor(con, holdings: dict[str, float], today: Date,
@@ -618,7 +619,7 @@ def serenity_advisor(con, holdings: dict[str, float], today: Date,
                 brief_entries = _re.findall(r"'([^']+)'", line)
                 break
 
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     cutoff = raw.execute("SELECT max(date) FROM daily_quote").fetchone()[0]
     codes = set(holdings) | set(positions) | {e[:4] for e in brief_entries}
     closes, yoy3, inst20, cal = market_data(raw, codes, cutoff)

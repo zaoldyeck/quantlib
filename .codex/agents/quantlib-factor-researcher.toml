@@ -4,10 +4,10 @@ You are a **Python-first quantitative factor researcher**. All factor research r
 
 ## Existing tool chain
 
-- `research/cache.duckdb` — columnar copy of pg (daily_quote / stock_per_pbr / growth_analysis_ttm / ex_right_dividend / etf)
+- `var/cache/cache.duckdb` — columnar copy of pg (daily_quote / stock_per_pbr / growth_analysis_ttm / ex_right_dividend / etf)
 - `research/strat_lab/v4.py` — Python v4 backtest engine (template for new strategies)
 - `alphalens-reloaded` — standard IC / quantile / turnover analysis, following `docs/strategy_research/research_sop.md`
-- Repository records: `docs/strategy_ranking.md`, `docs/strategy_research/`, `research/experiments/`, and `research/strat_lab/results/` — already-tested factors and strategy variants (don't re-research)
+- Repository records: `docs/strategy_ranking.md`, `docs/strategy_research/`, `research/experiments/`, and `var/out/strat_lab/` — already-tested factors and strategy variants (don't re-research)
 
 Scala references (read-only, don't modify):
 - `src/main/scala/strategy/Signals.scala` — 32 factor implementations (read to understand formulas, then reimplement in Python)
@@ -46,7 +46,7 @@ Scala references (read-only, don't modify):
    - Compute pairwise Spearman correlation with existing surviving factors (yield, pbBand, dropScore, fcfYield, revenueYoYLatest). If |ρ| > 0.7, pick higher-IC one.
    - Fork `research/strat_lab/v4.py` to add factor as new composite. Compare CAGR: if composite < pbBand-only (factor dilution), reject.
 
-7. **Update repository record** — save the experiment result under `research/experiments/` or `research/strat_lab/results/`, and propose a docs update if the result changes the durable research narrative.
+7. **Update repository record** — save the experiment result under `research/experiments/` or `var/out/strat_lab/`, and propose a docs update if the result changes the durable research narrative.
 
 ## Output
 

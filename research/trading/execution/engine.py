@@ -2,7 +2,7 @@
 
 一次執行一條腿(code/side/qty)。預設 dry-run:訂閱真實行情、模擬成交、
 不送任何單;`--live` 由 CLI 閘門(FUBON_DRY_RUN=false 等)武裝,啟動永遠是
-使用者的動作。所有事件寫 JSONL(research/out/trading/executions/)。
+使用者的動作。所有事件寫 JSONL(var/out/trading/executions/)。
 
 部位成交帳(live)以「每張委託的 seen_fill 增量」記帳,cancel-replace 前後
 都先同步,不重複計。
@@ -27,12 +27,13 @@ from research.brokers.fubon import (FubonBroker, StockOrderRequest,
 from .daily_context import dump_candles, load_daily_levels, load_prior_value_area
 from .policy import LadderProfile, price_collar, target_price
 from .ticks import add_ticks
+from research import paths
 
 TAIPEI = ZoneInfo("Asia/Taipei")
-STATE_DIR = Path("research/state/trading")
+STATE_DIR = Path(f"{paths.STATE}/trading")
 HALT_FILE = STATE_DIR / "HALT"
 LOCK_DIR = STATE_DIR / "exec_locks"
-OUT_DIR = Path("research/out/trading/executions")
+OUT_DIR = Path(f"{paths.OUT}/trading/executions")
 
 SESSION_START = "09:00"
 SESSION_END = "13:30"

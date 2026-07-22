@@ -28,11 +28,12 @@ from pathlib import Path
 import numpy as np
 import polars as pl
 from scipy.stats import norm
+from research import paths
 
 warnings.filterwarnings("ignore")
 
 HERE = Path(__file__).parent
-RESULTS = HERE / "results"
+RESULTS = paths.OUT_STRAT_LAB
 
 TDPY = 252
 RF = 0.01

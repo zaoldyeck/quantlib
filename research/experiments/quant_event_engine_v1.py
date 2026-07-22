@@ -21,6 +21,7 @@ from datetime import date, timedelta
 from pathlib import Path
 
 import matplotlib
+from research import paths
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -35,9 +36,9 @@ sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT / "serenity"))
 sys.path.insert(0, str(RESEARCH_ROOT / "strat_lab"))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
-from prices import total_return_series  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
+from research.prices import total_return_series  # noqa: E402
 
 from replay_2025 import (  # noqa: E402
     benchmark_nav,
@@ -50,7 +51,7 @@ from replay_2025 import (  # noqa: E402
 import engine as eng  # noqa: E402
 from evaluation import nav_metrics, trade_distribution_metrics  # noqa: E402
 
-RESULTS = REPO_ROOT / "research" / "strat_lab" / "results"
+RESULTS = paths.OUT_STRAT_LAB
 DOCS = REPO_ROOT / "docs" / "strategy_research"
 OUT_PREFIX = "quant_event_engine_v1"
 

@@ -10,7 +10,7 @@
 **台股交割慣例**(用於「錢夠不夠」提醒):買進 T+2 扣款、賣出 T+2 入帳;兩者
 同日成交時淨額交割。
 
-**費率一律取自 `research/execution/broker_fee.py`(唯一真源)**——那份 schedule
+**費率一律取自 `research/execsim/broker_fee.py`(唯一真源)**——那份 schedule
 同時餵回測與執行模擬,若此處另立常數,兩邊會靜默漂移(成本假設一漂移,ROI 與
 「錢夠不夠」就都不可信)。本模組只補一件 schedule 沒有的事:**零股最低手續費**。
 """
@@ -18,7 +18,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from research.execution.broker_fee import FubonFeeSchedule
+from research.execsim.broker_fee import FubonFeeSchedule
 
 _FEE = FubonFeeSchedule()             # 1.8 折(月成交額 100 萬內)、證交稅 0.3%
 COMMISSION_RATE = _FEE.low_tier_rate()

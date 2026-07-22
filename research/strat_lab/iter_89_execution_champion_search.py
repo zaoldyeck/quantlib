@@ -15,6 +15,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESEARCH_ROOT = REPO_ROOT / "research"
@@ -22,8 +23,8 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, os.path.dirname(__file__))
 sys.path.insert(0, str(RESEARCH_ROOT))
 
-from constants import CAPITAL  # noqa: E402
-from db import connect  # noqa: E402
+from research.constants import CAPITAL  # noqa: E402
+from research.db import connect  # noqa: E402
 from execution import (  # noqa: E402
     ExecutionConfig,
     FubonFeeSchedule,
@@ -44,7 +45,7 @@ from iter_86_oos_recent_maximizer import (  # noqa: E402
 from validator import validate_daily_nav  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_89_execution_champion_search"
 ITER86_FAST = RESULTS / "iter_86_oos_recent_maximizer_fast_screen.csv"
 ITER87_SUMMARY = RESULTS / "iter_87_iter86_execution_validation_summary.csv"

@@ -13,9 +13,10 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 RF = 0.01
 TDPY = 252
 

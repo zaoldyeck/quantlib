@@ -1,8 +1,7 @@
-"""transcript 逐字復原(零改動)。
-
-來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:12:59.309Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b13_monthly_gauntlet.py)
-涵蓋 trials(2):b13_d11_dev, b13_d11_val
-"""
+# transcript 逐字復原(零改動)。
+#
+# 來源:3d5413eb-b7db-45c8-bf62-efdef11c1375.jsonl @ 2026-07-09T01:12:59.309Z(工具 Write:/Users/zaoldyeck/Documents/scala/quantlib/research/apex/experiments/b13_monthly_gauntlet.py)
+# 涵蓋 trials(2):b13_d11_dev, b13_d11_val
 """B13 — 月頻家族 gauntlet(primary d11 → 必要時 secondary d15;預註冊見 batches.md)。
 
 Run: uv run --project research python -m research.apex.experiments.b13_monthly_gauntlet

@@ -8,6 +8,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 
@@ -15,7 +16,7 @@ from iter_69_production_audit_and_ablation import ITER67_NAV_PATH  # noqa: E402
 from iter_70_hierarchical_position_audit import build_hierarchical_books  # noqa: E402
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 OUT_PREFIX = "iter_73_current_holdings_snapshot"
 CAPITAL = 1_000_000.0
 

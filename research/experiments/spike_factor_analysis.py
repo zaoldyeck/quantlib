@@ -28,7 +28,7 @@ sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 sys.path.insert(0, str(STRAT_LAB))
 
-from db import connect  # noqa: E402
+from research.db import connect  # noqa: E402
 from iter_33_pm_first_principles import load_or_build_panel  # noqa: E402
 
 

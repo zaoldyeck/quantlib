@@ -13,6 +13,7 @@ from datetime import date
 from pathlib import Path
 
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.dirname(__file__))
 from iter_13 import run_backtest
@@ -20,7 +21,7 @@ from iter_38_next_open_hybrid_validation import annual_rebalanced_blend
 from iter_40_research_campaign import validate_daily
 
 
-RESULTS = Path("research/strat_lab/results")
+RESULTS = Path(f"{paths.OUT_STRAT_LAB}")
 EVENT = RESULTS / "iter_40_breakout_risk_ma200_cash_top3_daily.csv"
 START = date(2005, 1, 3)
 END = date(2026, 5, 8)

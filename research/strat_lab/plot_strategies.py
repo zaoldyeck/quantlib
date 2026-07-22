@@ -6,10 +6,11 @@ from datetime import date
 import numpy as np
 import plotly.graph_objects as go
 import polars as pl
+from research import paths
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-from db import connect
-from prices import fetch_daily_returns
+from research.db import connect
+from research.prices import fetch_daily_returns
 
 con = connect()
 START, END = date(2005, 1, 3), date(2026, 4, 25)
@@ -25,11 +26,11 @@ b_dates = b_2330["date"].to_list()
 
 # 策略 NAVs
 strats = {
-    "iter_21 hybrid (BEST OOS)":  ("research/strat_lab/results/iter_21_daily.csv", "#d62728"),
-    "iter_13 mcap (best single)": ("research/strat_lab/results/iter_13_mcap_daily.csv", "#1f77b4"),
-    "iter_25 hybrid 70/30":       ("research/strat_lab/results/iter_25_daily.csv", "#2ca02c"),
-    "iter_24 pyramid":            ("research/strat_lab/results/iter_24_daily.csv", "#9467bd"),
-    "iter_20 v8 breakout":        ("research/strat_lab/results/iter_20_daily.csv", "#ff7f0e"),
+    "iter_21 hybrid (BEST OOS)":  (f"{paths.OUT_STRAT_LAB}/iter_21_daily.csv", "#d62728"),
+    "iter_13 mcap (best single)": (f"{paths.OUT_STRAT_LAB}/iter_13_mcap_daily.csv", "#1f77b4"),
+    "iter_25 hybrid 70/30":       (f"{paths.OUT_STRAT_LAB}/iter_25_daily.csv", "#2ca02c"),
+    "iter_24 pyramid":            (f"{paths.OUT_STRAT_LAB}/iter_24_daily.csv", "#9467bd"),
+    "iter_20 v8 breakout":        (f"{paths.OUT_STRAT_LAB}/iter_20_daily.csv", "#ff7f0e"),
 }
 
 fig = go.Figure()
@@ -87,7 +88,7 @@ print(f"{'='*60}")
 for label, nav, _ in final_data:
     print(f"  {label:<40}  ${nav/1e6:>6.1f}M  ({nav/1e6:.0f}x)")
 
-out_path = "research/strat_lab/results/strategy_comparison.html"
+out_path = f"{paths.OUT_STRAT_LAB}/strategy_comparison.html"
 fig.write_html(out_path)
 print(f"\n圖表已寫入: {out_path}")
 

@@ -9,7 +9,7 @@ Tests:
 Fixed: monthly rebal + mcap ranker + TWSE+TPEx (Phase 0 ship spec).
 
 Each backtest ~30s; total ~12 min sequential.
-Output: research/strat_lab/results/sweep_iter13_params_v6.csv
+Output: var/out/strat_lab/sweep_iter13_params_v6.csv
 
 Run:
     uv run --project research python research/strat_lab/sweep_iter13_params.py
@@ -27,9 +27,10 @@ from pathlib import Path
 
 import numpy as np
 import polars as pl
+from research import paths
 
 HERE = Path(__file__).parent
-RESULTS = HERE / "results"
+RESULTS = paths.OUT_STRAT_LAB
 
 START = "2005-01-03"
 END = "2026-04-25"

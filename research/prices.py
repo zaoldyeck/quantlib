@@ -14,7 +14,7 @@ Architecture
 
   fetch_adjusted_panel()       ←   canonical entry point (OHLCV panel)
        │
-       ├── _build_factor_table()    cash_div + cap_red → multiplicative factors
+       ├── _build_factor_table()    cash_div + cap_red + stock split → factors
        └── _apply_back_adjustment() reverse-cumprod + asof-join
 
   daily_returns_from_panel()   ←   panel  →  (date, code, ret) DRIP returns
@@ -24,6 +24,10 @@ Architecture
 Algorithm: standard back-adjustment ("Yahoo-style adj_close")
   - Cash dividend: factor_e = (close_pre_ex - cash_div) / close_pre_ex   (< 1)
   - Capital reduction: factor_e = post_reduction_ref_price / close_pre   (any)
+  - Stock split: factor_e = close_post_split / close_pre_split
+    TWSE ex-right data has been incomplete for ETF split events since 2024, so
+    we also detect suspension-gap split ratios heuristically, matching the Scala
+    Backtester. This keeps 0050/0052 total-return curves continuous.
   - For each (code, date), adj_factor = ∏ factor_e for events e with ex_date(e) > date
   - adj_close[date] = raw_close[date] × adj_factor[date]
   - Same factor applied to open / high / low (preserves intraday ratios → ATR consistent)
@@ -160,7 +164,9 @@ def fetch_adjusted_panel(
             ])
         )
 
-    return _select_output_columns(_apply_back_adjustment(px, factors))
+    return _select_output_columns(
+        _apply_back_adjustment(px, factors).sort(["company_code", "date"])
+    )
 
 
 def daily_returns_from_panel(panel: pl.DataFrame) -> pl.DataFrame:
@@ -257,11 +263,12 @@ def _select_output_columns(df: pl.DataFrame) -> pl.DataFrame:
 
 def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) -> pl.DataFrame:
     """Return (company_code, ex_date, factor) — adjustment multipliers."""
+    # join_asof 契約:兩側都按 asof key「全域」排序。禁止對 (code, key) 排序的欄
+    # set_sorted——謊 flag 會讓下游走有序快徑而損壞(見 apex B01 事故 2026-07-09)。
     pre_close_lookup = (
         px.select(["company_code", "date", "close"])
           .rename({"date": "px_date", "close": "pre_close"})
-          .sort(["company_code", "px_date"])
-          .set_sorted("px_date")
+          .sort("px_date")
     )
 
     events: list[pl.DataFrame] = []
@@ -271,8 +278,7 @@ def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) 
         d = (divs.with_columns(
                 (pl.col("ex_date") - pl.duration(days=1)).alias("probe")
              )
-             .sort(["company_code", "probe"])
-             .set_sorted("probe")
+             .sort("probe")
              .join_asof(
                  pre_close_lookup,
                  left_on="probe", right_on="px_date",
@@ -295,8 +301,7 @@ def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) 
         c = (cr.with_columns(
                 (pl.col("ex_date") - pl.duration(days=1)).alias("probe")
              )
-             .sort(["company_code", "probe"])
-             .set_sorted("probe")
+             .sort("probe")
              .join_asof(
                  pre_close_lookup,
                  left_on="probe", right_on="px_date",
@@ -315,6 +320,10 @@ def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) 
         )
         events.append(c)
 
+    splits = _detect_stock_splits(px, divs, cr)
+    if splits.height > 0:
+        events.append(splits)
+
     if not events:
         return pl.DataFrame(schema={
             "company_code": pl.Utf8, "ex_date": pl.Date, "factor": pl.Float64,
@@ -326,6 +335,64 @@ def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) 
               .group_by(["company_code", "ex_date"])
               .agg(pl.col("factor").product().alias("factor"))
               .sort(["company_code", "ex_date"]))
+
+
+def _detect_stock_splits(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) -> pl.DataFrame:
+    """Detect split / reverse-split events missing from TWSE ex-right tables.
+
+    The rule mirrors `src/main/scala/strategy/Backtester.scala`:
+      - close ratio implies a split factor between 2.5x and 100x, or reverse
+        split factor between 0.01x and 0.4x;
+      - the event follows a 3-14 calendar-day trading suspension gap;
+      - no same-day dividend or capital-reduction record exists.
+
+    Returns the same event schema as dividends/capital reductions, where
+    `factor` is the multiplier applied to all pre-event prices.
+    """
+    split_events = (
+        px.select(["company_code", "date", "close"])
+        .sort(["company_code", "date"])
+        .with_columns(
+            [
+                pl.col("date").shift(1).over("company_code").alias("prev_date"),
+                pl.col("close").shift(1).over("company_code").alias("prev_close"),
+            ]
+        )
+        .filter(pl.col("prev_close").is_not_null() & (pl.col("prev_close") > 0) & (pl.col("close") > 0))
+        .with_columns(
+            [
+                (pl.col("date") - pl.col("prev_date")).dt.total_days().alias("gap_days"),
+                (pl.col("prev_close") / pl.col("close")).alias("split_factor"),
+            ]
+        )
+        .filter(
+            pl.col("gap_days").is_between(3, 14)
+            & (
+                pl.col("split_factor").is_between(2.5, 100.0)
+                | pl.col("split_factor").is_between(0.01, 0.4)
+            )
+        )
+        .with_columns(
+            [
+                pl.col("date").alias("ex_date"),
+                (pl.col("close") / pl.col("prev_close")).alias("factor"),
+            ]
+        )
+        .select(["company_code", "ex_date", "factor"])
+    )
+    if split_events.is_empty():
+        return split_events
+
+    known_events: list[pl.DataFrame] = []
+    if divs.height > 0:
+        known_events.append(divs.select(["company_code", "ex_date"]))
+    if cr.height > 0:
+        known_events.append(cr.select(["company_code", "ex_date"]))
+    if not known_events:
+        return split_events
+
+    known = pl.concat(known_events).unique()
+    return split_events.join(known, on=["company_code", "ex_date"], how="anti")
 
 
 def _apply_back_adjustment(px: pl.DataFrame, factors: pl.DataFrame) -> pl.DataFrame:
@@ -350,15 +417,14 @@ def _apply_back_adjustment(px: pl.DataFrame, factors: pl.DataFrame) -> pl.DataFr
               .alias("cum_factor_from_here")
         )
         .select(["company_code", "ex_date", "cum_factor_from_here"])
-        .set_sorted("ex_date")
+        .sort("ex_date")   # join_asof 契約:asof key 全域排序
     )
 
     px_with_factor = (px
         .with_columns(
             (pl.col("date") + pl.duration(days=1)).alias("probe")
         )
-        .sort(["company_code", "probe"])
-        .set_sorted("probe")
+        .sort("probe")
         .join_asof(
             factors_with_cum,
             left_on="probe", right_on="ex_date",
@@ -407,7 +473,7 @@ if __name__ == "__main__":
     print(f"raw[-1]={panel['raw_close'][-1]:.2f} → adj[-1]={panel['close'][-1]:.2f} "
           f"(factor={panel['adj_factor'][-1]:.4f})")
     print()
-    print("expected (active_etf_metrics.py): cum +272%, CAGR 6.10%")
+    print("expected: split-adjusted series should be continuous across 0050 2025-06-18 split")
 
     # Also verify the daily_returns helper round-trips correctly
     print("\n=== daily_returns_from_panel sanity ===")

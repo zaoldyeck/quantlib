@@ -24,6 +24,7 @@ import polars as pl
 from research.apex import data
 from research.apex.assemble import apply_avail_override, build_features
 from research.tri.advisors import C, S_WTS
+from research import paths
 
 _GATES = ("① 營收新鮮 ≤7 日", "② 流動性/上市資格", "③ 六因子齊全", "④ 現金流品質閘")
 
@@ -31,7 +32,7 @@ _GATES = ("① 營收新鮮 ≤7 日", "② 流動性/上市資格", "③ 六因
 def _inputs(con, today: Date):
     """重建 s_advisor 的特徵輸入(與 `s_advisor` 前半段同構)。"""
     ov = None
-    fs = "research/data/revenue_first_seen.parquet"
+    fs = f"{paths.RECORDS}/revenue_first_seen.parquet"
     if os.path.exists(fs):
         ov = (pl.read_parquet(fs)
               .with_columns(pl.col("first_seen").str.to_date().alias("avail_date"))
@@ -52,7 +53,7 @@ def _inputs(con, today: Date):
     feat = (feat.sort("date")
             .join_asof(rev, left_on="date", right_on="avail", by=C,
                        strategy="backward", tolerance="70d").sort([C, "date"]))
-    raw = duckdb.connect("research/cache.duckdb", read_only=True)
+    raw = duckdb.connect(f"{paths.CACHE_DB}", read_only=True)
     tax = raw.sql("SELECT company_code, effective_date, industry FROM "
                   "industry_taxonomy_pit WHERE industry IS NOT NULL "
                   "ORDER BY effective_date").pl()
