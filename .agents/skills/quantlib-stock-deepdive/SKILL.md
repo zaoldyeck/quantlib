@@ -9,8 +9,7 @@ Synthesize evidence from 6 specialist subagents into one integrated report. User
 
 ## Preconditions
 
-- Follow `AGENTS.md` Mandatory Data Freshness before using cached market data.
-  Reuse a same-day verified cache; otherwise run `quantlib-data-refresh`.
+- `var/cache/cache.duckdb` exists (suggest `quantlib-data-refresh` if > 3 days old)
 - Ticker is valid TWSE/TPEx 4-digit code
 
 ## Step 1: Analyst phase (parallel)

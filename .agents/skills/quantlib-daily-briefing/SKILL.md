@@ -1,11 +1,6 @@
 ---
 name: quantlib-daily-briefing
-description: >-
-  Use this skill when user requests a daily/morning market briefing (e.g.
-  "daily briefing", "morning report", "今日重點", "盤前掃描", "早報",
-  "今天該注意什麼"). Auto-generates: macro market summary + holdings signals +
-  watchlist changes + key events + news classifier output. Designed to be the
-  user's morning starting point before market opens.
+description: Use this skill when user requests a daily/morning market briefing (e.g. "daily briefing", "morning report", "今日重點", "盤前掃描", "早報", "今天該注意什麼"). Auto-generates: macro market summary + holdings signals + watchlist changes + key events + news classifier output. Designed to be the user's morning starting point before market opens.
 ---
 
 # Daily Market Briefing — TWSE/TPEx morning report
@@ -14,9 +9,8 @@ A pre-market briefing that pulls together everything a TW investor needs to star
 
 ## Preconditions
 
-- Follow `AGENTS.md` Mandatory Data Freshness. Reuse a same-day verified cache;
-  otherwise run `quantlib-data-refresh` before drawing data-backed conclusions.
-- User has provided **holdings list** (in conversation context or an ignored local portfolio file such as `~/portfolio.json`) — if not, ask once
+- `var/cache/cache.duckdb` updated within last 24h (if not → suggest `quantlib-data-refresh`)
+- User has provided **holdings list** (in chat memory or in `~/portfolio.json`) — if not, ask once
 - User has provided **watchlist** (5-20 tickers being tracked) — if not, ask once
 
 ## Workflow
@@ -153,7 +147,7 @@ For each watchlist ticker:
 ## 自動化 hint
 
 若使用者要每日 8:30 自動執行此 skill：
-- 建議用 Codex 的 schedule（CronCreate）trigger 每工作日早上 8:30
+- 建議用 Claude Code 的 schedule（CronCreate）trigger 每工作日早上 8:30
 - Output 寄到 user 偏好的 channel（chat / email / Slack）
 
 ## Output language
