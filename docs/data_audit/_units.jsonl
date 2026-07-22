@@ -1,0 +1,58 @@
+{"id": "A-daily_quote", "dim": "A", "source": "daily_quote", "reader": "TradingReader.readDailyQuote", "table": "daily_quote", "raw_files": 15151, "status": "pending"}
+{"id": "A-daily_trading_details", "dim": "A", "source": "daily_trading_details", "reader": "TradingReader.readDailyTradingDetails", "table": "daily_trading_details", "raw_files": 12218, "status": "pending"}
+{"id": "A-margin_transactions", "dim": "A", "source": "margin_transactions", "reader": "TradingReader.readMarginTransactions", "table": "margin_transactions", "raw_files": 16468, "status": "pending"}
+{"id": "A-stock_per_pbr_dividend_yield", "dim": "A", "source": "stock_per_pbr_dividend_yield", "reader": "TradingReader.readStockPER_PBR_DividendYield", "table": "stock_per_pbr", "raw_files": 14762, "status": "pending"}
+{"id": "A-index", "dim": "A", "source": "index", "reader": "TradingReader.readIndex", "table": "market_index", "raw_files": 10149, "status": "pending"}
+{"id": "A-foreign_holding_ratio", "dim": "A", "source": "foreign_holding_ratio", "reader": "TradingReader.readForeignHoldingRatio", "table": "foreign_holding_ratio", "raw_files": 9783, "status": "pending"}
+{"id": "A-sbl_borrowing", "dim": "A", "source": "sbl_borrowing", "reader": "TradingReader.readSblBorrowing", "table": "sbl_borrowing", "raw_files": 6266, "status": "pending"}
+{"id": "A-tdcc_shareholding", "dim": "A", "source": "tdcc_shareholding", "reader": "TradingReader.readTdccShareholding", "table": "tdcc_shareholding", "raw_files": 29, "status": "pending"}
+{"id": "A-capital_reduction", "dim": "A", "source": "capital_reduction", "reader": "TradingReader.readCapitalReduction", "table": "capital_reduction", "raw_files": 284, "status": "pending"}
+{"id": "A-ex_right_dividend", "dim": "A", "source": "ex_right_dividend", "reader": "TradingReader.readExRightDividend", "table": "ex_right_dividend", "raw_files": 237, "status": "pending"}
+{"id": "A-balance_sheet", "dim": "A", "source": "balance_sheet", "reader": "FinancialReader.readBalanceSheet", "table": "bs_concise_raw", "raw_files": 1256, "status": "pending"}
+{"id": "A-income_statement", "dim": "A", "source": "income_statement", "reader": "FinancialReader.readIncomeStatement", "table": "is_progressive_raw", "raw_files": 1154, "status": "pending"}
+{"id": "A-operating_revenue", "dim": "A", "source": "operating_revenue", "reader": "FinancialReader.readOperatingRevenue", "table": "operating_revenue", "raw_files": 516, "status": "pending"}
+{"id": "A-financial_analysis", "dim": "A", "source": "financial_analysis", "reader": "FinancialReader.readFinancialAnalysis", "table": null, "raw_files": 76, "status": "pending"}
+{"id": "A-etf", "dim": "A", "source": "etf", "reader": "FinancialReader.readETF", "table": "etf", "raw_files": 6, "status": "pending"}
+{"id": "A-taifex", "dim": "A", "source": "taifex", "reader": "TradingReader.readTaifexFuturesDaily", "table": "taifex_futures_daily", "raw_files": 3842, "status": "pending"}
+{"id": "B-view-1_cbs_by_year", "dim": "B", "artifact": "src/main/resources/sql/view/1_cbs_by_year.sql", "status": "pending"}
+{"id": "B-view-2_cbs_by_year_5y_over75", "dim": "B", "artifact": "src/main/resources/sql/view/2_cbs_by_year_5y_over75.sql", "status": "pending"}
+{"id": "B-view-3_financial_index_quarterly", "dim": "B", "artifact": "src/main/resources/sql/view/3_financial_index_quarterly.sql", "status": "pending"}
+{"id": "B-view-4_financial_index_ttm", "dim": "B", "artifact": "src/main/resources/sql/view/4_financial_index_ttm.sql", "status": "pending"}
+{"id": "B-view-5_growth_analysis_ttm", "dim": "B", "artifact": "src/main/resources/sql/view/5_growth_analysis_ttm.sql", "status": "pending"}
+{"id": "B-view-6_cbs_ttm_5y_over75", "dim": "B", "artifact": "src/main/resources/sql/view/6_cbs_ttm_5y_over75.sql", "status": "pending"}
+{"id": "B-view-7_sheet_music", "dim": "B", "artifact": "src/main/resources/sql/view/7_sheet_music.sql", "status": "pending"}
+{"id": "B-view-8_valuation", "dim": "B", "artifact": "src/main/resources/sql/view/8_valuation.sql", "status": "pending"}
+{"id": "B-view-9_valuation_1q", "dim": "B", "artifact": "src/main/resources/sql/view/9_valuation_1q.sql", "status": "pending"}
+{"id": "B-matview-1_concise_balance_sheet_individual", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/1_concise_balance_sheet_individual.sql", "status": "pending"}
+{"id": "B-matview-2_balance_sheet_with_titles", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/2_balance_sheet_with_titles.sql", "status": "pending"}
+{"id": "B-matview-3_cash_flows_individual", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/3_cash_flows_individual.sql", "status": "pending"}
+{"id": "B-matview-4_cash_flows_with_titles", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/4_cash_flows_with_titles.sql", "status": "pending"}
+{"id": "B-matview-5_concise_income_statement_individual", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/5_concise_income_statement_individual.sql", "status": "pending"}
+{"id": "B-matview-6_concise_financial_statement_with_titles", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/6_concise_financial_statement_with_titles.sql", "status": "pending"}
+{"id": "B-matview-7_income_statement_individual", "dim": "B", "artifact": "src/main/resources/sql/materialized_view/7_income_statement_individual.sql", "status": "pending"}
+{"id": "B-fscore-academic", "dim": "B", "artifact": "F-Score 全部實作 vs Piotroski (2000) 九項", "status": "pending"}
+{"id": "B-slick-schema", "dim": "B", "artifact": "src/main/scala/db/table/*.scala 型別/單位/唯一索引", "status": "pending"}
+{"id": "C-bs_concise_raw", "dim": "C", "table": "bs_concise_raw", "status": "pending"}
+{"id": "C-capital_reduction", "dim": "C", "table": "capital_reduction", "status": "pending"}
+{"id": "C-cf_progressive_raw", "dim": "C", "table": "cf_progressive_raw", "status": "pending"}
+{"id": "C-daily_quote", "dim": "C", "table": "daily_quote", "status": "pending"}
+{"id": "C-daily_trading_details", "dim": "C", "table": "daily_trading_details", "status": "pending"}
+{"id": "C-etf", "dim": "C", "table": "etf", "status": "pending"}
+{"id": "C-ex_right_dividend", "dim": "C", "table": "ex_right_dividend", "status": "pending"}
+{"id": "C-foreign_holding_ratio", "dim": "C", "table": "foreign_holding_ratio", "status": "pending"}
+{"id": "C-industry_taxonomy_pit", "dim": "C", "table": "industry_taxonomy_pit", "status": "pending"}
+{"id": "C-insider_holding", "dim": "C", "table": "insider_holding", "status": "pending"}
+{"id": "C-is_progressive_raw", "dim": "C", "table": "is_progressive_raw", "status": "pending"}
+{"id": "C-margin_transactions", "dim": "C", "table": "margin_transactions", "status": "pending"}
+{"id": "C-market_index", "dim": "C", "table": "market_index", "status": "pending"}
+{"id": "C-operating_revenue", "dim": "C", "table": "operating_revenue", "status": "pending"}
+{"id": "C-sbl_borrowing", "dim": "C", "table": "sbl_borrowing", "status": "pending"}
+{"id": "C-stock_per_pbr", "dim": "C", "table": "stock_per_pbr", "status": "pending"}
+{"id": "C-taifex_futures_continuous", "dim": "C", "table": "taifex_futures_continuous", "status": "pending"}
+{"id": "C-taifex_futures_contract_rank", "dim": "C", "table": "taifex_futures_contract_rank", "status": "pending"}
+{"id": "C-taifex_futures_daily", "dim": "C", "table": "taifex_futures_daily", "status": "pending"}
+{"id": "C-taifex_futures_daily_factors", "dim": "C", "table": "taifex_futures_daily_factors", "status": "pending"}
+{"id": "C-taifex_futures_final_settlement", "dim": "C", "table": "taifex_futures_final_settlement", "status": "pending"}
+{"id": "C-taifex_futures_institutional", "dim": "C", "table": "taifex_futures_institutional", "status": "pending"}
+{"id": "C-tdcc_shareholding", "dim": "C", "table": "tdcc_shareholding", "status": "pending"}
+{"id": "C-treasury_stock_buyback", "dim": "C", "table": "treasury_stock_buyback", "status": "pending"}
