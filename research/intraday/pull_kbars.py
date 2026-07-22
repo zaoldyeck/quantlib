@@ -27,14 +27,15 @@
 所以開平行前程式會**自己證明**一次(同批 chunk 序列與平行結果逐位比對),
 通過才用平行;結論以 shioaji 版本為 key 快取,升版自動重驗。
 
-**隨時中斷即可續傳(刻意無狀態檔)**:完成單位 = 磁碟上的檔案本身——
-  kbars_1m/{YYYY-MM}/{code}.parquet  有資料
-  kbars_1m/{YYYY-MM}/{code}.empty    確認無資料(未上市/停牌整月)
+**完整度 = 逐日核對,不是猜的(刻意無狀態檔)**
+「這一檔這個月該有哪幾天」的權威來源是 **`daily_quote`**——它早就逐日記著每檔
+在哪天有交易。缺口 = 應有集合 − 磁碟上實有的日子,是**減法**。
+所以:額度中途用盡留下的洞找得到也補得回來(`--gaps` 可離線盤點);
+而且**絕不會把「抓不到」記成「沒有資料」**——舊碼在 API 因超額回 null 時會寫下
+0-byte 哨兵,把暫時性故障永久固化成假事實。哨兵機制已整個廢除。
 寫入一律 tmp → os.replace(同分割區原子換名),故 kill -9 / 斷網 / 當機最多
-重做「當下那一格」,絕不留半檔汙染,也不需要任何 state 檔案同步。
-完成判定看**覆蓋度**(mtime ≥ 該月應覆蓋的最後一天),不是「檔案存在」——
-否則月中抓的檔會在日曆翻頁後被永久當成完成,那幾天無聲缺失。
-而且**只抓增量**:當月每天多一個交易日,若每次重抓「月初→今天」整段,月中平均
+重做「當下那一格」,絕不留半檔汙染。
+**只補缺的那幾天**:當月每天多一個交易日,若每次重抓「月初→今天」整段,月中平均
 要重載 11 天份 = 每天燒掉當日額度的 19%、一個月累積 8.1 GB(整整 4 天的額度)。
 
 **資料聲明(回測必讀)**:(1) Shioaji 合約表僅含現存上市股 → 本資料集含存活者
@@ -43,7 +44,8 @@
 
 用法:
   uv run --project research python -m research.intraday.pull_kbars             # 續傳回補
-  uv run --project research python -m research.intraday.pull_kbars --status    # 只看進度(不連線)
+  uv run --project research python -m research.intraday.pull_kbars --status    # 進度(不連線)
+  uv run --project research python -m research.intraday.pull_kbars --gaps      # 缺哪幾天(不連線)
   uv run --project research python -m research.intraday.pull_kbars --workers 1 # 強制序列
   uv run --project research python -m research.intraday.pull_kbars --since 2022-07-01  # 只補近四年
   uv run --project research python -m research.intraday.pull_kbars --selftest  # 登入+單檔驗證
@@ -233,57 +235,104 @@ def _months(start: Date, end: Date) -> list[tuple[str, Date, Date]]:
     return out
 
 
-def _done(tag: str, code: str, end: Date) -> bool:
-    """完成判定 = 磁碟上有檔 **且該檔已覆蓋到該月應有的最後一天**(`end`)。
+def _expected(con, s: Date, e: Date) -> tuple[dict[str, set], set]:
+    """該區間**應該要有**的交易日 → ({code: {日期}}, 全市場交易日集合)。
 
-    **為什麼不能只看「檔案存在」**:每次抓取請求的區間是 [月初, min(月底, 今天)]。
-    若某次執行發生在月中,該月的檔案就只覆蓋到那天為止;等日曆翻頁、這個月不再是
-    「當月」,舊規則(只有當月才檢查新鮮度)會直接判定完成——**那幾天的資料就
-    永遠補不回來了,而且無聲**。
-    實例:6/28 跑過一次,7/5 再跑時 6/29~6/30 已被當成完成,永遠缺那兩天。
+    **權威來源是 `daily_quote`**:它已經逐日記錄了每一檔在哪幾天有交易。
+    先前用「檔案存在」或 mtime 猜完整度,兩者都只是代理指標,而且各出一種無聲錯誤:
+      ① 額度耗盡時 API 回 null(官方文件明載),舊碼會據此寫下 `.empty` 哨兵
+         → **「抓不到」被永久記成「這個月沒有資料」**,資料集被汙染且無人知曉;
+      ② 月中抓的檔在日曆翻頁後被判為完成,中間缺的幾天永遠補不回來。
+    改成逐日核對後,「缺哪幾天」是**算得出來的事實**,不是猜的——也才補得回來。
 
-    正確判準:檔案 mtime ≥ 該月應覆蓋的最後一天。抓取一定發生在「請求結束日」
-    當天或之後,故 mtime 就是覆蓋度的忠實代理——**不需要另外存任何狀態**,
-    也自動涵蓋當月(當月的 end 就是今天)。
+    指數不在 daily_quote(它在 market_index),故以「全市場交易日」為其應有集合。
     """
-    d = OUT / tag
-    for f in (d / f"{code}.parquet", d / f"{code}.empty"):
-        if f.exists():
-            return datetime.fromtimestamp(f.stat().st_mtime).date() >= end
-    return False
+    rows = con.execute(
+        "SELECT company_code, date FROM daily_quote WHERE date BETWEEN ? AND ?",
+        [s, e]).fetchall()
+    per: dict[str, set] = {}
+    alld: set = set()
+    for code, d in rows:
+        per.setdefault(str(code), set()).add(d)
+        alld.add(d)
+    return per, alld
 
 
-def _touch(tag: str, code: str) -> None:
-    """把既有檔的 mtime 更新到現在 = 記錄「已查證到這一刻,無新資料」。
+def _have(tag: str, code: str) -> set:
+    """檔案裡實際涵蓋了哪些日子(只讀 dt 這一欄)。"""
+    f = OUT / tag / f"{code}.parquet"
+    if not f.exists():
+        return set()
+    try:
+        return set(pl.scan_parquet(f).select(pl.col("dt").dt.date().unique())
+                   .collect().to_series().to_list())
+    except Exception:                      # noqa: BLE001 - 壞檔當作沒有,重抓
+        return set()
 
-    mtime 在本模組是**覆蓋度**的載體(見 `_done`),所以「問了但沒有新資料」
-    也必須留下痕跡——否則同一段會被無限重問。
-    """
-    d = OUT / tag
-    for f in (d / f"{code}.parquet", d / f"{code}.empty"):
-        if f.exists():
-            os.utime(f, None)
-            return
+
+def _ranges(days: list) -> list[tuple[Date, Date]]:
+    """把缺的日子併成連續區間,減少呼叫數(一次呼叫本來就能帶回一整段)。
+    間隔 ≤3 天視為連續,以免週末/連假把區間切碎。"""
+    out: list[tuple[Date, Date]] = []
+    for d in sorted(days):
+        if out and (d - out[-1][1]).days <= 3:
+            out[-1] = (out[-1][0], d)
+        else:
+            out.append((d, d))
+    return out
 
 
 def _write_atomic(df: pl.DataFrame | None, tag: str, code: str) -> None:
+    """tmp → os.replace(同分割區原子換名)。**空資料一律不落盤**:
+    那正是額度耗盡時 API 的回應,寫下去等於把暫時故障固化成永久事實。"""
+    if df is None or df.is_empty():
+        return
     d = OUT / tag
     d.mkdir(parents=True, exist_ok=True)
-    if df is None:                              # 確認無資料 → 0-byte 哨兵
-        tmp = d / f"{code}.empty.tmp"
-        tmp.write_bytes(b"")
-        os.replace(tmp, d / f"{code}.empty")
-        return
     tmp = d / f"{code}.parquet.tmp"
-    df.write_parquet(tmp)
-    os.replace(tmp, d / f"{code}.parquet")       # 同分割區 → 原子換名
+    df.write_parquet(tmp, compression="zstd")
+    os.replace(tmp, d / f"{code}.parquet")
+    stale = d / f"{code}.empty"            # 舊哨兵已被逐日核對取代
+    if stale.exists():
+        stale.unlink()
 
 
-def _month_todo(universe, tag: str, s: Date, e: Date
-                ) -> list[tuple[str, Date, Date, str, object]]:
-    """某個月的待抓清單;已完成者(磁碟上有檔)已濾除。"""
-    return [(tag, s, e, code, contract) for code, contract in universe
-            if not _done(tag, code, e)]
+def _month_todo(universe, tag: str, per: dict[str, set], alld: set
+                ) -> list[tuple[str, str, object, list]]:
+    """該月待補清單 [(月tag, code, contract, 缺的日期)];已齊備者不列入。"""
+    todo = []
+    for code, contract in universe:
+        exp = per.get(code)
+        if exp is None:
+            exp = alld if not code[:1].isdigit() else None   # 指數 → 全市場交易日
+        if not exp:
+            continue                       # daily_quote 說該月沒交易 → 本來就不該有
+        miss = sorted(exp - _have(tag, code))
+        if miss:
+            todo.append((tag, code, contract, miss))
+    return todo
+
+
+def _pull(api, contract, code: str, tag: str, days: list) -> int:
+    """補齊 `days` 這幾天;分成連續區間逐段抓,與既有資料合併去重後原子換名。
+
+    **絕不因為「回傳空的」就記下任何完成標記**——那正是額度耗盡時 API 的行為。
+    抓不到就是抓不到,下次再補;完整度一律由 `daily_quote` 逐日核對決定。
+    """
+    got = []
+    for a, b in _ranges(days):
+        df = _to_frame(api.kbars(contract=contract,
+                                 start=a.isoformat(), end=b.isoformat()))
+        if df is not None and not df.is_empty():
+            got.append(df)
+    if not got:
+        return 0
+    new = pl.concat(got, how="vertical_relaxed") if len(got) > 1 else got[0]
+    f = OUT / tag / f"{code}.parquet"
+    if f.exists():
+        new = pl.concat([pl.read_parquet(f), new], how="vertical_relaxed")
+    _write_atomic(new.unique(subset=["ts"], keep="last").sort("dt"), tag, code)
+    return len(new)
 
 
 def _to_frame(kb) -> pl.DataFrame | None:
@@ -298,55 +347,6 @@ def _to_frame(kb) -> pl.DataFrame | None:
         "close": list(kb.Close), "volume": list(kb.Volume), "amount": list(kb.Amount),
     }).with_columns(pl.from_epoch("ts", time_unit="ns").alias("dt"))
       .sort("dt"))
-
-
-def _covered_end(tag: str, code: str) -> Date | None:
-    """既有檔案已覆蓋到哪一天(讀 parquet 的 max(dt));沒有檔或無資料回 None。
-
-    只讀 dt 這一欄的統計值,不載入整份資料。
-    """
-    f = OUT / tag / f"{code}.parquet"
-    if not f.exists():
-        return None
-    try:
-        v = pl.scan_parquet(f).select(pl.col("dt").max()).collect().item()
-    except Exception:                      # noqa: BLE001 - 壞檔就當沒有,重抓
-        return None
-    return v.date() if v is not None else None
-
-
-def _pull(api, contract, code: str, tag: str, s: Date, e: Date) -> int:
-    """抓 [s, e] 並落盤;**已有部分資料時只抓增量**。
-
-    為什麼要增量:當月的檔案每天都要更新(多了一個交易日),若每次都重抓
-    「月初 → 今天」整段,月中平均要重載 11 天份 —— 實測**每天浪費當日額度的
-    19%,一個月累積 8.1 GB,等於整整 4 天的額度白燒**,而且愈到月底愈嚴重
-    (第 21 個交易日那天要重抓 751 MB 只為了拿 36 MB 的新資料)。
-
-    增量的界線由**資料本身**決定(既有 parquet 的 max(dt)),不另存狀態:
-    抓 [已覆蓋日 + 1, e],與舊資料合併去重。合併後仍以 tmp → os.replace 原子換名,
-    故中斷最多重做當下那一格,絕不留半檔。
-    """
-    covered = _covered_end(tag, code)
-    start = s if covered is None else max(s, covered + timedelta(days=1))
-    if start > e:                          # 已覆蓋到底 → 只更新新鮮度標記
-        _touch(tag, code)
-        return 0
-    new = _to_frame(api.kbars(contract=contract,
-                              start=start.isoformat(), end=e.isoformat()))
-    if covered is None:
-        _write_atomic(new, tag, code)
-        return 0 if new is None else len(new)
-    if new is None or new.is_empty():
-        # 期間內確實沒有新資料(未開盤/停牌)——**仍要更新 mtime**,
-        # 否則覆蓋度規則會判定未完成,明天再問一次同一段,永遠問下去。
-        _touch(tag, code)
-        return 0
-    old = pl.read_parquet(OUT / tag / f"{code}.parquet")
-    merged = (pl.concat([old, new], how="vertical_relaxed")
-              .unique(subset=["ts"], keep="last").sort("dt"))
-    _write_atomic(merged, tag, code)
-    return len(new)
 
 
 # ── 平行自證 ────────────────────────────────────────────────────────────
@@ -419,25 +419,58 @@ def _prove_parallel_safe(api, workers: int) -> bool:
 
 # ── 進度 ────────────────────────────────────────────────────────────────
 def _status() -> None:
-    """離線進度:逐月已存檔格數 + 總量(不連線、不吃額度)。"""
+    """離線進度:逐月已下載的檔數與磁碟量(不連線、不吃額度)。
+    要看**缺哪幾天**請用 `--gaps`(對照 daily_quote 逐日核對)。"""
     if not OUT.exists():
         print("(尚無資料)")
         return
-    rows = []
+    rows, size = [], 0
     for d in sorted(OUT.iterdir()):
         if not d.is_dir():
             continue
-        pq = len(list(d.glob("*.parquet")))
-        em = len(list(d.glob("*.empty")))
-        rows.append((d.name, pq, em))
-    tot_pq = sum(r[1] for r in rows)
-    tot_em = sum(r[2] for r in rows)
-    size = sum(f.stat().st_size for f in OUT.rglob("*.parquet"))
-    print(f"{'月份':<10s}{'有資料':>8s}{'空檔':>8s}")
-    for tag, pq, em in rows:
-        print(f"{tag:<10s}{pq:>8,}{em:>8,}")
-    print(f"{'合計':<10s}{tot_pq:>8,}{tot_em:>8,}   磁碟 {size/1e9:.2f} GB / "
+        fs = list(d.glob("*.parquet"))
+        size += sum(f.stat().st_size for f in fs)
+        rows.append((d.name, len(fs)))
+    print(f"{'月份':<10}{'檔數':>8}")
+    for tag, n in rows:
+        print(f"{tag:<10}{n:>8,}")
+    print(f"{'合計':<10}{sum(n for _, n in rows):>8,}   磁碟 {size/1e9:.2f} GB / "
           f"{len(rows)} 個月")
+
+
+def _gaps(since: Date | None = None) -> None:
+    """離線盤點:對照 daily_quote,列出每個月**缺哪幾個交易日**(不連線、不吃額度)。
+
+    這是「額度中途不足會不會缺日期、你知不知道要補哪幾天」的直接答案:
+    知道,而且是算出來的——`daily_quote` 逐日記著每檔哪天有交易,把它跟磁碟上
+    實際涵蓋的日子相減就是缺口。下次執行會自動從最近的月份開始補這些缺口。
+    """
+    import duckdb
+    con = duckdb.connect(str(paths.CACHE_DB), read_only=True)
+    months = _months(HIST_FLOOR, Date.today())
+    if since:
+        months = [m for m in months if m[2] >= since]
+    months.reverse()
+    codes = sorted({p.stem for d in OUT.iterdir() if d.is_dir()
+                    for p in d.glob("*.parquet")})
+    print(f"缺口盤點(對照 daily_quote;已下載過的 {len(codes):,} 檔)")
+    tot_miss = tot_exp = 0
+    for tag, s, e in months:
+        per, alld = _expected(con, s, e)
+        miss = exp = 0
+        for code in codes:
+            want = per.get(code)
+            if not want:
+                continue
+            exp += len(want)
+            miss += len(want - _have(tag, code))
+        if exp:
+            tot_miss += miss; tot_exp += exp
+            if miss:
+                print(f"  {tag}: 缺 {miss:,} 檔·日 / 應有 {exp:,}({miss/exp:.0%})")
+    print(f"合計:缺 {tot_miss:,} / 應有 {tot_exp:,}"
+          + (f"({tot_miss/tot_exp:.1%})" if tot_exp else ""))
+    con.close()
 
 
 def _run_phase(api, todo, lim: RateLimiter, workers: int, t0: float,
@@ -454,11 +487,11 @@ def _run_phase(api, todo, lim: RateLimiter, workers: int, t0: float,
     def work(job) -> None:
         if stop.is_set():
             return
-        tag, s, e, code, contract = job
+        tag, code, contract, days = job
         for attempt in range(1, MAX_RETRY + 1):
             lim.acquire()
             try:
-                n = _pull(api, contract, code, tag, s, e)
+                n = _pull(api, contract, code, tag, days)
                 break
             except Exception as exc:  # noqa: BLE001
                 if _is_quota_error(exc):
@@ -500,12 +533,18 @@ def main() -> None:
     ap.add_argument("--status", action="store_true", help="只印進度(離線)")
     ap.add_argument("--workers", type=int, default=WORKERS,
                     help=f"平行度(預設 {WORKERS};1 = 序列)")
+    ap.add_argument("--gaps", action="store_true",
+                    help="離線盤點缺哪幾天(對照 daily_quote,不連線、不吃額度)")
     ap.add_argument("--since", default=None,
                     help="只抓此日之後的月份(YYYY-MM-DD);預設抓到官方歷史下限")
     args = ap.parse_args()
 
     if args.status:
         _status()
+        return
+
+    if args.gaps:
+        _gaps(Date.fromisoformat(args.since) if args.since else None)
         return
 
     api = _login()
@@ -531,6 +570,9 @@ def main() -> None:
           f"(官方行情上限 10 次/秒,留 20% 安全邊際)")
 
     rank = _adv_rank()
+    # 完整度的權威來源:daily_quote 逐日記錄了每檔在哪幾天有交易(見 _expected)
+    import duckdb
+    qcon = duckdb.connect(str(paths.CACHE_DB), read_only=True)
     # 一份宇宙(個股 + 指數 + ETF),月內依流動性排序;逐月重用,不重建
     universe = _universe(api, "stock") + _universe(api, "index_etf")
     universe = sorted({c: (c, k) for c, k in universe}.values(),
@@ -547,7 +589,8 @@ def main() -> None:
     t0 = time.time()
     try:
         for tag, ms, me in months:
-            todo = _month_todo(universe, tag, ms, me)
+            per, alld = _expected(qcon, ms, me)
+            todo = _month_todo(universe, tag, per, alld)
             if not todo:
                 continue
             print(f"\n[{tag}] 待抓 {len(todo):,} 格")
