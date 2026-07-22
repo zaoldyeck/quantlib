@@ -17,7 +17,10 @@ from __future__ import annotations
 import os
 import time
 from datetime import date as Date
-from datetime import timedelta
+from datetime import datetime, timedelta
+from datetime import time as dtime
+
+import polars as pl
 
 import pytest
 
@@ -91,3 +94,64 @@ def test_newest_first_ordering() -> None:
     today = Date.today()
     assert tags[0] == f"{today.year:04d}-{today.month:02d}", \
         "起點必須是**執行當下**的月份,不得寫死"
+
+
+# ── 增量抓取:當月不得每天重抓整段 ────────────────────────────────────
+class _FakeKbars:
+    """假的 Kbars 回應,記錄它被要求的區間。"""
+    def __init__(self, days: list[Date]):
+        base = [int(datetime.combine(d, dtime(9, 0)).timestamp() * 1e9) for d in days]
+        self.ts = base
+        n = len(base)
+        self.Open = self.High = self.Low = self.Close = [10.0] * n
+        self.Volume = self.Amount = [1.0] * n
+
+
+class _FakeApi:
+    def __init__(self):
+        self.calls = []
+    def kbars(self, contract, start, end):
+        s, e = Date.fromisoformat(start), Date.fromisoformat(end)
+        self.calls.append((s, e))
+        days, d = [], s
+        while d <= e:
+            days.append(d); d += timedelta(days=1)
+        return _FakeKbars(days)
+
+
+def test_first_pull_fetches_whole_range(out) -> None:
+    api = _FakeApi()
+    pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 10))
+    assert api.calls == [(Date(2026, 7, 1), Date(2026, 7, 10))]
+
+
+def test_second_pull_fetches_only_the_new_days(out) -> None:
+    """**這就是每天浪費 19% 額度的那件事**:第二次只准抓增量,不准重抓整段。"""
+    api = _FakeApi()
+    pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 10))
+    pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 13))
+    assert api.calls[1] == (Date(2026, 7, 11), Date(2026, 7, 13)), \
+        f"第二次應只抓 7/11~7/13,實際 {api.calls[1]}"
+
+
+def test_increment_merges_without_losing_or_duplicating(out) -> None:
+    """合併後必須是完整聯集,且不得重複——資料重複會讓成交量統計整個失真。"""
+    api = _FakeApi()
+    pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 10))
+    pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 13))
+    df = pl.read_parquet(out / "2026-07" / "2330.parquet")
+    assert df.height == 13, f"應有 7/1~7/13 共 13 根,實得 {df.height}"
+    assert df["ts"].n_unique() == df.height, "有重複 ts"
+    assert df["dt"].is_sorted(), "未依時間排序"
+
+
+def test_nothing_new_still_refreshes_mtime(out) -> None:
+    """問了但沒有新資料 → 仍要更新 mtime,否則同一段會被無限重問。"""
+    api = _FakeApi()
+    pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 10))
+    f = out / "2026-07" / "2330.parquet"
+    old = f.stat().st_mtime
+    os.utime(f, (old - 86400, old - 86400))
+    n = pk._pull(api, object(), "2330", "2026-07", Date(2026, 7, 1), Date(2026, 7, 10))
+    assert n == 0 and len(api.calls) == 1, "已覆蓋到底時不該再發呼叫"
+    assert f.stat().st_mtime > old - 86400, "mtime 未更新 → 明天會再問一次"

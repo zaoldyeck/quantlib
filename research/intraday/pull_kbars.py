@@ -32,7 +32,10 @@
   kbars_1m/{YYYY-MM}/{code}.empty    確認無資料(未上市/停牌整月)
 寫入一律 tmp → os.replace(同分割區原子換名),故 kill -9 / 斷網 / 當機最多
 重做「當下那一格」,絕不留半檔汙染,也不需要任何 state 檔案同步。
-當月檔案(仍在長大)以 mtime 判定:非今日抓的則重抓增量。
+完成判定看**覆蓋度**(mtime ≥ 該月應覆蓋的最後一天),不是「檔案存在」——
+否則月中抓的檔會在日曆翻頁後被永久當成完成,那幾天無聲缺失。
+而且**只抓增量**:當月每天多一個交易日,若每次重抓「月初→今天」整段,月中平均
+要重載 11 天份 = 每天燒掉當日額度的 19%、一個月累積 8.1 GB(整整 4 天的額度)。
 
 **資料聲明(回測必讀)**:(1) Shioaji 合約表僅含現存上市股 → 本資料集含存活者
 偏差;(2) 價格為原始價(未還原權息),研究時以 daily adj_factor 對齊;
@@ -250,6 +253,19 @@ def _done(tag: str, code: str, end: Date) -> bool:
     return False
 
 
+def _touch(tag: str, code: str) -> None:
+    """把既有檔的 mtime 更新到現在 = 記錄「已查證到這一刻,無新資料」。
+
+    mtime 在本模組是**覆蓋度**的載體(見 `_done`),所以「問了但沒有新資料」
+    也必須留下痕跡——否則同一段會被無限重問。
+    """
+    d = OUT / tag
+    for f in (d / f"{code}.parquet", d / f"{code}.empty"):
+        if f.exists():
+            os.utime(f, None)
+            return
+
+
 def _write_atomic(df: pl.DataFrame | None, tag: str, code: str) -> None:
     d = OUT / tag
     d.mkdir(parents=True, exist_ok=True)
@@ -284,10 +300,53 @@ def _to_frame(kb) -> pl.DataFrame | None:
       .sort("dt"))
 
 
+def _covered_end(tag: str, code: str) -> Date | None:
+    """既有檔案已覆蓋到哪一天(讀 parquet 的 max(dt));沒有檔或無資料回 None。
+
+    只讀 dt 這一欄的統計值,不載入整份資料。
+    """
+    f = OUT / tag / f"{code}.parquet"
+    if not f.exists():
+        return None
+    try:
+        v = pl.scan_parquet(f).select(pl.col("dt").max()).collect().item()
+    except Exception:                      # noqa: BLE001 - 壞檔就當沒有,重抓
+        return None
+    return v.date() if v is not None else None
+
+
 def _pull(api, contract, code: str, tag: str, s: Date, e: Date) -> int:
-    df = _to_frame(api.kbars(contract=contract, start=s.isoformat(), end=e.isoformat()))
-    _write_atomic(df, tag, code)
-    return 0 if df is None else len(df)
+    """抓 [s, e] 並落盤;**已有部分資料時只抓增量**。
+
+    為什麼要增量:當月的檔案每天都要更新(多了一個交易日),若每次都重抓
+    「月初 → 今天」整段,月中平均要重載 11 天份 —— 實測**每天浪費當日額度的
+    19%,一個月累積 8.1 GB,等於整整 4 天的額度白燒**,而且愈到月底愈嚴重
+    (第 21 個交易日那天要重抓 751 MB 只為了拿 36 MB 的新資料)。
+
+    增量的界線由**資料本身**決定(既有 parquet 的 max(dt)),不另存狀態:
+    抓 [已覆蓋日 + 1, e],與舊資料合併去重。合併後仍以 tmp → os.replace 原子換名,
+    故中斷最多重做當下那一格,絕不留半檔。
+    """
+    covered = _covered_end(tag, code)
+    start = s if covered is None else max(s, covered + timedelta(days=1))
+    if start > e:                          # 已覆蓋到底 → 只更新新鮮度標記
+        _touch(tag, code)
+        return 0
+    new = _to_frame(api.kbars(contract=contract,
+                              start=start.isoformat(), end=e.isoformat()))
+    if covered is None:
+        _write_atomic(new, tag, code)
+        return 0 if new is None else len(new)
+    if new is None or new.is_empty():
+        # 期間內確實沒有新資料(未開盤/停牌)——**仍要更新 mtime**,
+        # 否則覆蓋度規則會判定未完成,明天再問一次同一段,永遠問下去。
+        _touch(tag, code)
+        return 0
+    old = pl.read_parquet(OUT / tag / f"{code}.parquet")
+    merged = (pl.concat([old, new], how="vertical_relaxed")
+              .unique(subset=["ts"], keep="last").sort("dt"))
+    _write_atomic(merged, tag, code)
+    return len(new)
 
 
 # ── 平行自證 ────────────────────────────────────────────────────────────
