@@ -230,17 +230,23 @@ def _months(start: Date, end: Date) -> list[tuple[str, Date, Date]]:
     return out
 
 
-def _done(tag: str, code: str) -> bool:
-    """完成判定 = 檔案存在;當月檔案若非今日抓的則需重抓(資料仍在長大)。"""
+def _done(tag: str, code: str, end: Date) -> bool:
+    """完成判定 = 磁碟上有檔 **且該檔已覆蓋到該月應有的最後一天**(`end`)。
+
+    **為什麼不能只看「檔案存在」**:每次抓取請求的區間是 [月初, min(月底, 今天)]。
+    若某次執行發生在月中,該月的檔案就只覆蓋到那天為止;等日曆翻頁、這個月不再是
+    「當月」,舊規則(只有當月才檢查新鮮度)會直接判定完成——**那幾天的資料就
+    永遠補不回來了,而且無聲**。
+    實例:6/28 跑過一次,7/5 再跑時 6/29~6/30 已被當成完成,永遠缺那兩天。
+
+    正確判準:檔案 mtime ≥ 該月應覆蓋的最後一天。抓取一定發生在「請求結束日」
+    當天或之後,故 mtime 就是覆蓋度的忠實代理——**不需要另外存任何狀態**,
+    也自動涵蓋當月(當月的 end 就是今天)。
+    """
     d = OUT / tag
-    pq, empty = d / f"{code}.parquet", d / f"{code}.empty"
-    cur_tag = f"{Date.today().year:04d}-{Date.today().month:02d}"
-    for f in (pq, empty):
+    for f in (d / f"{code}.parquet", d / f"{code}.empty"):
         if f.exists():
-            if tag == cur_tag:
-                mt = datetime.fromtimestamp(f.stat().st_mtime).date()
-                return mt >= Date.today()
-            return True
+            return datetime.fromtimestamp(f.stat().st_mtime).date() >= end
     return False
 
 
@@ -261,7 +267,7 @@ def _month_todo(universe, tag: str, s: Date, e: Date
                 ) -> list[tuple[str, Date, Date, str, object]]:
     """某個月的待抓清單;已完成者(磁碟上有檔)已濾除。"""
     return [(tag, s, e, code, contract) for code, contract in universe
-            if not _done(tag, code)]
+            if not _done(tag, code, e)]
 
 
 def _to_frame(kb) -> pl.DataFrame | None:
