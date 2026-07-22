@@ -161,7 +161,7 @@ def _money_rows(legs, side: str, names: dict[str, str]) -> str:
         if side == "buy":
             out.append(f"<li><b>買 {l.shares} 股</b>　{e(_nm(l.code, names))}"
                        f"　<span style='color:#52606d'>收盤 {px}"
-                       f"　約 −{abs(l.net):,.0f} 元(含費)</span></li>")
+                       f"　<b>約 −{abs(l.net):,.0f} 元</b>({e(l.breakdown)})</span></li>")
         else:
             roi = "" if l.roi is None else (
                 f"　<b style='color:{'#047857' if l.roi >= 0 else '#b91c1c'}'>"
@@ -171,7 +171,7 @@ def _money_rows(legs, side: str, names: dict[str, str]) -> str:
                 f"{e(' ' + l.cost_basis) if l.cost_basis else ''}</span>")
             out.append(f"<li><b>賣出全部 {l.shares} 股</b>　{e(_nm(l.code, names))}"
                        f"　<span style='color:#52606d'>收盤 {px}"
-                       f"　約 +{l.net:,.0f} 元(扣費稅)</span>{cost}{roi}</li>")
+                       f"　<b>約 +{l.net:,.0f} 元</b>({e(l.breakdown)})</span>{cost}{roi}</li>")
     return "".join(out) or "<li>（無）</li>"
 
 

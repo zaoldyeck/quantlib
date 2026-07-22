@@ -65,13 +65,43 @@ class Leg:
         return (self.px or 0.0) * self.shares
 
     @property
+    def commission(self) -> float:
+        """手續費(買賣皆有;零股適用 1 元下限)。"""
+        if self.px is None or self.amount <= 0:
+            return 0.0
+        return max(commission_min(self.shares), self.amount * COMMISSION_RATE)
+
+    @property
+    def tax(self) -> float:
+        """證交稅(只有賣出課)。"""
+        if self.side != "sell" or self.px is None or self.amount <= 0:
+            return 0.0
+        return self.amount * SELL_TAX_RATE
+
+    @property
+    def breakdown(self) -> str:
+        """把「含費」拆開講清楚——只寫「含費」等於沒寫,看的人算不出這筆錢怎麼來的。
+
+        買:股款 + 手續費;賣:股款 − 手續費 − 證交稅。
+        """
+        if self.px is None:
+            return "無報價"
+        # 保留到分:這幾行是拿來對帳的,四捨五入到元會讓 0.36 元的證交稅顯示成 0,
+        # 看的人反而算不平(標題的合計才用整數,那是給人抓量級的)。
+        base = f"股款 {self.amount:,.2f}"
+        fee = f"手續費 {self.commission:,.2f}"
+        if self.side == "buy":
+            return f"{base} + {fee}"
+        return f"{base} − {fee} − 證交稅 {self.tax:,.2f}"
+
+    @property
     def net(self) -> float:
         """對現金的影響(買為負、賣為正;已含費稅)。"""
         if self.px is None:
             return 0.0
         if self.side == "buy":
-            return -(self.amount + fee_buy(self.amount, self.shares))
-        return self.amount - fee_sell(self.amount, self.shares)
+            return -(self.amount + self.commission)
+        return self.amount - self.commission - self.tax
 
     @property
     def pnl(self) -> float | None:

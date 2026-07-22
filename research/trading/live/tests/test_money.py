@@ -68,6 +68,22 @@ def test_odd_lot_fee_no_longer_eats_the_position() -> None:
     assert leg.roi > -0.05, f"1 股賣出的 ROI 不該被手續費吃掉:{leg.roi:.1%}"
 
 
+def test_breakdown_spells_out_every_component() -> None:
+    """使用者 2026-07-22:「約 −50 元(含費)=> 含費是什麼?沒寫完整」。
+    金額拆解必須讓人自己加得回來,且**保留到分**(證交稅常是零點幾元)。"""
+    b = Leg("2886", "buy", 1, 48.60)
+    assert b.breakdown == "股款 48.60 + 手續費 1.00"
+    assert abs(b.net + (48.60 + 1.00)) < 1e-9, "拆解要與淨額對得起來"
+    s = Leg("2466", "sell", 1, 119.0)
+    assert s.breakdown == "股款 119.00 − 手續費 1.00 − 證交稅 0.36"
+    assert abs(s.net - (119.0 - 1.0 - 119.0 * 0.003)) < 1e-9
+    assert "含費" not in b.breakdown and "含費" not in s.breakdown
+
+
+def test_breakdown_never_crashes_without_price() -> None:
+    assert Leg("9999", "buy", 1, None).breakdown == "無報價"
+
+
 def test_sell_without_cost_has_no_roi() -> None:
     """無成本資料 → 不得瞎編 ROI(寧可不顯示)。"""
     leg = Leg("9999", "sell", 1, 50.0)
@@ -129,6 +145,8 @@ def main() -> None:
                test_buy_leg_reduces_cash_including_fee,
                test_sell_roi_and_pnl_are_net_of_fees,
                test_odd_lot_fee_no_longer_eats_the_position,
+               test_breakdown_spells_out_every_component,
+               test_breakdown_never_crashes_without_price,
                test_sell_without_cost_has_no_roi,
                test_missing_price_never_crashes_or_fabricates,
                test_settlement_flags_shortfall,
