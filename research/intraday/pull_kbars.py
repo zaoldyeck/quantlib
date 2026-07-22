@@ -1,11 +1,15 @@
-"""台股 1 分 K 歷史回補(永豐 Shioaji;分階段 + 額度自適應 + 隨時可中斷續傳)。
+"""台股 1 分 K 歷史回補(永豐 Shioaji;由近而遠 + 額度自適應 + 隨時可中斷續傳)。
 
-**分階段(使用者指定優先序,2026-07-21)**
-  P1 優化參數窗  2022-12-01 → 2025-12-01(去年 12/1 往前 3 年;S 年度 refit 窗)
-  P2 因子研究窗  2020-03-02 → 2022-12-01(再往前;受官方歷史下限 2020-03-02 截斷,
-                 故「前四年」實得 2.75 年——誠實聲明,非偷工)
-  P3 最新段補齊  2025-12-01 → 今日(至此個股 2020-03→今全齊)
-  P4 指數與 ETF  全期(大盤 regime + 0050 對照;量小價值高)
+**工作順序:由近而遠,逐月往回抓**(使用者定調 2026-07-22)
+
+先前用「階段」把時間切段,結果階段順序本身變成一個要維護、而且很容易排錯的參數
+——舊排法就把四年研究窗裡最新的 8 個月,排在 33 個月史前資料的**後面**。
+改成一律從最新的月份往回抓之後,**分階段這件事本身就沒必要了**:
+
+  任何時刻停下來,手上都是一段「從今天往回連續」的資料。
+  要幾年的研究窗,就是等到抓到那個月份為止——不必事先宣告,也不會排錯。
+
+月內順序照流動性(成交值高者先);指數與 ETF 併入同一序列,不另外分段。
 
 **額度紀律(使用者質疑後修正)**:不自設保守停損線。以 API 自己的
 `usage().remaining_bytes` 為準,剩餘不足一個工作單位(RESERVE)或 API 回報額度
@@ -38,6 +42,7 @@
   uv run --project research python -m research.intraday.pull_kbars             # 續傳回補
   uv run --project research python -m research.intraday.pull_kbars --status    # 只看進度(不連線)
   uv run --project research python -m research.intraday.pull_kbars --workers 1 # 強制序列
+  uv run --project research python -m research.intraday.pull_kbars --since 2022-07-01  # 只補近四年
   uv run --project research python -m research.intraday.pull_kbars --selftest  # 登入+單檔驗證
 金鑰:research/.env 的 SHIOAJI_API_KEY / SHIOAJI_SECRET_KEY(資料查詢免 CA 憑證)。
 依賴 cache:是(流動性排序,缺 cache 則退回代碼序)。資料不進 git。
@@ -81,24 +86,17 @@ USAGE_EVERY = 25
 #: 平行自證的結果(以 shioaji 版本為 key;升版即重驗)
 PARITY_FILE = paths.RAW / "intraday" / "parallel_parity.json"
 
-#: 「可用來研發策略的四年窗」起點。四年是使用者定的研發窗長度(三年優化 +
-#: 一年樣本外),故這個日期每次跑都相對今日滾動,不寫死。
-FOUR_YEAR_START = Date(Date.today().year - 4, Date.today().month, 1)
-
-#: 階段順序 = **完成順序的優先權**,不是時間順序。
+#: 工作順序:**由近而遠,逐月往回抓**(使用者定調 2026-07-22)。
 #:
-#: 2026-07-22 重排:舊順序是「主窗 → 更早歷史 → 最近段」,於是四年窗裡最新的
-#: 8 個月被排在 33 個月的史前資料**後面** —— 以實測 4,798 格/交易日推算,
-#: 那會讓「四年窗可用」硬是多等約 12 個交易日。**先把要用的窗補齊,再往前挖。**
+#: 先前用「階段」把時間切段,結果是階段順序本身變成一個要維護、而且很容易排錯的
+#: 參數——舊排法就把四年窗裡最新的 8 個月排在 33 個月史前資料的後面。
+#: 改成「一律從最新的月份往回抓」之後,**分階段這件事本身就沒必要了**:
 #:
-#: 指數/ETF 提前到個股史前段之前:量小(僅數十檔)但 regime 研究少不了它。
-PHASES: list[tuple[str, Date, Date, str]] = [
-    ("P0 S實際持倉", HIST_FLOOR, Date.today(), "s_trades"),
-    ("P1 四年窗·近段", Date(2025, 12, 1), Date.today(), "stock"),
-    ("P2 四年窗·主體", FOUR_YEAR_START, Date(2025, 12, 1), "stock"),
-    ("P3 指數與 ETF", HIST_FLOOR, Date.today(), "index_etf"),
-    ("P4 更早歷史", HIST_FLOOR, FOUR_YEAR_START, "stock"),
-]
+#:   任何時刻停下來,手上都是一段「從今天往回連續」的資料。
+#:   要幾年的研究窗,就是等到抓到那個月份為止 —— 不必事先宣告,也不會排錯。
+#:
+#: 月內順序仍照流動性(成交值高者先),因為研究幾乎都從流動性夠的名字開始。
+#: 指數與 ETF 併入同一序列,不另外分段:量小,而且 regime 研究要跟個股同窗。
 
 
 class QuotaExhausted(RuntimeError):
@@ -219,31 +217,6 @@ def _adv_rank() -> dict[str, int]:
 
 
 # ── 工作單位:(code, 月) ──────────────────────────────────────────────────
-def _s_trade_spans(lo: Date, hi: Date) -> list[tuple[str, Date, Date]]:
-    """S 實際成交的 (code, 進場日, 出場日),裁切到 [lo, hi]。
-
-    用途(使用者 2026-07-21 提案,已升級為「只拉持有期間」):優先取得 S 真正
-    持有過的價格路徑,即可校準出場/執行面參數(trail%、停損價位、盤中 vs 收盤
-    觸發)。**限制**:此子集由 S 現行參數決定,不可用於重新優化「進場因子」
-    ——換因子會選到別的股票,那些股票無資料 → 選擇偏誤。全市場照樣續拉(P1-P4)。
-    """
-    from research.apex import data as _d
-    from research.apex.strategy_s import prep as _prep, run_s_full
-    con = _d.connect()
-    try:
-        panel, feat, elig = _prep(con)
-        _nav, trades = run_s_full(panel, feat, elig, lo.isoformat())
-    finally:
-        con.close()
-    out = []
-    for r in trades.select(["company_code", "entry_date", "exit_date"]).iter_rows():
-        code, ed, xd = r[0], r[1], r[2]
-        s, e = max(ed, lo), min(xd, hi)
-        if s <= e:
-            out.append((code, s, e))
-    return out
-
-
 def _months(start: Date, end: Date) -> list[tuple[str, Date, Date]]:
     """回 [(YYYY-MM, 該月起, 該月訖)];已裁切到 [start, end] 與歷史下限、今日。"""
     lo, hi = max(start, HIST_FLOOR), min(end, Date.today())
@@ -284,37 +257,11 @@ def _write_atomic(df: pl.DataFrame | None, tag: str, code: str) -> None:
     os.replace(tmp, d / f"{code}.parquet")       # 同分割區 → 原子換名
 
 
-def _phase_todo(api, kind: str, ps: Date, pe: Date, rank: dict[str, int]
+def _month_todo(universe, tag: str, s: Date, e: Date
                 ) -> list[tuple[str, Date, Date, str, object]]:
-    """該階段待抓清單 [(月tag, 起, 訖, code, contract)];已完成者已濾除。
-
-    s_trades:僅 S 實際持倉期間的月份(去重);其餘:宇宙 × 月份,流動性高者優先。
-    """
-    todo: list[tuple[str, Date, Date, str, object]] = []
-    if kind == "s_trades":
-        seen: set[tuple[str, str]] = set()
-        for code, s0, e0 in _s_trade_spans(ps, pe):
-            try:
-                contract = api.Contracts.Stocks[code]
-            except Exception:
-                contract = None
-            if contract is None:                 # 已下市 → 拉不到,跳過(存活者偏差來源)
-                continue
-            for tag, s, e in _months(s0, e0):
-                if (tag, code) in seen:
-                    continue
-                seen.add((tag, code))
-                if not _done(tag, code):
-                    todo.append((tag, s, e, code, contract))
-        todo.sort(key=lambda t: (t[0], rank.get(t[3], 10 ** 9)))
-        return todo
-    codes = _universe(api, kind)
-    codes.sort(key=lambda ck: rank.get(ck[0], 10 ** 9))
-    for tag, s, e in _months(ps, pe):
-        for code, contract in codes:
-            if not _done(tag, code):
-                todo.append((tag, s, e, code, contract))
-    return todo
+    """某個月的待抓清單;已完成者(磁碟上有檔)已濾除。"""
+    return [(tag, s, e, code, contract) for code, contract in universe
+            if not _done(tag, code)]
 
 
 def _to_frame(kb) -> pl.DataFrame | None:
@@ -488,8 +435,8 @@ def main() -> None:
     ap.add_argument("--status", action="store_true", help="只印進度(離線)")
     ap.add_argument("--workers", type=int, default=WORKERS,
                     help=f"平行度(預設 {WORKERS};1 = 序列)")
-    ap.add_argument("--phase", type=int, default=None,
-                    help="只跑指定階段(0=S實際持倉, 1-3=個股分段, 4=指數ETF)")
+    ap.add_argument("--since", default=None,
+                    help="只抓此日之後的月份(YYYY-MM-DD);預設抓到官方歷史下限")
     args = ap.parse_args()
 
     if args.status:
@@ -519,17 +466,29 @@ def main() -> None:
           f"(官方行情上限 10 次/秒,留 20% 安全邊際)")
 
     rank = _adv_rank()
+    # 一份宇宙(個股 + 指數 + ETF),月內依流動性排序;逐月重用,不重建
+    universe = _universe(api, "stock") + _universe(api, "index_etf")
+    universe = sorted({c: (c, k) for c, k in universe}.values(),
+                      key=lambda ck: rank.get(ck[0], 10 ** 9))
+    months = _months(HIST_FLOOR, Date.today())
+    if args.since:
+        lo = Date.fromisoformat(args.since)
+        months = [m for m in months if m[2] >= lo]
+    months.reverse()                       # **由近而遠**
+    print(f"[pull] 宇宙 {len(universe):,} 檔 × {len(months)} 個月;"
+          f"由近而遠({months[0][0]} → {months[-1][0]})")
+
     n_done = n_empty = 0
     t0 = time.time()
     try:
-        for i, (name, ps, pe, kind) in enumerate(PHASES):
-            if args.phase is not None and args.phase != i:
+        for tag, ms, me in months:
+            todo = _month_todo(universe, tag, ms, me)
+            if not todo:
                 continue
-            todo = _phase_todo(api, kind, ps, pe, rank)
-            print(f"\n[{name}] {ps}→{pe};待抓 {len(todo):,} 格")
+            print(f"\n[{tag}] 待抓 {len(todo):,} 格")
             d, em = _run_phase(api, todo, lim, workers, t0, n_done, n_empty)
             n_done, n_empty = d, em
-        print(f"\n[pull] 全部階段完成 ✅ 本輪 {n_done:,} 格")
+        print(f"\n[pull] 全部月份完成 ✅ 本輪 {n_done:,} 格")
     except QuotaExhausted as exc:
         n_done, n_empty = max(n_done, exc.done), max(n_empty, exc.empty)
         print(f"\n[pull] 額度用盡而停({exc});進度已在磁碟,"
