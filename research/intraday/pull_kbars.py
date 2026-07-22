@@ -67,8 +67,13 @@ HIST_FLOOR = Date(2020, 3, 2)      # 官方股票/指數歷史下限
 RESERVE_BYTES = 2 * 1024 ** 2      # 一個工作單位的量級;剩餘低於此註定失敗,提早停
 MAX_RETRY = 3
 #: 預設平行度。真正的瓶頸是**每日 2 GB 流量**(實測 2026-07-21:6,225 格用盡當日
-#: 額度 → 每格約 321 KB),平行不會讓總工期變短,只讓「每天那一輪」從約 1 小時
-#: 縮到十幾分鐘。上限由官方頻率限制(行情 50 次/5 秒)決定,見 ratelimit.py。
+#: 額度 → 每格約 321 KB),平行不會讓總工期變短,只讓「每天那一輪」快一些。
+#:
+#: **實測(2026-07-22,workers=6)**:3,600 格 / 1,523 秒 = **2.36 格/秒**,
+#: 相對序列的 1.76 格/秒只有 **1.34×**。限流器設在 8 次/秒卻只跑到 2.36——
+#: 代表**瓶頸不在頻率限制,而在 client 內部**(核心是編譯過的 .so,請求疑似
+#: 被序列化)。再加 worker 收益有限,故維持 6:再高只是多開執行緒等同一把鎖。
+WORKERS_MEASURED = "2026-07-22: 2.36 格/秒 @ workers=6(序列 1.76;加速 1.34×)"
 WORKERS = 6
 #: 額度查詢每 N 格一次(實測 usage() 往返僅 20 ms,但沒必要每格都問;
 #: 真的超額時 API 會回空/報錯,下方錯誤路徑會接住)
@@ -86,7 +91,16 @@ PHASES: list[tuple[str, Date, Date, str]] = [
 
 
 class QuotaExhausted(RuntimeError):
-    """API 額度用盡(由 usage 或錯誤訊息判定)。"""
+    """API 額度用盡(由 usage 或錯誤訊息判定)。
+
+    **帶著已完成的計數**:額度用盡是正常收尾路徑(每天都會走到),若讓計數
+    留在被中斷的迴圈裡,收尾訊息會永遠印「本輪 0 格」——實際抓了 3,600 格卻
+    回報 0,是不誠實的回報。
+    """
+
+    def __init__(self, msg: str, done: int = 0, empty: int = 0):
+        super().__init__(msg)
+        self.done, self.empty = done, empty
 
 
 # ── 環境 / 連線 ──────────────────────────────────────────────────────────
@@ -453,7 +467,7 @@ def _run_phase(api, todo, lim: RateLimiter, workers: int, t0: float,
         with ThreadPoolExecutor(max_workers=workers) as ex:
             list(ex.map(work, todo))
     if state["quota"]:
-        raise QuotaExhausted(state["quota"])
+        raise QuotaExhausted(state["quota"], state["done"], state["empty"])
     return state["done"], state["empty"]
 
 
@@ -506,6 +520,7 @@ def main() -> None:
             n_done, n_empty = d, em
         print(f"\n[pull] 全部階段完成 ✅ 本輪 {n_done:,} 格")
     except QuotaExhausted as exc:
+        n_done, n_empty = max(n_done, exc.done), max(n_empty, exc.empty)
         print(f"\n[pull] 額度用盡而停({exc});進度已在磁碟,"
               f"明日 08:30 launchd 自動續傳。本輪 {n_done:,} 格")
     except KeyboardInterrupt:
