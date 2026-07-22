@@ -1,28 +1,26 @@
 ---
 name: quantlib-data-health
-description: Use this skill when the user requests data integrity audit (e.g. "檢查資料", "audit data", "sanity check", "這個 anomaly 是 bug 嗎", "有沒有新的資料 bug"). Runs research audit scripts in parallel, cross-references repository records of known fixed-bugs + real-edge-cases, classifies remaining findings as actionable new bugs. Does NOT apply fixes — outputs a plan for user approval.
+description: Use this skill when the user requests data integrity audit (e.g. "檢查資料", "audit data", "sanity check", "這個 anomaly 是 bug 嗎", "有沒有新的資料 bug"). Runs research/02-05 audit scripts in parallel, cross-references memory of known fixed-bugs + real-edge-cases, classifies remaining findings as actionable new bugs. Does NOT apply fixes — outputs a plan for user approval.
 ---
 
 # Data integrity audit workflow
 
-## Step 0: Known-issue pre-load
+## Step 0: Memory pre-load
 
-Search repository docs, audit scripts, recent git history, and prior result
-artifacts for known fixed bugs and real-world edge cases before running audits.
-External Codex memory can be used as read-only context if available, but do not
-depend on non-existent `project_*.md` memory files.
+Read both memory files before running audits:
+- `project_data_bug_history.md` — fixed bugs with commit refs; any anomaly matching these is already resolved
+- `project_data_real_edge_cases.md` — patterns that LOOK like bugs but are real TWSE data (Saturday sessions, financial-sector negatives, etc.)
 
 ## Step 1: Run four audit scripts in parallel
 
-Run independent audit scripts in parallel with Codex parallel tooling when
-available, or sequentially if log parsing would be clearer:
+Single Bash with `&` or invoke sequentially if parallelism complicates log parsing:
 
 ```bash
-cd /Users/zaoldyeck/Documents/scala/quantlib
-uv run --project research python research/audits/02_anomaly_scan.py --min-stocks 20 > /tmp/audit_02.log 2>&1
-uv run --project research python research/audits/03_full_data_audit.py             > /tmp/audit_03.log 2>&1
-uv run --project research python research/audits/04_cross_verify.py                > /tmp/audit_04.log 2>&1
-uv run --project research python research/audits/05_revenue_audit.py               > /tmp/audit_05.log 2>&1
+cd /Users/zaoldyeck/Documents/scala/quantlib/research
+uv run python 02_anomaly_scan.py --min-stocks 20 > /tmp/audit_02.log 2>&1
+uv run python 03_full_data_audit.py             > /tmp/audit_03.log 2>&1
+uv run python 04_cross_verify.py                > /tmp/audit_04.log 2>&1
+uv run python 05_revenue_audit.py               > /tmp/audit_05.log 2>&1
 ```
 
 ## Step 2: Classify every flagged anomaly
@@ -31,8 +29,8 @@ For each row flagged by any script, produce a classification:
 
 | Classification | Criteria |
 |---|---|
-| **Resolved** | Matches a date / pattern in repository records or prior result artifacts |
-| **Real** | Matches a documented real-world edge case |
+| **Resolved** | Matches a date / pattern in `project_data_bug_history.md` |
+| **Real** | Matches a pattern in `project_data_real_edge_cases.md` |
 | **Candidate** | Unknown — needs root-cause investigation |
 | **New bug** | Candidate confirmed to be true error after raw CSV + live-TWSE cross-check |
 
@@ -72,7 +70,7 @@ For each New bug, draft a specific fix plan:
   ```
 - **New bug 清單**: 每筆包含 root cause + fix plan
 - **Fix 優先順序**: 依影響 v4 baseline 程度排序
-- **Repository record 建議**: 修完 new bug 後應寫入哪個 repo artifact 或文件，避免未來重查
+- **Memory update 建議**: 修完 new bug 後應 append 到 `project_data_bug_history.md` 的行
 
 ## Step 6: Await user approval
 
@@ -84,4 +82,4 @@ Do NOT apply fixes automatically. Present the plan, wait for explicit user confi
 - Don't flag real edge cases as bugs
 - Don't apply fixes without user approval
 - Every proposed fix must include exact DELETE + re-import commands (copy-paste ready)
-- After a fix is applied + verified, record the root cause and verification in a repository artifact; only update external Codex memory if the user explicitly asks
+- After a fix is applied + verified, instruct user to append to memory `project_data_bug_history.md`

@@ -1,13 +1,6 @@
 ---
 name: quantlib-copilot
-description: >-
-  Use this skill as the **master entry point for the TWSE/TPEx investor
-  copilot** (e.g. "我需要 copilot 協助", "投資諮詢", "幫我管理投資組合",
-  "我想做投資決策"). Routes to the right specialized agent / skill based on user
-  intent. The full ecosystem includes 17 specialist agents + 7 skills covering:
-  stock analysis, industry survey, news classification, conf-call analysis, EPS
-  revision tracking, position review, rebalancing, scenario stress testing,
-  daily briefing, and forward prediction.
+description: Use this skill as the **master entry point for the TWSE/TPEx investor copilot** (e.g. "我需要 copilot 協助", "投資諮詢", "幫我管理投資組合", "我想做投資決策"). Routes to the right specialized agent / skill based on user intent. The full ecosystem includes 17 specialist agents + 7 skills covering: stock analysis, industry survey, news classification, conf-call analysis, EPS revision tracking, position review, rebalancing, scenario stress testing, daily briefing, and forward prediction.
 ---
 
 # Investor Co-Pilot — TWSE / TPEx 全能投資助手
@@ -33,7 +26,6 @@ This skill is the master orchestrator. It routes user intent to the right specia
 | 需求 | Invoke |
 |---|---|
 | 產業 deep-dive | agent `twstock-industry-analyst` |
-| Serenity 結構性瓶頸股推薦 / ranked watchlist | skill `quantlib-serenity-recommender` |
 | 暴漲股 / 飆股研究 | skill `quantlib-spike-study` |
 | 單一暴漲事件 dossier | command `/spike-dossier {ticker} {date}` |
 
@@ -88,10 +80,6 @@ This skill is the master orchestrator. It routes user intent to the right specia
 ### Scenario C: 「我想了解半導體業 / IC 設計族群現況」
 1. `twstock-industry-analyst 半導體業` → 產業 deep-dive
 2. (optional) 對 industry top 5 跑 `quantlib-stock-deepdive`
-
-### Scenario C2: 「用 Serenity 推薦現在值得看的股票」
-1. `quantlib-serenity-recommender` → 產業 thesis first + valuation-aware ranked watchlist
-2. 若使用者看完後明確要求下單，切到獨立交易執行 workflow；不要由 Serenity skill 直接下單
 
 ### Scenario D: 「跟我說今天該怎麼做」
 1. `quantlib-daily-briefing` → 整合所有訊號 + 持倉狀態 + watchlist 異動

@@ -9,18 +9,15 @@ Purpose: start from "which stocks 暴漲 in the past?" and work backward to find
 
 ## Preconditions
 
-- Follow `AGENTS.md` Mandatory Data Freshness. Reuse a same-day verified cache;
-  otherwise run `quantlib-data-refresh` before drawing conclusions.
+- `var/cache/cache.duckdb` fresh (< 24h). If stale, advise `quantlib-data-refresh`.
 - Cache must have `daily_quote`, `ex_right_dividend`, `capital_reduction`, and ideally `operating_revenue`, `daily_trading_details`, `margin_transactions` (for pre-event features).
 
-## Prior-work reference
+## Memory-first reference
 
-Search repository docs, `var/out/strat_lab/`,
-`research/experiments/`, audit artifacts, and git history before running:
-
-- known factor IC results; avoid re-testing dead factors
-- fixed-bug signatures; drop known bad spike artifacts
-- documented real edge cases, such as special sessions or valid negative values
+Read FIRST:
+- `project_strategy_research_findings.md` — known factor IC table; avoid re-testing dead factors
+- `project_data_bug_history.md` — if top spikes include a fixed-bug signature (e.g. 2024-10-22 partial publish), drop them
+- `project_data_real_edge_cases.md` — e.g. financial sector negatives are real, not bugs
 
 ## Step 1: Run spike detector
 
@@ -34,7 +31,7 @@ Parameters:
 - Default `--min-gain 0.80 --window 60` = "gained ≥ 80% in 60 trading days" (~1000 events for TW 2015-2026)
 - Adjust per user intent: `--min-gain 1.0 --window 90` for stricter spikes
 
-**Sanity check top 20 gains**: anything > 5× or unusual (e.g. 27x, 36x) usually = data bug. Cross-reference repository audit history; if new anomaly, invoke `quantlib-data-auditor`.
+**Sanity check top 20 gains**: anything > 5× or unusual (e.g. 27x, 36x) usually = data bug. Cross-ref `project_data_bug_history.md`; if new anomaly, invoke `quantlib-data-auditor`.
 
 ## Step 2: Build dataset with pre-window features + post-peak returns
 
@@ -93,9 +90,8 @@ Respond in **Traditional Chinese**:
    - (b) 若 post-peak 有 alpha → 跑 chase backtest (`research/experiments/chase_trailing_stop.py`)
    - (c) 若都沒 → 建議補資料（MOPS 公告、集保大戶、TPEx 擴展）
 
-**Record**:
-- Write or propose a repo-local result artifact summarizing this study so future
-  runs do not repeat settled work.
+**Append**:
+- `project_strategy_research_findings.md` 新增本次結論，避免未來重跑
 
 ## Anti-patterns
 

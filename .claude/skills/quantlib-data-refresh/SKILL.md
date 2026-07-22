@@ -9,17 +9,12 @@ Two-step pipeline, never skip step 2:
 
 ## Step 0: Freshness gate
 
-Check actual source cutoffs, not only file mtime:
-
-- Latest date in relevant PostgreSQL source tables.
-- Latest date in `var/cache/cache.duckdb`.
-- Whether the standard refresh sequence already completed on the same Taiwan
-  calendar day.
-
-If the same-day refresh already completed and both cutoffs are still verified,
-do not rerun the full refresh unless the user explicitly requests a force
-refresh, a new market close has happened, or the cutoffs are inconsistent.
-Otherwise proceed.
+Check when cache was last synced:
+```bash
+ls -la var/cache/cache.duckdb 2>&1 | awk '{print $6, $7, $8}'
+```
+- If mtime within 24h and user didn't explicitly say "force refresh" → ask "cache was synced X hours ago, refresh anyway?"
+- If mtime > 24h OR user said "force" → proceed
 
 ## Step 1: Crawl + import to PostgreSQL
 
@@ -67,9 +62,7 @@ cd /Users/zaoldyeck/Documents/scala/quantlib && \
 
 ## Step 3: Baseline regression check
 
-Run v4 backtest; compare against repository baselines in
-`docs/strategy_ranking.md`, `research/trading/strategy_registry.py`, and recent
-`var/out/strat_lab/*` artifacts:
+Run v4 backtest; compare against memory baseline (`project_v4_baseline.md`):
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
   uv run --project research python research/strat_lab/v4.py \
