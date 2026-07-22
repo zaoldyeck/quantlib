@@ -81,12 +81,23 @@ USAGE_EVERY = 25
 #: 平行自證的結果(以 shioaji 版本為 key;升版即重驗)
 PARITY_FILE = paths.RAW / "intraday" / "parallel_parity.json"
 
+#: 「可用來研發策略的四年窗」起點。四年是使用者定的研發窗長度(三年優化 +
+#: 一年樣本外),故這個日期每次跑都相對今日滾動,不寫死。
+FOUR_YEAR_START = Date(Date.today().year - 4, Date.today().month, 1)
+
+#: 階段順序 = **完成順序的優先權**,不是時間順序。
+#:
+#: 2026-07-22 重排:舊順序是「主窗 → 更早歷史 → 最近段」,於是四年窗裡最新的
+#: 8 個月被排在 33 個月的史前資料**後面** —— 以實測 4,798 格/交易日推算,
+#: 那會讓「四年窗可用」硬是多等約 12 個交易日。**先把要用的窗補齊,再往前挖。**
+#:
+#: 指數/ETF 提前到個股史前段之前:量小(僅數十檔)但 regime 研究少不了它。
 PHASES: list[tuple[str, Date, Date, str]] = [
     ("P0 S實際持倉", HIST_FLOOR, Date.today(), "s_trades"),
-    ("P1 優化參數窗", Date(2022, 12, 1), Date(2025, 12, 1), "stock"),
-    ("P2 因子研究窗", HIST_FLOOR, Date(2022, 12, 1), "stock"),
-    ("P3 最新段補齊", Date(2025, 12, 1), Date.today(), "stock"),
-    ("P4 指數與 ETF", HIST_FLOOR, Date.today(), "index_etf"),
+    ("P1 四年窗·近段", Date(2025, 12, 1), Date.today(), "stock"),
+    ("P2 四年窗·主體", FOUR_YEAR_START, Date(2025, 12, 1), "stock"),
+    ("P3 指數與 ETF", HIST_FLOOR, Date.today(), "index_etf"),
+    ("P4 更早歷史", HIST_FLOOR, FOUR_YEAR_START, "stock"),
 ]
 
 
