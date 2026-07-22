@@ -5,7 +5,7 @@ this quantlib workspace.
 
 ## Codex Persistence Source Of Truth
 
-Codex-facing persistent instructions live in this file, `.agents/skills/`, and
+Codex-facing persistent instructions live in this file, `.claude/skills/`, and
 `.codex/agents/`. Treat those paths as the canonical Codex layer for this
 repository.
 
@@ -15,7 +15,7 @@ repository.
   duplicating conflicting policy.
 - Codex command persistence is not currently a separate source of truth in this
   repository. Reusable operations should live in package-manager commands,
-  scripts, `.agents/skills/`, or `.codex/agents/`, not in Claude command files.
+  scripts, `.claude/skills/`, or `.codex/agents/`, not in Claude command files.
 - Durable project facts belong in repository artifacts such as `docs/`,
   `research/trading/strategy_registry.py`, and `var/out/strat_lab/`.
 - External Codex memory is read-only context unless the user explicitly asks to

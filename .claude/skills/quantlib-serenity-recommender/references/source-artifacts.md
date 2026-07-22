@@ -30,7 +30,7 @@
 Read the latest valuation-aware candidate artifact:
 
 ```bash
-.agents/skills/quantlib-serenity-recommender/scripts/serenity_latest_snapshot.py --top 10
+.claude/skills/quantlib-serenity-recommender/scripts/serenity_latest_snapshot.py --top 10
 ```
 
 This helper is read-only. It prints latest signal date, raw current price fields,

@@ -10,12 +10,12 @@ import os
 
 import polars as pl
 import pytest
-from research import paths
+from research import paths, testkit
 
 CACHE = str(paths.CACHE_DB)
 
 
-@pytest.mark.skipif(not os.path.exists(CACHE), reason=f"{paths.CACHE_DB.name} not present")
+@testkit.requires_history("2019-01-02", "2019-12-31")
 def test_features_and_score_daily_groups_sane():
     from research.apex import data
     from research.apex.assemble import blend_score, build_features, entries_and_flags

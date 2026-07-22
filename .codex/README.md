@@ -6,7 +6,7 @@ This directory contains Codex-facing repository configuration.
 
 - Repository rules: `AGENTS.md`
 - Codex agents: `.codex/agents/*.toml`
-- Codex skills: `.agents/skills/*/SKILL.md`
+- Codex skills: `.claude/skills/*/SKILL.md`
 - Durable project facts: `docs/`, `research/trading/strategy_registry.py`, and
   `var/out/strat_lab/`
 

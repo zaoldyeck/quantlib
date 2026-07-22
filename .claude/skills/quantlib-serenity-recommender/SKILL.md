@@ -29,7 +29,7 @@ It runs in two market modes (state the mode in the report):
   "Global Mode (IB-Tradable Universe)".
 
 **REQUIRED COMPANION SKILL:** `serenity-aleabitoreddit` (auto-updating vendored
-copy at `.agents/skills/serenity-aleabitoreddit`). Refresh it first
+copy at `.claude/skills/serenity-aleabitoreddit`). Refresh it first
 (`npx -y skills update serenity-aleabitoreddit -y`), then use its
 `references/methodology.md` (vetting checklist), `theses.md` (per-ticker
 stances), and `track-record.md` (how much to weight a call).

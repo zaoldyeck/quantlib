@@ -19,6 +19,10 @@ from pathlib import Path
 from research.apex import data
 from research.evergreen.engine import LIVE_CONFIG, EvergreenData, replay_nav
 from research.evergreen.ev36_walkforward import seg_kpi
+from research import testkit
+
+#: 引擎 parity 要重放 live_config 記錄的全窗 KPI —— 瘦身 cache(雲端 VM)沒有那段歷史
+pytestmark = testkit.requires_history("2012-01-02", "2025-12-31")
 
 _TOL = 0.005  # 0.5pp:重現 = 逐位(實測 0.00%),留守 rounding
 
