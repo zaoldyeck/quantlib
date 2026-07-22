@@ -262,7 +262,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
     # `peak_close = entry_close`),成本是帳戶的屬性,兩者不得互相污染。
     from research.trading.exit_replay import load_paths, replay, s_rule
     entries = {c: anchors.get(c, acquired[c]) for c in holdings}
-    paths = load_paths(sorted(entries), min(entries.values()) if entries else d0, d0)
+    local_paths = load_paths(sorted(entries), min(entries.values()) if entries else d0, d0)
     survivors: list[tuple[tuple, str, str]] = []  # (席位排序鍵, code, keep理由)
     for code in sorted(holdings):
         px = closes.get(code)
@@ -270,7 +270,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
         # 無營收資料者 fresh=None;下方文案用 int(fresh) 會拋 TypeError →
         # 當日整份計劃產不出來(交易 > 文案),故先正規化為可顯示值。
         fresh_i = int(fresh) if fresh is not None else -1
-        if px is None or code not in paths:
+        if px is None or code not in local_paths:
             adv.sells.append((code, "無法取價(下市/停牌?)人工確認"))
             continue
         if code not in anchors:
@@ -285,7 +285,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             adv.sells.append((code, f"進場錨 {entry} 取不到收盤價,出場門檻無法建立"
                                     "——人工確認"))
             continue
-        fire, now = replay(paths[code], entry, s_rule(epx), peak_floor=epx)
+        fire, now = replay(local_paths[code], entry, s_rule(epx), peak_floor=epx)
         if fire:
             od = (f"🔴 **逾期未出場**:{fire.day} 觸發(當時 {fire.price:g}),今日 {px:g}"
                   f"({(px / fire.price - 1) * 100:+.1f}%)|" if fire.is_overdue(d0) else "")
@@ -304,7 +304,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
         # cost = **帳戶**的成本(顯示損益用);epx = **策略**的進場價(出場門檻用)
         cost, basis = cost_of(code, fallback=info.get("cost"))
         epx = entry_px.get(code)
-        _f, now = replay(paths[code], entries[code], s_rule(epx), peak_floor=epx)
+        _f, now = replay(local_paths[code], entries[code], s_rule(epx), peak_floor=epx)
         peak = now.peak if now else None  # 峰值由價格路徑重算,不靠增量 state
         # S 的價位門只有 trail 35%;訊號過期 26 日 / 時間止損 30 日 / 輸家止損
         # (水下且 ≥15 日)都是時間門,沒有固定止盈。
@@ -633,7 +633,7 @@ def serenity_advisor(con, holdings: dict[str, float], today: Date,
 
     entries = {c: Date.fromisoformat(positions[c]["entry_date"])
                for c in holdings if c in positions}
-    paths = load_paths(sorted(entries), min(entries.values()) if entries else cutoff, cutoff)
+    local_paths = load_paths(sorted(entries), min(entries.values()) if entries else cutoff, cutoff)
     for code in sorted(holdings):
         pos = positions.get(code)
         px = closes.get(code)
@@ -641,13 +641,13 @@ def serenity_advisor(con, holdings: dict[str, float], today: Date,
             adv.keeps.append((code, "⚠ 未收養——跑 serenity daily run 讓收養協定"
                                     "接手後才受六道門管理"))
             continue
-        if px is None or code not in paths:
+        if px is None or code not in local_paths:
             adv.sells.append((code, "無法取價(下市/停牌?)人工確認"))
             continue
         anchor = float(pos.get("anchor") or px)
         entry = entries[code]
         # **逐日重放**(非今日快照):規則在你沒跑報告的那幾天觸發也算數
-        fire, now = replay(paths[code], entry, serenity_rule(anchor), peak_floor=anchor)
+        fire, now = replay(local_paths[code], entry, serenity_rule(anchor), peak_floor=anchor)
         if now is None:
             adv.sells.append((code, "無價格路徑,人工確認"))
             continue

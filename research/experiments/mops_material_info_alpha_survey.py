@@ -294,14 +294,14 @@ def fetch_and_parse(start: date, end: date, workers: int, force: bool) -> pl.Dat
     query_start = start
     query_end = end + timedelta(days=1)
     dates = list(daterange(query_start, query_end))
-    paths: list[Path] = []
+    local_paths: list[Path] = []
     workers = max(1, min(workers, 8))
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(fetch_one_day, d, force): d for d in dates}
         for fut in as_completed(futures):
             paths.append(fut.result())
     rows: list[dict[str, object]] = []
-    for path in sorted(paths):
+    for path in sorted(local_paths):
         rows.extend(parse_day_file(path, start, end))
     if not rows:
         return pl.DataFrame(

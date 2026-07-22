@@ -47,14 +47,14 @@ def materialize_pools() -> dict[str, Path]:
         "no_beneficiary": registry[registry["company_code"].map(role_of) != "beneficiary"],
         "owner_only": registry[registry["company_code"].map(role_of) == "chokepoint_owner"],
     }
-    paths: dict[str, Path] = {}
+    local_paths: dict[str, Path] = {}
     RESULTS.mkdir(parents=True, exist_ok=True)
     for arm, frame in pools.items():
         path = RESULTS / f"role_trial_registry_{arm}.csv"
         frame.to_csv(path, index=False)
-        paths[arm] = path
+        local_paths[arm] = path
         print(f"pool {arm}: {frame['company_code'].nunique()} codes -> {path.name}")
-    return paths
+    return local_paths
 
 
 def run_engine(arm: str, registry_path: Path, lag: int) -> tuple[str, int, str]:
@@ -115,8 +115,8 @@ def attribution(labels: dict[tuple[str, int], str]) -> pd.DataFrame:
 
 
 def main() -> None:
-    paths = materialize_pools()
-    jobs = [(arm, paths[arm], lag) for lag in LAGS for arm in paths]
+    local_paths = materialize_pools()
+    jobs = [(arm, local_paths[arm], lag) for lag in LAGS for arm in local_paths]
     labels: dict[tuple[str, int], str] = {}
     with ThreadPoolExecutor(max_workers=3) as pool:
         for arm, lag, label in pool.map(lambda j: run_engine(*j), jobs):

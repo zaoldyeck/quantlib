@@ -123,10 +123,10 @@ def main() -> None:
     ap.add_argument("--lookback-years", type=int, default=5)
     args = ap.parse_args()
 
-    paths = strategy_files()
-    if not paths:
+    local_paths = strategy_files()
+    if not local_paths:
         raise FileNotFoundError("no iter_35 daily files found")
-    ret_df = load_returns(paths)
+    ret_df = load_returns(local_paths)
     daily, decisions = walk_forward(ret_df, args.lookback_years)
     if daily.is_empty():
         raise RuntimeError("walk-forward produced no OOS days")

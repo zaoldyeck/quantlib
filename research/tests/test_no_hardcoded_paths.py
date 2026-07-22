@@ -94,3 +94,37 @@ def test_three_lifecycles_do_not_overlap() -> None:
     for i, a in enumerate(roots):
         for b in roots[i + 1:]:
             assert a not in b.parents and b not in a.parents, f"{a} 與 {b} 重疊"
+
+
+def test_paths_module_is_never_shadowed() -> None:
+    """任何檔案 import 了 `paths` 之後,函式內不得再有同名區域變數。
+
+    2026-07-22 實例:`s_advisor` 內原本就有 `paths = load_paths(...)`(價格路徑),
+    模組級加入 `from research import paths` 後,Python 在編譯期就把整個函式裡的
+    `paths` 判為區域變數 → 函式開頭引用 `paths.RECORDS` 直接 `UnboundLocalError`。
+
+    **這種 bug 測試套件抓不到**(那條路徑當時沒有覆蓋),是在部署到 VM 後試跑才
+    炸出來的——所以要有一條靜態法條把它擋在門外。
+    """
+    offenders = []
+    for p in sorted((REPO / "research").rglob("*.py")):
+        rel = p.relative_to(REPO).as_posix()
+        if ".venv" in rel or rel in EXEMPT_FILES or rel.startswith(EXEMPT_DIRS):
+            continue
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError, OSError):
+            continue
+        if not any(isinstance(n, ast.ImportFrom) and n.module == "research"
+                   and any(a.name == "paths" for a in n.names) for n in tree.body):
+            continue
+        for fn in ast.walk(tree):
+            if not isinstance(fn, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for n in ast.walk(fn):
+                if isinstance(n, ast.Name) and isinstance(n.ctx, ast.Store) \
+                        and n.id == "paths":
+                    offenders.append(f"{rel}:{n.lineno} 函式 {fn.name}() 內遮蔽了 paths")
+                    break
+    assert not offenders, "paths 被區域變數遮蔽(會在執行期 UnboundLocalError):\n  " \
+        + "\n  ".join(offenders)
