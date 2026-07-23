@@ -347,7 +347,11 @@ def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) 
              .with_columns(
                  (pl.col("post_ref") / pl.col("pre_close")).alias("factor")
              )
-             .filter((pl.col("factor") > 0.05) & (pl.col("factor") < 5.0))
+             # 上限放寬 5.0 → 100.0(2026-07-23 FC1):台股「彌補虧損」型減資可減到
+             # 只剩 2.5% 股本(factor 40),舊上限 5.0 把 16 筆真實大減資誤殺 →
+             # 減資日原始價暴跳卻不還原 → 幽靈暴漲。100 與 _detect_stock_splits 的
+             # 分割上限一致(同樣是大幅換股的量級)。下限 0.05 保留(現金減資不會更極端)。
+             .filter((pl.col("factor") > 0.05) & (pl.col("factor") < 100.0))
              .select(["company_code", "ex_date", "factor"])
         )
         events.append(c)
