@@ -1,0 +1,58 @@
+{
+  "unit": "D-serenity-live",
+  "title": "Serenity 引擎 + 出場規則(LIVE)",
+  "scope": "research/serenity/engine.py + research/trading/exit_replay.py",
+  "focus": "出場規則(trail/time/abs/訊號)閾值套用、峰值計算、逐日重放語義、事件對齊 PIT;exit_replay 的 trailing 峰值下限、日曆對齊",
+  "verdict": "BUG",
+  "summary": "退場閾值套用(abs15/trail25/tp40/time30)、峰值高水位重算、逐日重放的 T+1 紀律、月營收次月 10 日 PIT——這些逐位對得上學理,回測(engine)與 live(exit_rules)常數也一致。但有一個會讓 live 判決失真的真 bug:exit_replay(與 live daily.py)用『未還原原始收盤價』評估 trailing/絕對停損,而設定並驗證這些門檻的回測引擎用『還原價』;股票一遇除權息,原始價機械性跳空(實測 2024-2025 流動股 -8.8%~-46%),就會在其實沒賠錢時假觸發停損,而回測(還原價)不會——除息旺季 6-8 月正是抱夏季贏家的窗口。另一個 SUSPECT:live 退場比驗證版嚴(多一道 yoy_3m<0 無條件門、且法人門天天判 vs 回測月度判),且無 parity test 鎖死 live↔engine。其餘 atr20_pct 冒名 ATR、peg_target_mult 以營收成長冒充 PEG 盈餘成長,都只在非 live 變體,不影響現役 ev_v3_wf。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "trailing / 絕對停損的價格基準 —— research/trading/exit_replay.py:77-82(SELECT closing_price FROM daily_quote)、:152-159(cum_max(closing_price)+peak_floor);對照回測引擎 research/serenity/engine.py:189,207,449,635-638 用還原 close",
+      "textbook_def": "路徑相依價格停損(trailing stop / stop-loss)衡量的是投資部位價值自峰值/成本的回落,必須以總報酬還原價(adjusted / total-return price)評估,或在除權息日同步下調停損錨與峰值;否則除權息造成的機械性除息缺口會在無經濟損失時觸發停損(股東拿到現金/股票股利,價值未減)。Serenity 的 abs 15% / trail 25% / tp 40% 是在 engine.py 的還原價空間裡設定並經 walk-forward 驗證。",
+      "implementation": "exit_replay.load_paths 直接讀 daily_quote.closing_price(原始收盤,未接 ex_right_dividend);replay 以 cum_max(closing_price) 當 peak、peak_floor=原始成交價,對這條原始價序套 evaluate_exit(abs15/trail25)。engine.py 的模擬與退場全在還原 close 空間(ret_1d、peak_close、entry_close 皆還原)。live daily.py:341,383,389 同樣走原始 closing_price。兩者只在『持有窗內發生除權息』時分岔:無公司行為時還原比=原始比、判決相同;一遇除息,還原價無缺口、原始價有缺口。",
+      "evidence": "cache ex_right_dividend × daily_quote,2024-06~2025-09 流動名單除息日『前一日收盤→除息日收盤』的原始跳空:7734 錸寶 2025-07-29 cash_div=294.92 → 1360→1035 = -23.90%;6231 系微 2024-07-11 89.25 → 523→477 = -8.80%;5278 尚凡 2024-08-09 → 242→183.5 = -24.17%;6577 2024-08-01 → 180→105 = -41.67%;3293 鈊象 2024-07-24 750 → 1465→786 = -46.35%。持有跨除息日的 lot:原始 px 機械跌 23.9%(7734)> abs_stop 15% → 立即假觸發 abs_stop;-8.8%(6231)疊上正常波動即逼近 trail 25% 峰值回落線。還原面板(engine)無此缺口 → 回測不會出場。即 live 退場與『設定門檻的那份回測』不同源、系統性偏向除權息季提早砍出場。",
+      "fix": "exit_replay.load_paths 改用 prices.fetch_adjusted_panel 的還原 close(與 engine 同源),peak/px/peak_floor 一律還原;若要保留螢幕原始價呈現,則於 ex_right_dividend 除權息日把 anchor 與 peak 依除權息參考價同步下調(等價於改追蹤總報酬)。live daily.py:market_data 同步改。補 parity test:對持有跨除息日的合成 lot,斷言 exit_replay 判決與 engine 還原價判決逐位一致。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "訊號(thesis)退場門 —— research/serenity/exit_rules.py:44-47(第5門 inst20<0且px<anchor、第6門 yoy3<0)對照 research/serenity/engine.py:592-598(champion thesis_mode=inst_neg)+ :568-606(thesis 僅在 refresh 日評估)",
+      "textbook_def": "專案『引擎唯一真源鐵律』(CLAUDE.md):live 退場邏輯必須逐位重現驗證過的回測 champion;正當的 live-vs-backtest 差異須明列來源。champion ev_v3_wf 的 thesis 規格 = inst_neg。",
+      "implementation": "evaluate_exit(live,daily.py/exit_replay 每日呼叫)有六門,第6門 `if yoy3 is not None and yoy3 < 0: return thesis(yoy_3m<0)` 為無條件(不看 px、不看 inst)退場。engine 的 inst_neg 走 else 分支只評 inst<0 且 px<entry_close,yoy3m_neg 那條(ok_map,即 yoy3<0)被跳過;且 engine 的 thesis 只在月度 refresh 日評估,live 每天評。",
+      "evidence": "engine.py:570-575 `if variant.thesis_mode==yoy3m_neg or not latest_thesis:` 為假(champion=inst_neg 且 latest_thesis 非空)→ 走 else → :592 僅 inst_neg fire;yoy3<0 那條在 champion 路徑不存在(engine 無『inst 且 yoy3 複合』single variant)。加上 live 法人門天天判、回測月度判 → live 的 thesis 退場更多、更早:一個 yoy3<0 但 inst>=0/px>=anchor 的部位,live 會賣、驗證回測會抱。research/serenity/tests/ 只有 test_execution.py,無 parity test 鎖死 live↔engine 退場等價(對照 Evergreen 有 test_engine_parity.py)。方向上 live 較嚴(較保守)非放大風險,但部署策略 != 驗證策略,KPI 不能代表 live。",
+      "fix": "二擇一並補守護:(a)在 engine 新增『inst_neg + yoy3<0』複合 thesis_mode、以 daily-cadence 近似(或明列為 live-only 正當差異)重跑 walk-forward/DSR/permutation,通過後 live 才保留第6門;(b)移除 live 第6門、法人門對齊回測評估時點,使 evaluate_exit 與 ev_v3_wf 逐位一致。無論哪條,補 test_engine_parity 對同一 lot 序列斷言 live 六門與 engine champion 判決一致。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "atr20_pct 命名為 ATR —— research/serenity/replay_2025.py:196-199,經 engine.py:698-706 weight_mode=inv_atr(變體 ev_v2_watr)使用",
+      "textbook_def": "Wilder ATR(1978)= 14 期 True Range 的 Wilder 平滑;TR = max(H-L, |H-C_prev|, |L-C_prev|),含跳空(前收)兩項,平滑用 Wilder RMA(非簡單平均)。",
+      "implementation": "(high-low).rolling_mean(20).shift(1) / close —— 只用當日 H-L 的 20 日簡單平均/close,缺 |H-C_prev|、|L-C_prev| 兩項、非 Wilder 平滑、期數 20 非 14。有隔夜跳空的股票真實波動被系統性低估。",
+      "evidence": "定義缺兩個 TR 分量 → 對有跳空的標的 atr20_pct < 真 ATR。但僅 weight_mode=inv_atr(ev_v2_watr)用它做反波動加權;live champion ev_v3_wf 用 weight_mode=equal,完全不觸及 → 對現役策略無影響。屬命名/定義失真(以 ATR 之名行 avg-range 之實),非 live money-path。",
+      "fix": "要真 ATR 就改用 True Range(含前收兩項)+ Wilder 平滑並校期數;若只需平均振幅代理,更名為 avg_range20_pct 以免誤稱 ATR。低優先(非 live)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "peg_target_mult 動態止盈倍數 —— research/serenity/engine.py:394-400,tp_mode in {peg_target,peg_exit}(變體 ev_v2_tpdyn/ev_v2_pegexit)使用",
+      "textbook_def": "PEG = P/E ÷ EPS 成長率(%);用盈餘成長,非營收。『PEG=1 隱含上檔 = growth/pe』本身是啟發式,非標準估值公式。",
+      "implementation": "np.clip(growth / pe, 1.2, 3.0),其中 growth = yoy_3m(三月營收 YoY,非 EPS 成長)、pe = price_to_earning_ratio。以營收成長替代盈餘成長,上檔推導非教科書。",
+      "evidence": "valuation_by_refresh 餵入的 growth 來自 rev_day.yoy_3m(營收);營收成長 != EPS 成長,倍數會偏。但僅 ev_v2_tpdyn/ev_v2_pegexit 使用;live ev_v3_wf 用 tp_mode=fixed(固定 tp 0.40),不觸及 → 對現役策略無影響。",
+      "fix": "要 PEG 語義改用 EPS 成長率;或明確更名為啟發式目標倍數並註明『非 PEG、用營收成長』。低優先(非 live)。"
+    },
+    {
+      "severity": "OK",
+      "metric": "退場閾值套用 + 峰值高水位重算 + T+1 重放紀律 —— exit_rules.py:36-43、engine.py:449,635-652、exit_replay.py:128-134,152-159,175",
+      "textbook_def": "stop-loss px<=anchor·(1-abs)、trailing px<=peak·(1-trail)、目標價 px>=anchor·(1+tp)、time stop days_held>=K 且 px<=anchor·(1+r);trailing 錨=進場以來收盤高水位;訊號 T 收盤生成、T+1 收盤成交(無前視)。",
+      "implementation": "exit_rules(live)與 engine 常數/不等式逐位一致(abs0.15/trail0.25/tp0.40/time30@-1%);exit_replay 以 cum_max 自 entry_day 起算 peak、每次 join 後重新 sort(防 polars 不保序)、peak_floor=成交價(對應回測 peak_close=entry_close 下限);進場日當天不評估(day>entry_day);engine peak_close=逐日還原 close 的 running max。",
+      "evidence": "exit_rules.py:16 TRAIL,ABS_STOP,TAKE_PROFIT=0.25,0.15,0.40 / TIME_DAYS,TIME_RET=30,-0.01 == engine.py:184 ev_v3_wf ExitRules。exit_replay.py:125-138 註解記 2408/6446 實測錨定(重 sort 修正峰值誤算)。符合 trailing-stop / Exit Semantics Contract。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "月營收 PIT 對齊 + mark-to-market 價空間自洽 + regime/bootstrap —— replay_2025.py:189,194,195 / exit_replay.py:108-114,134 / engine.py:283-293,1058-1065,1233-1249",
+      "textbook_def": "台股月營收次月 10 日公布可用;報酬序列須除權息還原;回撤=close/rolling_max-1;adv 須 lag 避免當日前視;技術 SMA 含當日;月報酬幾何年化 prod(1+r)^(12/n)-1。",
+      "implementation": "可用日=次月10日(revenue_report_date=month_add(...,1) 的10日;exit_replay legal_avail=date(year+month//12,month%12+1,10),月份進位已驗12月→次年1月),首見日優先 coalesce(first_seen,legal_avail);build_refresh_days 取>=11日首個交易日;engine close/ret_1d/peak_close/entry_close 全在同一還原空間(ret_1d=close/close.shift1-1),drawdown_252=close/rolling_max(252)-1,adv20=trade_value.rolling_mean(20).shift(1);market_risk_off=0050 還原 adj_close<MA120(含當日尾端 SMA,無前視);_boot_p5 circular block(block=6,%n 環繞)幾何年化取第5百分位。",
+      "evidence": "revenue_report_date 與 exit_replay legal_avail 同給次月10日,一致;fresh_days=(date-avail) 為日曆天、days_held 為交易日,單位各自文件化且 serenity live 門不用 fresh_days;_boot_p5 僅 --sweep 研究用,不進 live 決策。fee: FEE_BUY=comm+5bps、FEE_SELL=comm+賣稅0.3%+5bps,進出場對稱,round-trip ~0.457%(文件化摩擦假設)。",
+      "fix": ""
+    }
+  ]
+}

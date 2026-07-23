@@ -1,0 +1,40 @@
+{
+  "id": "A-tdcc_shareholding",
+  "dim": "A",
+  "source": "tdcc_shareholding",
+  "reader": "TradingReader.readTdccShareholding",
+  "table": "tdcc_shareholding",
+  "raw_files": 29,
+  "unit": "A-tdcc_shareholding",
+  "verdict": "OK",
+  "summary": "TDCC 集保股權分散表(千張大戶/籌碼分散)的解析可以信,六個欄位每一格都對。另寫一支不呼叫 TradingReader 的獨立解析器,把 29 個原始檔全部重讀,對 12 個資料日、813,110 列、6 欄逐格比對:人數、股數、比例三個數值欄零差異,列數雙向零缺零多(raw 813,110 == PG 813,110)。單位正確(股數=股、人數=人、比例是 0~100 的百分比而非 0~1);正負號正確(全部 ≥ 0,無減資/賣超類負值);日期正確(西元 yyyyMMdd,取自檔案內容的『資料日期』欄而非檔名,故檔名 4/24 對到內容 4/17 這種週頻落差不會把日期記錯);股票代號的尾端空白(TSMC 在原始檔是 '2330  ')被 .trim 正確去掉,PG 裡零個代號帶空白,對 daily_quote 的 join 不會斷;UTF-8 BOM 由 \\d{8} 正則把標頭丟掉來化解,不會汙染任何資料格;內部一致性也對(2330 合計人數 2,941,980 == 各級距加總,證明人數/股數沒被錯位);同一資料日的多份下載檔位元組完全相同(MD5 一致),不會互相打架;cache(DuckDB)813,110 列/12 日與 PG 完全一致。唯一要記錄的是程式的一個潛在小毛病,不影響現有資料:清空重建時,同一資料日的多個檔在平行匯入下會一起通過去重閘,全靠唯一索引擋掉重複——現況因為每天增量匯入時同一日只會有一個檔、且同日多檔位元組相同而無害,但這是 money-path reader 值得順手記下的技術債。",
+  "findings": [
+    {
+      "severity": "SUSPECT",
+      "what": "平行匯入的去重閘用的是『迴圈開始前拍一次的快照』,而真正能在單次執行內去重的 insertedDates 集合被建立卻從未被查。後果:全庫清空後一次重建時,同一個『新』資料日若同時存在於多個檔(例如 20260703 落在 2026_7_4 到 2026_7_13 共 6 個檔),這 6 個平行工作會全部通過閘、全部嘗試插入同一天的 6.8 萬列,只靠唯一索引 idx_TdccShareholding_date_code_tier 把後到的擋掉(輸的工作在 ++= 批次插入時觸發 unique violation → dbRun 的 Await 直接拋例外)。這不影響目前資料的正確性:(a) 每日增量匯入時,一個資料日在它首次出現那天只有一個檔存在,閘一次就過;(b) 同一資料日的多份檔經實測位元組完全相同,誰搶到都寫出相同的值。真正的殘存風險有二:清空重建會噴一串 unique-violation 例外(雜訊,且平行 foreach 可能把例外往上拋而讓整趟 read 顯示失敗);以及若 TDCC 哪天在同一個『資料日期』底下改了內容(週中更正),存進去的會是平行競態誰先搶到就算誰的、非決定性的一份。",
+      "evidence": "TradingReader.scala:769-770 在迴圈外拍下 existingDates 快照;:772 files 用 .par 取得平行集合;:781 files.foreach 平行執行;:789 的閘 if (!existingDates.contains(dataDate)) 只比對那份 stale 快照;:779 建立的 insertedDates(ConcurrentHashMap.newKeySet)本應在執行內去重,卻在 :789 的閘裡完全沒被 contains 檢查,只在插入後 add。經驗證競態目前不致資料錯誤:(1) 同資料日多檔位元組相同——md5 -r 2026_7_4.csv 2026_7_6.csv 2026_7_7.csv 2026_7_8.csv 2026_7_9.csv 2026_7_13.csv 六檔同雜湊 10501abeb800e41c5d0fc30ba2845004;2026_7_14~2026_7_17 四檔同雜湊 77d5e5f4551f93ee3fbde9c77c2031f2;2026_4_25/2026_4_30 同雜湊;2026_5_17/18/20/21 同雜湊。(2) 獨立解析器的 cross-file conflict 檢查為 0(docs/data_audit/scripts/A-tdcc_shareholding/01_full_recon.py 輸出 raw key conflicts: 0)。(3) 每個資料日的 PG 列數與原始檔資料列數逐日相等(見 checked『列數逐日對帳』),證明沒有部分插入、沒有重複列——Postgres unique violation 讓批次整批 all-or-nothing 回退,輸的工作插 0 列而非部分列。",
+      "fix": "把 :789 的閘改成同時檢查執行內已插入集合,例如 if (!existingDates.contains(dataDate) && insertedDates.add(dataDate)) { ... }(利用 newKeySet.add 的原子回傳值『是否首次加入』,一步完成 test-and-set,天然免除同一 run 內同日多檔的競態),並把插入後那次 insertedDates.add 移除。這樣清空重建時每個資料日只會有一個平行工作真的去插入,不再倚賴唯一索引擋例外,也讓『同日換內容』時的挑檔行為變成明確可預期(第一個被列舉到的檔)。屬程式健壯性/技術債修補,現有 813,110 列資料無需重匯。"
+    }
+  ],
+  "checked": [
+    "TradingReader.readTdccShareholding(TradingReader.scala:763-818)逐行讀完:existingDates 迴圈外快照(:769-770)、.par 平行 foreach(:781)、dropWhile 用 \\d{8} 丟標頭(:785)、dataDate 取自 rows.head.head 內容欄(:787-788)、六欄索引映射 values(1..5)、.trim/.replace(\",\",\"\") 清洗、.distinctBy 檔內去重(:799)、++= 批次插入(:800-801)",
+    "db/table/TdccShareholding.scala:六欄型別(dataDate LocalDate、companyCode String、holdingTier Short、numHolders Int、numShares Long、pctOfOutstanding Double)與 unique index idx_TdccShareholding_date_code_tier(dataDate,companyCode,holdingTier);tier 1-17 定義(15=千張大戶、16=差異數、17=合計)註記與資料一致",
+    "setting/TdccShareholdingSetting.scala:靜態端點無日期參數、永遠回最新一週、檔名用抓取日、reader 從內容欄還原真 data_date——三點與觀察到的檔名/內容落差一致",
+    "util/QuantlibCSVReader.scala 全檔:replace(\"=\",\"\") 與『含 \"\" 但無 ,\"\" 就跳整列』兩條 TWSE 特規對 TDCC 純數字格式無副作用(原始檔無 = 也無引號);獨立解析器用 utf-8-sig 原樣重現 BOM 處理",
+    "跨時代抽樣:29 檔涵蓋最早(2026_4_24=內容 20260417)、中段(5/6 月)、最近(2026_7_19=內容 20260717);TDCC 為單一全市場檔(TWSE+TPEx 同檔,無 market 分檔),故不分市場抽樣",
+    "版型漂移:29 檔標頭簽章全等於(資料日期,證券代號,持股分級,人數,股數,占集保庫存數比例%)、欄位數一律 6、tier 值集一律 {1..17}(01_full_recon.py header/width/tier 掃描)",
+    "全量逐格比對:獨立解析器 813,110 個 (data_date,code,tier) key vs PG 813,110 列,num_holders/num_shares/pct_of_outstanding 三欄各 0 mismatch、only_raw=0、only_db=0(01_full_recon.py RESULT: PASS)",
+    "列數逐日對帳:12 個資料日 raw 資料列 == PG 列(20260417 67252、20260424 67388、20260508 67507、20260515 67592、20260522 67643、20260605 67813、20260612 67830、20260618 67864、20260626 67983、20260703 68017、20260709 68051、20260717 68170),總和 813,110 == PG total,證明 Try{}.toOption flatMap 與 distinctBy 零丟列",
+    "單位:比例欄 PG min=0 max=100(0~100 百分比,非 0~1);tier 17 合計比例全部股票 =100(min=max=100、not-100 計數 0)→ 證明欄位未錯位、比例語意保留;股數以『股』儲存(2330 合計 25,932,370,067 股,與 TSMC 實際股本量級相符,非千元非張)",
+    "正負號:num_holders/num_shares min=0、無任一負值;pct min=0 無負——集保持股為計數與占比,恆非負,無減資/賣超類負號情境",
+    "欄位錯位偵測(獨立於逐格比對):內部恆等式 2330@20260717 tier17 人數 2,941,980 == SUM(tier 1..16) 人數 2,941,980,若人數/股數欄互換此式必破,證明兩數值欄未錯位",
+    "代號尾端空白:原始檔 TSMC 代號為 '2330  '(右補至 6 字寬),reader values(1).trim 去空白;PG length(company_code) 分布為 4/5/6 字、company_code ~ '\\\\s' 命中 0 → trim 確實落庫,對 daily_quote(代號 2330)join 不會斷",
+    "編碼:原始檔 UTF-8 with BOM(前三 byte ef bb bf),中文只出現在標頭(不入庫);標頭被 \\d{8} 正則丟棄故 BOM 不汙染任何資料格;入庫欄位僅代號/數字/日期,無中文走樣風險",
+    "日期:西元 yyyyMMdd(20260417 而非民國 1150417),LocalDate.parse 以 yyyyMMdd 解析正確,非民國;data_date 取自內容『資料日期』欄而非檔名,故『檔名 2026_4_24 → 內容 20260417』的週頻落差不會記錯日期",
+    "檔名 vs 內容日期:每檔內容僅 1 個 distinct 資料日(01_full_recon.py files with >1 data_date: 0),reader 以 rows.head.head 當全檔日期在此資料上安全",
+    "同資料日多檔一致性:MD5 逐組比對,同一內容日的多份下載檔位元組完全相同(2026_7_4~7_13 六檔、2026_7_14~7_17 四檔、2026_4_25/30、2026_5_17~5_21 四檔各自同雜湊)→ 平行匯入競態的挑檔在現況下無害",
+    "漏欄盤點:原始檔 6 欄全部映射入庫(data_date/company_code/holding_tier/num_holders/num_shares/pct_of_outstanding),id 為 autoinc PK,無任何原始欄被丟棄",
+    "cache 一致性:DuckDB var/cache/cache.duckdb 的 tdcc_shareholding = 813,110 列 / 12 日,與 PG 完全相等(research/cache_tables.py 為純投影)",
+    "排除已知真實現象:TDCC 為週頻單一全市場檔(無 market 欄屬正常,非漏欄)、內容日期落後檔名約一週屬 opendata 只給當週的正常行為(非日期錯位)、tier 16 差異數多為 0 屬正常;歷史僅回補到 2026-04-17(Task #20 pending)非解析問題"
+  ]
+}

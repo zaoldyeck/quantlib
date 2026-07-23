@@ -1,0 +1,58 @@
+{
+  "id": "D-slick-schema-full",
+  "title": "Slick schema 全表型別/單位/溢位/索引",
+  "scope": "src/main/scala/db/table/ 全 25 檔 (~29 個 Table 定義)",
+  "unit": "D-slick-schema-full",
+  "verdict": "BUG",
+  "summary": "三個真 BUG:ex_right_dividend.cash_dividend 存的是『權值+息值』總調整額(非現金股利)且跨 2024-07 語義翻轉;NetChangeOfPrice.* 投影重複 limit_up_overall_market、漏 limit_up_stocks;DailyTradingDetails 股數欄用 Int(靜默歸零/回捲溢位路徑,已達上限 57%)。其餘型別/單位/唯一索引大致符合學理,新表(Foreign/Sbl/Insider/Tdcc/Taifex)已正確用 Long。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "ex_right_dividend.cash_dividend (ExRightDividend.scala:31;legacy parser TradingReader.scala:333 取 values(5);MOPS parser :384 取 totalCash)",
+      "textbook_def": "TWT49U『除權除息計算結果表』欄序=除權息前收盤價 / 除權息參考價 / 權值+息值 / 權息別...。『現金股利(息值)』純除權(配股)時應為 0。除權息還原因子(教科書)= 參考價/前收盤 = 1 −(權值+息值)/前收盤(出處:TWSE TWT49U 欄位規格 + Reference-price back-adjustment 標準做法)。",
+      "implementation": "legacy 解析把 values(5)=『權值+息值』寫入 cash_dividend(TradingReader.scala:333);MOPS 月表解析(2024-07+)改把 totalCash=純現金股利寫入 cash_dividend、pre/ref 欄寫 0、配股拆成 cash_dividend=0 的『權』列(TradingReader.scala:379-394)。同一欄兩義。prices.py:321 註解以為在做 (前收盤−現金股利)/前收盤,實際減的是總調整額。",
+      "evidence": "PG 實測:純『權』(配股無現金)列 legacy avg(cash_dividend)=2.669(學理應為 0);全期 cash_dividend ≈ closing_price_before − reference_price(息/權息/權三型 avg_abs_gap≤0.003,max≤0.54=交易所參考價四捨五入),證明存的是總調整額(權值+息值)。跨期不一致:MOPS_era pre_close=0 的 2,456 筆『息』列語義已切換為純現金;59 筆 MOPS『權』列 cash_dividend=0 且 pre/ref=0 → prices.py 兩條還原路徑皆落空 → 該股票股利未還原(幽靈跳水)。",
+      "fix": "1) 欄位更名為 total_ex_value(權值息值)並於 table docstring 明載語義;2) 若需真現金股利另解析 TWT49U 後段『最近一次申報 現金股利』欄新增 cash_dividend_true;3) 統一兩解析器:MOPS 路徑也回填 pre_close/ref(或標記 era)使語義單一;4) 同步修正 prices.py:321 註解(其公式因『cash_dividend 實為總調整額』才恰好正確=參考價/前收盤,屬 load-bearing 的錯誤命名)。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "NetChangeOfPrice.* 投影 (NetChangeOfPrice.scala:51)",
+      "textbook_def": "Slick `*` 投影須無重複、無遺漏地列出所有欄,且與 Table[Tuple] 型別逐位一一對應;每個 column 恰好出現一次(Slick FRM 契約)。",
+      "implementation": "line 51:`...upStocks, limitUpOverallMarket, limitUpOverallMarket, downOverallMarket...` — limitUpOverallMarket 連續出現兩次;line 27 定義的 limitUpStocks(漲停家數)完全未在投影中出現。16-tuple 位數雖湊滿但第 6 位對應錯欄。",
+      "evidence": "逐字比對:column limitUpStocks 定義於 line 27,但 line 51 的 16 個投影元素無此欄;limitUpOverallMarket 在 line 51 出現兩次。後果:INSERT 時 limit_up_stocks 永不落庫(取 DB 預設)、第 6 tuple 值覆寫入 limit_up_overall_market;SELECT 時第 6 位讀回 limit_up_overall_market。潛伏性:net_change_of_price 未列入 Task.createTables(55-77),pg_tables 查詢 0 rows(死表),故目前未觸發,但程式碼缺陷確立。",
+      "fix": "line 51 第 6 位 limitUpOverallMarket 改為 limitUpStocks:`...upStocks, limitUpOverallMarket, limitUpStocks, downOverallMarket...`。若確認此表不使用,連同 reader(TradingReader.scala:676 附近)與 setting 一併刪除以除死碼。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "DailyTradingDetails 全買賣超股數欄=Int (DailyTradingDetails.scala:28-70);parser Try(toInt).getOrElse(0) (TradingReader.scala:186,214);聚合 Int+Int (:200,204)",
+      "textbook_def": "三大法人買賣超(TWSE T86 / TPEx 3itrade)數值單位為『股』,單檔單日可達數十億股(如 2317 鴻海流通股 ~1.39e10)。應以 64-bit 整數(Long)承載,與同 repo 其它籌碼表一致。",
+      "implementation": "全 12 個 buy/sell/difference 欄 column[Int]/Option[Int](Int.MaxValue=2,147,483,647)。解析 `Try(value.toInt).getOrElse(0)`:超界值 NumberFormatException → 靜默寫 0。聚合如 dealersTotalBuy = proprietary + hedge 為 Int+Int:和超界 → 靜默回捲成負數。",
+      "evidence": "PG 實測:max(total_difference)=1,199,902,009(Int 上限 57%)、max(foreign_investors_total_sell)=923,968,291、max(foreign_investors_total_buy)=916,795,041;尚未溢位但已逼近。反例對照:同 repo 較新籌碼表 ForeignHoldingRatio/SblBorrowing/InsiderHolding/TdccShareholding 股數欄皆正確用 Long,DailyTradingDetails 為唯一 Int 例外。失效為靜默(0 或負)而非崩潰,難以察覺。",
+      "fix": "全 12 個買賣超股數欄 Int→Long、Option[Int]→Option[Long](含 case class DailyTradingDetailsRow 與 mapTo);parser 改 `.toLong`;聚合以 Long 相加。DB 端 ALTER TABLE daily_trading_details ALTER COLUMN ... TYPE bigint 維持 Slick FRM parity。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "死 schema(定義未物化):NetChangeOfPrice, MarketSummary, QuarterlyReport, IncomeStatementIndividual, CashFlowsIndividual, ConciseIncomeStatementIndividual, CompanyInformation(空 stub)",
+      "textbook_def": "潔癖工程原則:定義而不使用的 Table 是時間債(死碼);測試錨恆真、他人可能誤用不存在的表。非計算式偏差。",
+      "implementation": "7 個定義未列入 Task.createTables(55-77);CompanyInformation.scala 為 `class CompanyInformation {}` 空類,非 Slick Table。IncomeStatement/CashFlows/ConciseIncomeStatement 各定義 Progressive+Individual 兩變體但僅 Progressive 註冊。",
+      "evidence": "pg_tables 查詢 net_change_of_price / market_summary / quarterly_report / income_statement_individual / cash_flows_individual / concise_income_statement_individual / company_information 全 0 rows。Task.scala:55-77 註冊清單僅 23 個 Table,不含上列。",
+      "fix": "確認不使用則刪除(含 reader/setting/table 三處);若計畫使用則補入 createTables 並先修 NetChangeOfPrice 投影 bug 再啟用。CompanyInformation 空 stub 直接刪除。"
+    },
+    {
+      "severity": "OK",
+      "metric": "財務報表 EAV value=Double (BalanceSheet/IncomeStatement/CashFlows/ConciseXxx/OperatingRevenue/QuarterlyReport.value)",
+      "textbook_def": "會計金額為精確整數,理論上 NUMERIC/DECIMAL 最無損;IEEE-754 double 可精確表示 |x|≤2^53≈9.007e15 的整數。",
+      "implementation": "value = column[Double]。",
+      "evidence": "PG 實測 max(abs(value)):balance_sheet=1.434e10、concise_balance_sheet=1.106e11,均 ≪ 2^53,double 於此範圍對整數無精度損失;台股最大企業資產(仟元)~1e11 仍安全。屬刻意合理近似。",
+      "fix": "無需修。僅當未來以『元』為單位承載兆級金額(>9e15)才需轉 NUMERIC。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "命名壞味道:OperatingRevenue.scala:38/40/46 欄名尾帶雙右括號 `(%))`;ETF.scala:28 `def index` 遮蔽 Slick Table.index;DailyTradingDetailsRow.totalDifferenceInt(:77)名不符 column totalDifference",
+      "textbook_def": "欄名/成員名應與來源語義一致、不與框架 API 同名造成重載混淆、case class 欄名宜對應 column;避免抽象洩漏。",
+      "implementation": "operating_revenue 三個 %% 欄名字面含多餘 `)`;ETF 無參 `def index`(column)與 Slick 有參 index(name,on,unique)(line 32)靠 arity 重載共存;DailyTradingDetailsRow 末欄名 totalDifferenceInt 靠 mapTo 位置對應而非名稱。",
+      "evidence": "靜態讀碼確認 line 38/40/46 字面 `(%))`;ETF.scala 已 committed 可編譯故功能正確(重載 by arity、mapTo by position),純命名瑕疵,不影響數值。",
+      "fix": "operating_revenue 去除多餘 `)`(ALTER TABLE RENAME COLUMN);ETF column 更名如 tracked_index 避免遮蔽;case class 欄改回 totalDifference。皆 cosmetic 低優先。"
+    }
+  ]
+}

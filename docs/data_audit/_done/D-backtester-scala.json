@@ -1,0 +1,81 @@
+{
+  "unit": "D-backtester-scala",
+  "title": "Scala 回測引擎(NAV/DRIP/分割/再平衡/成本)",
+  "scope": "src/main/scala/strategy/Backtester.scala + BacktesterTest.scala + Output.scala (無獨立 Backtest.scala)",
+  "verdict": "BUG",
+  "summary": "核心會算對:每日 NAV 複利、除權息還原(DRIP)、手續費/賣稅雙邊成本會計、CAGR/總報酬全部符合學理。DRIP 尤其漂亮——cash_dividend 欄實際存的是『除權息前收盤 − 參考價』(=權值+息值),所以同一條公式同時正確還原了現金股利、配股、與權息合併。但有一個會系統性膨脹報酬的真 bug:減資(capital reduction)的參考價重設完全沒處理——引擎只讀 ex_right_dividend + 一個 2.5 倍門檻的分割啟發式,386 筆減資有 350 筆(91%)漏接,持有到減資的股票會把『股數變少、股價跳高』的純會計重設當成真實漲幅記進 NAV(實測 8103 憑空 +11.6%)。另有數個 SUSPECT:當日收盤決策當日成交(前視偏樂觀,與 Python 端 +1 日慣例不一致)、缺價日用成本價估值、加碼時峰值被重設。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "減資參考價還原 (capital reduction reference reset) — Backtester.scala:91,115-127,247-272 (未載入 capital_reduction 表)",
+      "textbook_def": "總報酬 NAV 必須中性化『每一種』公司行動的參考價重設,不只股利與分割。減資時 TWSE 把參考價上調、股數等比下調:彌補虧損型 ref = last_close/(1−reduction_ratio),價值連續性要求 new_shares = old_shares × (last_close/ref)。忽略它=把會計性的跳價當成經濟報酬。出處:TWSE『減資恢復買賣參考價』計算辦法;標準總報酬指數(CRSP/Bloomberg TRI)對 capital change 與 split 一視同仁中性化。",
+      "implementation": "引擎只載入 ex_right_dividend(現金/配股)與一個啟發式分割偵測器(loadSplits:prev_close/today_close 比值 ≥2.5x 或 ≤0.4x、跨 3-14 日停牌、且無 ex_right 對應)。capital_reduction 表(內含精確的 closing_price_on_the_last_trading_date 與 post_reduction_reference_price)從未被讀取。減資日股數不動、daily_quote.closing_price 卻跳到重設後的參考價 → NAV 憑空跳。",
+      "evidence": "TWSE 減資 386 筆,只有 36 筆(9%)跳幅達分割門檻 2.5x,350 筆(91%)漏接、平均跳幅 ×1.625(+62%)。實證:8103 於 2025-12-08 減資前最後收盤 74.7 → 復牌收 83.4 = 憑空 +11.6% 記入報酬(跳幅 1.153<2.5、gap 落在 3-14 → 兩條路徑皆漏)。capital_reduction ∩ ex_right_dividend = 0 筆(DRIP 永遠碰不到減資)。樣本含 2314/9927/2832/8103 等中大型股,品質/價值策略可能持有。方向:恆為高估報酬。",
+      "fix": "把 capital_reduction 表載成 Map[(date,code)->factor],factor = closing_price_on_the_last_trading_date / post_reduction_reference_price,在減資日比照分割路徑套用(shares×factor、avgCost/peak ÷factor),用『精確參考價』而非啟發式推估。退還股款型另需補記返還現金 = old_shares × 每股返還金額 才 100% 正確;即使只做參考價重設也已消除約 95% 誤差。並把啟發式分割與此精確資料路徑合併為單一 corporate-action 還原層。"
+    },
+    {
+      "severity": "OK",
+      "metric": "DRIP 股息再投資公式 — Backtester.scala:101-113 (loadDividends 231-241)",
+      "textbook_def": "TRI 除息日總報酬因子 = (P_t + D_t)/P_{t-1};股數複利等價式 new_shares = shares × (1 + D_t/P_t),D_t 為每股分配價值。標準約定以除息日收盤價再投資。",
+      "implementation": "extraShares = shares × cash_dividend / close_t;new_shares = shares × (1 + cash_dividend/close_t),以除息日『實際收盤』再投資,DRIP 交易成本記 0。",
+      "evidence": "實測 cash_dividend = (除息前收盤 − 參考價) 對三種事件型態全成立:息/權息/權 的 avg|cash_dividend−(prev−ref)| = 0.001–0.005(差異僅來自 ref 四捨五入到 2 位)。故 cash_dividend 存的是除息日『總掉價』(權值+息值),公式對純現金、純配股、權息合併三者都重現 N×prev 連續性。loadDividends 僅濾 cash_dividend>0、無型態濾條件 → 所有改變股數的 權/權息 事件都被納入。屬標準除息日收盤再投資約定;BacktesterTest 內建 0050 手算對照聲明 <100bps(僅手續費拖累)。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "前視/成交時點:當日收盤決策當日成交 — Backtester.scala:93-99,151-199",
+      "textbook_def": "避免前視:以 close_t 算出的訊號只能在 ≥ t+1 成交(要用到收盤才能排名,就不可能同時在該收盤成交)。本專案 house 慣例(CLAUDE.md)為 +1 日:『new picks effective T+1, not T』。",
+      "implementation": "再平衡日 targetWeights(today) 當場算出,訂單以 today 載入的價格(= 今日收盤)成交;dailyExits 亦同。同一根 bar 決策+成交。",
+      "evidence": "第 95-99 行載入 today 價格;152-199 行以同一批價格再平衡。若 targetWeights 以今日收盤排名,即為偏樂觀的 market-on-close 假設;Python 正典引擎則把選股 shift +1 日(CLAUDE.md『Asof-join +1 day shift』)。真實偏差量取決於策略訊號是否用到當日收盤(在 Signals/PublicationLag,屬本單位範圍外)。方向:偏樂觀。",
+      "fix": "再平衡/出場訂單改以『次一交易日』價格成交;或明確規定 targetWeights 只可使用 ≤ t−1 的資料使同收盤成交為非預期性。與 Python +1 日慣例對齊以利跨引擎 parity。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "缺價日 NAV 估值 fallback 到 avgCost(成本價)— Backtester.scala:153,202(亦 106,133,159)",
+      "textbook_def": "逐日市值 NAV 應以各部位『最近可得市價』估值(資料缺口時 last-observation-carry-forward),絕不用成本基礎(avgCost)當市價。",
+      "implementation": "nav = cash + Σ shares × prices.getOrElse(code, avgCost)。任一持股當日無報價即以進場成本 avgCost 估值;DRIP 再投資價、出場成交價的 fallback 亦為 avgCost。",
+      "evidence": "成本 100、現價 200 的持股,遇單日無報價會被估成 100(當日 −50% 假跌),隔日報價回來自我修正,但已污染日報酬路徑 → 扭曲 MDD/Sharpe(假回撤尖點)。若缺口正好落在期末,連 CAGR 都受影響。屬資料缺口日的估值偏差。",
+      "fix": "維護每檔 lastPrice map,缺口日以最近收盤 carry-forward 估值與成交;任何情況都不得用 avgCost 當價格代理。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "加碼時 trailing 峰值被重設 — Backtester.scala:193",
+      "textbook_def": "trailing-stop 峰值 = 進場以來價格的滾動最大值;加碼不得使其下降:peak' = max(peak, price)。",
+      "implementation": "再平衡加碼到既有持股時 `Position(newTotalShares, newAvgCost, price)` 把 peak 設為當前價,丟棄先前可能更高的峰值。",
+      "evidence": "持股曾漲到峰值 150,之後再平衡於 140 加碼 → peak 被重設為 140。trailing 停損線(peak×(1−x))隨之下移 → 出場被延後(偏向續抱)。與出場語意合約『峰值下限=該筆成交價』(下限而非重設)相牴觸。僅在對贏家加碼時觸發。",
+      "fix": "加碼到既有部位時 peak = math.max(pos.peakPrice, price);全新部位才用進場價當峰值下限。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "分割啟發式抹除分割日殘差報酬 + 用推估比率 — Backtester.scala:115-127,247-272",
+      "textbook_def": "已知 R:1 分割應以『公告比率 R』乘股數;分割日相對理論參考價的價格移動是應保留的真實報酬。",
+      "implementation": "factor = prev_close/today_close 強制 NAV 完全連續(跨 gap 報酬歸零),且以推估(非公告)比率乘股數。",
+      "evidence": "0050 2025-06-18 四合一:真實 R=4,但 factor=188.65/47.57=3.966 → 復牌當日 +0.87% 真實移動被抹除。2018-2026 全期僅偵測到 33 筆。誤判風險低(台股 ±10% 單日限幅使真實市場移動無法在停牌 gap 內達 2.5x,故 2.5x 門檻安全),但也因此只抓到極端尾端。每事件影響僅一日殘差,量小。",
+      "fix": "有 ex_right/capital_reduction 精確資料時以精確參考價計 factor,不用收盤比推估;啟發式僅保留給真正缺公司行動資料者。分割日殘差報酬的損失可作為已註記的近似接受。"
+    },
+    {
+      "severity": "OK",
+      "metric": "成本會計(手續費/賣稅/雙邊)+ 賣稅 ETF 眉角 — Backtester.scala:61-62,135,166,184,189",
+      "textbook_def": "台股手續費 0.1425%(此處 2 折=0.02850%)買賣雙邊;證交稅賣方單邊,普通股 0.3%、ETF 0.1%、當沖 0.15%。",
+      "implementation": "CommissionRate=0.000285 雙邊;SellTaxRate=0.003 僅賣方;買入成本=spend×comm、賣出成本=proceeds×(comm+tax)。加權平均成本 newAvgCost=(oldCostBasis+spend)/newTotalShares。",
+      "evidence": "手續費 0.02850%=0.1425%×2折、賣稅 0.3% 皆與 CLAUDE.md house 常數及台股規則相符,雙邊/賣方單邊方向正確,勝過 Python 端的扁平換手近似。唯一眉角:賣稅對 ETF(0050/0052…)應為 0.1%,此處一律 0.3% 會多課 0.2%/賣;但 Hold0050 benchmark 幾乎不賣(買抱、無期末平倉)故影響可忽略。avgCost 未含手續費但僅作缺價 fallback、不進報酬計算,無實質影響。",
+      "fix": "若回測 ETF 策略,依代號分流賣稅(ETF 0.1%);普通股用途下優先度低。"
+    },
+    {
+      "severity": "OK",
+      "metric": "每日 NAV 複利 / 總報酬 / CAGR / 月末 NAV — Backtester.scala:41-42,202-203;BacktesterTest.scala:25-26;Output.scala:64-75",
+      "textbook_def": "NAV 自然複利=逐日持股市值加總;totalReturn=finalNav/initial−1;CAGR=(end/begin)^(1/years)−1;月報酬取月末(最後交易日)NAV。",
+      "implementation": "nav=cash+Σ shares×price 逐日記錄(複利透過持股自然發生);totalReturn=finalNav/initialCapital−1;test 端 CAGR=pow(finalNav/capital,1/years)−1,years=(end−start).epochDay/365.25;Output 月度取 groupBy(年,月).maxBy(date) = 月末 NAV。",
+      "evidence": "複利/總報酬/CAGR 皆學理標準;years 用日曆年(365.25 日/年)為 CAGR 教科書定義。月末取 maxBy(_._1)=該月最後日期(非最大 NAV),正確。權重漂移=再平衡間隨價格自然漂移(正確買抱行為)。期末不平倉→終值以市價 mark-to-market(慣例;僅略高估約 0.3% 未付賣稅,常規)。現金拖累=現金 0 利率(台股無風險利率≈0,保守標準)。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "交易日曆取自單一標的 0050 — Backtester.scala:209-217",
+      "textbook_def": "回測交易日曆應涵蓋市場所有交易日(全市場聯集或官方行事曆)。",
+      "implementation": "loadTradingDays 只查 company_code='0050' 的 distinct date 當作全市場交易日曆。",
+      "evidence": "0050 停牌日(如 2025-06 分割停牌 06-11~06-17)會整段從交易日曆消失 → 其他持股在該窗的價格移動被略過(NAV 凍結)。0050 流動性極高、平日皆有交易,實務影響僅限 0050 自身停牌的少數窗;但原則上以單一標的推市場日曆不夠穩健。",
+      "fix": "改用全市場交易日聯集(SELECT DISTINCT date FROM daily_quote WHERE market='twse')或既有 sentinel 休市日曆,避免綁單一標的停牌。"
+    }
+  ]
+}

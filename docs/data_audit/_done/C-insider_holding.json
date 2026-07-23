@@ -1,0 +1,71 @@
+{
+  "id": "C-insider_holding",
+  "dim": "C",
+  "table": "insider_holding",
+  "unit": "C-insider_holding",
+  "reader": "TradingReader.readInsiderHolding",
+  "sync_sql": "research/cache_tables.py:70",
+  "raw_files": 156,
+  "verdict": "BUG",
+  "summary": "cache 和 PostgreSQL 之間零不一致——全 771 列、15 欄逐位相同,雙向 EXCEPT 連一筆獨有鍵都沒有,型別無降級,連 156 個原始 HTML 檔逐檔數出的有效列數都 = PG = cache(reader 零漏列)。真正不能全信的是資料本身,不是 cache。三件事:(1) 一個確定的解析 BUG——同一張申報同時含兩種轉讓方式時,兩個『轉讓股數』被 cleanCell 去掉中間空白黏成一個天文數字,全表 3 筆(2856=57兆股、6994=6.56兆股、8284=5.8億股)transfer_shares 完全不可信,且是會復發的類(未來任何雙方式申報都會中);(2) 覆蓋率——本表實質只有 2026-03-31 起約 150 個交易日可用,2007 只有 6 天(01-02~01-09)開發探針,中間 19 年(2007-01-10~2026-03-30)整段 0 列,是 CLAUDE.md 已載明待 Playwright 過反爬才能回補的洞;(3) 2026 窗內另有 3 個(市場,日)整天沒爬到檔(twse 2026-04-09、tpex 2026-04-29、tpex 2026-05-28),且資料只到 2026-07-17(今日 07-23,爬蟲已數日未跑)。其餘看似異常的都排除為真:transfer_shares 有 570 筆為 0 是贈與/信託/洽特定人/私募這些『無每日轉讓股數限制』的方式(來源該格本就空白)、信託兩欄(current_shares_trust/planned_shares_trust)全表 0 是掃全部原始 HTML 證實的來源真值非欄位錯位、declare_date 全等於 report_date 是這個『當日新增事前申報』日報端點的申報日本就=發布日。錯誤全在 cache 上游(解析與爬取),cache 只是忠實複製 PG。"
+  ,
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "transfer_shares(轉讓股數)在『同一張申報同時申報兩種轉讓方式』時,把兩個股數黏成一個不可能的天文數字。全表 3 筆:2856(2007-01-05)= 57,000,001,000,000、6994(2026-06-29)= 6,560,006,360,000、8284(2026-05-13)= 580,253,000,三筆的 transfer_method 都含兩種方式(以空白分隔)。根因是解析:原始 HTML 該格是兩個以 <br> 分隔的數字,jsoup .text 併成『656,000 6,360,000』,而 cleanCell 把逗號與『空白』一起 replace 掉 → parseLong 得到 6560006360000。這是會復發的缺陷類——未來任何『一般交易+鉅額逐筆/盤後定價』雙方式申報都會被黏。cache 與 PG 皆繼承同一錯值。影響:這 3 筆的『即將賣出股數』大到會汙染任何以 transfer_shares 加總/排序/門檻的訊號;所幸目前僅 3 筆且集中在雙方式申報,可精準鎖定。",
+      "evidence": "逐位重建鐵證:57000001000000 == int('5700000'+'1000000')、6560006360000 == int('656000'+'6360000')、580253000 == int('580'+'253000') 三式皆 True。原始檔 data/insider_holding/twse/2026/2026_6_29.html 之 6994 列第 [7] 格 = '656,000 6,360,000'(兩值);data/insider_holding/twse/2007/2007_1_5.html 之 2856 = '5,700,000 1,000,000';data/insider_holding/tpex/2026/2026_5_13.html 之 8284 = '580 253,000'(docs/data_audit/scripts/C-insider_holding/audit.py 段 3 全 156 檔掃描,只此 3 筆 [7] 含空白+數字)。程式碼:reader/TradingReader.scala:1119 `val transferShares = parseLong(cols(7))`;parseLong→cleanCell(TradingReader.scala:40-42)`s.replace(\",\", \"\").replace(\"%\", \"\").replace(\" \", \"\").trim`——replace(\" \",\"\") 正是把兩數黏起來的元凶;parseMopsHtml(TradingReader.scala:986-988)以 (tr>>td).text 取格。DB 對證:SELECT MAX(transfer_shares) FROM insider_holding = 57000001000000。cache 同值(var/cache/cache.duckdb)。",
+      "fix": "① 解析根因:readInsiderHolding 對每格保留原始多值(改 parseMopsHtml 以顯式分隔符呈現 <br>,或在 cols(7) 偵測空白時拆成多值);雙方式申報應拆成兩筆(各自 transfer_method + 各自 transfer_shares)或加總,不得字元黏接。先用 2026_6_29.html 的 6994 列寫『紅』測試(期望值 656000 或拆兩筆,而非 6560006360000)再驗綠。② 清既有 3 筆:重解析或就地更正 PG + var/cache/cache.duckdb 的 (2856,2007-01-05)/(6994,2026-06-29)/(8284,2026-05-13);可用 transfer_method LIKE '% %'(含空白=多方式)鎖定。③ 舉一反三:cleanCell 的『replace(\" \",\"\")+parseLong』是 TradingReader 所有數值欄共用骨架——任何來源會把兩個數字放同格(以空白/換行分隔)的表都會中同一招;應改成『格內含多個數字 token 就拒絕靜默黏接』的通用守護,並複查同樣走 parseMopsHtml 的 treasury_stock_buyback(t35sc09)是否有同型多值格。"
+    },
+    {
+      "severity": "REAL",
+      "what": "歷史覆蓋約 99% 缺漏,本表實質不可用於 2026-03-31 以前的任何回測。771 列只有兩塊:2007 年 6 個交易日(01-02~01-09,67 列,開發期探針)+ 2026 年 70 個交易日(03-31~07-17,704 列,近期上線每日爬)。中間 2007-01-10 ~ 2026-03-30 約 19 年整段 0 列。這不是 cache 或解析錯,是來源端從未回補——CLAUDE.md『資料下載狀態』明載內部人端點對 IP/TLS 指紋直接 close、需 Playwright 階段,且 t56sb12 date selector 可回溯至 2007。屬已知、已文件化、待排的洞,非本次新發現的靜默漏抓。",
+      "evidence": "per-year(audit.py 段 2):2007 = 67 列/6 天、2026 = 704 列/70 天;段 4:2007 last=2007-01-09、2026 first=2026-03-31、rows in void(2007-01-10~2026-03-30)=0。原始檔 data/insider_holding/{twse,tpex}/ 僅 2007、2026 兩個年目錄,共 156 個 .html。CLAUDE.md Data Roadmap:『內部人持股轉讓(事前申報日報)✅ 2026-04-29 ... 2007+ 可回溯 (Task #21)』『內部人 / 現增 — 全套 code 寫好但 endpoint server 對 IP/TLS fingerprint 直接 close，需 Playwright 階段』;InsiderHoldingSetting.scala:57 firstDate=2007-01-01。",
+      "fix": "本身是已知待辦,不由本稽核補。回補路徑:MOPS t56sb12_q1(上市 report=SY)/ q2(上櫃 report=OY)2-step ajax(step1 firstin=1 → step2 step=2,見 InsiderHoldingSetting.scala:69-91),需 Playwright/瀏覽器自動化過 IP/TLS 指紋牆;全補約 2 市場 × 250 交易日/年 × 19 年 ≈ 9,000 檔。回補前先確認訊號價值(內部人申報轉讓 forward 5-30d 負 CAR)是否值得投入反爬工程,與 Sprint B 啟動條件一致。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "2026 上線窗內有 3 個(市場,日)整天沒有原始檔(連空『無資料』檔都沒有),疑似漏爬:twse 2026-04-09、tpex 2026-04-29、tpex 2026-05-28。這幾日對應市場的內部人資料因此從缺(該日 PG 對應 0~1 列)。另本表最新只到 report_date 2026-07-17,今日 2026-07-23,爬蟲已數日未跑(07-20/21/22 三個交易日尚未抓)。影響小(內部人申報是事件型,多數日本就零申報),但屬可補的真缺口。",
+      "evidence": "audit.py 段 4 以 cache.daily_quote 交易日母體比對 data/insider_holding/<mkt>/2026/*.html 檔案存在性:twse 72 交易日、NO_FILE=['2026-04-09'];tpex 74 交易日、NO_FILE=['2026-04-29','2026-05-28']。這 3 日在 PG 逐日分佈中:2026-04-09 僅 tpex 1 列(twse 缺)、2026-04-29 與 2026-05-28 全表 0 列(per-date 清單直接跳過)。最新性:SELECT MAX(report_date)=2026-07-17;find data/insider_holding -name '*.html' 中無任何 > 2026-07-17 的檔(段『files after 2026-07-17』為空)。注:2026-04-29、2026-05-28 亦是 C-foreign_holding_ratio 記錄的『假休市 sentinel』受害日,可能同源(交易日曆讀 daily_quote 被假 sentinel 汙染 → 這幾日連請求都沒送)。",
+      "fix": "重跑 `sbt \"runMain Main pull daily_trading_details\"`... 對內部人是 `Main pull/read insider` 對這 3 個(市場,日)補抓(端點見上一 finding),落檔後 uv run python research/cache_tables.py。並把資料補到 2026-07-21/22。根因面:若 2026-04-29/05-28 的漏爬確與 daily_quote 假 sentinel 同源,依 C-daily_quote / C-foreign_holding_ratio 的修法先清假 sentinel、再讓交易日曆改多來源共識,否則同一批日期會在所有日頻/事件表一起缺。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 逐欄完全一致——非抽樣,是全表 771 列、15 欄雙向 EXCEPT 零差異(cache_only=0、pg_only=0),逐年筆數相同(2007=67、2026=704)。schema 無型別降級:PG 16 欄,cache 同步 15 欄,唯一丟掉的是 id(surrogate 自增鍵,本就不該進 cache),其餘 15 欄名稱、順序、型別全對(date→DATE、bigint→BIGINT、varchar→VARCHAR)。cache 索引 idx_ih_code_date(company_code,report_date)已建。且 reader 零漏列:自寫獨立解析器對全 156 個原始 HTML 檔數出的有效+去重列數 = 771 = PG = cache,無靜默丟列。",
+      "evidence": "audit.py 段 1-3:PRAGMA table_info('c.insider_holding')= 15 欄(見上);psql \\d insider_holding = 16 欄(id bigint PK + 15,唯一索引 idx_InsiderHolding_market_date_code_reporter_method_transferee)。段 2:雙向 EXCEPT over 15 欄 cache_only=0/pg_only=0,cache=pg=771。段 3 完整性:raw-HTML valid+dedup=771 == PG(matched files)=771,mismatched files=0。同步 SQL:research/cache_tables.py:70;索引:cache_tables.py:132。Slick 真源:src/main/scala/db/table/InsiderHolding.scala:22-56。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "transfer_shares 有 570/771 列為 0,不是漏抓或解析錯,是來源真值:這 570 列全部是『無每日轉讓股數限制』的轉讓方式——贈與 286、信託 234、洽特定人 29、轉讓私募股票 21(合計正好 570)。這些方式的原始 HTML 第 [7] 格本就空白(cleanCell 空字串→parseLong→0)。非零的 201 列正好是一般交易/鉅額逐筆交易/盤後定價交易(有每日限制)這幾種。cache_tables.py:68-69 的 docstring 亦註明『信託+贈與是 ownership re-allocation, transfer_shares=0』。",
+      "evidence": "audit.py 段 5:transfer_shares=0 by method = 贈與 286 / 信託 234 / 洽特定人 29 / 轉讓私募股票 21(和=570);nonzero transfer_shares=201(=一般交易 156+鉅額逐筆 32+盤後定價 10+雙方式 3)。原始檔佐證:data/insider_holding/twse/2026/2026_6_29.html 之 2247(贈與)列第 [7] 格為空、第 [9] 受讓人='杜薇'。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "current_shares_trust(目前持有-信託)與 planned_shares_trust(預定轉讓-信託)兩欄在全 771 列都是 0(零變異、無資訊),但這是掃全部原始 HTML 證實的來源真值,不是欄位錯位或 reader 漏抓。這段近期日報裡的申報人持股全在『自有』、無『信託』部位。下游不應把這兩欄當訊號(恆 0)。",
+      "evidence": "audit.py 段 3:掃全部 156 個原始 HTML,cell[11](current_trust)/cell[13](planned_trust)非零筆數 = 0。原始檔 2026_6_29.html 之 6994 列:[10]='22,357,000'(自有)、[11]='0'(信託)、[12]='7,016,000'、[13]='0'。reader 對位正確:TradingReader.scala:1123 cols(11)→currentTrust、:1125 cols(13)→plannedTrust,與 18 欄實際 HTML 結構([10/11]=目前自有/信託、[12/13]=預定轉讓自有/信託)一致。reader 以 stockCodeRegex 檢查 cols(2)(TradingReader.scala:1113)作為對位守門,結構位移的列會被丟棄而非誤值,故未見誤值。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "declare_date(申報日)在全 771 列都等於 report_date(發布日),lag=0。這是忠實反映來源、非解析漏失:這個端點是『當日新增事前申報』日報,其『申報日期』欄本就等於報表發布日。掃全部原始 HTML,源『申報日期』與檔名日不符的列數=0。唯一的 lead-time 資訊(變更申報的原申報日)藏在被 reader 丟棄的註記格(如『本單為變更115/06/08 之申報』),但那不是 declare_date 欄。Slick 註解『declare_date might lead by several days』對此端點略有誤導,但資料無錯。其他基本異常掃描全清:負股數 0、未來日期 0、重複主鍵 0、market 僅 twse/tpex、company_code 格式全合法、transfer_method 皆為合法列舉值。",
+      "evidence": "audit.py 段 5:declare!=report=0、future report_date=0、dup on unique key=0、markets={twse 475,tpex 296};段 3(gap 探針姊妹檢查,scripts 內)源 cell[1] 申報日期 != 檔名日的列數=0。原始檔 2026_6_29.html 之 6994:[0]='本單為變更115/06/08 之申報'(被 reader 丟棄的註記)、[1]='115/06/29'(=report date)。reader:TradingReader.scala:1114 `parseMinguoSlashDate(cols(1).trim).getOrElse(reportDate)`。Slick 註解:db/table/InsiderHolding.scala:29-30。",
+      "fix": "若日後需要事前申報的 lead-time,改解析註記格 [0] 的『本單為變更 yyy/mm/dd 之申報』取原申報日;現況資料無需修。"
+    }
+  ],
+  "checked": [
+    "schema 對照:PRAGMA table_info('insider_holding')(cache 15 欄)vs psql \\d insider_holding(PG 16 欄,多 surrogate id)逐欄型別/順序;同步 SQL research/cache_tables.py:70、cache 索引 cache_tables.py:132、Slick 真源 db/table/InsiderHolding.scala(audit.py 段 1)",
+    "整表 + 逐年筆數:cache 771 vs PG 771;per-year 2007=67/2026=704(audit.py 段 2)",
+    "全表逐欄值比對(非抽樣,表僅 771 列):15 個同步欄雙向 EXCEPT 找獨有鍵 cache_only=0 / pg_only=0(audit.py 段 2,ATTACH cache READ_ONLY + ATTACH postgres READ_ONLY)",
+    "reader 完整性(自寫獨立 bs4 解析器,不呼叫受測 Scala):全 156 個原始 HTML 檔 × 依 reader 規則(cols(2) 為股號、len>=14、六鍵去重)數有效列 = 771 = PG(逐 market,date 比對)= cache,mismatched files=0(audit.py 段 3)",
+    "覆蓋缺口:2007/2026 兩塊之間的 19 年 void(rows in void=0);2026 窗(2026-03-31~07-17)以 cache.daily_quote 交易日母體比對原始檔存在性,找出整天無檔的(市場,日)(audit.py 段 4)",
+    "最新性:SELECT MAX(report_date)=2026-07-17;find data/insider_holding 無 > 07-17 的檔(爬蟲數日未跑)",
+    "數值異常掃描:六個 share 欄的 min/max/負值計數、未來 report_date、declare_date<>report_date、唯一鍵重複、market 列舉、company_code 正規表、transfer_method 列舉分佈(audit.py 段 5)",
+    "極端值回原始檔:transfer_shares max=57,000,001,000,000 等 3 筆天文數字逐一對回 data/insider_holding/*/*/*.html 的第 [7] 格,證實為雙方式申報的兩數被 cleanCell replace(\" \",\"\") 黏接;逐位重建 int('5700000'+'1000000') 等三式驗證",
+    "transfer_shares=0(570 筆)歸因:按 transfer_method 分組 = 贈與/信託/洽特定人/轉讓私募股票(無每日轉讓限制,來源該格空白),排除為真",
+    "trust 兩欄全 0 歸因:掃全部原始 HTML cell[11]/[13] 非零列數=0,證實為來源真值非欄位錯位;對照 6994 raw 列的 [10..13] 確認 reader 對位正確",
+    "declare_date==report_date 歸因:掃原始 HTML cell[1] 申報日期 vs 檔名日不符列數=0;端點語義(當日新增事前申報日報)申報日=發布日;lead-time 在被丟棄的註記格 [0]",
+    "程式碼精讀:src/main/scala/reader/TradingReader.scala::readInsiderHolding(1090-1151)、parseMopsHtml(972-989)、cleanCell(40-42)、parseLong/parseMinguoSlashDate(997-1003)、stockCodeRegex(970);setting/InsiderHoldingSetting.scala(2-step ajax、firstDate 2007);db/table/InsiderHolding.scala(16 欄 Slick 真源、唯一索引、註解)",
+    "與其他稽核單位交叉:2026-04-29、2026-05-28 同為 C-foreign_holding_ratio / C-daily_quote 記錄的假休市 sentinel 受害日(交易日曆讀 daily_quote 被汙染 → 連請求都沒送)"
+  ]
+}

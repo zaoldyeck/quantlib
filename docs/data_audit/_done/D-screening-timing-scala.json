@@ -1,0 +1,55 @@
+{
+  "unit": "D-screening-timing-scala",
+  "verdict": "BUG",
+  "summary": "PIT 公告延遲、普通股界定、再平衡日曆三者學理正確;唯一 BUG 在 QualityFilter 少了 DISTINCT ON,把「本季體質達標才放行」的否決閘門實作成「歷史任一季曾達標就永久放行」,實測任一 PIT 日約 40~49% 的通過名單其實是最新一季已惡化、依學理應被否決的公司。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "QualityFilter 最新季收斂(latest-available snapshot veto) / QualityFilter.scala:29-39",
+      "textbook_def": "Point-in-time quality veto:每個 company 以決策日可得的『最新一季』財務快照(argmax_{(y,q)<=PIT}(y,q))判斷當下體質是否達標(f_score>=5 且 drop_score<10)。程式自身 docstring 亦如此宣稱(第 24 行 latest snapshot、第 38 行 distinct collapses to one)。標準 SQL 實作為 DISTINCT ON (company_code) 先取最新季、再套體質條件。",
+      "implementation": "SQL 把 f_score/drop_score 條件套在 PIT 上界內的每一列,SELECT 只投影 company_code,ORDER BY company_code, year DESC, quarter DESC 後 Scala 端 .as[String].toSet 去重。缺 DISTINCT ON(company_code)/ROW_NUMBER()=1,ORDER BY 對『單欄投影再 toSet』完全無作用 → membership = 該公司歷史上任一季曾通過,而非最新季通過(once-passed ⇒ always-passed)。",
+      "evidence": "PG quantlib 實測,比較 buggy 版 vs 學理正確版(DISTINCT ON 取最新季後套條件)的通過家數:PIT=2024Q1(asOf 2024-06-01)buggy 1033 / 正確 624 / 誤放 409(佔 buggy 池 40%);PIT=2020Q1(asOf 2020-06-01)buggy 967 / 正確 490 / 誤放 477(佔 49%)。具體誤放樣本(PIT=2024Q1,最新可得季即 2024Q1):台塑1301 最新季 f=5 drop=14(drop>=10 應否決)卻因 2022Q3 drop=8 放行;大飲1213 最新季 f=3 drop=13 卻因 2017Q3(七年前)f=7 drop=8 放行;台泥1101(最新 drop=12)、南亞1303(最新 f=4)、台聚1304(最新 f=4)同型。否決閘門宗旨『prevent picking up obviously deteriorating companies』被此 bug 反轉,且無聲(通過家數看似更寬鬆、不報錯)。消費端 AlphaStackStrategy.scala:67 第一道 hard filter。亦見既有稽核 B-fscore-academic.md:156-172。",
+      "fix": "先 DISTINCT ON (company_code) 收斂到最新季、再套體質條件(WHERE 在 DISTINCT ON 之後),與同 repo 既有正確樣板一致(ValueRevertStrategy.dropScoreFilter:65、Signals.latestQuarterField:150):SELECT company_code FROM (SELECT DISTINCT ON (company_code) company_code, f_score, drop_score FROM growth_analysis_ttm WHERE company_code IN (...) AND (year<Y OR (year=Y AND quarter<=Q)) ORDER BY company_code, year DESC, quarter DESC) latest WHERE COALESCE(drop_score,0)<MaxDropScore AND COALESCE(f_score,0)>=MinFScore。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "PublicationLag Q2 財報公告期限(金融業別) / PublicationLag.scala:34",
+      "textbook_def": "證交法 §36:一般產業 Q2 財報『季終後 45 日內』→ 8/14;但金融控股/保險/證券業第二季財報法定期限較長,為 8/31。",
+      "implementation": "case 2 => LocalDate.of(year,8,14).plusDays(7) = 8/21,全產業一體適用,未分金融業。",
+      "evidence": "對金融保險證券類股,真正保證公告日 8/31;用 8/21 對這些公司提前約 10 天(8/31-8/21)看到 Q2 財報 = 窄幅前視。範圍窄:+7 緩衝已吸收一半;且 f_score>=5 閘門本就幾乎剔除整個金融業(見 B-fscore-academic.md:212),受害樣本極少。屬未分產業的合理簡化但非零風險。",
+      "fix": "若要嚴謹,Q2 對金融保險證券類股改用 8/31 期限(其餘產業維持 8/14);影響極小,可視為已知簡化備查。"
+    },
+    {
+      "severity": "OK",
+      "metric": "Universe 流動性門檻:中位數日成交值(命名 ADV) / Universe.scala:53,31",
+      "textbook_def": "ADV = Average Daily Value = 日成交值的平均。作為流動性下限,中位數(median dollar volume)是常見且更穩健的替代,不被單日爆量拉高;多數指數編制方法採用之。",
+      "implementation": "percentile_disc(0.5) WITHIN GROUP (ORDER BY trade_value) = 中位數;變數 MinMedianTradeValue、docstring 第 19 行皆寫 median,內部自洽。僅第 25 行 deferred 註解口語稱『ADV-based』略不精確(median≠average)。門檻 NT$50M、視窗 30 日曆日(> 下界 <= 上界)、最少 10 交易日。",
+      "evidence": "程式用中位數且與變數名/docstring 一致,非學理錯誤,只是『ADV』一詞為 misnomer。門檻/視窗為策略設計參數,非學理可證偽量。判定 OK。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "普通股界定 ^[1-9][0-9]{3}$ + etf 表二次防護 / Universe.scala:59,65",
+      "textbook_def": "普通股 universe 應排除 ETF、特別股、TDR、受益憑證等非普通股工具。",
+      "implementation": "4 位純數字、首位 1-9(排除 0xxx/00xxxx ETF、5-6 位 TDR、字母尾特別股),再 NOT IN (SELECT company_code FROM etf) 兜底任何 1-9 開頭 ETF。",
+      "evidence": "daily_quote twse 2024+ 實測:正則命中集合中無 -DR(TDR)、無 甲特/乙特/特別股;唯一『外國』名稱為 94 檔 -KY(第一上市外國企業普通股,本應保留)。普通股界定乾淨。deferred 的市值下限/財報深度門檻因 balance_sheet 稀疏暫緩,有註解合理。判定 OK。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "PublicationLag 季/月報期限 + asOfQuarter/asOfMonthlyRevenue PIT 選取 / PublicationLag.scala:32-74",
+      "textbook_def": "證交法 §36:年報(Q4)次年 3/31、Q1 5/15、Q3 11/14、一般產業 Q2 8/14;月營收次月 10 日(公司法/證交法)。PIT 應取『決策日已過公告期限的最新一季/月』。",
+      "implementation": "季報 Q1 5/15、Q2 8/14、Q3 11/14、Q4 次年 3/31,各 +7 緩衝;月營收次月 10 日 +3 緩衝。asOfQuarter/asOfMonthlyRevenue 於候選中取 buffered 期限 <= d 者的最大期限。",
+      "evidence": "期限逐項符合證交法一般產業規定。緩衝只延後可用日、永不洩漏未來,方向保守正確且有 docstring。期限對 (year,quarter) 嚴格單調遞增,故 maxBy(deadline) 即『已公告的最新一季』,PIT 正確;回溯窗足夠、過早日期 require 擲例。判定 OK(唯一例外見金融業 Q2 SUSPECT)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "RebalanceCalendar 再平衡日產生 + T+1 生效歸屬 / RebalanceCalendar.scala:29-40",
+      "textbook_def": "再平衡日曆應為『每月某日(含)後第一個交易日』;新選股 T+1 生效(以當日收盤成交)為回測引擎的位移職責。",
+      "implementation": "EXTRACT(DAY FROM date)>=minDay(預設 15)+ GROUP BY date_trunc('month') + MIN(date) = 每月 15 日(含)後第一個交易日;以 0050 交易日為 TWSE 行事曆代理。",
+      "evidence": "日曆語意正確;0050 自 2003-06-30 起每交易日成交,對 2018+ 回測窗無缺口。T+1 位移不在本檔(Backtester 職責,另一稽核單位)。PIT 鏈自洽:Universe/QualityFilter/Signals 全同一 asOf,無日期錯位。本檔被 ValueRevert/DividendYield/MagicFormulaPiot/MultiFactor/ValueMomentum 使用;AlphaStack 另用自身月初日曆未用本檔。判定 OK。",
+      "fix": ""
+    }
+  ]
+}

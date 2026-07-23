@@ -1,0 +1,52 @@
+{
+  "id": "C-tdcc_shareholding",
+  "dim": "C",
+  "table": "tdcc_shareholding",
+  "unit": "C-tdcc_shareholding",
+  "verdict": "SUSPECT",
+  "summary": "DuckDB cache 把 PostgreSQL 的集保股權分散表(千張大戶籌碼)抄得一字不差,cache 本身可以放心用:12 個週快照、813,110 列,schema 只少一個沒人用的自增 id 欄、型別零降級,全量指紋(每個日期的列數＋六欄雜湊和＋XOR,非抽樣)逐格相等,抽樣 3 日 × 5 檔逐欄也全同;數值全乾淨(比例都在 0~100、無負值、無未來日期、合計級距比例都=100、內部加總對得起來)。不能保證的是資料的『完整』:這張表是週頻、endpoint 只給『當週最新』快照,歷史一漏就補不回來——已收集的區間裡確實漏了兩週(2026-04-30、2026-05-29,兩天都查證是真交易日不是休市),因為那兩週沒跑到爬蟲、快照已被下一週覆蓋。這兩週用標準 endpoint 補不回來,要走 TDCC 歷史查詢介面(Task #20 待辦)。今天零影響(唯二消費者只讀最新一週快照,無任何 tdcc 週差分消費者),風險只在未來拿它做『本週 vs 上週千張大戶變化』的因子時、跨這兩週的差分會被拉成兩週而算歪。另兩個小事:cache 的索引不像 PG 有唯一約束(靠每次砍表重建維持,實測 0 重複);A-tdcc 記載的內部恆等式『合計==sum(tier1..16)』精確講應是 sum(tier1..15)——差異數(tier16)是獨立對帳列不計入合計,拿 sum(1..16) 會重複計入。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "cache(DuckDB)與 PostgreSQL 的 tdcc_shareholding 全量逐欄一致(非抽樣,是全體):813,110 == 813,110 列、12 個 data_date、範圍 2026-04-17..2026-07-17 兩邊相等;schema 零降級,cache 只比 PG 少一個自增 id 欄,而 id 在 research/ 零消費者。兩種存取模式(cache 建表 SQL 與 pg-attach view)的欄位投影相同。",
+      "evidence": "docs/data_audit/scripts/C-tdcc_shareholding/01_parity_schema_sample.py(DuckDB READ_ONLY 同時開 var/cache/cache.duckdb 與 ATTACH pg)。① schema:PG 7 欄(id bigint, data_date date, company_code character varying, holding_tier smallint, num_holders integer, num_shares bigint, pct_of_outstanding double precision)vs cache 6 欄,只在 PG 的={'id'}、只在 cache 的=set();型別逐一保真(date→DATE、character varying→VARCHAR、smallint→SMALLINT、integer→INTEGER、bigint→BIGINT、double precision→DOUBLE)。② count:PG rows=813,110 dates=12 range=2026-04-17..2026-07-17,cache 完全相同。③ 全量指紋:12 個 data_date × [count + sum(hash(六欄拼接)::HUGEINT) + bit_xor(hash)] → mismatch=0 only_pg=set() only_cache=set() RESULT PASS。④ 抽樣:2026-04-17 / 2026-06-18 / 2026-07-17 各 × 5 檔(0050/1101/2317/2330/2412 等),pandas DataFrame.equals 三組全 True(每組 85 列)。投影 parity:research/cache_tables.py:60 的 SELECT data_date,company_code,holding_tier,num_holders,num_shares,pct_of_outstanding 與 research/db.py:145-148 的 pg-attach view 同 6 欄。丟掉的 id 消費者盤點:grep -rn 'tdcc' research/ --include=*.py 僅命中 research/audits/06_mops_tdcc_publish_probe.py(用 URL id=1-5,非欄位)與 research/analyses/taiwan_equity_etf_ranking.py(只 SELECT max(data_date)/sum(num_holders)/sum(num_shares),不讀 id 欄)。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "時間序列有兩個真缺口:2026-04-30、2026-05-29。在已收集區間 [2026-04-17, 2026-07-17] 內,依 TWSE 交易日曆應有 14 個週快照,只捕捉到 12 個。這兩天 daily_quote twse 各有 1,355 / 1,362 列 → 都是真交易日,不是休市。根因:TDCC opendata endpoint(id=1-5)無日期參數、只回『當週最新』快照,那兩週的快照活在爬蟲下載空窗期、已被下一週覆蓋、無法從標準 endpoint 回補。此非 cache 走樣(cache 忠實鏡射 PG,PG 也同缺這兩週),是被鏡射的資料本身在來源端就漏收。",
+      "evidence": "docs/data_audit/scripts/C-tdcc_shareholding/02_gaps_anomaly.py A 段:以 pg.public.daily_quote(market='twse')的實際交易日曆,對每個 ISO 週取『該週最後一個交易日』= 該週應有的 TDCC 資料日期,與捕捉到的 data_date 集合比對 → 缺漏週=['2026-04-30','2026-05-29'];逐一佐證『2026-04-30: daily_quote twse rows=1355 → 真交易日(確認漏抓)』『2026-05-29: rows=1362 → 真交易日(確認漏抓)』。原始檔內容日期映射(sed -n '2p' 逐檔讀『資料日期』欄):data/tdcc_shareholding/weekly/2026/2026_4_30.csv 內容=20260424(下載日 4/30 時端點仍是 04-24 週,04-30 週尚未發布)、下一個下載檔 2026_5_10.csv 內容=20260508(直接跳過 04-30);data/.../2026_5_26.csv 內容=20260522、下一個 2026_6_11.csv 內容=20260605(跳過 05-29)——證明兩缺漏週的快照確實存在過但落在無下載的空窗。排除誤判:holiday-shifted 週(2026-06-18 週四代 06-19 端午、2026-07-09 週四代 07-10 颱風,daily_quote 各 1367/1369 列且該週五無資料)皆被正確捕捉、非缺口;2026-05-01 勞動節本身非交易日(daily_quote twse rows=0)、正確不存在、非缺口。端點性質:research/audits/06_mops_tdcc_publish_probe.py:130-136 與 src/main/scala/setting/TdccShareholdingSetting.scala 皆載明 endpoint 無日期參數只回最新一週。消費影響:今日零影響——research/ 唯二 tdcc 消費者中,taiwan_equity_etf_ranking.py 只讀 max(data_date)(最新快照橫斷面)、無任何做 tdcc 週對週差分者;風險僅在未來若對 tier 15 千張大戶做 shift(1) 週差分,跨這兩週會被拉成兩週間距而算歪。",
+      "fix": "缺 2026-04-30、2026-05-29 兩週。**不能用標準 opendata endpoint(https://opendata.tdcc.com.tw/getOD.ashx?id=1-5)回補**——它只給當週。需走 TDCC 歷史查詢介面(集保戶股權分散表查詢 https://www.tdcc.com.tw/portal/zh/smWeb/qryStock,可按日期查歷史週),即 CLAUDE.md 資料路線圖與 A-tdcc 已記的『歷史回補 pending(Task #20)』範疇;由主流程統一安排,勿自行下載。防復發:每次 crawl 後加斷言『已收集區間內每個 ISO 週的 TWSE 最後交易日都出現在 tdcc data_date 集合』(現在跑會紅 2 筆,回補後歸零),把週頻漏抓從無聲變成可觀測。"
+    },
+    {
+      "severity": "OK",
+      "what": "異常值掃描全清,內部一致性也對;同時修正 A-tdcc 記載的恆等式:合計(tier17)== sum(級距 1..15),不是 sum(1..16)——差異數(tier16)是獨立對帳列、不計入合計。此為資料理解澄清,非缺陷、非 cache 問題。",
+      "evidence": "docs/data_audit/scripts/C-tdcc_shareholding/02_gaps_anomaly.py B 段:num_holders<0 / num_shares<0 / pct<0 / pct>100 / holding_tier∉1..17 / data_date 在未來 / 任一 NULL / 重複(date,code,tier)/ num_shares>0 但 num_holders=0 —— 九項全 0;pct 值域=(0.0, 100.0);級距值集={1..17};tier17(合計)47,830 檔比例全=100(偏離>0.01 者 0,min=max=100)→ 證明 cache 未錯位。內部一致性複核:合計 num_holders(tier17)== sum(級距 1..15)num_holders 對全部 47,830 個 (date,code) 成立(s15==t17: 47830、s15!=t17: 0);num_shares 同理 sum(1..15)==tier17。差異數(tier16)人數為 1-5 人的獨立對帳列(例 2026-04-17 0050 tier16=2 人、0056=5 人),故用 sum(1..16) 檢查會出現 1,628 筆偽違反(全部集中在 tier16 人數>0 的 ETF/特定股;46,202 筆 tier16=0 者兩式一致)——這解釋了為何 A-tdcc『合計==sum(1..16)』在 2330 成立(2330 tier16 人數=0)。cache==PG==raw 由本單位 ① 的全量指紋已證,故此恆等式性質對 cache 與 PG 完全相同。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 的 tdcc_shareholding 沒有唯一索引,PG 側有。目前實測 0 重複主鍵,唯一性完全靠 research/cache_tables.py 每次砍表重建維持;一旦未來替 tdcc 加增量寫入路徑,就沒有東西擋得住重複列。與 C-sbl_borrowing 同型的健壯性缺口。",
+      "evidence": "duckdb_indexes() 對 cache:idx_tdcc_code_date_tier(company_code,data_date,holding_tier)與 idx_tdcc_date(data_date)兩者 is_unique=False(research/cache_tables.py:127-128);psql \\d tdcc_shareholding → PG 有 'idx_TdccShareholding_date_code_tier' UNIQUE btree (data_date, company_code, holding_tier)。實測 SELECT count(*) FROM (SELECT data_date,company_code,holding_tier FROM tdcc_shareholding GROUP BY 1,2,3 HAVING count(*)>1) = 0。",
+      "fix": "cache 建表後補 CREATE UNIQUE INDEX ON tdcc_shareholding(data_date, company_code, holding_tier)(與 PG 對齊,與 sbl 修法一致);成本極低(建表當下即驗證),收益是把唯一性從自律變成不變式。"
+    }
+  ],
+  "checked": [
+    "schema 對照:PG information_schema.columns(7 欄含 id)vs DuckDB DESCRIBE(6 欄);確認 cache 只丟 id、型別零降級(date/varchar/smallint/integer/bigint/double 全保真)",
+    "投影 parity:research/cache_tables.py:60 的建表 SELECT vs research/db.py:145-148 的 pg-attach view SELECT,同 6 欄(兩種存取模式一致)",
+    "整表 count + 日期範圍 cache vs PG:813,110 / 12 dates / 2026-04-17..2026-07-17 全等",
+    "全量指紋(非抽樣):12 個 data_date × [count + sum(hash(六欄)::HUGEINT) + bit_xor(hash)] cache vs PG,mismatch=0 only_pg=0 only_cache=0",
+    "抽樣逐欄:2026-04-17 / 2026-06-18 / 2026-07-17 各 × 5 檔,pandas DataFrame.equals 全 True(各 85 列)",
+    "被丟掉的 id 欄消費者盤點:grep -rn tdcc research/ --include=*.py → 僅 06_mops_tdcc_publish_probe.py(URL id=1-5)與 taiwan_equity_etf_ranking.py(max(data_date)/sum(num_holders)/sum(num_shares)),皆不讀 id 欄",
+    "覆蓋缺口:以 pg.public.daily_quote(twse)實際交易日曆推每 ISO 週最後交易日 = 應有週快照,對比捕捉到的 12 個 data_date → 區間內應有 14、缺 2",
+    "缺漏週真交易日佐證:2026-04-30 daily_quote twse=1355 列、2026-05-29=1362 列(皆真交易日,確認漏抓非休市)",
+    "holiday-shifted 週辨識:2026-06-18(週四,代 06-19 端午)、2026-07-09(週四,代 07-10 颱風)daily_quote 各 1367/1369 列且該週五無資料 → 已捕捉、非缺口;2026-05-01 勞動節 daily_quote twse=0 → 非交易日、正確不存在",
+    "原始檔內容日期映射:29 個下載檔(檔名=下載日)逐檔讀『資料日期』欄 → 12 個內容日期;2026_4_30.csv 內容=20260424、2026_5_10.csv=20260508(跳過 04-30);2026_5_26.csv=20260522、2026_6_11.csv=20260605(跳過 05-29)——證明缺漏週落在下載空窗",
+    "端點性質:research/audits/06_mops_tdcc_publish_probe.py:130-136 + setting/TdccShareholdingSetting.scala 確認 endpoint 無日期參數、只回當週最新快照(歷史補不回)",
+    "異常值掃描:num_holders/num_shares/pct 負值、pct 值域[0,100]、holding_tier 值集{1..17}、未來日期、NULL、重複主鍵、num_shares>0 但 holders=0、tier17 合計比例=100 —— 九項全 0",
+    "內部一致性:合計人數(tier17)== sum(級距 1..15)人數 對全 47,830 (date,code) 成立(違反 0);差異數(tier16,1-5 人)為獨立對帳列不計入合計 → 修正 A-tdcc『合計==sum(1..16)』的精確表述",
+    "cache 索引 vs PG 唯一索引:duckdb_indexes() 兩索引皆非唯一 vs PG UNIQUE idx_TdccShareholding_date_code_tier;重複主鍵實測=0",
+    "新鮮度:tdcc 為週頻,cache latest=2026-07-17 對今日(2026-07-23 週四)為正常——下個週快照週五 2026-07-24 尚未到;最後原始下載 2026_7_19.csv(內容 07-17)證明爬蟲仍在運作",
+    "排除已知真實現象:週頻單一全市場檔無 market 欄屬正常(A-tdcc 已定)、內容日期落後檔名約一週屬 opendata 只給當週的正常行為、tier16 差異數多為 0 屬正常、歷史僅回補到 2026-04-17 屬 Task #20 待辦非解析/cache 問題"
+  ]
+}

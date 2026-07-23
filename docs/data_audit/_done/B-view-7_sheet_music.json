@@ -1,0 +1,76 @@
+{
+  "unit": "B-view-7_sheet_music",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/view/7_sheet_music.sql (view sheet_music_3y6m)",
+  "audited_at": "2026-07-23",
+  "verdict": "SUSPECT",
+  "summary": "這檔不是財報算式 view,是純價格的線性回歸通道(五線譜):近3.5年收盤價跑回歸趨勢線±1σ/±2σ。逐位重算與view輸出零誤差、無除法故無inf風險。唯一實質問題:五條線中線是斜的回歸線,但線距σ用的是收盤價繞水平均值的標準差(非繞回歸線的殘差),兩者對不上,趨勢股通道被畫寬2.0~2.4倍(σ_殘差=σ_價格·sqrt(1−r²)),超漲/超跌訊號幾乎失效。因無任何程式引用,實害暫為零。財報稽核維度(TTM/PIT財報/ROE/ROIC/毛利率/合併vs個體)全不適用。",
+  "findings": [
+    {
+      "id": "SUSPECT-1",
+      "severity": "SUSPECT",
+      "what": "通道線距 sd = stddev(closing_price) 是收盤價繞『水平均值』的標準差,但五條線的中線是『斜的回歸線』slope·pos+intercept — 中線用A、線距用B,統計上不一致。會漲的股票通道被畫寬2.0~2.4倍,±2σ『超漲/超跌』線幾乎永不觸發,作為選股訊號對趨勢股失效",
+      "evidence": "src/main/resources/sql/view/7_sheet_music.sql:17(sd)vs:27-31(中線+k·sd)。一趟SQL同時算view的stddev(price)與正確殘差stddev(price−(slope·pos+intercept)):2330 513.60 vs 215.22(r²0.824,2.4×)、1101 5.14 vs 2.18(0.821,2.4×)、2317 51.70 vs 25.55(0.756,2.0×)、2412 7.06 vs 3.47(0.758,2.0×);倍率精確吻合 σ_殘差=σ_價格·sqrt(1−r²)。可重跑SQL見findings md『怎麼查的』第4步",
+      "fix": "sd 改殘差標準差:stddev(closing_price-(slope*pos+intercept))(需fitted值兩趟)或一趟近似 stddev(closing_price)*sqrt(1-regr_r2(closing_price,pos));並在檔頂註明通道寬度定義出處。因無消費者,可視為低優先"
+    },
+    {
+      "id": "SCOPE-1",
+      "severity": "OK",
+      "what": "稽核單位框在『財務定義與算式(TTM累計制/PIT財報前視/ROE期末vs平均/ROIC/毛利率分母/合併vs個體)』,但此檔完全不碰財務報表 — 它是純價格的線性回歸通道(五線譜)。上述財報維度全部N/A,不可把『沒抓到財報bug』誤讀成『財報算式通過』",
+      "evidence": "7_sheet_music.sql 僅 from daily_quote,只用 closing_price + date;無任何 concise_*/financial/balance/income 來源。兄弟檔 8_valuation.sql 才是估值view(PER/PBR通道)",
+      "fix": ""
+    },
+    {
+      "id": "OK-1",
+      "severity": "OK",
+      "what": "逐位算式正確:regr_slope(Y=price,X=pos)引數順序對,slope=d(price)/d(pos);五條線在最新交易日maxpos求值。手算1101/2330 tl/high/highest 與view輸出零誤差",
+      "evidence": "獨立重算(WITH reg ... max(pos) OVER w):1101 maxpos=838 tl=22.67/high=27.81/highest=32.96;2330 tl=1858.13/high=2371.73/highest=2885.33 — 與 SELECT * FROM sheet_music_3y6m 完全一致",
+      "fix": ""
+    },
+    {
+      "id": "OK-2",
+      "severity": "OK",
+      "what": "無除法 → 無±inf/NaN風險(分母保護一項N/A)。degenerate輸入(<2非空價)時regr_*/stddev回NULL不報錯:2453列僅1列(某新上市稀疏碼)五線為NULL,不crash",
+      "evidence": "全檔無除法運算子。SELECT count(*) FILTER(WHERE slope IS NULL)=1, closing_price IS NULL=0 FROM sheet_music_3y6m(共2453列)",
+      "fix": ""
+    },
+    {
+      "id": "OK-3",
+      "severity": "OK",
+      "what": "跨市場合併良性:7個company_code同時在twse+tpex(4736/5236/6423/6446/6472/6589/8476),皆為上櫃轉上市同一公司;price分區僅用company_code等於接起完整價格史。台股代號跨市場唯一,故合併正確非污染",
+      "evidence": "同碼跨雙市場=7筆;同碼同日重複列(rank tie來源)=0筆。抽4736:tpex至2023-12-21收163.5→twse自2023-12-22開161,連續無跳空;distinct on order by pos desc 取最新市場標籤(現行市場)正確",
+      "fix": ""
+    },
+    {
+      "id": "OK-4",
+      "severity": "OK",
+      "what": "rank()當pos安全:因(code,date)零重複無tie,pos為乾淨1..n;distinct on...order by pos desc 確定性取最新一日。closing_price null在ratio CTE已過濾,pos雖在過濾前算但回歸不需均勻x",
+      "evidence": "SELECT count FROM (dup (code,date) in window)=0。若未來出現重複日,rank tie會讓兩列同pos且distinct on任取其一,屆時row_number()較穩健(目前非actionable)",
+      "fix": ""
+    },
+    {
+      "id": "PIT-1",
+      "severity": "OK",
+      "what": "view用current_date動態取『最近3.5年』,結果隨查詢當天變動、無法歷史重放(非PIT可重現)。但只用≤今天的收盤價,無前視偏誤 — 對即時篩選view是設計本意",
+      "evidence": "7_sheet_music.sql:10 date > current_date - interval '3' year - interval '6' month。若未來拿去回測須把current_date參數化成as-of日才有PIT語義",
+      "fix": ""
+    },
+    {
+      "id": "OK-5",
+      "severity": "OK",
+      "what": "此view不在任何資金路徑或研究腳本上,blast radius為零 — 純孤立view",
+      "evidence": "全庫grep 'sheet_music'(--include scala/py/sql/md/conf/sbt)只命中 7_sheet_music.sql:2 定義本身,零消費者",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "精讀 src/main/resources/sql/view/7_sheet_music.sql 全35行,寫下五條線每欄的分子/分母/期間/單位",
+    "全庫grep sheet_music(scala/py/sql/md/conf/sbt)確認零消費者;讀Task.scala:93-100確認view由createViewsAndMaterializedViews掃sql/view/*.sql建立",
+    "psql確認view sheet_music_3y6m存在(2453列)、daily_quote schema(有market/company_code/company_name/closing_price/date)、跑樣本2330/2317/1101看輸出",
+    "量化σ用錯基準:一趟SQL同算stddev(price)與殘差stddev(price−(slope·pos+intercept))+regr_r2,四檔(2330/2317/1101/2412)得view sd為殘差的2.0~2.4倍,並用σ_殘差=σ_價格·sqrt(1−r²)對上",
+    "逐位parity:獨立WITH reg重算1101/2330的tl/high/highest(在max(pos)=838求值)= view輸出,零誤差,確認regr_slope(Y,X)引數順序與『最新日求值』邏輯",
+    "查跨市場碰撞:同碼跨twse+tpex=7筆(皆上櫃轉上市),抽4736驗證遷市邊界價格連續(163.5→161)且無同日雙市場疊列",
+    "查rank tie來源:同碼同日重複列=0,故pos為乾淨1..n;查NULL線比例=1/2453(稀疏新上市碼),確認全檔無除法故無inf/NaN",
+    "確認財報稽核維度(TTM累計制/PIT財報/ROE/ROIC/毛利率/合併vs個體)不適用 — 此檔僅from daily_quote不碰財務報表;兄弟檔8_valuation.sql才是估值view"
+  ]
+}

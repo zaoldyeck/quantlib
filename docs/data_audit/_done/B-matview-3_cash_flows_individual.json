@@ -1,0 +1,31 @@
+{
+  "unit": "B-matview-3_cash_flows_individual",
+  "verdict": "BUG",
+  "summary": "累計轉單季的差分公式在『當年度第一筆不是 Q1』時會拿本年 H1 去減去年整年累計 → 跨年度汙染,約 34.3 萬筆(占 5.4%)現金流單季值是假數字;根因是護欄只認 quarter=1,正解(依年度切窗)已在 Python 版實作。此表只餵已凍結的 Scala 財務指標鏈,現役 Python 選股路徑另行正確重算、未用此表。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "跨年度汙染:半年報/資料缺口公司(當年度最早一季 = Q2/Q3,非 Q1)的年度起始列,被差分成『本年累計 − 去年整年累計』,產生跨會計年度的垃圾值。護欄 `case when quarter = 1` 硬假設每家公司每個會計年度都以 Q1 起始;興櫃等只報半年報(H1+年報)的公司沒有 Q1,其 Q2 列(該年度第一筆)未被護欄保護,lag 指向前一年 Q4(整年累計)。",
+      "evidence": "檔案 src/main/resources/sql/materialized_view/3_cash_flows_individual.sql:8-11。實證(company_code=000156,OCF 營業活動之淨現金流入):raw cash_flows_progressive 2020Q4=90536、2021Q2=95502(=2021 H1 累計);cash_flows_individual 輸出 2021Q2 = 4966 = 95502−90536(減掉去年整年),正確 H1 應是 95502,被低估 95%。2020Q2 = 27756 = 29041−1285(減掉 2019 整年 1285)。全表算術逐筆吻合。SQL: SELECT year,quarter,value FROM cash_flows_individual WHERE company_code='000156' AND title LIKE '營業活動之淨現金流入%';。blast radius: SELECT count(*) FROM cash_flows_progressive c JOIN (SELECT company_code,year,min(quarter) fq FROM cash_flows_progressive GROUP BY 1,2) f USING(company_code,year) WHERE f.fq>1 AND c.quarter=f.fq → 343,444 筆汙染 title-列(6,906 company-year,2019+ 佔 4,728;半年報公司每年約 600 家)。source value 為 NOT NULL,故汙染列是非空的貌似合理數字,能通過下游所有 `value is not null` 濾網 → 靜默汙染。",
+      "fix": "把年度加入視窗分割鍵:`over (partition by market, company_code, title, year order by quarter)`。這樣跨年 lag 消失,半年報公司的年度起始 Q2 列 lag=NULL → 該列變 NULL(安全,而非垃圾),與 Python 版(research/strat_lab/raw_quarterly.py:176-180 依 [company_code, year] 切窗)語意一致。加年度後 `case when quarter=1` 可保留但已非必要;更穩健版改為 `when lag(...) over(...,year...) is null then value`。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "半年報公司的 Q4 單季值實為 H2(6 個月)被標成單季 Q4(Q4累計 − Q2累計 = Jul-Dec),把 6 個月現金流當成 3 個月的季。此為半年報無法還原成季的本質限制,Python 版亦同;但差分視圖照樣輸出、未標註粒度,任何『當單季用』的下游會系統性高估半年報公司的季現金流量級。",
+      "evidence": "同株 000156:cash_flows_individual 2020Q4 = 61495 = 90536(整年)−29041(H1)= 2020 H2 六個月;2021Q4 = 229731 = 325233−95502 = 2021 H2。TTM(financial_index_ttm 對 4 季 rolling sum)對半年報公司只會撈到 Q2/Q4 兩筆且各含 6 個月,加總語意錯亂。",
+      "fix": "此類公司本就不該進可交易選股池(興櫃/半年報多在 universe 之外);若要保留,應在 view 標記 report_span(季/半年)或直接排除 first_q>1 的 company-year,避免下游誤用。屬設計取捨,建議由主流程裁決。"
+    },
+    {
+      "severity": "BUG",
+      "what": "同一缺陷類(舉一反三):姊妹差分視圖 income_statement_individual(matview 7)與 concise_income_statement_individual(matview 5)使用完全相同的『跨年度視窗 + 只認 quarter=1 護欄』寫法,對半年報/缺口公司有同款跨年度汙染。修此表時必須同批修掉,否則使用者會指出第二個同類問題。",
+      "evidence": "7_income_statement_individual.sql:8-11 與 3_cash_flows_individual.sql:8-11 逐字同構(僅來源表不同);5_concise_income_statement_individual.sql:19-22 亦為 `case when quarter=1 ... else value - lag(value) over (partition by company_code, title order by year, quarter)`,跨年度、無年度護欄。損益表同為累計制,半年報公司同樣受害。",
+      "fix": "三支差分視圖(matview 3/5/7)一律把 year 併入 partition by;建議抽成單一 SQL 產生器或共用註解,鎖死『累計轉單季必須依會計年度切窗』的不變式,並加一條資料檢核:同一 company-year 若 first_q>1,其 first_q 列的單季值應為 NULL 而非承接前一年。"
+    },
+    {
+      "severity": "OK",
+      "what": "market 維度目前無害但脆弱:cash_flows_progressive.market 全部為 'tw'(單一值,6,359,600 列),故 partition by (market, company_code, title) 等同 (company_code, title),不引入 bug。但下游 4_cash_flows_with_titles.sql 及 financial_index 以 `market='tw'` 硬編碼 join,與 income/balance 的 twse/tpex 慣例不一致,屬既知資料慣例差異、非錯誤。",
+      "evidence": "SELECT market, count(*) FROM cash_flows_progressive GROUP BY market → 只有 tw / 6359600;research/db.py:190-192 與 cache_tables.py:92-94 皆註記 cf 用 'tw' 不分市場。",
+      "fix": "無需修改;若未來把現金流按市場拆分,需同步檢視此護欄。"
+    }
+  ]
+}

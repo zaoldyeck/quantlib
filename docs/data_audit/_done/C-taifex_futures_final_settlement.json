@@ -1,0 +1,55 @@
+{
+  "id": "C-taifex_futures_final_settlement",
+  "dim": "C",
+  "table": "taifex_futures_final_settlement",
+  "unit": "C-taifex_futures_final_settlement",
+  "verdict": "OK",
+  "summary": "Cache 與 PostgreSQL 逐筆位元相同(3152 筆全對、零差異),資料本身可信;唯一注意事項是這張表刻意設計成手動更新,現在停在 2026-05-20、比今天落後約 2 個月,想用近期期貨結算價要先手動補抓再重建 cache。",
+  "findings": [
+    {
+      "severity": "SUSPECT",
+      "what": "時間序列尾端落後約 2 個月:最後一筆結算日 2026-05-20,今天 2026-07-23,中間的每週結算(5/27 起)與月結算(6/17、7/15)都還沒進來。但 cache 與 PG 一樣停在 2026-05-20(兩邊一致),所以不是 cache 同步或讀檔漏抓,而是這張表被刻意排除在每日 update 之外、要靠手動 pull taifex 才更新,而手動更新從 2026-05-21 之後就沒跑過。",
+      "evidence": "psql: SELECT MAX(date) → 2026-05-20;原始檔 data/taifex/futures_final_settlement/2026/2026.html 最後修改時間 2026-05-21 18:20,檔內最新日期字串 2026/05/20(grep 驗證);Job.scala:49-50 註解明寫『TAIFEX futures are target-driven (pull/read taifex) ... should not surprise equity updates』,readAllData()/pullAllData() 不含 taifex;故每日 Main update 不會碰這張表。",
+      "fix": "需要近期期貨結算價時,手動跑 sbt \"runMain Main pull taifex_futures_final_settlement\" 再 sbt \"runMain Main read taifex_futures_final_settlement\",最後 uv run --project research python research/cache_tables.py 重建 cache。endpoint = https://www.taifex.com.tw/cht/5/futIndxFSP(每年一頁 HTML,重抓當年即涵蓋新結算日)。不需改程式:這是設計如此的手動刷新,不是 bug。"
+    },
+    {
+      "severity": "REAL",
+      "what": "TX / MTX / TMF 三個契約代碼在每一個結算日的結算價完全相同,而且三者都從 1999-01-21 起就有資料——即使 MTX(小型台指,2001 上市)、TMF(微型台指,2022 上市)當時根本還沒掛牌。乍看像『契約還沒存在就有結算價』的錯誤,實際上是正確且刻意的:TAIFEX 的最後結算價 HTML 每個結算日只公布『一個』台股加權指數結算價,reader 把它同時寫進 TX/MTX/TMF 三個同標的(台指)產品代碼。結算價是指數的屬性,對每一天都有定義,不是某張契約的成交紀錄。",
+      "evidence": "836 個結算日中 TX≠MTX 或 TX≠TMF 的筆數 = 0(psql 交叉比對);TradingReader.scala:618-624 明碼 val txMtxTmf = cols(2); Seq(\"TX\"->txMtxTmf,\"MTX\"->txMtxTmf,\"TMF\"->txMtxTmf,...);樣本 1999-01-21 三者皆 6332、2026-05-20 三者皆 40080。",
+      "fix": "非缺陷,不需修。研究時的注意事項:用 WHERE contract_code='TMF'(或 'MTX')撈到的 2022 前(或 2001 前)資料不是真正掛牌契約的結算,而是同標的台指結算價的複製值——數值正確,但別當成『該微型/小型契約當時有在交易』。"
+    },
+    {
+      "severity": "OK",
+      "what": "Cache 與 PostgreSQL 逐筆位元一致。",
+      "evidence": "DuckDB attach pg 後對 (date,contract_code,contract_month,final_settlement_price) 做雙向 EXCEPT:cache 多出 0 筆、PG 多出 0 筆;3152 筆 key-matched 逐筆比 final_settlement_price 差異 0 筆。總筆數 3152=3152、日期範圍 1999-01-21~2026-05-20 兩邊相同、逐契約筆數相同(TX/MTX/TMF 各 836、TE/TF 各 322)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "Schema 一致,無型別降級、無漏欄。Cache 只少了 PG 的 id 自增代理鍵(非資料欄,刻意不同步),其餘 date/contract_code/contract_month/final_settlement_price 欄名與型別完全對應。",
+      "evidence": "PG \\d:id bigint(PK,seq)、date date、contract_code varchar、contract_month varchar、final_settlement_price double precision。Cache PRAGMA table_info:date DATE、contract_code VARCHAR、contract_month VARCHAR、final_settlement_price DOUBLE。cache_tables.py:83-85 SELECT date,contract_code,contract_month,final_settlement_price(不含 id)。date→DATE、varchar→VARCHAR、double precision→DOUBLE 皆忠實。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "涵蓋度(內部)完整,無時間序列破洞。1999-01 至 2026-05 共 329 個月每月都至少有一個結算日,零缺月;內部最大間隔 35-41 天都落在 2013 前的月結算年代且圍繞農曆年(正常月頻節奏),2013 後的週結算年代無異常大洞。結算節奏正確:週結算 3 個契約(TX/MTX/TMF)、月結算 5 個(再加 TE 電子、TF 金融)。",
+      "evidence": "psql generate_series 對比:expected_months=329、present_months=329、missing_months=NULL;最大間隔前 8 名(2004-01-28=41d、2007-02-27=40d、其餘 35d)全在 1999-2007;近 15 個結算日顯示週=3 契約、月(每月第 3 週三)=5 契約。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "數值異常掃描乾淨。無負/零結算價、無 NULL、無未來日期、無空的 contract_code/contract_month;結算價區間 151.2~41485 合理(TE/TF 分類指數本就低、TAIEX 2026 約 4 萬點);contract_month 全數格式正確——月契約 1631 筆 YYYYMM、週契約 1521 筆 YYYYMMWn,0 筆畸形。",
+      "evidence": "psql:nonpos_price=0、null_price=0、future_dates=0、bad_month=0、bad_code=0、min=151.2、max=41485;contract_month 正則:^[0-9]{6}$ 命中 1631、^[0-9]{6}W[1-5]$ 命中 1521、malformed=0;cache 側同一掃描結果與 PG 相同(total 3152/nonpos 0/null 0/min 151.2/max 41485/future 0)。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "Schema 比對:PG \\d taifex_futures_final_settlement vs cache PRAGMA table_info,並對照 research/cache_tables.py:83-85 同步 SQL(確認只刻意丟 id、無型別降級)",
+    "筆數比對:總數(3152=3152)、逐契約(TX/MTX/TMF=836、TE/TF=322 兩邊相同)、逐年分布",
+    "逐筆全表 parity:DuckDB attach pg 對四欄雙向 EXCEPT(0/0)+ 3152 筆 key-matched 價格差異(0)——強於指定的 3 日期×5 檔抽樣",
+    "涵蓋缺口:1999-01~2026-05 共 329 月逐月檢查(0 缺月)、consecutive 結算日最大間隔分析(內部無異常洞)、尾端 staleness(停在 2026-05-20)",
+    "尾端 staleness 歸因:raw 2026.html 檔案 mtime(2026-05-21)與檔內最新日期(2026/05/20)、Main.scala pull/read 路由、Job.scala:49-50 註解(taifex 刻意排除每日 update、target-driven)",
+    "異常值掃描:負/零/NULL 結算價、未來日期、空 code/month、價格 min/max 合理性、contract_month 格式(YYYYMM 月契約 vs YYYYMMWn 週契約)",
+    "資料模型查證:TX/MTX/TMF 同日結算價是否相同(836 日 0 筆相異)+ TradingReader.scala:618-624 契約家族複製邏輯 + db/table 官方來源註解(futIndxFSP)"
+  ]
+}

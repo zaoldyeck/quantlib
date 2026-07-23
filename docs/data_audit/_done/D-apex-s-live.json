@@ -1,0 +1,75 @@
+{
+  "id": "D-apex-s-live",
+  "dim": "D",
+  "title": "S 策略六因子(LIVE money-path)",
+  "scope": "research/apex/strategy_s.py + research/apex/assemble.py",
+  "unit": "D-apex-s-live",
+  "verdict": "SUSPECT",
+  "summary": "S 策略這條真金白銀的選股線可以信:六個因子逐一對照學理定義都對得上,PIT 對齊乾淨、沒有偷看未來,幾何排名的做法也是穩健的。四個因子做了逐格重算驗證(高52週距、6月動能對 2330 共 2872 列零差;產業相對加速對全市場 5,067,841 列零差;產業別 PIT 前視 0 列),兩個營收因子的定義忠實實作。唯一要補的一顆螺絲:三月序列動能 rev_seq 在『前三個月營收合計為 0』時會除以零變成 +inf(計分池 343,866 列裡有 6 列),而 polars 的 rank 會把 inf(乃至更糟的 0/0→NaN)排到接近或絕對最頂——這幾檔多半是建設股這種認列跳動的產業。因為分數靠 rank/len 收斂,總分不會爆掉,實際汙染只有 6 列、對選股影響可忽略,所以不是會讓結論失真的 BUG,但學理上『未定義的成長率』該 null 掉而非給最高名次,值得順手加個和 close_pos_20 同款的護欄。除此之外,無風險利率近似 0、年化 252 日、還原價跑動能都符合台股語境,money-path 無定義性錯誤。",
+  "findings": [
+    {
+      "severity": "SUSPECT",
+      "metric": "rev_seq 三月營收序列動能 (strategy_s.py:36-39)",
+      "textbook_def": "序列(環比)營收動能 = 近三月營收合計 / 前三月營收合計 − 1;當分母(前三月合計)為 0 時該成長率『數學上未定義』,學理處理應為排除(null)或設限,不得當成無限大成長。參考:標準 growth-rate 定義,分母為零時 undefined(非 +∞)。",
+      "implementation": "pl.col('monthly_revenue').rolling_sum(3) / pl.col('monthly_revenue').rolling_sum(3).shift(3) − 1,over(company_code)。分子=rev[t]+rev[t-1]+rev[t-2],分母=rev[t-3]+rev[t-4]+rev[t-5];分母=0 時 → +inf,分子分母皆 0 → NaN;兩者皆非 null,drop_nulls 不會剔除,直接進 (rank/len) 排名。",
+      "evidence": "重現:reproduce run_s_full 的計分池(feat.filter(rev_fresh_days<=7)∩eligible∩drop_nulls(6因子)∩cfo_ni>=median),343,866 列中 rev_seq 有 6 列 = +inf、0 列 NaN(min=-91.471, max=inf)。polars rank 對 [1,2,inf,3,nan] 回 [1,2,4,3,5] — inf 得近頂名次、NaN 得『絕對最頂』名次(rank=n)。這幾檔皆為前三月營收合計為 0 的產業(建設股認列跳動,CLAUDE.md 已載『construction stocks zero monthly_revenue is real』)。因 term=(rank/len)^w 的底仍有限,score 不會變 inf,故總分不炸、選股不崩;但這 6 列(未來若出現 0/0 的 NaN 更嚴重)被指派為最高序列動能名次,屬學理上不該發生的『未定義→最佳分』。實測影響:6 / 343,866 列(0.0017%),且需其餘 5 因子同時排名前段才會真的進 top-5,對回測/live 結論無實質失真。",
+      "fix": "把 rev_seq 改成分母護欄:pl.when(pl.col('monthly_revenue').rolling_sum(3).shift(3) > 0).then(ratio − 1).otherwise(None) — 與 close_pos_20 在 assemble.py:78 對 high==low 用 when/else None 完全同款紀律,讓未定義列被 drop_nulls 剔除。另在 run_s_full 計分前加 defense-in-depth:df.filter(pl.all_horizontal(pl.col(c).is_finite() for c in WREL)),一次關掉六因子任何 inf/NaN 被 rank 排到頂端的潛在陷阱(目前只有 rev_seq 觸發,但這是可自動化的類守護)。屬健壯性修補,現有結論無需重跑。"
+    },
+    {
+      "severity": "OK",
+      "metric": "high_52w 52週高距離 (assemble.py:60)",
+      "textbook_def": "George & Hwang (2004, JF)『52-week high』因子 = 現價 / 過去 52 週最高價,值域 (0,1],越接近 1 越靠近前高。台股 252 交易日 ≈ 52 週。",
+      "implementation": "pl.col('close') / pl.col('close').rolling_max(252),over(company_code);close 為 prices.fetch_adjusted_panel 的還原(total-return-equivalent)收盤價。",
+      "evidence": "逐格重算:對 2330 用同一還原 panel 手算 close/rolling_max(252),與 build_features 產出比對 2872 列 max|diff|=0.0。全市場值域 [0.0194, 1.0000]、med 0.8275,嚴格 ≤1 符定義。rolling_max(252) 預設 min_periods=252(實測 [None,None,3,4,5]),暖機期為 null 不前視;含當日收盤是 as-of 決策日標準做法,非 look-ahead。用還原 close 而非盤中 high 為常見且一致的簡化(整條線同一還原基準)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "mom_126_5 六月動能(跳5日) (assemble.py:61)",
+      "textbook_def": "Jegadeesh & Titman (1993) 動能,含短期反轉跳空:此處為 126 交易日(≈6月)回看、跳過最近 5 日的報酬 = P[t-5]/P[t-126] − 1。跳窗避免 Lehmann(1990)短期反轉汙染。",
+      "implementation": "pl.col('close').shift(5) / pl.col('close').shift(126) − 1,over(company_code);close 為還原價(除權息/減資/分割 total-return 等價,動能不被除息跳空扭曲)。",
+      "evidence": "逐格重算:2330 手算 shift(5)/shift(126)-1 對 build_features 2872 列 max|diff|=0.0。命名 mom_126_5 = 回看126、跳5,與實作一字不差。值域 [-0.9561, 20.5948] med 0.0101(報酬空間、上不設限屬正常)。shift(126) 使暖機期 null 不前視。用還原價避免『iter_20 讀 raw close 系統性低估』的歷史 bug(prices.py 模組緣起)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "close_pos_20 盤中收盤位置20日均 (assemble.py:78-83)",
+      "textbook_def": "當日收盤在日內區間的相對位置(Williams %R 的補數 / Stochastic %K 同類)= (close−low)/(high−low),值域 [0,1];取 20 日移動平均。無單一經典論文命名,判準為『是否忠實計算其所宣稱之量』。",
+      "implementation": "pl.when(high>low).then((close−low)/(high−low)).otherwise(None).rolling_mean(20, min_samples=10).over(company_code)。high==low(漲跌停鎖死日)時 → None,避免 0/0。",
+      "evidence": "值域實測 [-0.0000, 1.0000] med 0.4458,符 [0,1] 定義(-0.0000 為浮點雜訊)。(close−low)/(high−low) 對還原不變:prices.py:476-482 open/high/low/close 同乘一個 adj_factor,比值中因子相消,故用還原 panel 計算與 raw 一致。此處『high>low then … else None』的 0/0 護欄正是 rev_seq 所缺者 — 同一 codebase 的正確範式。min_samples=10 容忍 20 窗內部分缺值。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "rev_yoy_accel 營收年增加速度 (assemble.py:102-104)",
+      "textbook_def": "營收成長之『加速度』= 成長率的變化。此處採 MACD 式平滑代理:近期均值 − 長期均值 = MA3(YoY) − MA12(YoY);>0 表近期年增高於自身12月均值(加速中)。非字面二階差分,但為文獻常見之 earnings/revenue acceleration 操作化,語義一致。",
+      "implementation": "pl.col('monthly_revenue_yoy').rolling_mean(3) − pl.col('monthly_revenue_yoy').rolling_mean(12),over(company_code);monthly_revenue_yoy 由 TWSE 提供(實測為百分比:med 3.36、p1 -89.62、p99 723.91)。",
+      "evidence": "定義忠實:MA3−MA12 of 同一 YoY 序列,over(code) 無跨公司洩漏,min_periods=12 需滿12月方非 null(保守暖機)。長尾極值 ±數百萬(min -2,810,049、max +828,730 於計分池)源自 monthly_revenue_yoy 之基期效應真實資料 — 例 2528(建設股)2024-12 revenue 5.3M 對前年極小基數 → YoY=25,266,600%,非解析/單位 bug。因後續一律轉 rank-percentile(對單調變換不變),數值爆量不使計分失真;唯基期效應會讓此類跳動股佔 rev_yoy_accel 頂端名次(與 rev_seq 的 inf 同一根因:認列跳動產業),由 cfo_ni 品質閘 + fresh<=7 過濾 + rank 穩健性共同吸收。單位為百分比或分數不影響 rank(正線性縮放 rank 不變)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "accel_rel 減同業中位數(產業相對加速) (strategy_s.py:46-57)",
+      "textbook_def": "產業中性化 / 同業相對因子:accel_rel = rev_yoy_accel − median(rev_yoy_accel | 同日同產業)。以中位數(對極值穩健)做橫截面去均。產業別須 point-in-time,不得用決策日尚未生效的分類。",
+      "implementation": "以 industry_taxonomy_pit 對每個決策日 join_asof backward(effective_date ≤ date)取 PIT 產業;ind_med = median over (date, industry);rel = rev_yoy_accel − m。",
+      "evidence": "逐格重算:對 fx 手算 rev_yoy_accel − median.over([date,industry]) 對 feat.accel_rel 比對 5,067,841 列 max|diff|=0.0。前視檢查:join 後 effective_date > date 的列數 = 0(產業別無前視)。用 median 而非 mean → 對 rev_yoy_accel 的基期效應長尾穩健,不被單一極值拖動。中位數母體含全產業(未濾 fresh/eligible)為『同業典型加速』的合理 PIT 估計,屬設計選擇非錯誤。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "幾何排名 rank/len 加權組合 (strategy_s.py:73-77)",
+      "textbook_def": "異質因子組合的標準做法是先各自轉橫截面分位(rank-normalize)再加權;此處採加權幾何平均 score = ∏ (rank_pct_i)^(w_i)(conjunctive:任一軸弱會被懲罰,獎勵全面均強)。rank_pct 須避免恰為 0,否則幾何積塌陷。",
+      "implementation": "term = ((pl.col(c).rank() / pl.len()).over('date')) ** w;expr = ∏ term;WREL 權重 rev_yoy_accel/high_52w/close_pos_20=1.0、mom_126_5/rev_seq/accel_rel=0.5。選 top-5(entries_and_flags rank descending)。",
+      "evidence": "polars rank 預設 method='average'、升冪(實測 [10,30,20,20]→[1,4,2.5,2.5]),故因子值越大 → rank 越大 → rank_pct 越大 → term 越大(底∈(0,1],w>0 單調),score 對每因子單調遞增、且 ∈(0,1]。rank/len 使最小分位=1/n(絕不為 0),幾何積永不塌陷成 0 — 正是此設計精妙處(避免 (rank-1)/(n-1) 的歸零)。未除以 Σw:score=∏p^w 對比正規化版 (∏p^w)^(1/Σw) 只差一個對全體相同的正指數 → top-5 選股序不變,故不影響結果。live 走此幾何積(STRATEGY.md §6 規格),未誤用 assemble.blend_score 的加法版本。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "PIT 對齊與執行時序(無前視) (assemble.py:98-99,156-164 / engine.py:230)",
+      "textbook_def": "Point-in-time:因子只能用決策日 ≤ T 的資訊;月營收依台股法規『次月10日前公告』生效;季報依法定期限生效;成交須 T 決策 → T+1 執行,禁止用當日尚未公告之資料。",
+      "implementation": "avail = pl.date(year + month//12, month%12 + 1, 10)(次月10日);join_asof backward tolerance 70d 取 ≤date 最新一筆;季報 q_avail 用 5/15、8/14、11/14、次年3/31 法定期限;engine 以 e_di+1 成交(T→T+1),exit_flags 於 d-1 決策 d 成交。",
+      "evidence": "avail 模運算正確:month=12 → (year+1, 12%12+1=1, 10)=隔年1月10日,無 month=13 off-by-one;month=1 → 2月10日。回測用『次月10日』為保守下界(live 可傳 avail_override 用實際首見日,strategy_s.prep 未傳 → 全程保守、非前視)。rolling 全部預設 min_periods=window(rolling_max/mean/sum 實測暖機期 None),不以部分窗前視。engine.py:230 entries T 決策 T+1 成交、_exit_reason(pos,d-1,…) 出場亦隔日 — 執行層零 look-ahead。月營收列基本連續(451,159 相鄰列中僅 81 列跨月 gap=0.018%),故 row-based rolling 等同月連續,rev_yoy_accel/rev_seq 的窗對齊實務上正確。",
+      "fix": ""
+    }
+  ]
+}

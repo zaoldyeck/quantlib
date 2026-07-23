@@ -1,0 +1,79 @@
+{
+  "unit": "D-rankmetrics-scala",
+  "verdict": "BUG",
+  "summary": "IC 與 t 值本身算對(橫截面 Spearman、tie 修正、ddof=1、自由度 n-1 全合格),但『未來報酬』用未還原的原始收盤價 → 台股 7-9 月除權息旺季單月約三分之一股票報酬被灌水式低估約 4%,會系統性壓低殖利率/價值類因子的 IC、稀釋 t 值;牽涉配息的因子結論不能全信。冠軍 apex 的 Python 版已用還原價 T+1 做對,這份凍結的 Scala 研究工具沒有,且同一錯在 RankMetricsEx 又抄一份;scope 指定的『alphalens 使用』其實從未 import。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "forwardReturns 未來報酬(RankMetrics.scala:149;同缺陷複本 FactorResearch.scala:178)",
+      "textbook_def": "因子 IC 的 forward return 應為總報酬(含現金股利再投資、對減資/分割還原參考價)。Grinold-Kahn: IC=corr(score, realized active return);Alphalens get_clean_factor_and_forward_returns 對還原/再投資後價格算報酬。原始價報酬(price return)僅在無股利、無資本行動時等於總報酬。",
+      "implementation": "(p1-p0)/p0,p0/p1 皆取 daily_quote.closing_price(專案鐵律載明此欄為未還原原始價,故有 prices.fetch_adjusted_panel)。除息日原始收盤價掉一個股利、減資日參考價重設,全部被當成真實漲跌計入報酬。RankMetrics 與 RankMetricsEx 兩份複本同錯。",
+      "evidence": "2023-07-04→08-01(約21交易日)TWSE 410/1198 檔(34%)除權息,平均參考價下修 -3.99%、最大 -28.86%(SELECT count(*),avg((pre-ref)/pre) FROM ex_right_dividend WHERE market='twse' AND date>'2023-07-03' AND date<='2023-08-01')。2330 2023-09-14 除息配 3 元:ex_right_dividend pre=541→ref=538,daily_quote 09-13 收 541、09-14 收 550,原始價把配掉的 3 元隱形吃掉。減資 TWSE 15-31 件/年(2022:31、2023:26)參考價重設被當真跌。對照:research/apex/factors.py:4 明文『調整價,T+1 起算,零 look-ahead』——冠軍 Python 引擎已做對。",
+      "fix": "forward return 改用還原價:除息以 ex_right_ex_dividend_reference_price/closing_price_before_ex_right_ex_dividend、減資以 post_reduction_reference_price/closing_price_on_the_last_trading_date 的比例接續調整(即 prices.fetch_adjusted_panel 的 Scala 對應),或讓 Scala 研究命令退役統一走 Python prices.py。兩份複本一起修。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "research 端『alphalens 使用』(CLAUDE.md:182/364、quantlib-factor-test SKILL.md:51-62)",
+      "textbook_def": "Alphalens factor_information_coefficient 預設用 scipy.stats.spearmanr(rank IC),forward return 由傳入的價格面板算,面板須為還原/再投資價才正確。",
+      "implementation": "alphalens-reloaded>=0.4.6 列在 pyproject.toml,且被 CLAUDE.md/agent/skill 當『標準 IC/quantile 工具』宣傳,但整個 repo 的 .py 從未 import——所有實跑 IC 都是手寫 pl.corr(...,method='spearman')(apex/factors.py:78、g04/g06、valuation_replay_2025.py:540)。scope 指定要查的『alphalens 使用』實際不存在。",
+      "evidence": "grep -rn 'import alphalens|al.utils|create_.*_tear_sheet' research/ --include=*.py 零命中;唯一出現處為文件與 skill 指示。手寫 IC 路徑從未與 alphalens 對過答案;skill Step 4 的 prices_wide 若傳原始 close,alphalens forward return 會複製 BUG-1 的股利偏差。",
+      "fix": "要嘛真的接上 alphalens 並與手寫 IC 做一次逐值對照當守護,要嘛把文件/agent/skill 的『alphalens』改標為手寫 polars 管線,別讓紙上工具冒充事實來源。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "spearman/forwardReturns 孿生複本 + 死碼(FactorResearch.scala:119-187 vs RankMetrics.scala:81-154)",
+      "textbook_def": "同一計算只該有一份 canonical 實作(CLAUDE.md 引擎唯一真源鐵律);複本必漂移。",
+      "implementation": "RankMetrics 的 spearman/averageRanks/forwardReturns 在 RankMetricsEx 整份被抄;Main research 批次因子 IC 走複本那條。",
+      "evidence": "已漂移:RankMetrics.scala:126 多算 rn_desc 視窗欄但只有 :147 用 rn_asc(rn_desc 純死碼);RankMetricsEx(:155)正確地沒抄它。grep -n rn_desc 兩檔:RankMetrics 有、FactorResearch 無。",
+      "fix": "RankMetricsEx 併回 RankMetrics 只留一份;順手刪死碼 rn_desc。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "IC forward return 進場時點(RankMetrics.scala:135-142 p0=asOf 收盤)",
+      "textbook_def": "IC 的 forward return 應從訊號可執行時點起算;訊號用到 T 收盤資料,最快 T+1 才可成交。",
+      "implementation": "p0=最近 ≤asOf 收盤(即 T 收盤),報酬含 T→T+1 不可捕捉的位移。CLAUDE.md『Asof +1 day shift』與 apex(close[T+1] 起算)都用 T+1。",
+      "evidence": "非前視(分數不含未來資料),屬慣例不一致:IC 以 T 收盤進場、回測/契約以 T+1 進場,會小幅高估可交易訊號。RankMetrics.scala:135-142 vs apex/factors.py 的 close.shift(-1) 起算。",
+      "fix": "forward return 改從 T+1 收盤起算,與執行對齊。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "未來窗口日曆日框交易日(RankMetrics.scala:130)",
+      "textbook_def": "N 交易日 horizon 應以交易日計數,不受日曆長短影響。",
+      "implementation": "窗口 = asOf + 2*horizonDays 日曆日,再取 rn_asc=horizonDays 第 N 個交易日。21 交易日平常≈29-31 日曆日,但跨農曆年封關(約9天)可能>42 日曆日 → 該股當月無 rn_asc=21 → 被靜默剔出當月 IC。",
+      "evidence": "純日曆換算 + 台股 CNY 封關;剔除只縮小樣本、不偏誤被納入者的報酬值(低嚴重度)。",
+      "fix": "窗口放寬(如 3×)或直接以交易日計數選第 N 日。"
+    },
+    {
+      "severity": "OK",
+      "metric": "Spearman rank IC(RankMetrics.scala:81-108 spearman/averageRanks)",
+      "textbook_def": "Spearman ρ = 兩序列等級的 Pearson 相關;有 ties 須用 mid-rank + Pearson-on-ranks(簡化式 1-6Σd²/(n(n²-1)) 僅無 ties 成立)。橫截面 rank IC = 因子分數與未來報酬跨股票的 Spearman。",
+      "implementation": "averageRanks 對等值給 mid-rank((i+j)/2+1),spearman 對兩組 rank 算 Pearson;denX/denY=0 時回 0 防常數序列除零。即 tie-corrected Spearman = 橫截面 rank IC。",
+      "evidence": "逐行核對:與 scipy.stats.spearmanr 的 tie 處理(average rank)一致;computeICSeries 每個換股日對該日全體共同股票算一次(:59-63)=橫截面。與學理相符。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "IC 序列 t 值與自由度(RankMetrics.scala:72-77 summarize)",
+      "textbook_def": "檢定 E[IC]=0 的單樣本 t = mean/(s/√n),s 為樣本標準差(ddof=1),df=n-1;等價 Grinold-Kahn IC t=IR·√n(IR=mean/std)。顯著門檻 t≈2.0 為常態 1.96 的 rule-of-thumb。",
+      "implementation": "mean=Σic/n;std=√(Σ(ic-mean)²/(n-1))(ddof=1 正確);tStat=mean/(std/√n)。n<2 回 0、std=0 回 t=0 防除零。門檻 t≥2.0 已在註解聲明為 rule of thumb(刻意近似)。",
+      "evidence": "與 apex/factors.py:86 t=mean_ic/std_ic*sqrt(n) 同式;ddof=1 與樣本 t 檢定一致;約 96 個月時 df=95, t_{0.025}=1.985≈2.0,門檻近似合理。刻意近似 → OK。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "前視與重疊窗口(RankMetrics.scala:54-66,122-153 + RebalanceCalendar 月頻)",
+      "textbook_def": "IC 無前視要求 score 只用 ≤asOf 資料、report 只用 >asOf 報酬;IC 序列簡單 t 假設觀測獨立,窗口重疊時須 Newey-West。",
+      "implementation": "分數在 asOf 用 ≤asOf;forward candidates 用 date>asOf(嚴格未來)→ score 端無未來洩漏。換股用 monthlyAfterDay(月頻≈21交易日),horizon=21 → 相鄰未來窗口幾乎不重疊 → 序列近似獨立,簡單 t 成立。",
+      "evidence": "Caveat:t 的 IID 是 horizon≈換股間隔的巧合非程式保證;若呼叫端傳 horizon>間隔(週頻換股配 21 日 horizon),窗口重疊會膨脹 t,此時需 Newey-West/有效樣本數修正。目前 Main.scala:286 硬寫 21 + 月頻,安全。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "分位數單調性檢定(缺口)+ IR 未具名(RankMetrics.scala 無;apex/factors.py:88-99 有)",
+      "textbook_def": "因子評估宜含 decile/quantile 報酬單調性;IR=mean(IC)/std(IC)。",
+      "implementation": "RankMetrics.scala 只算 IC+t,沒有 decile 單調性檢定(功能缺口,非算錯);IR 未列具名欄位但 tStat=IR·√n 已內含。Python apex/factors.py:88-99 已正確實作 decile spread(橫截面 rank 分10桶取均值)。",
+      "evidence": "非偏差:缺口而非錯誤;IR 資訊未遺失(藏在 t 值)。列此僅為完整記錄 focus 要求的『分位數報酬單調性檢定』在 Scala 端不存在、在 Python 端正確。",
+      "fix": ""
+    }
+  ]
+}

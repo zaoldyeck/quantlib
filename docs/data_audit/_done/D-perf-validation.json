@@ -1,0 +1,71 @@
+{
+  "unit": "D-perf-validation",
+  "verdict": "BUG",
+  "summary": "兩份驗證統計品質天差地別:apex/validate.py 的 DSR/PBO/bootstrap 完全符合學理、可信;但現役 Serenity 與 strat_lab 用的 validate_hybrid.py 壞掉兩處關鍵 — PBO 根本沒在算 PBO(是約 0.5 的擲硬幣噪音,出廠報告的 PBO 0.526 那道上線關卡等於沒把關)、DSR 用錯多重測試變異數導致系統性偏高(報的 DSR 1.00 不能當真通過校正)。另有 Sharpe 用幾何 CAGR、Sortino 下行離差非教科書、置換 p 值缺 +1 三個較輕偏差。結論:apex 數字可信;Serenity/strat_lab 報表的 PBO 一律不可信、DSR 偏樂觀。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "PBO/CSCV (validate_hybrid.pbo_cscv) — research/strat_lab/validate_hybrid.py:146-162;消費者 research/serenity/validate.py:135、research/strat_lab/validator.py:95、evaluation.py:184",
+      "textbook_def": "PBO via CSCV(Bailey, Borwein, López de Prado & Zhu 2015, 'The Probability of Backtest Overfitting'):對 T×N(N 個策略設定)績效矩陣切 S 等長區塊,窮舉 C(S,S/2) IS/OOS 對半;每組於 IS 挑最佳設定 n*,看 n* 在 OOS 於 N 設定間相對排名;PBO = P(IS 最佳者 OOS 落中位以下)=logit λ_c≤0 比率。核心是『跨設定選擇』,沒有多設定就沒有 PBO。",
+      "implementation": "輸入 folds=單一策略逐年/逐季 metrics dict(每 fold 僅一個 sortino)。隨機把 folds 對半,算兩半平均 sortino,判 oos_sortino<median(sortinos)(:160)。無 N 個設定、無 IS 選擇;且 is_sortino=sortinos[is_idx].mean()(:158)算出後從未使用,判斷式完全不看 IS。本質是『隨機半數年份平均是否低於全體中位』的對稱 ≈50/50 事件,只受 sortino 偏度影響,與過度配適無關。",
+      "evidence": "對 200 組隨機『單策略 16 年 sortino』跑此函式:PBO 平均 0.525、範圍 0.062–0.98(純資料抖動);is_sortino 於 :158 計算後丟棄。Serenity 出廠文件『PBO lag0 0.526(fold 稀疏 caveat 未解)』正是此退化估計量的產物,'fold 稀疏' 誤把病因歸給樣本少,真因是函式根本沒計算 PBO。此 pbo 又被 evaluation.robust_growth_score:184 當排序因子。",
+      "fix": "改用 apex/validate.py:66 的 pbo_cscv(returns: T×K, s=16)(正確 CSCV:多設定日報酬矩陣、C(16,8) 窮舉、IS argmax、OOS 相對排名、P(rank<中位))。Serenity/strat_lab 需先把同一 campaign 各候選設定的日報酬曲線堆成矩陣再餵入;單策略逐年 folds 無法算 PBO,應停止當 PBO 報告與排序因子。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "Deflated Sharpe Ratio (validate_hybrid.deflated_sharpe) — research/strat_lab/validate_hybrid.py:88-105(sigma_sr :101、e_max*sigma_sr 當 SR0 :104);消費者 serenity/validate.py:140、strat_lab/validator.py:90-94",
+      "textbook_def": "DSR=PSR(SR0)=Z[(ŜR−SR0)·√(n−1)/√(1−γ3·ŜR+(γ4−1)/4·ŜR²)](Bailey & López de Prado 2014),其中 SR0=√(V[{ŜR_n}])·[(1−γ)Z⁻¹(1−1/N)+γZ⁻¹(1−1/(N·e))],V[{ŜR_n}] 是『N 個嘗試各自 Sharpe 的橫截面變異數』(真實跨設定離散度)。",
+      "implementation": "sigma_sr=√((1−γ3·SR+(γ4−1)/4·SR²)/(n−1)) 是單策略 Sharpe 估計量標準誤;dsr=Φ((sr_daily−e_max·sigma_sr)/sigma_sr) 等價把 SR0 設為 e_max·sigma_sr,即把 √(V[{ŜR_n}]) 偷換成 sigma_sr。隱含『N 個嘗試彼此只差抽樣雜訊』,但實掃 40(Serenity)/66(strat_lab)個真正不同設定時其 Sharpe 離散度遠大於單策略估計誤差,故懲罰過輕、DSR 系統性偏高(反保守)。docstring 自稱 'López de Prado DSR' 名實不符。次生:sr_annual 由 (cagr−RF)/vol 傳入(幾何 CAGR 基礎、非 mean/std)。",
+      "evidence": "同組日報酬 DSR_hybrid(n=40)=0.2866,與『apex DSR 令 V=sigma_sr²』的 0.2866 逐位相同(證明隱含 V[SR]=單策略估計變異數);把 V 換成 (3·sigma_sr)² 正確 DSR 掉到 0.0000。方向明確:掃越多元設定、真實 V 越大,正確 DSR 越低而 hybrid 越高估。Serenity 報告『DSR 1.00』建立在此反保守輸入上,不能當作已通過多重測試校正。",
+      "fix": "改用 apex/validate.py:44 deflated_sharpe(nav,n_trials,sr_var_across_trials),並以 apex/validate.py:95 sr_variance_from_curves(curves)(各候選曲線日 Sharpe 樣本變異數)供給真實 V[{ŜR_n}];ŜR 改用 mean/std 日 Sharpe。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "bootstrap CI 下界 (serenity validate_series) — research/serenity/validate.py:136-139 取 boot、:153-154 讀 key;來源 validate_hybrid.bootstrap_ci 回傳 key 於 validate_hybrid.py:139-142",
+      "textbook_def": "block bootstrap 算出的 CAGR/Sortino 下界應忠實回報用於『bootstrap 95% CI 下界 > 10% CAGR』上線關卡;回傳與讀取的欄位鍵必須一致,否則統計結果遺失。",
+      "implementation": "years>=4 走 bootstrap_ci(rets,dates),其 key 為 cagr_lb/cagr_ub/sortino_lb/sortino_ub;但 validate_series 讀 boot.get('cagr_lb95',nan) 與 boot.get('sortino_lb95',nan)(:153-154)——key 名不存在,一律回 NaN,等於算完 1000 次 year-block bootstrap 後把下界整個丟掉。只有 years<4 走 month_block_bootstrap(key 正確 cagr_lb95)才有值。",
+      "evidence": "bootstrap_ci 原始碼回傳 cagr_lb(validate_hybrid.py:139),serenity 讀 cagr_lb95→NaN。實測 var/out/strat_lab/ 下 130 支 serenity_event_engine_v1_*_daily.csv 有 30 支跨度≥4 年(如 mech_2018 系列 2018→2026),這些在產表時 boot_cagr_lb95/boot_sortino_lb95 全 NaN,長史穩健度關卡靜默失效。註:現役 registry ev_v3_wf/ev_full_tp60 窗 2025-01→2026-07≈1.5 年<4,走 month_block_bootstrap key 正確,頭條數字倖免;strat_lab validator.py:105 直接讀 boot['cagr_lb'] key 正確不受影響。",
+      "fix": "serenity/validate.py:153-154 改讀 bootstrap_ci 實際 key,或統一兩條 bootstrap 分支回傳 key(長窗補回 cagr_lb95/sortino_lb95,語意用單邊 95% 下界=5th percentile;bootstrap_ci 現用 2.5th percentile=雙邊 95%,須一併對齊)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Sharpe(幾何 CAGR 基礎) — research/strat_lab/validate_hybrid.py:58、research/strat_lab/evaluation.py:135、research/strat_lab/validate_full_v6.py:62(同模板複製三處=缺陷類)",
+      "textbook_def": "Sharpe=E[Rp−Rf]/σp;年化=(mean/std)·√252(算術平均超額報酬/標準差)。",
+      "implementation": "sharpe=(cagr−RF)/vol:分子用幾何 CAGR、分母用年化 σ。幾何<算術(波動拖累≈½σ²),系統性低估 Sharpe;此 Sharpe 又被 BUG 2 的 DSR 當輸入。",
+      "evidence": "同組日報酬 code(cagr 基礎)=0.4152 vs 教科書(mean/std)=0.5771(年化,差 28%);換算日 Sharpe 0.02615 vs 0.03635。同檔 lo_2002_sharpe_test 於 :76 用正確 sr_daily=mean/std——同一報酬、兩個 Sharpe 定義,內部自相矛盾。",
+      "fix": "Sharpe 分子改算術平均日報酬年化(mean(r)·252 或 mean/std·√252),與 Lo 檢定一致;rf 以日頻扣除。台股 rf≈0–1% 差異小,主偏差來自幾何/算術。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Sortino 下行標準差 — research/strat_lab/validate_hybrid.py:57,59、research/strat_lab/evaluation.py:120,134、research/strat_lab/validate_full_v6.py:58-59(同模板=缺陷類)",
+      "textbook_def": "目標下行離差 TDD=√((1/N)·Σ min(Ri−MAR,0)²),對 MAR(通常 0 或 rf)取平方、分母全期數 N(Sortino & Price 1994)。",
+      "implementation": "downside=rets[rets<0]; downvol=downside.std(ddof=1)·√252——只取負報酬、以其自身均值為中心(非 MAR=0)、分母負報酬個數−1(非 N)。兩處都偏離標準 TDD。",
+      "evidence": "同組日報酬 code downvol=0.1885 vs 教科書 TDD(MAR=0,全 N)=0.2182(比值 0.864),Sortino 高估約 16%。此 sortino 又流入 bootstrap sortino 下界、退化 PBO 的 folds、robust_growth_score。",
+      "fix": "downvol=√(mean(minimum(r−MAR,0)²))·√252,MAR 取 0 或 rf/252,分母全期數。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "置換檢定 p 值 (selection_permutation) — research/serenity/validate.py:266",
+      "textbook_def": "有限次置換的無偏 p=(1+#{置換統計≥觀測})/(1+n_perm)(Phipson & Smyth 2010, 'Permutation P-values Should Never Be Zero')。",
+      "implementation": "p=(arr>=actual_cagr).mean()=#{≥}/n_perm,缺 +1 修正,可得 p=0。n_perm=200 時真實 p 最小應為 1/201≈0.005,卻報 0.000。",
+      "evidence": "公式缺 (b+1)/(m+1) 結構;n_perm=200 下任何『無置換≥觀測』即輸出 0.000(Serenity 文件記『置換 p=0.000』),為機率不可能值,低估 p 上限 ~0.005。",
+      "fix": "p=(1+(arr>=actual_cagr).sum())/(1+n_perm)。置換設計本身(保留 gate 與 40 檔上限、只打散排名)正確且良好,僅 p 值公式需修。"
+    },
+    {
+      "severity": "OK",
+      "metric": "apex 驗證核心 — research/apex/validate.py:44 deflated_sharpe / :66 pbo_cscv / :23 block_bootstrap_cagr / :67(lo test in validate_hybrid) / :95 sr_variance_from_curves",
+      "textbook_def": "DSR: Bailey & López de Prado 2014(ŜR=mean/std、denom=√(1−γ3SR+(γ4−1)/4SR²)、SR0 用真實跨嘗試 V[SR]);PBO: CSCV Bailey et al. 2015(T×K 矩陣、C(16,8)、IS argmax、OOS 相對排名);block bootstrap: circular moving-block;Lo 2002/Mertens var_sr=(1+½SR²−γ3SR+(γ4−3)/4SR²)/n。",
+      "implementation": "apex deflated_sharpe 用 mean/std 日 SR(非 CAGR)、母體 γ3/γ4、正確 denom、SR0=√(V[跨曲線])·bracket;pbo_cscv 以多曲線 mat(apex/experiments/p01_battery_revcycle.py:61)餵入正確 CSCV;block_bootstrap_cagr circular block=21(≈1 交易月)、CAGR=growth^(252/t)−1、2.5/97.5 CI;lo_2002_sharpe_test var_sr 完全符合 Mertens/Lo、單邊 p=1−Φ(t)。",
+      "evidence": "逐式對照學理無偏差:apex DSR 為 validate_hybrid DSR 的正確參照(令 V=σ² 兩者逐位相同,證明差異只在 V[SR] 輸入);block=21 為固定慣例值(非由自相關導出如 Politis-White),屬可接受刻意近似;年化 252、rf≈0.01 符合台股語境。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "walk-forward 標籤語意(無真正 train/test 切分)— research/strat_lab/validator.py:74-95、validate_hybrid.walk_forward_folds:109-121",
+      "textbook_def": "walk-forward OOS 應有滾動 train/test 切分並在 train 上重新擬合參數,test 段為真實樣本外;DSR/PBO 用於承擔設定選擇偏誤。",
+      "implementation": "validate_daily_nav 的 'OOS' 只是把報酬視窗切到 2010–2025;walk_forward_folds 只按年切 fold、無 train 段與重新擬合。docstring 宣稱 '5y train/1y test rolling' 未在此真正實作。被驗證的 NAV 若在與驗證同一資料上被挑選,選擇偏誤需靠正確 n_trials 與(修好的)PBO 把關。",
+      "evidence": "程式無任何 train 子集與參數再擬合,fold=逐年切片。目前 PBO 壞(BUG 1)、DSR 反保守(BUG 2),故實質上選擇偏誤未被有效把關;此為結構/標籤問題而非單一算式錯誤,故列 SUSPECT。",
+      "fix": "若需真 walk-forward,應在每 fold 的 train 段重擬合再於 test 段評估;否則將 'OOS' 正名為 in-sample 視窗,並修好 DSR/PBO 讓多重測試校正實際生效。"
+    }
+  ]
+}

@@ -1,0 +1,63 @@
+{
+  "unit": "C-treasury_stock_buyback",
+  "dim": "C",
+  "table": "treasury_stock_buyback",
+  "verdict": "BUG",
+  "summary": "DuckDB cache 與 PostgreSQL 逐欄逐筆完全一致(全表雙向比對零差異、schema/筆數/逐年全同),cache 同步這一步零缺陷。但這張表的原始資料本身不能信:整整 11 年(2000-2010、約 2,760 筆,幾乎等於現有全表)因為民國年解析只吃 3 位數而被靜默丟光;pct_of_capital 欄裝的其實是『買回總金額(億元級)』不是比例;executed_shares 整欄 2,933 筆全是 0(讀錯空白欄);近九成 company_name 是亂碼。四個問題全是上游 Scala reader 的解析 bug,cache 只是忠實複製。用這張表做任何庫藏股訊號前必修 reader 再重讀。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "2000-2010 整整 11 年、約 2,760 筆庫藏股公告被靜默丟棄(民國年 2 位數解析失敗),表規模等於被砍半",
+      "evidence": "原始 HTML 快照(data/treasury_stock_buyback/{twse,tpex}/2026/2026_7.html,mtime 2026-07-19)含 2000-2026 共 twse 3566 + tpex 2157 有效列;但 PG 與 cache 只有 2011-2026、min(announce_date)=2011-01-05、count=2933(兩邊一致)。缺 twse 1,879 列(2000-2010 逐年 188/188/146/143/257/155/144/125/405/77/51)+ tpex 881 列 = 2,760 原始列(distinctBy 去重後淨增仍約 2,700+)。root cause:TradingReader.scala:993 minguoSlashFormatter 用 pattern 'yyy/MM/dd';Java DateTimeFormatter 的 yyy = appendValue(YEAR_OF_ERA,3,19,NORMAL) 需最少 3 位數,民國 89-99(2000-2010)只有 2 位數 → parse 拋 DateTimeParseException → line 1034 announceDate 的 getOrElse(throw) 被 .toOption 吞成 None → 整列 flatMap 丟棄。jshell 實測(scratchpad/T.java):'99/12/31'、'89/01/15'、'97/11/12'(台泥)全 FAIL,'100/01/05'→2011-01-05、'115/07/08'→2026-07-08 成功;cutoff 精準落在民國 100=2011。影響:任何跨 2004-2010 的回測看不到庫藏股事件(訊號在該區間恆缺,靜默前視/樣本偏差)。",
+      "fix": "把 TradingReader.scala:993 的 pattern 'yyy/MM/dd' 改為 'y/MM/dd'(單一 y 變寬,吃 1-19 位)或 appendValue(YEAR_OF_ERA,1,3,NORMAL),再 sbt \"runMain Main read buyback\"(insert-only dedup 會自動補 2000-2010、不重複既有)。無需重抓,原始快照已含 2000-2010。同一 parseMinguoSlashDate 也被 insider_holding(line 1114 declareDate)與 buyback periodStart/End 使用,屬同一缺陷類,一次修好全覆蓋;C-capital_reduction(bug #66)同樣『從 2011 起』的症狀建議一併查是否同源。"
+    },
+    {
+      "severity": "BUG",
+      "what": "pct_of_capital 欄裝的是『本次已買回總金額(NT$)』而非占已發行股份比例——欄名與內容語義完全不符",
+      "evidence": "該欄 2743/2933 列 > 10(台股庫藏股法定上限為已發行股份 10%,>10 不可能),最大 8,509,335,774(85 億),落在合理 0-10 區間的 0 列。root cause:TradingReader.scala:1041 pctOfCapital=parseDouble(cols(16));實測 MOPS t35sc09 資料列為 20 格,cols(16)=『本次已買回總金額』,真正的『本次買回股數佔公司已發行股份總數比例(%)』在 cols(18)。端到端驗證:台泥1101 2019-05-10 cache 存 pct_of_capital=348,959,120,正是該列 HTML 的『本次已買回總金額』;真值比例 0.15 未被存。pct_of_capital/planned_shares 對每列皆落在該列買回價格區間內(8908:40.92∈[30,60]、6491:283.88∈[240,300]、6561:362.96∈[280,470]),證明它是金額=股數×價。reader 第 1006-1012 行自附的『18 欄』對照表停留在錯誤假設,實際版位是 20 欄(是否執行完畢後多一欄『買回達一定標準資料』,把其後每個欄位往後推)。",
+      "fix": "cols(16)→cols(18)(占已發行股份比例)。因是值錯非鍵錯,announce/code/date 鍵不變,insert dedup 不會覆蓋既有錯值——需先清該表再 Main read buyback,或改為 upsert。"
+    },
+    {
+      "severity": "BUG",
+      "what": "executed_shares 全表 2,933 筆一律為 0——整欄報廢(讀到空白欄)",
+      "evidence": "cache distinct(executed_shares)={0},count(executed_shares<>0)=0(PG 同,cache==PG)。root cause:TradingReader.scala:1040 executedShares=parseLong(cols(12));cols(12)=『買回達一定標準資料』(幾乎全空),真正的『本次已買回股數』在 cols(13)。端到端:台泥1101 2019-05-10 真已買回 8,000,000 股(HTML cols(13)),cache 存 0;parseLong 對空字串回 0(line 1003)於是整欄靜默歸零。與 Finding 2 同源:20 欄版位下 reader 用了錯的 18 欄索引。任何依『實際買回執行率』的訊號在此表恆為 0,不可用。",
+      "fix": "cols(12)→cols(13)(本次已買回股數)。與 Finding 2 一起修版位對照表,清表重讀。"
+    },
+    {
+      "severity": "BUG",
+      "what": "company_name 近九成(2603/2933)是亂碼,含洩漏的 HTML 標籤片段——編碼壞在匯入",
+      "evidence": "cache 中 2603/2933 列 company_name 含 U+FFFD 置換字元:台泥1101 存 '�唳野'(首碼 codepoint 0xfffd)、台積2330 存 '�啁���/td>'(混入洩漏的 HTML 標籤 '/td>')。近期 2026 列乾淨(2388 威盛、6180 橘子),舊列汙染——與『初次 bulk import 用錯編碼、之後 insert-only dedup 不覆蓋既有』一致。cache==PG(全表 EXCEPT=0),汙染源在 PG,cache 忠實鏡像。影響:低——下游研究一律以 company_code join(非 name),對訊號/回測無影響,僅人看報告時公司名不可讀。",
+      "fix": "修 parseMopsHtml 的編碼(強制 Big5-HKSCS 解碼或正確讀 meta charset)+ 清表重讀;或加 name-only upsert 讓乾淨 name 覆蓋舊亂碼。低優先(不影響量化訊號)。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 完全一致:schema、筆數、逐年、全表逐欄逐筆皆零差異,cache 同步本身零缺陷",
+      "evidence": "schema 11 欄同名同序同型(market/announce_date/company_code/company_name/planned_shares/price_low/price_high/period_start/period_end/executed_shares/pct_of_capital),PG 的合成主鍵 id 被正確排除、無型別降級(bigint→BIGINT、double precision→DOUBLE、date→DATE、varchar→VARCHAR)。DuckDB ATTACH pg 後雙向 EXCEPT 皆 0 列(cache-only=0、pg-only=0);count 2933=2933;逐年逐市場計數 32 格逐格相同;min/max announce_date 2011-01-05 / 2026-07-08 兩邊一致。cache_tables.py:66 為無 WHERE 的整表複製,設計正確。Finding 1-4 全是上游 reader bug,cache 只是忠實複製,非同步問題。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "尾端與逐年小差已釐清、非缺口:2011-2026 兩邊吻合,2011 後的 HTML>DB 小差全由同(代號,日期)去重造成",
+      "evidence": "raw HTML twse 2026_7.html max(announce)=2026-07-08 == DB max,快照 mtime 2026-07-19,尾端忠實(07-08 後無新公告,非漏抓;事件型稀疏資料本就可長期無公告)。2011-2026 HTML vs DB 各年小差(1-4 筆)由 distinctBy((market,announce_date,code)) 收合 twse 22 個同(代號,日期)多次別列造成,屬設計去重非漏抓。另:period_start<announce_date 3 列、period 期間>70 天 2 列,極少數(疑更正/展延公告),非系統性。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "research/paths.py:確認 cache 位置 var/cache/cache.duckdb(CACHE_DB)",
+    "research/cache_tables.py:66:treasury_stock_buyback 同步 SQL = 無 WHERE 整表 SELECT 11 欄(排除合成主鍵 id),line 131 建 idx_tsb_code_date;確認無漏欄/漏表/型別降級",
+    "PG \\d treasury_stock_buyback:12 欄(含 id) + unique idx (market,announce_date,company_code)",
+    "cache PRAGMA table_info:11 欄,型別與 PG 對應(bigint→BIGINT/double→DOUBLE/date→DATE/varchar→VARCHAR)",
+    "筆數對帳:cache 2933 == PG 2933;逐年逐市場 32 格全同",
+    "全表逐欄逐筆:DuckDB ATTACH pg 雙向 EXCEPT,cache-only=0、pg-only=0(byte-for-byte 相同,勝過抽樣)",
+    "邊界:PG 與 cache min/max announce_date 皆 2011-01-05 / 2026-07-08",
+    "異常值掃描:price_low/high<=0 =0、price_low>price_high=0、planned_shares<=0=0、executed_shares<0=0、executed>planned=0、未來 announce_date=0、period_start>period_end=0",
+    "覆蓋缺口:解析原始 HTML 快照(twse 2026_7.html/tpex 2026_7.html)逐年計數,發現 2000-2010 存在於源檔但完全不在 DB",
+    "root cause 定位:TradingReader.scala:992-1000 minguoSlashFormatter pattern 'yyy/MM/dd';line 1034 announceDate getOrElse(throw)→toOption→None 丟列",
+    "jshell/javac 實測(scratchpad/T.java):yyy pattern 對民國 2 位數年(99/89/97)全拋 DateTimeParseException,3 位數(100/115)成功——證實 2011 cutoff 機制",
+    "版位驗證:解析 MOPS t35sc09 原始 HTML 表頭(18 欄邏輯)+ 資料列(20 格,價格區間/買回期間各拆 2 格 + 多一欄『買回達一定標準資料』),對齊出 cols(13)=已買回股數、cols(16)=已買回總金額、cols(18)=占已發行比例",
+    "端到端值驗證:台泥1101 2019-05-10/2020-03-20 cache 值 vs HTML 原值,證實 pct_of_capital=已買回總金額、executed_shares=0(真值 8,000,000/4,000,000)",
+    "company_name 完整性:2603/2933 列含 U+FFFD;台泥1101 codepoint 0xfffd、台積2330 含 '/td>' 片段;確認為儲存層汙染非終端渲染",
+    "distinctBy 小差來源:twse HTML 22 個重複(代號,日期)鍵,解釋 2011-2026 HTML>DB 的 1-4 筆/年落差",
+    "BUG_TRACKER.md / data_quality_incidents.md:確認本表 4 個問題尚未被記錄;bug #66 C-capital_reduction 同為『2011 起』症狀,疑同源缺陷類"
+  ]
+}

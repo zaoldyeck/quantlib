@@ -1,0 +1,50 @@
+{
+  "id": "B-matview-2_balance_sheet_with_titles",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/materialized_view/2_balance_sheet_with_titles.sql",
+  "unit": "B-matview-2_balance_sheet_with_titles",
+  "verdict": "BUG",
+  "summary": "這張 view 把資產負債表攤平成寬表,大部分欄位可信,但『應收款項(receivable)』這一欄有真的錯:它把同一筆貿易應收的『毛額(應收帳款)』和『淨額(應收帳款淨額)』一起加總,同一筆算兩次。8,765 個公司季(約 7.5%)中彈,最嚴重多算近一倍——鐵證:華榮 1608 2026Q1,view 給 4,759,229,實際總應收只有 2,420,738,高估 +96.6%。牽連下游『收現天數 DSO』與『應收佔資產比』,再傳到策略消費端 growth_analysis_ttm 的 DSO 趨勢旗標;其中 367 家公司『時報兩行時報一行』,DSO 會憑空忽高忽低、誤觸收現天數改善/惡化訊號。關鍵語意邊界(不是錯,是對的):資產負債表是季末存量快照,本來就不該做累計差分,這張 view 正確地零 lag/零減法,沒有損益表那種累計亂減病。實務 blast radius 小:這些 view 都不在 Python cache(現役實盤引擎不讀),Scala strategy/ 已凍結,Signals.scala 具名只讀乾淨的 fcf_per_share——所以現在沒賠到錢,但只要有人拿 receivable/DSO/receivables_ratio 去研究或選股,數字就是髒的。另有兩個低嚴重度瑕疵:FULL JOIN 孤兒會把約 3 列的其他欄位打成 NULL(邏輯漏洞、量小)、PP&E 用字母序任意挑毛額/淨額但該欄下游無人使用(死欄位)。",
+  "checked": [
+    "精讀 2_balance_sheet_with_titles.sql 全文(:1-74):六個 CTE(cash/receivable/inventories/prepaid/ppe/total_capital_stock)+ 主查詢的 join 結構,逐欄記下 title 集與去重手法",
+    "確認資產負債表是存量快照 → view 正確地零 lag/零減法/零累計差分;稽核單的 TTM 差分問題對本 artifact N/A",
+    "消費端盤點:grep balance_sheet_with_titles → view/4_financial_index_ttm.sql:101-104、view/3_financial_index_quarterly.sql:68-71、FinancialReader.scala:289 refresh;PP&E 欄全庫零引用(死欄位)",
+    "market join 證偽:psql SELECT market,count(*) FROM balance_sheet → 全 7,205,860 列 market='tw';matview 輸出全 'tw';消費端 =' tw' 匹配成功,非 twse/tpex 對不上",
+    "matview 統計:total 116,455 列;cash_nn 116,379 / recv_nn 115,987 / inv_nn 107,259 / prep_nn 75,177 / ppe_nn 96,296 / tcs_nn 116,452;distinct (year,quarter,company_code)=116,720",
+    "扇出檢查(psql):cash/inventories/total_capital_stock 各自 title 集在同一公司季零多重命中 → 裸 select 無列複製",
+    "receivable 重複計算鐵證:1608 2026Q1 原始列 其他應收 76,675 + 應收帳款 2,338,491 + 應收帳款淨額 2,338,491 + 應收票據淨額 5,572;view receivable=4,759,229=四者相加,貿易應收算兩次;應有 2,420,738;高估 +96.6%",
+    "receivable 規模(psql):(應收帳款+應收帳款淨額)OR(應收票據+應收票據淨額)OR(應收款項+應收款項淨額)同季並存 = 8,765/116,720 公司季(≈7.5%);單應收帳款毛+淨 = 7,471",
+    "備抵損失存負值:備抵損失－應收帳款 avg −46 / 備抵損失－其他應收款 avg −6,450 → 毛+淨≈2×毛,即使有備抵仍近兩倍高估",
+    "DSO 趨勢傳染(psql):曾雙報公司 414,其中 intermittent(時雙時單)367、always_double 47 → 367 家在格式切換季 receivable 憑空跳 2×,污染 growth_analysis_ttm DSO 趨勢旗標",
+    "下游用途定位:financial_index_ttm receivable → days_sales_outstanding(view/4:48-53)、receivables_ratio(:92);growth_analysis_ttm 用 days_sales_outstanding 趨勢(view/5:160+);quick_ratio(:24)只用 inventories+prepaid,不碰 receivable",
+    "prepaid 證清白(psql):多 title 2,078 公司季中 2,045 為『預付款項合計+預付費用合計』(兩不同類別,合加正確),真正明細+自身合計重疊近 0 → 不重複計算",
+    "blast radius:research/cache_tables.py:86 明文移除 financial_index_quarterly、financial_index_ttm 從未快取 → Python 實盤不讀;Signals.scala 對 financial_index_ttm 具名只讀 fcf_per_share(:548-565,分母為乾淨 total_capital_stock)",
+    "事故簿對照:docs/data/data_quality_incidents.md 無本 view / receivable 重複計算紀錄 → 新發現,非已知真實邊界"
+  ],
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "receivable 欄重複計算:sum() 的 title 清單同時包含同一筆的『毛額 應收帳款』與『淨額 應收帳款淨額』(以及其他毛/淨、明細/合計重疊),一起加總 → 同一筆貿易應收算兩次,總應收灌水最高近一倍。8,765 個公司季(≈7.5%)中彈。",
+      "evidence": "檔案 :6-19 receivable CTE 的 sum(value) over 30+ titles,清單含『應收帳款』與『應收帳款淨額』、『應收票據』與『應收票據淨額』、『應收款項』與『應收款項淨額』等毛/淨並列。鐵證:SELECT receivable FROM balance_sheet_with_titles WHERE company_code='1608' AND year=2026 AND quarter=1 → 4,759,229;原表列為 其他應收款 76,675 / 應收帳款 2,338,491 / 應收帳款淨額 2,338,491 / 應收票據淨額 5,572,相加=4,759,229(貿易應收 2,338,491 算兩次);應有總應收=76,675+2,338,491+5,572=2,420,738;高估 +96.6%。規模 SQL(見 checked)=8,765/116,720。傳染:financial_index_ttm days_sales_outstanding(view/4:48-53)與 receivables_ratio(:92)→ growth_analysis_ttm DSO 趨勢旗標(view/5:160+);367/414 家 intermittent 報表使 DSO 在格式切換季憑空跳 2×。",
+      "fix": "receivable CTE 不能無腦 sum 整張同義詞清單。改法二選一:(1)分層取單一口徑——把每一大類(貿易應收、應收票據、其他應收、關係人應收、金融/營建專科)各自用『淨額優先、其次合計、再次毛額』的 coalesce/優先序取『一個』代表值,再把各大類相加,絕不讓同一大類的毛+淨或明細+合計同時進 sum;(2)若原表確有階層,先排除所有『合計/淨額 的下層明細』與『毛額當淨額已存在時』的列。修完對 8,765 中彈公司季做 before/after diff,並抽 1608 2026Q1 驗證 receivable 由 4,759,229 → 2,420,738。此為 canonical view 定義變更,改後需 refresh matview 並回歸 financial_index_ttm / growth_analysis_ttm。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "FULL JOIN 孤兒邏輯漏洞:主表 total_capital_stock 對 receivable 用 full join,但後續 cash/inventories/prepaid/ppe 的 left join 全以 total_capital_stock.year/quarter/company_code 為鍵。『只有 receivable、無 total_capital_stock』的孤兒列會讓 total_capital_stock.* 為 NULL,使那幾個 left join 對不上 → cash/inventories/prepaid/ppe 即使原表有值也被強制 NULL。目前約 3 列,影響微小,但為真邏輯瑕疵。",
+      "evidence": "檔案 :59-74:from total_capital_stock full join receivable(:63)後,inventories(:66-68)/prepaid(:69-71)/ppe(:72-74)的 on 條件全用 total_capital_stock.year 等,而非 coalesce(total_capital_stock.year, receivable.year)。量測:matview total 116,455 列 vs total_capital_stock 非空 116,452 → 約 3 個孤兒列的非股本欄位被錯誤 NULL 化。",
+      "fix": "後續各 left join 的 on 鍵改用 coalesce(total_capital_stock.<k>, receivable.<k>);或整段先 union 出完整 (year,quarter,company_code) 鍵集,再逐項 left join 該鍵集,杜絕任何一個 CTE 缺列就把其他欄位打成 NULL。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "property_plant_and_equipment 用 distinct on ... order by title 在『不動產、廠房及設備』/『…淨額』/『…合計』間按科目名字母序任意挑一個,可能取到不一致的毛額/淨額口徑;但該欄下游完全無消費者(死欄位),目前只是壞味道非活 bug。",
+      "evidence": "檔案 :30-43 property_plant_and_equipment CTE 的 distinct on (year,quarter,company_code) order by year,quarter,company_code,title——tie-break 只靠 title 字母序,語意上無毛/淨口徑保證。消費端證死:grep -rn property_plant_and_equipment src research(排除本檔)零命中;financial_index_ttm / _quarterly 皆未引用此欄。",
+      "fix": "若未來要用此欄:order by 改成明確口徑優先序(通常取『不動產、廠房及設備』淨額),或用 case 指定 title 權重;若確定不用,直接從 view 移除該 CTE 與欄位以除死碼。"
+    },
+    {
+      "severity": "OK",
+      "what": "累計差分(TTM)正確地不做、market join 對得上、cash/inventories/total_capital_stock 零扇出、prepaid 非重複計算、quick_ratio 不受污染——這些查過皆無問題。",
+      "evidence": "(1)view 全文零 lag/零減法,符合資產負債表存量快照語意。(2)balance_sheet 全 7,205,860 列 market='tw',消費端 =' tw' 匹配(view/4:101)。(3)psql 扇出檢查:cash/inventories/total_capital_stock 各 title 集同公司季零多重命中。(4)prepaid 多 title 2,078 季中 2,045 為『預付款項合計+預付費用合計』兩不同類別,合加正確;毛+自身合計重疊近 0。(5)quick_ratio(view/4:24)=(流動資產−存貨−預付)/流動負債,不含 receivable。",
+      "fix": ""
+    }
+  ]
+}

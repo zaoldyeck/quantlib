@@ -1,0 +1,62 @@
+{
+  "id": "C-taifex_futures_institutional",
+  "dim": "C",
+  "source": "taifex_futures_institutional",
+  "reader": "TradingReader.readTaifexFuturesInstitutional",
+  "table": "taifex_futures_institutional",
+  "sync": "research/cache_tables.py:69-74",
+  "raw_files": 37,
+  "unit": "C-taifex_futures_institutional",
+  "verdict": "OK",
+  "summary": "這份期貨三大法人資料可以信。DuckDB cache 是 PostgreSQL 的逐格完全複本:全 47,796 列、16 個資料欄,ATTACH PG 後雙向 EXCEPT 零差異,COUNT+12 欄 SUM+MIN/MAX 字元級相同,整表與逐年筆數兩邊全等。涵蓋窗 [2023-05-22, 2026-05-21] 內沒有漏掉任何一個交易日——反而比 twse 報價日曆多兩天(2025-08-15、2026-04-29),那兩天是被 0-byte sentinel 誤標成休市的真交易日(已在 C-daily_quote 立案),institutional 正確收錄,獨立佐證那個 bug。表內自洽、無異常值。唯二 caveat 都不是資料錯:(1) 尾端落後 38 交易日,PG 和 cache 一起停在 2026-05-21(爬蟲自那天起沒再跑),跑一次 Main pull/read taifex 即補、且 <3 年窗尚未永久遺失;(2) 前緣 2023-05-22 是 TAIFEX 免費端點滾動三年的天生界線,不是漏抓。cache 少 id 欄是對的(自增代理 PK,非資料欄)。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "cache == PG 逐格完全複本。全 47,796 列、16 個資料欄雙向比對零差異;schema 只丟自增代理主鍵 id(正確),16 個資料欄全在、型別全等(date=DATE、12 個數值欄=BIGINT,零降級)。",
+      "evidence": "DuckDB ATTACH PG READ_ONLY,對 16 欄 (date,contract_code,product_name,investor_type,long/short/net_volume,long/short/net_value_thousands,long/short/net_open_interest,long/short/net_oi_value_thousands) 跑雙向 EXCEPT → CACHE\\PG=0, PG\\CACHE=0(CELL-EXACT MIRROR)。全欄聚合交叉驗證:COUNT=47796=47796,12 欄 SUM + net_volume/net_open_interest 的 MIN/MAX 兩邊字元級相同('47796,334817392,436752909742,337277653,437722343493,-2460261,-969433817,215054362,284951749629,485592689,390388162045,-270538327,-105436412416,-35509,47288,-435884,150451')。逐年筆數 PG==cache:2023=9270/2024=15618/2025=16767/2026=6141。同步程式 research/cache_tables.py:69-74 明列 16 欄;PG 第 17 欄 id 為 nextval('taifex_futures_institutional_id_seq') 自增代理鍵,真正唯一鍵 (date,contract_code,investor_type) 完整保留。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "尾端落後 38 個交易日(不是 cache 不同步,是爬蟲沒跑)。taifex_futures_institutional 與 taifex_futures_daily 都停在 2026-05-21;PG 與 cache 同步停在此,cache 忠實鏡射 PG 的舊。2026-05-22 至 2026-07-17 有 38 個 twse 交易日沒有 TAIFEX 資料。<3 年窗尚未永久遺失,但拖過三年最舊段會滾出免費端點只能付費取得。",
+      "evidence": "SELECT MAX(date) FROM taifex_futures_institutional → 2026-05-21;taifex_futures_daily 同為 2026-05-21;data/taifex/ 目錄 mtime = May 21 07:42(爬蟲最後跑的時間)。缺口天數:SELECT COUNT(DISTINCT date) FROM \"index\" WHERE market='twse' AND name='發行量加權股價指數' AND date > '2026-05-21' AND date <= '2026-07-23' → 38(first_missing 2026-05-22, last_available 2026-07-17)。",
+      "fix": "由主流程統一補抓(稽核不自己下載):sbt \"runMain Main pull taifex\" → sbt \"runMain Main read taifex\"(reader 為 insert 不刪舊,補上尾端) → uv run --project research python research/cache_tables.py 重建 cache。端點 https://www.taifex.com.tw/cht/3/futContractsDateDown(三大法人-區分各期貨契約-依日期,免費滾動三年)。建議儘快,以免最舊段滾出免費窗。"
+    },
+    {
+      "severity": "REAL",
+      "what": "涵蓋窗內 institutional 有、twse 報價卻沒有的兩天 2025-08-15、2026-04-29,不是 institutional 的錯——是真交易日被 twse 0-byte sentinel 誤標成休市(已在 C-daily_quote 立案)。institutional 正確收錄這兩天,獨立佐證那個 sentinel 誤標 bug。",
+      "evidence": "以 daily_quote market='twse' 交易日為基準,窗 [2023-05-22,2026-05-21] 內『有報價無法人資料』=0,『institutional 有 twse 報價沒有』=2(2025-08-15 Fri、2026-04-29 Wed)。三重獨立佐證這兩天是真交易日:(a) 原始 Big5 CSV 實體有該日 69 列=23 契約×3 身份別,iconv -f BIG5 解碼日期欄為西元 '2026/04/29'/'2025/08/15'(先前用民國 '114/04/29' grep 才 miss);(b) taifex_futures_daily 同日 2341/2287 列;(c) TAIEX 加權指數當日真實收盤 24334.48(+96.38)/39303.50(-218.23)。而 research/data_calendar.py::is_trading_day 對兩天皆回 False(讀 twse 0-byte sentinel)。窗內另外兩個誤標日 2021-08-18(窗外)、2026-05-28(尾端後)與本表無關。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "net_value_thousands ≠ long_value − short_value 有 6,867 列,但全部落在 ±2 千元,是來源三個金額欄各自獨立四捨五入到千元造成,reader 忠實照收官方『多空交易契約金額淨額』欄(未自行重算),非 bug。口數與未平倉口數的 net 則完全精確。",
+      "evidence": "SELECT net_value_thousands-(long_value_thousands-short_value_thousands) d 的 MIN=-2 MAX=+2 mean|d|=0.145,#(|d|>2)=0。對照 net_volume≠long-short=0、net_open_interest≠long-short=0、net_oi_value≠long-short=0(口數整數不需捨入故精確)。原始 CSV 標頭確有三個獨立欄:多方交易契約金額(千元)、空方交易契約金額(千元)、多空交易契約金額淨額(千元);reader TradingReader.scala:537 readTaifexFuturesInstitutional 直接映射官方淨額欄。±2 千元≈±NT$2,000,對上億名目可忽略。忠實保留來源欄優於重算。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "最早只到 2023-05-22 不是漏抓,是 TAIFEX 免費端點『滾動三年』的天生界線(更早歷史需付費/申請)。",
+      "evidence": "端點為靜態 URL:setting/TaifexFuturesInstitutionalSetting.scala override def url = file(無日期參數);application.conf data.taifex.futuresInstitutional 官方註解『Official free page exposes a rolling three-year window; older history requires paid/application workflow』。爬蟲 2026-05-21 那次抓回的三年窗即 ~2023-05 至 2026-05,故 MIN(date)=2023-05-22。Setting 的起算日 2008-04-07 只是 Detail 建構參數,對靜態 URL 無效。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "異常值掃描全清:無負成交量/負未平倉、無『量=0 金額≠0(或反之)』、無未來日期、每個 (date,contract) 固定 3 列(3 身份別齊全)、極值合理。",
+      "evidence": "long/short_volume<0=0、long/short_open_interest<0=0、long_vol=0&value≠0=0、long_vol≠0&value=0=0、date>2026-07-23=0、(date,contract) 列數≠3 的組合=0。極值:long_volume∈[0,588861]、long_open_interest∈[0,258435]、net_open_interest∈[-435884,150451],量級與台指期規模相符。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema:cache DESCRIBE vs PG \\d — cache 16 資料欄 vs PG 17(僅少自增代理 PK id),型別全等 date/BIGINT 零降級",
+    "sync 程式 research/cache_tables.py:69-74 明列 16 欄,無漏欄/漏表/型別降級",
+    "筆數:整表 47796=47796、逐年 2023/24/25/26 = 9270/15618/16767/6141 兩邊全等",
+    "逐格:DuckDB ATTACH PG 全 16 欄雙向 EXCEPT = 0/0(非抽樣,全表全欄);全欄聚合 SUM/MIN/MAX 字元級相同",
+    "覆蓋缺口:vs daily_quote twse 交易日,窗內漏日=0;institutional 多兩天(2025-08-15/2026-04-29)經原始 CSV+taifex_futures_daily+TAIEX 指數三重確認為真交易日(twse sentinel 誤標,C-daily_quote 已立案)",
+    "前緣 2023-05-22:確認為端點滾動三年天生界線(靜態 URL + application.conf 官方註解),非漏抓",
+    "尾端:institutional 與 taifex_futures_daily 皆停 2026-05-21,vs twse 指數日曆缺 38 交易日(爬蟲自 5/21 未跑),data/taifex mtime May 21 佐證",
+    "異常值:net=long-short 自洽(口數/未平倉精確,金額 ±2 千元為來源獨立捨入非 bug)、無負值、無未來日期、每 (date,contract) 3 列、極值合理",
+    "原始檔:iconv -f BIG5 解碼 2026_4.csv/2025_8.csv 確認 2026/04/29、2025/08/15 各 69 列真實存在(西元日期格式)",
+    "reader TradingReader.readTaifexFuturesInstitutional(TradingReader.scala:537)忠實映射官方欄,未重算淨額"
+  ]
+}

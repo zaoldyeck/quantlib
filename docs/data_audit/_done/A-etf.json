@@ -1,0 +1,51 @@
+{
+  "unit": "A-etf",
+  "verdict": "SUSPECT",
+  "summary": "當前 all.json 的 228 列逐欄比對 PG 全部相符,解析本身忠實(日期西元非民國、無欄位錯位、無編碼問題、無單位問題)。但 etf 表有三個真實但目前不致命的瑕疵:(1) 5 檔雙幣別 ETF 的人民幣/美元版代號被 split('(') 丟掉,而它們是實際交易中的證券;(2) 62 檔槓桿/反向/期貨/債券 ETF 因不在 domestic/foreign 名單而一律 default region='tw',其中約 40 檔實追蹤海外;(3) reader 為 append-only,7 檔 ETF 的名稱/發行人凍結在上市首見值(台新新光合併、玉山併保德信皆未更新)。三者目前均無 money-path 影響:etf 表僅被 Universe 當 company_code 排除名單(且被四碼正則蓋過而多餘),region 欄全庫無人讀取,name/issuer 的研究消費者直讀原始 JSON,Constant.ETFs/DEBTs 為死碼。",
+  "findings": [
+    {
+      "severity": "SUSPECT",
+      "what": "5 檔雙幣別 ETF 的第二幣別代號(人民幣/美元版)被丟棄,未進 etf 表,而它們是實際交易中的證券",
+      "evidence": "FinancialReader.scala:435 `row(1).as[String].split('(').head` 只留 '(' 前的新臺幣主代號。raw all.json 有 '006205(新臺幣)<br>00625K(人民幣)'、'00636(新臺幣)<br>00636K(美元)'、'00643(...)<br>00643K'、'00657(...)<br>00657K'、'00668(...)<br>00668K',etf 表只存 006205/00636/00643/00657/00668,K 版全缺(psql: SELECT company_code FROM etf WHERE company_code LIKE '%K' → 0 列)。但 K 版皆為實際交易證券:psql \"SELECT company_code,count(*),min(date),max(date) FROM daily_quote WHERE company_code IN ('00625K','00636K','00643K','00657K','00668K') GROUP BY 1\" → 00625K 2419 筆(2016-08-08~2026-07-17)、其餘 4 檔各 2121~2405 筆。",
+      "fix": "含 '(' 的代號格用 <br>/\\n 切成多列、各幣別一列插入;或明確註記 etf 表僅收新臺幣主代號。當前無影響(K 版 0 開頭,策略母體 ^[1-9][0-9]{3}$ 正則本就排除),可低優先。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "region 欄對槓桿/反向/期貨/債券 ETF 系統性誤標為 tw:62 檔不在 domestic/foreign 名單者一律 default 'tw',約 40 檔實追蹤海外",
+      "evidence": "FinancialReader.scala:443-445 region 邏輯:in domesticCodes→tw、in foreignCodes→foreign、else→tw(default)。domestic.json 82 檔 + foreign.json 84 檔僅涵蓋普通型;槓桿(L/正2)、反向(R/反1)、期貨(U)、部分債券(B)全缺 → 落入 default tw。獨立解析列出 62 檔 default-tw,標的指數自證海外:00633L 富邦上証(中國)、00637L 元大滬深300(中國)、00655L 國泰中國A50(中國)、00670L 富邦NASDAQ(美國)、00647L 元大S&P500(美國)、00640L 富邦日本(日本)、00650L 復華香港(HK)、00680L 元大美債20(美債)等皆標 region=tw。三檔已驗實際交易(00633L/00637L/00670L 各 2288~2834 筆 daily_quote)。",
+      "fix": "region 欄全庫 grep 無任何讀取者(src 僅 reader 寫入;research 直讀 raw JSON;cache/db.py 只複製 company_code)。若未來要用 region,改由標的指數/管理方式推斷,勿一律 default tw。當前無 money-path 影響。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "reader 為 append-only(只插新代號、既有代號永不更新),7 檔 ETF 的 name/issuer/index 凍結在上市首見值,改名/併購未反映",
+      "evidence": "FinancialReader.scala:450 `allData.filterNot(row => dataAlreadyInDB.contains(row._2))`,無 insertOrUpdate/update 路徑(grep 全 reader 確認;readETF 為 etf 表唯一寫入者)。乾淨比對(psql -tAF '\\t',避開 FORMAT csv 把空字串印成 '\"\"' 的抽取陷阱)raw all.json vs PG:name 6 差、issuer 5 差、index 1 差。db=上市首見值 vs raw=現名:00904/00775B/009805 issuer db=新光投信 raw=台新(2025 台新新光金合併)、009803/009810 db=保德信投信 raw=玉山(2024 玉山併保德信投信)、00690 name db='兆豐臺灣藍籌30' raw='兆豐藍籌30'、00981A index db='...加權股價指數' raw='...加權股價報酬指數'。註:先前一版比對誤報 25 個 index 差,經查為 psql FORMAT csv 把空字串渲染成 '\"\"' 的抽取假象,清潔抽取後僅 1 筆真差。",
+      "fix": "若需現名改 insertOrUpdate 或定期整表重建;否則將 name/issuer/index 語意明確定為『上市首見登記值』。當前無 money-path 消費者:Universe 只用 company_code、Constant.ETFs/DEBTs 全庫無呼叫者(死碼)、research(taiwan_equity_etf_ranking.py:94-95)直讀原始 JSON。影響為零。"
+    },
+    {
+      "severity": "OK",
+      "what": "當前 all.json 228 列解析忠實:代號集合、上市日期、欄數、編碼全數通過",
+      "evidence": "獨立 Python 解析(scratchpad/audit_etf.py,不呼叫受測 reader)228 列,對 PG etf 逐欄比對:company_code 對稱差為空(228==228,無多無少);listing_date 0 筆不符;日期為西元格式(2003.06.30),regex 0 筆解析失敗,無民國年災難;每列欄數 Counter({5:228}) 全齊,無 fall-through 錯位;中文欄 UTF-8 乾淨比對相符無亂碼;split('(') 後 company_code 無重複(不會撞 unique index)。dom∩fgn 代號交集為空(無地區歸屬衝突)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "3 個 CSV 原始檔(all/domestic/foreign.csv)從未被 readETF 讀取,且已過期",
+      "evidence": "readETF 只開 all.json/domestic.json/foreign.json(FinancialReader.scala:415/423/427),不碰 *.csv。ls -la data/etf:*.csv mtime 2022-01-09 vs *.json mtime 2026-07-19,內容已不同步。非正確性問題(JSON 為權威來源且解析正確),屬冗餘死下載。",
+      "fix": "停止下載或刪除 *.csv,避免誤讀過期檔。"
+    }
+  ],
+  "checked": [
+    "ETFSetting.scala:確認 3 個 Detail(all/domestic/foreign)皆下載為 .json,url 直接取自 application.conf data.etf.file.*",
+    "db/table/ETF.scala:表定義 (id,listing_date,company_code,name,issuer,index,region),unique index idx_ETF_companyCode 在 company_code",
+    "FinancialReader.readETF (FinancialReader.scala:402-456):getETFCodes 取 domestic/foreign 每列 row(0) 為代號;all.json 欄序 上市日期/證券代號/證券簡稱/發行人/標的指數 對映 row(0..4);region 三分支(domestic→tw/foreign→foreign/else→tw);append-only filterNot(dataAlreadyInDB)",
+    "raw 原始檔結構:all.json fields=[上市日期,證券代號,證券簡稱,發行人,標的指數] 228 列;domestic.json/foreign.json fields=[證券代號,證券簡稱,管理方式,ETF分類] 82/84 列;全列欄數齊整",
+    "獨立解析 vs PG 逐欄比對(scratchpad/audit_etf.py + compare_etf.py):228 代號集合完全一致;listing_date/region 0 差;name 6 差 / issuer 5 差 / index 1 差(清潔抽取後,皆為 append-only 改名凍結,非解析錯)",
+    "PG etf 基本盤:228 列 / 228 distinct code / listing 2003-06-30~2026-07-15 / region tw=144 foreign=84(foreign 恰等於 foreign.json 84 檔全中,tw=82 domestic + 62 default)",
+    "雙幣別漏收驗證:daily_quote 確認 00625K/00636K/00643K/00657K/00668K 皆實際交易證券(2121~2419 筆),etf 表 0 檔 K 版",
+    "region 誤標驗證:62 檔 default-tw 中 00633L/00637L/00670L 等約 40 檔標的指數為海外指數;三檔已驗 daily_quote 實際交易",
+    "消費者盤點:Universe.scala:65 僅 company_code NOT IN etf(且 ^[1-9][0-9]{3}$ 正則已排除全部 0 開頭 ETF,此排除多餘);Constant.ETFs/DEBTs(Constant.scala:14-22)全庫無呼叫者=死碼;research/analyses/taiwan_equity_etf_ranking.py:94-95 直讀原始 JSON 非 PG 表;cache_tables.py:56 與 db.py:144 只複製 company_code 單欄",
+    "寫入者盤點:grep TableQuery[ETF] 僅 Task.scala:36(createTables)與 FinancialReader:403/453(唯一寫入,append-only,無 upsert)",
+    "編碼:raw JSON 與 PG 皆 UTF-8,中文欄比對相符無亂碼;日期西元非民國,無檔名/內容日期不符(all.json 無獨立內容日期欄,上市日期即欄值)",
+    "抽取陷阱記錄:psql COPY FORMAT csv 會把空字串渲染成 '\"\"'(兩個雙引號),導致首版誤報 24 個 index 假差異;改用 psql -tAF '\\t' 後消失,真差異僅 00981A 一筆"
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "unit": "B-view-9_valuation_1q",
+  "verdict": "BUG",
+  "summary": "這張估值表分兩半。相對估值那半(股價在回歸通道的位置、PER/PBR/殖利率的 3.5 年分位)算得乾淨、沒偷看未來,可以看貴或便宜——但有一個號誌燈壞了:最便宜等級 evaluation=+2 永遠不會亮,超便宜股票被錯標成只是便宜(+1)。DCF 內在價值那半是壞的:用 EPS 年增率當成長率,但全市場 1/4 的季度 EPS 是負或近零,一除成長率就爆,內在價值飆到每股 10^158 元(大魯閣股價 16 元、DCF 卻說值 1.8 兆/股),外加 10 年成長率視窗排序寫錯偷看同年後幾季。結論:相對估值欄位堪用(修好號誌燈),DCF 欄位不能拿來選股。所幸目前無任何實盤/回測程式讀這張 view(apex 直接讀 stock_per_pbr 表),殺傷範圍限手動查表或 BI。公式與 8_valuation.sql 完全相同,兩張 view 同病。",
+  "checked": [
+    "精讀 9_valuation_1q.sql 全文並與 8_valuation.sql 逐段比對:公式完全相同,_1q 只多三道近期過濾器(price date>=now-3y7m、channel date>=now-3mo、dcf year>=now-1y)加速,算式問題兩張一致",
+    "stock_per_pbr_dividend_yield schema:無 closing_price 欄 → line 30-33 的 left join daily_quote 是 closing_price 的唯一來源(非死 join);daily_quote 有 closing_price/price_earning_ratio",
+    "growth_analysis_ttm 欄位 + 5_growth_analysis_ttm.sql:eps_growth_rate_1y = eps/lag(eps,4)-1(YoY);passthrough 的 eps_growth_rate 是 QoQ(lag1)",
+    "4_financial_index_ttm.sql line 93-94:eps = sum(eps) over(...rows between 3 preceding and current) = 4 季 TTM,故 DCF 基期與 lag4 YoY 量綱正確",
+    "重現 eps_growth_rate_10y 的 desc 排序 look-ahead(2330):每個非 Q4 列的 10y 視窗最大期別 = 當年 Q4(未來);buggy vs 正確排序值分歧(2020Q1 0.1425 vs 0.1821、2022Q1 0.2042 vs 0.1681)",
+    "全市場當期 valuation_1q(115,799 列)dcf_10y_err 分佈:min -2.9e153、median -0.62、max +4.9e152;>100x 有 6191 筆、負 DCF 有 16474 筆",
+    "具體爆炸案例 1432 大魯閣:TTM EPS 6.03、股價 16、dcf_10y=7.86e158、dcf_1y=1.81e12;::real 轉型直接 overflow",
+    "evaluation 分佈:{-2:15151, -1:12858, 0:71115, 1:16675},無 2 → +2 死分支確認",
+    "per_err/pbr_err 邊界:實測嚴格 [-1.000, 1.000](含當列滾動極值 → PIT 安全、無 ±inf)",
+    "EPS 正負頻率:growth_analysis_ttm 2023+ 共 22737 筆,eps<0 有 5554(24.4%)、=0 有 13",
+    "daily_quote 同 (date,company_code) 跨兩市場 = 0 筆(台股代號全市場唯一,故缺 market 條件目前不爆列)",
+    "stock_per_pbr_dividend_yield PER 分佈(近 4 年):neg 0、zero 1、null 414876、pos 1364564 → TWSE 虧損公司 PER 給 NULL 不給負,per_err 範圍不被污染",
+    "消費者追蹤:grep valuation_1q 全庫(scala/py/sql/md)僅前一稽核筆記引用;apex load_valuation 讀 stock_per_pbr 資料表非本 view;Main.scala:334 / Signals.scala 命中僅註解 → 無程式消費者",
+    "DCF 月→季 PIT 對應(line 218-223)對照 TWSE 法定申報期限(Q1 5/15、Q2 8/14、Q3 11/14、年報 3/31):每格取已公布季,保守無 look-ahead",
+    "DCF 兩段式幾何級數公式推導:成長段 Σx^t=x(1-x^10)/(1-x)、終值段 x^10·y(1-y^10)/(1-y),x=(1+g)/(1+r)、y=(1+term)/(1+r) 數學正確,nullif 擋 x=1/y=1"
+  ],
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "DCF 欄位(dcf_1y/3y/5y/10y 與 dcf_*_err)爆炸,不能拿來選股。根因:eps/lag(eps,4)-1 這種比率成長率在去年 EPS 為負或近零時噴出荒謬值,而全市場 24% 的季度 EPS<=0",
+      "evidence": "growth_analysis_ttm 2023+ 22737 筆中 eps<0 有 5554(24.4%)。全市場當期 valuation_1q 115799 列:dcf_10y_err∈[-2.9e153,+4.9e152],>100x 6191 筆、負 DCF 16474 筆。具體:1432 大魯閣 TTM EPS 6.03、股價 16 元,dcf_10y=7.86e158、dcf_1y=1.81e12(每股 1.8 兆),成長率算出 -1042%。SQL:select count(*) filter(where dcf_10y_err>100), count(*) filter(where dcf_10y<0) from valuation_1q;",
+      "fix": "成長率進 DCF 前做保護:基期 eps<=0 時該成長率設 NULL(而非讓比率爆);對成長率 winsorize/clamp(如 [-0.5, 0.5])並對 DCF 結果設上限;或直接移除 DCF 欄位(數學對但輸入不可靠)。此為 8_valuation.sql 與 9_valuation_1q.sql 共病"
+    },
+    {
+      "severity": "BUG",
+      "what": "evaluation 的 +2(超便宜)是死分支,永遠不會亮:CASE 便宜側先判 `closing_price <= low then 1` 再判 `<= lowest then 2`,但 lowest<low,故跌破 -2σ 的股票必先被 1 攔截,被錯標成只是便宜。貴側(highest 先於 high)反而正確,形成不對稱",
+      "evidence": "9_valuation_1q.sql line 179-184。實測 select distinct evaluation from valuation_1q → {-2,-1,0,1},無 2(-2 有 15151 筆、+2 有 0 筆)。8_valuation.sql line 176-181 同",
+      "fix": "便宜側對調:先判 `when closing_price <= lowest then 2` 再 `when closing_price <= low then 1`(鏡像貴側既有的正確順序)"
+    },
+    {
+      "severity": "BUG",
+      "what": "eps_growth_rate_10y 視窗用 `order by year, quarter desc`(desc 只作用在 quarter),造成混向排序 → 前視偏誤(同年後面幾季的未來資料被算進來)+ 這 40 列不是最近十年。同檔 _3y/_5y 用正確的 `order by year, quarter`。只污染 dcf_10y 系列",
+      "evidence": "9_valuation_1q.sql line 104(8_valuation.sql line 102 同)。重現 2330:每個非 Q4 列的 10y 視窗 max(year*10+quarter)=當年 Q4(> 當列期別)→ look-ahead;buggy vs 正確值 2020Q1 0.1425 vs 0.1821、2022Q1 0.2042 vs 0.1681,差值再被 x^10 放大進 dcf_10y",
+      "fix": "改成 `order by year, quarter`(與 _3y/_5y 一致)"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "eps_growth_rate_3y/5y/10y 用固定分母 12/20/40 求平均,但 sum 略過 NULL 且新股不足視窗長度時列數不夠 → 上市未滿 3/5/10 年的股票平均成長率被系統性低估,再傳入 DCF",
+      "evidence": "9_valuation_1q.sql line 97-105:sum(...) rows between 11/19/39 preceding 除以固定 12/20/40",
+      "fix": "分母改為視窗內實際非 NULL 列數(count over 同一 frame),或 avg(...) 取代 sum/常數"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "price CTE 的 left join daily_quote 少了 `sppdy.market = dq.market` 條件(只寫 dq.market in twse/tpex),而此 join 是 closing_price 的唯一來源。目前不爆列但屬潛在 rank 撞號/重複列風險,且缺配時 closing_price 靜默變 NULL 使整條回歸通道變 NULL",
+      "evidence": "9_valuation_1q.sql line 30-33。實測 daily_quote 同 (date,company_code) 跨兩市場 0 筆(代號全市場唯一)故現不爆;但契約缺失",
+      "fix": "join 條件補上 `and sppdy.market = dq.market`"
+    },
+    {
+      "severity": "OK",
+      "what": "相對估值欄位 per_err/pbr_err/dividend_yield_err 乾淨且 PIT 安全:含當列的 3.5 年滾動極值使當列值必落在 [L,H] → 三者嚴格 [-1,1] 無 ±inf;方向一致(便宜/高殖利率=正);TWSE 對虧損公司 PER 給 NULL(0 筆負)故範圍不被污染。price_err 用含當列 3.5 年回歸擬合值,不偷看未來",
+      "evidence": "實測 min/max per_err=pbr_err=[-1.000,1.000];PER 近 4 年 neg=0/zero=1/null=414876/pos=1364564",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "DCF 的 月→季 對應(PIT)是公告落後保守版、無前視:1-3 月→前一年 Q3、4-5 月→前一年 Q4、6-8 月→當年 Q1、9-11 月→當年 Q2、12 月→當年 Q3,每格取台股法定申報期限保證已公布的那季。DCF 兩段式幾何級數公式數學正確,eps 為 TTM 量綱正確",
+      "evidence": "9_valuation_1q.sql line 218-223 對照 TWSE 申報期限(Q1 5/15、Q2 8/14、Q3 11/14、年報 3/31);4_financial_index_ttm.sql line 93-94 eps=4 季 TTM sum",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "本 view 無任何實盤/回測程式消費者,DCF 爆值不會直接進下單決策。apex load_valuation 讀 stock_per_pbr 資料表而非本 view;cache 無此 view;Serenity/引擎不引用。屬手動查表/BI 分析用",
+      "evidence": "grep valuation_1q 全庫僅 B-view-5 findings 引用;research/apex/data.py:204 讀 stock_per_pbr 表;Main.scala:334 與 Signals.scala 命中僅註解",
+      "fix": ""
+    }
+  ]
+}

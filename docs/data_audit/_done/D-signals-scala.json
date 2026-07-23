@@ -1,0 +1,167 @@
+{
+  "unit": "D-signals-scala",
+  "verdict": "BUG",
+  "summary": "32 個因子大多忠於學理,但有 4 個計算式與自身宣稱的定義不符、會讓排序失真:52 週高其實只看約 8 個月(252 被當日曆天用);Greenblatt 兩支把 EBIT 拿成稅前淨利、把有息負債拿成總負債、把投入資本拿成總資產減流動負債。另有 5 個方法學可疑(累計制季別對不齊、OCF/NI 分母可負、營收加速度含季節性、價格因子用未還原價、PIT 用法定截止日對遲交前視)。全部偏差已用資料庫實數驗證。背景:Signals.scala 屬凍結的 Scala 參考套件,非現役 Python 資金路徑,故為參考碼學理錯誤而非線上事故。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "distFrom52wHigh 52 週高距離 (Signals.scala:274-298, 窗在 :289)",
+      "textbook_def": "George & Hwang (2004) 'The 52-Week High and Momentum Investing', Journal of Finance:52 週高 = 過去 52 週(≈365 日曆天 / ≈250 交易日)的最高價;近高程度 = 現價 / 52 週高。窗須滿一年。",
+      "implementation": "date >= asOf − INTERVAL '252 days' 取窗內 MAX(closing_price) 當 52 週高,再 (px_now−max_px)/max_px。把交易日年化天數 252 誤當日曆天放進 interval。",
+      "evidence": "實測 2330 到 2024-06-28:252 日曆天窗內只有 168 個交易日;真正一年(INTERVAL '1 year')有 245-246 個交易日。等於只看了約 8.3 個月(全年 68%)。在 9-12 個月前見高的股票其高點被排除 → 距高幅度偏小(假性貼近高點)。旁證:同檔 momentum12m1m 用 '365 days'、technicalConfirmation 用 '1 year',唯獨此處用 '252 days'。",
+      "fix": "改 date >= asOf − INTERVAL '1 year'(或 '365 days' / '52 weeks');若貼 George-Hwang 可用 MAX(highest_price) 盤中最高。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "earningsYield 企業價值的 debit (Signals.scala:642-704, debt CTE :666-672, EV :694/:701)",
+      "textbook_def": "Greenblatt (2006) 神奇公式:獲利率 = EBIT / EV,EV = 股權市值 + 有息負債(interest-bearing debt)− 現金。標準 EV 的 debt 指短期借款+一年內到期長期負債+長期借款+應付公司債等有息債,不含應付帳款等營業負債。",
+      "implementation": "debt CTE 取 title IN ('負債總計','負債總額') = 總負債(全部負債),EV = 市值 + 總負債 − 現金。",
+      "evidence": "2330 2023Q4:負債總計 = 2,049,108,368 仟元,但有息負債 = 應付公司債 913,899,843 + 長期借款 4,382,965 + 短期借款 0 ≈ 918,282,808。總負債是真有息負債的 2.23 倍;多出的 1,130,825,560 全是營業負債。EV 被灌水 → 獲利率低估,且灌水程度因股而異(應付款重的通路/零售/EMS 被罰最重),扭曲截面排序。",
+      "fix": "只加總有息負債科目(短期借款+應付短期票券+一年內到期長期負債+長期借款+應付公司債[+租賃負債]),不要用負債總計。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "greenblattROIC 投入資本 (Signals.scala:597-636, 分母 :629/:633)",
+      "textbook_def": "Greenblatt 神奇公式資本報酬率 = EBIT / (淨營運資金 + 淨固定資產),淨固定資產 = 不動產廠房及設備淨額;刻意排除商譽與無形資產。",
+      "implementation": "投入資本 = 資產總計 − 流動負債合計。docstring 宣稱 'to match the original Magic Formula paper'。",
+      "evidence": "資產總計 − 流動負債 = 淨營運資金 + 非流動資產 = 淨營運資金 + (淨固定資產 + 商譽 + 無形 + 長期投資 + …);由會計恆等式等於 權益 + 非流動負債 = 使用資本(Capital Employed)。所以實際算的是 ROCE,不是 Greenblatt ROC。對長期投資/無形龐大者(2330 資產總計 5,532,371,215 含大額長期投資)資本基數被灌大 → ROIC 低估;docstring 宣稱與原論文相符不成立。",
+      "fix": "投入資本 = (流動資產 − 流動負債) + 不動產廠房及設備淨額,排除商譽/無形/長期投資;或誠實改名 ROCE 並移除神奇公式宣稱。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "EBIT 代理(greenblattROIC ebit CTE :606-609 + earningsYield ebit CTE :651-654 共病)",
+      "textbook_def": "EBIT = 息前稅前利益 ≈ 營業利益(非金融業);= 淨利 + 所得稅 + 利息費用。Greenblatt ROC 與獲利率兩支柱皆用 EBIT。",
+      "implementation": "兩支的 ebit CTE 都取 '繼續營業單位稅前淨利（淨損）' = 稅前淨利(EBT),不是 EBIT。",
+      "evidence": "2330 2023Q4(累計):營業利益 = 921,465,606 vs 繼續營業單位稅前淨利 = 979,171,324,差 6.3%(淨現金公司有利息/投資收益,EBT>營業利益)。對高槓桿、利息費用大的公司差距更大且方向相反(EBT<營業利益),誤差符號因股而異 → 扭曲神奇公式排序。定義上 EBT ≠ EBIT(EBIT = EBT + 利息費用)。",
+      "fix": "EBIT 改用 營業利益,或 稅前淨利 + 利息費用 加回;兩支共用同一 ebit 來源,同源一起修。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "opIncomeGrowthYoY 營業利益 YoY (Signals.scala:739-766)",
+      "textbook_def": "對累計(YTD)財報序列算 YoY 必須比同一會計季(今年到 Q2 累計 vs 去年到 Q2 累計);混橫(9M 比 6M)無意義。",
+      "implementation": "latest 取 ≤(yr,qtr) 最新季,yearago 獨立取 ≤(yr−1,qtr) 最新季,未強制兩者同一季。",
+      "evidence": "已實測 income_statement_progressive 為累計制(2330 2022 Q1→Q4 = 223M→485M→796M→1121M 單調)。準時申報者兩邊都 quarter=qtr(對齊);但若某公司最新可得為 (yr,qtr−1) 而 yearago 落 (yr−1,qtr),會拿 YTD-3M 比 YTD-6M → 假性巨大成長。低頻(遲交/不規則)但離群值會主導截面排序。",
+      "fix": "由 latest 取其季別,強制 yearago = 去年同季(join on quarter);或先把累計還原成單季再比。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "ocfToNetIncome 現金流量品質比 (Signals.scala:524-538, guard :530)",
+      "textbook_def": "盈餘品質/應計(Sloan 1996)OCF/NI 只在 NI>0 可解讀(>1 = 保守會計);NI<0 時比值無品質意義。",
+      "implementation": "CASE WHEN ABS(profit) > 0 THEN ocf/profit,只擋 0、放行負分母。",
+      "evidence": "NI=−100、OCF=+50 → 比值 −0.5(有現金卻虧損被打負分);NI=−100、OCF=−50 → +0.5(兩者皆負卻得正分)。虧損公司品質分數符號反轉/失義,把雜訊灌進截面。",
+      "fix": "分母改 profit > 0(只在賺錢公司間比),或改用規模無關應計指標 (NI−OCF)/總資產。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "revenueAccel 營收加速度 (Signals.scala:784-813)",
+      "textbook_def": "營收動量文獻的『加速度』= 成長率的變化(二階),如 ΔYoY = 本月 YoY − 上月 YoY,天生免疫季節性。",
+      "implementation": "最新月營收 / 前 3 個月營收均值(裸水準比),非成長率變化。",
+      "evidence": "台股月營收季節性極強(農曆年壓低 2 月、Q4 電子旺季)。5 月讀數除以 avg(2,3,4 月)——2 月被農曆年壓低——把加速度灌高,與基本面無關。此因子系統性依公司季節日曆位置給分,而非營運趨勢。",
+      "fix": "改用 YoY 式加速度(ΔYoY)或和去年同月比,先去季節性;若確要水準比,先季節調整。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "所有價格因子用未還原收盤價(系統性:relativeStrength/priceReturn/momentum12m1m/distFrom52wHigh/rsi14/bollingerPosition/lowVolatility60d/rsv120d/technicalConfirmation)",
+      "textbook_def": "動量、52 週高、RSV、RSI、布林、實現波動應以還原(除權息/減資調整後)總報酬價格計算;裸收盤價在除息日/減資日有機械跳空,非真報酬。",
+      "implementation": "每個價格因子讀裸 daily_quote.closing_price(已知為未還原);僅 lowVolatility60d 以 ABS(r)<0.5 部分濾大分割。",
+      "evidence": "專案 CLAUDE.md canonical-prices 鐵律自載:讀裸 closing_price 會系統性少算股利再投入、忽略減資參考價重設,prices.py 為此而生。台股除息集中 7-9 月;3% 殖利率股除息當天機械 −3%,壓低 63/252 日動量與 52 週高參考點——季節性且因股而異,對動量/近高因子致命。",
+      "fix": "價格因子改建在還原價面板(等同 prices.fetch_adjusted_panel 前/後復權);至少窗口統計前對除息/減資參考價重設回補。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "PIT 用法定截止日非實際申報日(PublicationLag.asOfQuarter/asOfMonthlyRevenue,套用於所有基本面因子)",
+      "textbook_def": "PIT 回測只能在某公司某報告實際公布時點後才用它;用全市場統一法定截止日,會對晚於截止日申報者洩漏未來資料。",
+      "implementation": "asOf 對應到『法定截止日 + 固定緩衝(季 7 天、月 3 天)已過』的最新期別;納入所有 (year,quarter) ≤ 天花板的列,不看該列真實申報日。",
+      "evidence": "台股截止 Q1 5/15、Q2 8/14、Q3 11/14、Q4 隔年 3/31,月營收次月 10 日。獲展延或晚於 7/3 天緩衝申報者,其報告在尚未公開時被用上 → 對遲交公司(常體質差)前視,高估品質/價值因子。多數準時、洩漏有界、緩衝為有文件取捨,但屬殘留前視非嚴格 PIT。",
+      "fix": "若能取 MOPS 實際申報時戳則用實際日過濾;否則緩衝放寬到各報表型別實測 95 百分位延遲並明載殘留洩漏。"
+    },
+    {
+      "severity": "OK",
+      "metric": "rsi14 (Signals.scala:301-328)",
+      "textbook_def": "Wilder (1978) RSI = 100−100/(1+RS),RS = 平均漲幅/平均跌幅(14 期),原版用 Wilder 平滑(α=1/14 的修正 EMA);Cutler 變體用簡單移動平均。",
+      "implementation": "取最近 14 筆日變動(rn≤14)的簡單均,RS=gain/max(loss,1e-9),(RSI−50)/50 正規化。",
+      "evidence": "此為 Cutler SMA-RSI 變體,非 Wilder EMA。已驗:gain/loss 雖以整窗(~20 列)為分母,但同分母在 RS=gain/loss 相消,RS = Σgain/Σloss(14 筆)正是 Cutler 值;rn=1..14 各對前一筆共 14 筆變動正確成形。ratio 正確,非 bug。",
+      "fix": "(選)改 Wilder 平滑得教科書精確 RSI-14。"
+    },
+    {
+      "severity": "OK",
+      "metric": "bollingerPosition (Signals.scala:332-357)",
+      "textbook_def": "布林帶:中軌 = 20 期 SMA、上下軌 = SMA ± 2σ,σ 用母體標準差(÷N);%b = (P−下軌)/(上軌−下軌)。",
+      "implementation": "AVG(SMA20) 與 STDDEV_POP(母體 σ20);位置 = (P−MA20)/(2σ20),為 %b 線性重映(−1=下軌,+1=上軌)。",
+      "evidence": "STDDEV_POP 正好符合布林母體 σ 慣例;重映為 %b 的單調變換。完全正確。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "lowVolatility60d (Signals.scala:360-380)",
+      "textbook_def": "實現波動 = 日(對數)報酬標準差 × √年化因子;日→年用 √252(台股)。低波動異常(Ang 2006;Baker-Haugen)。",
+      "implementation": "LN(close/lag) 對數報酬,STDDEV_POP(r)×SQRT(252),90 日曆天窗(~60 交易日),COUNT≥40,排除 |r|≥0.5(分割)。",
+      "evidence": "用母體 σ(÷N)非樣本 σ(÷N−1);~60 筆差 √(60/59)≈1.008(0.8%),單調不改排序。√252 年化對台股正確。對數報酬波動為標準。僅微註。",
+      "fix": "(選)STDDEV_SAMP 得樣本估計量;對排序無實質影響。"
+    },
+    {
+      "severity": "OK",
+      "metric": "rsv120d (Signals.scala:709-735)",
+      "textbook_def": "Lane 隨機指標 RSV = (Close − n 期最低)/(n 期最高 − n 期最低),用盤中高/低。",
+      "implementation": "用收盤價的 MIN/MAX(120 交易日),非盤中高低(daily_quote 其實有 highest_price/lowest_price)。",
+      "evidence": "收盤高低為常見變體,略窄於真實區間(盤中極值更極端)→ RSV 於頂部略偏高。屬定義變體非錯。120 交易日窗正確(rn≤120,COUNT≥120,180 日曆天)。",
+      "fix": "(選)用 MAX(highest_price)/MIN(lowest_price) 得 Lane 精確 RSV。"
+    },
+    {
+      "severity": "OK",
+      "metric": "momentum12m1m/relativeStrength/shortTermReversal5d/priceReturn (Signals.scala:239/80/235/202)",
+      "textbook_def": "Jegadeesh-Titman(1993)/Carhart(1997)UMD:12→1 月動量(跳最近 1 月);短期反轉(Jegadeesh 1990/Lehmann 1990)~1 週過去報酬低者佳;63 日相對強度。",
+      "implementation": "momentum12m1m ~365 日前→~21-31 日前;relativeStrength rn=68→rn=5(63 交易日跨、跳 5 日);shortTermReversal5d=priceReturn(7)≈5 交易日;priceReturn 泛用。",
+      "evidence": "定義皆符文獻。窗以日曆天近似交易日(365d≈12mo、21-31d≈1mo、7d≈5td),±2-3 交易日抖動但不改因子意義;momentum skip ~3 週略短於 1 交易月。(另受 S4 未還原價影響。)非定義 bug。",
+      "fix": "(選)改交易日 ROW_NUMBER 窗得精確(relativeStrength 已如此)。"
+    },
+    {
+      "severity": "OK",
+      "metric": "institutionalFlow20d/foreignNetBuy20d/dealerNetBuy20d (Signals.scala:50/428/449)",
+      "textbook_def": "法人淨買壓 = Σ 法人淨買股數 / Σ 總成交股數(無量綱參與率)。",
+      "implementation": "Σ(…_difference)/Σ(trade_volume),~20 交易日。",
+      "evidence": "已驗單位一致——分子(…difference,integer 股)與分母(trade_volume,bigint 股)同為股:2330 2024-06-20 外資 −8,939,051 vs 量 52,144,900 = −0.171,合理分數。無單位錯配。正確。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "marginCrowding20d/shortToMarginRatio (Signals.scala:385/405)",
+      "textbook_def": "融資使用率 = 融資餘額/融資限額(擁擠度);券資比 = 融券餘額/融資餘額(軋空代理)。",
+      "implementation": "AVG(margin_balance/margin_quota);AVG(short_balance/margin_balance),~20 交易日,COUNT≥10。",
+      "evidence": "均符標準台股籌碼指標定義,分母防零。正確。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "pbBandPosition/peBandPosition (Signals.scala:102/471)",
+      "textbook_def": "相對估值/均值回歸:現值倍數 vs 自身歷史中位數(便宜 = 低倍數)。",
+      "implementation": "P/B_now÷median(P/B,3.5y);P/E_now÷median(P/E,3.5y);percentile_cont(0.5)=中位數;低者便宜。",
+      "evidence": "中位數正確、PIT(date≤asOf)正確、3.5 年窗一致。為帶位置因子(非經典倒數 E/P、B/M),故『低者佳』——符號須由排序層處理(docstring 已標明)。因子本身非 bug。",
+      "fix": "(確認策略層對此因子升冪排序)"
+    },
+    {
+      "severity": "OK",
+      "metric": "revenueYoY3M/revenueYoYLatest (Signals.scala:24/575)",
+      "textbook_def": "營收 YoY = (rev_t − rev_{t−12mo})/rev_{t−12mo};月營收為單月(非累計)。",
+      "implementation": "revenueYoY3M = 最近 3 月各月 YoY 平均;revenueYoYLatest = 單一最新月 YoY;PIT 用 asOfMonthlyRevenue(日 10+3 緩衝)。",
+      "evidence": "去年基期>0 防護正確;3 月 epoch 窗正確;平均各月 YoY 符 docstring。operating_revenue 為單月(有別於累計的 income_statement_progressive)。正確(受 S5 截止日 PIT 影響)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "dividendYield/fcfYield (Signals.scala:504/542)",
+      "textbook_def": "股利殖利率 = DPS/價(TWSE 為過去 12 月);自由現金流殖利率 = 每股 FCF/價(高者便宜)。",
+      "implementation": "dividendYield = 最新 stock_per_pbr_dividend_yield.dividend_yield;fcfYield = fcf_per_share(TTM)/close。",
+      "evidence": "直接殖利率,PIT(date≤asOf)正確;高者便宜慣例正確。fcfYield 仰賴 financial_index_ttm.fcf_per_share 為 TTM(依 view 契約假設正確)。正確。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "technicalConfirmation/latestQuarterField/capitalReductionBlacklist (Signals.scala:163/144/772)",
+      "textbook_def": "趨勢確認(SMA200 之上 + 50/200 黃金交叉 + 量能突增);最新可得季 PIT 載入;PIT 事件黑名單。",
+      "implementation": "technicalConfirmation 三個 1/3 旗標和(px>MA200、MA50>MA200、maxVol20/avgVol20>1.5);latestQuarterField DISTINCT ON 取 ≤ 天花板最新季;capitalReductionBlacklist = (asOf−lookbackYears, asOf] 內減資代號。",
+      "evidence": "SMA200/SMA50 標準;黃金交叉標準;全 PIT 正確(date≤asOf)。technicalConfirmation docstring 寫 {0,0.5,1} 但實際產出 {0,⅓,⅔,1}——僅文件筆誤,算術(三個 1/3)內部一致,非算法 bug。",
+      "fix": "修 technicalConfirmation docstring 為 {0, ⅓, ⅔, 1}。"
+    }
+  ]
+}

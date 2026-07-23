@@ -1,0 +1,57 @@
+{
+  "unit": "B-matview-4_cash_flows_with_titles",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/materialized_view/4_cash_flows_with_titles.sql",
+  "verdict": "BUG",
+  "summary": "抽取的值抄得對，但 `value < 0` 濾網把資料砍掉一大半——存貨變動欄 45% 被砍成 NULL(其中 47,511 筆是真實的存貨去化現金流入)，下游把 NULL 當 0 算歪現金流量允當比率、還讓季表每股自由現金流變空;另繼承上游 matview 3 的累計轉單季差分 BUG。實盤 Python 引擎不讀這條鏈。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "increase_in_inventories / capital_expense / cash_dividends_paid 三個 CTE 的 `value < 0` 濾網靜默丟棄合法帶號值(同一缺陷類)。存貨變動最嚴重:105,954 筆有 48,167(45.46%)被砍成 NULL，其中 47,511 是真實正值(存貨減少的現金流入)、656 是 0;capex 9,039/114,467(7.90%)被砍;dividend 31,956/50,050(63.85%)被砍(其中 22,131 是 0，coalesce 後無害)。欄位名宣稱抽該現金流列卻只在負值時給數，欄位內容與名稱不符。",
+      "evidence": "src/main/resources/sql/materialized_view/4_cash_flows_with_titles.sql:6-9(increase_in_inventories `and value < 0`)、14-17(capital_expense `and value < 0`)、18-21(cash_dividends_paid `and value < 0`)。checks.sql [5]:inventory 48167/105954=45.46%、gt0=47511;capex 9039/114467=7.90%;dividend 31956/50050=63.85%、eq0=22131。checks.sql [8] 2330 台積電:2025Q4 raw 存貨（增加）減少=+579,578 → matview NULL、2025Q3 raw=+15,504,653 → NULL、2024Q4 raw=+5,015,120 → NULL(近 6 季砍 3 季);而 2025Q2 raw=-10,806,101 → 保留。",
+      "fix": "三個 CTE 的 `and value < 0` 拿掉，忠實傳遞帶號值;若某下游比率真要「只計存貨增加額」，該截斷放在用它的比率內並註明出處，不在抽取層偷砍。此三欄屬同一缺陷類必須同批修(capex 那條已由 B-view-4 第 13 點指出，本單位補全 inventory/dividend 全類量化)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "value<0 濾網的第二個下游傷害:季表 financial_index_quarterly 的 fcf_par_share = (ocf + capital_expense)/capital_stock 沒有 coalesce，capex 被砍成 NULL 時 ocf+NULL=NULL → 整個每股自由現金流變空。約 1 萬個公司季受害。",
+      "evidence": "src/main/resources/sql/view/3_financial_index_quarterly.sql:66 `(ocf + capital_expense) / nullif(total_capital_stock, 0)`(capital_expense 未 coalesce)。checks.sql [6]:有 OCF 但 capital_expense=NULL 的公司季=10,965(占 matview 113,488 的 9.7%)。對照 TTM 表 4_financial_index_ttm.sql:95-99 的 fcf_per_share 有把 capital_expense 放進 sum，行為不一致。",
+      "fix": "fcf_par_share 的 capital_expense 補 coalesce(...,0)，並根治上游 value<0 濾網。"
+    },
+    {
+      "severity": "BUG",
+      "what": "cash_flow_adequacy_ratio(現金流量允當比率)因存貨只留「增加(負)」季、丟「減少(正)」季，把五年存貨投資額系統性算成「只累加占用、不扣抵釋出」，與教科書「最近五年存貨淨增加額」定義不符 → 允當比率偏差。",
+      "evidence": "src/main/resources/sql/view/4_financial_index_ttm.sql:30-41 與 3_financial_index_quarterly.sql:25-36:分母 -(Σcapex+Σincrease_in_inventories+Σcash_dividends_paid) 三項都 coalesce(...,0)。上游 increase_in_inventories 已被 value<0 砍掉 45%(checks.sql [5])，Σ 只累加占用季。學理應用期間淨變動(期末−期初存貨)或含正負加總。",
+      "fix": "存貨用期間淨變動或含正負加總，不丟正值;capex 用絕對值累計(-least(value,0))當現金需求。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "標題列舉不全，現代資料小面積漏收 → 那些公司季對應欄=NULL。現金股利漏收 `支付之股利`(1,095 筆,2013+);存貨漏收 `存貨減少(增加)之調整數` 家族(1,104 筆,2020+，但可能是調整補充列非主變動列，收進恐重複);資本支出漏收 `購買固定資產支付現金數`/`固定資產增加數`(16,688 筆但僅 2009-2012，對有 OCF 公司季只影響 8 筆，可忽略)。折舊與 OCF 涵蓋完整。",
+      "evidence": "checks.sql [7] 標題涵蓋掃描 + 追加 era 查詢:`支付之股利` min_y=2013/max_y=2026/n=1095;`存貨減少(增加)之調整數` 2020-2025 n=1039 + 全形 2026 n=65;`購買固定資產支付現金數`/`固定資產增加數` 皆 2009-2012;checks.sql [A] capex title-gap 對有 OCF 的公司季=8。",
+      "fix": "把 `支付之股利` 併入 cash_dividends_paid(需確認符號=付出為負);`存貨減少(增加)之調整數` 先確認是別名還是調整列再決定收不收，避免對同公司季雙重計入。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "latent 扇出源:分配現金股利 與 發放現金股利 在同一 (market,year,quarter,company_code) 共存 6 組，join 無防重鍵，資料一變(兩列都 value<0 且對到 OCF)即可能無聲扇出成重複列。目前 0 實害。",
+      "evidence": "checks.sql [4] div_multi_title_groups=6;但 checks.sql [2] 全表 0 個重複 (year,quarter,company_code)、[3] 驅動列 1:1(113488=113488)，故目前未扇出。",
+      "fix": "同概念多變體用 coalesce/優先序取一，或 CTE 內 distinct on (year,quarter,company_code)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "繼承(非本檔自身、但汙染穿過本檔):ocf/capex/depreciation 值直接來自 matview 3 單季差分，對半年報公司跨年度亂減(B-matview-3 已判 BUG)。本檔無年度切窗、無法修正只是傳遞。佐證:概念恆正的 depreciation 欄有 3,671/113,368(3.2%)是負值。下游用到這些欄的比率同時扛差分 BUG + value<0 BUG 兩重。",
+      "evidence": "checks.sql [9] depreciation<0 的列=3,671(非空 113,368);根因見 docs/data_audit/findings/B-matview-3_cash_flows_individual.md(materialized_view/3_cash_flows_individual.sql:8-12 partition 缺 year)。",
+      "fix": "根因在 matview 3(partition by 加 year);本檔不重複修。"
+    },
+    {
+      "severity": "OK",
+      "what": "無扇出、驅動列 1:1、抽取值忠實、market='tw' 常數 join 正確、本檔無除法無 TTM 無 PIT 邏輯不引入前視。",
+      "evidence": "checks.sql [2] 0 個重複 (y,q,code);[3] matview 113,488 = ocf 驅動列 113,488;[4] capex/ocf/inventory 多變體共存皆 0 組;[8] 2330 近 12 季 ocf/折舊/capex/股利逐筆吻合;[1] market 全 'tw'(FinancialReader.readFinancialStatements() 寫死 tw);下游 4_financial_index_ttm.sql:105 用 market='tw' 過濾正確(見 B-view-4 第 17 點)。"
+    }
+  ],
+  "checked": [
+    "精讀 matview 4 全文(44 行,5 欄純抽取無算術),逐欄記錄取的標題與濾網",
+    "追消費鏈:matview 3 → matview 4 → financial_index_quarterly/ttm(cash_flow_adequacy_ratio/fcf/F-score CFO)→ growth_analysis_ttm → Main.scala:357 cbs 因子;Python 側 db.py/cache_tables.py/raw_quarterly.py 走原始累計表不讀本鏈",
+    "跑 checks.sql 全套:列數/market、扇出(0)、驅動 1:1(113488)、多變體共存、三欄 value≥0 丟失量(inv 45.46%/capex 7.90%/div 63.85%)、下游 FCF NULL 公司季(10,965)、標題涵蓋掃描、2330 逐筆對照、折舊負值(3,671)",
+    "追加 era 查詢:capex 替代標題僅 2009-2012(有 OCF 公司季僅 8 筆影響);支付之股利 2013+ 1,095 筆;存貨減少(增加)之調整數 2020+ 1,104 筆",
+    "對照姊妹單位:B-matview-3(差分 BUG 根因)、B-view-4(capex value<0 第 13 點、market='tw' 第 17 點),本單位補全 inventory/dividend 全類量化 + FCF NULL 傳染 + 標題涵蓋"
+  ]
+}

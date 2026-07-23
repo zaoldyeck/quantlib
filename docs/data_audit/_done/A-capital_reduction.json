@@ -1,0 +1,51 @@
+{
+  "unit": "A-capital_reduction",
+  "verdict": "OK",
+  "summary": "減資資料能信:原始檔每一欄都正確、完整、單位無誤落到 DB(獨立重解 666 筆逐欄比對零差異、零漏筆);只有一個近乎沒人用的欄位(除權參考價)有兩個要記下來的語意小眉角,不影響任何策略用到的價格/日期/代號。",
+  "checked": [
+    "TradingReader.readCapitalReduction (src/main/scala/reader/TradingReader.scala:248-298) 的欄位順序/型別/濾條件/去重",
+    "CapitalReduction Slick schema (src/main/scala/db/table/CapitalReduction.scala) + 唯一索引 (market,date,company_code)",
+    "CapitalReductionSetting + application.conf:119-128 的 twse/tpex URL 與目錄",
+    "跨時代抽樣解碼原始檔:twse+tpex 各 2020(最早)/2023(中)/2026(最近);Big5-HKSCS 解碼結構",
+    "獨立 Python 重解全部 206 個非哨兵檔 -> 666 筆 (market,date,code),與 PG dump 666 筆逐欄比對",
+    "漏筆偵測:所有 date-like 行的欄數分佈(twse 全 12 欄、tpex 全 10 欄,size 濾條件零誤殺)",
+    "單位/正負:價格 0.85~360 元/股、逗號千分位剝除、無負值",
+    "編碼:PG 全表 mojibake 掃描(0 筆壞名)、公司代號格式(0 筆異常)",
+    "日期:民國->西元換算 twse(+1911 regex)與 tpex(MinguoChronology)兩路徑全對",
+    "漲跌停對齊:limit_up/postref 比值依 2015-06-01 ±7%->±10% 制度切換 + 跳動單位捨入拆分驗證",
+    "TWSE 被丟棄欄 col10(詳細資料=請點選連結)/col11(尾逗號空欄)確認無 per-row 資訊",
+    "TPEx 全 0.00 限價列 (8928/6222) 回原始檔確認為來源本身留白、忠實落地"
+  ],
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "完整性 + 欄位對映:獨立重解 666 筆 = PG 666 筆,key 完全一致,8 個數值/字串欄逐筆比對零錯位;size 濾條件(twse==12/tpex==10)零漏筆",
+      "evidence": "scratchpad/audit_capred.py:獨立解析 206 非哨兵檔得 666 unique (market,date,code);與 psql dump 666 筆比對 -> in_PG_only=0, in_INDEPENDENT_only=0, size_hist={('twse',12):784,('tpex',10):280} 無其他欄數、dropped_datelike=0。closing/postref/limit_up/limit_down/opening 全部 666/666 相符。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "除權參考價(ex_right_reference_price)跨市場 NULL 語意不一致:twse 用 '--'->NULL(386 筆只 1 筆非空),tpex 用 '0.00'->0.0(280 筆全 0.0)。同樣是『無除權』,twse=NULL 而 tpex=0.0",
+      "evidence": "reader 第 274 行 twse: if(values(8)==\"--\") None else toDoubleOption;第 287 行 tpex: values(8).toDoubleOption(tpex 原始檔一律 0.00)。PG: SELECT market,COUNT(ex_right_reference_price) nonnull,SUM(CASE WHEN ex_right_reference_price=0 THEN 1 END) zeros -> twse nonnull=1 zeros=0;tpex nonnull=280 zeros=280。",
+      "fix": "下游若對此欄做平均/篩選,必須把 tpex 的 0.0 當『缺值』而非真實 0;或在 reader 統一把 tpex 0.00 也映成 NULL(語意一致)。此欄幾乎沒被策略使用,優先度低。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "同一事件在 TWSE 全史報表出現多列(僅公司名版本或除權欄不同),唯一索引(market,date,company_code)+distinctBy 在 .par 平行匯入下保留『先匯入』那筆(不確定性)。3536 於 2015-03-20 因此存成 ex_right=NULL,但同檔另有兩列 ex_right=13.06",
+      "evidence": "raw data/capital_reduction/twse/2020/2020_7_10.csv 內含 104/03/20,3536,誠創 三列:一列除權='--'、兩列='13.06'(價格全同);另 2408(南亞科/南科)、5906(F-台南/台南-KY)、2438(英誌/翔耀)為改名版本重複列。reader 第 291 行 distinctBy((m,d,c)) + filterNot(已在DB) 保留首見;PG 3536/2015-03-20 存 NULL。影響僅 1/666 且除權欄近乎未用(twse 全表僅 1 筆非空)。無任何『不同事件』被吃掉(個股每次減資只復牌一次,所有碰撞列價格相同)。",
+      "fix": "去重時對同 key 多列採『非空優先』(coalesce ex_right、取較完整名)而非首見;或放寬唯一索引改存 vintage。因近乎未用,可僅記錄不改。"
+    },
+    {
+      "severity": "REAL",
+      "what": "檔名日期 != 內容日期(看似 crawler filename-content mismatch 已知病,實為本報表設計):減資檔是全史快照重抓,單檔涵蓋民國100~今",
+      "evidence": "data/capital_reduction/twse/2026/2026_5_20.csv 首行 '-1900年12月18日 至 106年12月18日...',內容含 100/01/25 中華電 起全部歷史。故 research/04_cross_verify 這類『檔名=內容日』檢查會對此源誤報,屬正常語意差異(與 daily_quote 不同)。",
+      "fix": "cross-verify 類腳本應把 capital_reduction / ex_right_dividend 這類全史快照源列入白名單,不做檔名=內容日比對。"
+    },
+    {
+      "severity": "REAL",
+      "what": "limit_up/limit_down 對 post_reduction_reference_price 非固定 1.1x(147/666 偏離>2%),看似欄位錯位,實為 2015-06-01 台股漲跌幅 ±7%->±10% 制度切換 + 跳動單位捨入",
+      "evidence": "psql 分段:date<2015-06-01 avg(limit_up/postref)=1.0614 max=1.0700(±7%);date>=2015-06-01 avg=1.0966 max=1.1000(±10%)。147 偏離列中 146 落在 2015 前、剩 1 為捨入。TPEx 8928(2014)/6222(2016) 限價=0.00 亦回原始檔確認為來源留白,非誤解析。",
+      "fix": ""
+    }
+  ]
+}

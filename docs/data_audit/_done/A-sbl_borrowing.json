@@ -1,0 +1,43 @@
+{
+  "id": "A-sbl_borrowing",
+  "dim": "A",
+  "source": "sbl_borrowing",
+  "reader": "TradingReader.readSblBorrowing",
+  "table": "sbl_borrowing",
+  "raw_files": 6266,
+  "unit": "A-sbl_borrowing",
+  "verdict": "BUG",
+  "summary": "每一欄的數字本身解析完全正確：自寫獨立解析器(不呼叫受測程式)對 6,266 個原始檔 × (market,date,code) 與 PG 逐欄全外連接零差異;恆等式『前日餘額+當日賣出-當日還券+當日調整==當日餘額』在全 4,691,508 列只有 38 列不成立(0.0008%,且逐一比對=原始檔,是來源端更正非解析錯)——這證明欄位對位、單位(股)、正負號(當日調整可負且正確保留)、Big5/UTF-8 編碼全數正確。不能信的是『日期』:26 個 TWSE 日期共 26,354 列裝的是別的日期的報表——TWSE 的 TWT93U 對某些請求(多為非交易日)會回傳過期報表,爬蟲用請求日期當檔名沒比對內容標題,readSblBorrowing 又只認檔名日期,於是把 2017-12-18 的數字蓋上 2016-10-29 的日期戳(2330 借券餘額 10,557,000 與真實 2017-12-18 逐位相同、與真實鄰日 2016-10-28 的 5,106,000 完全不同)。內容指紋去重與標題日期比對兩法互證同一組 26 天、無隱藏漏網。其中 16 個是非交易日幽靈(本應零列)、10 個是真實交易日被覆蓋(該日真資料從缺)。cache 全部繼承。另兩件:備註欄(含 Z=已達總量控管暫停借券賣出,軋空關鍵旗標)全表未接、是唯一被丟的原始欄;本表單位為股而 margin_transactions 融券為張(差 1000 倍),跨表比對須換算。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "26 個 TWSE 日期(共 26,354 列)裝的是『別的日期』的借券報表,是錯期/幽靈資料。根因:TWSE TWT93U endpoint 對某些請求(多為非交易日,少數落在真實交易日)回傳另一日期的報表;Crawler 用『請求日期』當檔名、不比對回傳內容的標題日期;TradingReader.readSblBorrowing(TradingReader.scala:833-835)又只用檔名正規表 fileNamePattern(y,m,d) 推日期、完全忽略檔內標題的真實民國日期;SblBorrowingSetting.twse.validate 只驗標頭關鍵字(『借券賣出』『代號』)與最少列數、不驗『標題日期==請求日期』,故過期檔照樣通過。26 天分兩類:16 個非交易日幽靈(daily_quote=0 本應零列,卻各有約 1000 列)+ 10 個真實交易日被覆蓋(該日真實 SBL 資料因此從缺,換成別日數字)。cache(var/cache/cache.duckdb)逐列繼承。",
+      "evidence": "鐵證(2330):data/sbl_borrowing/twse/2016/2016_10_29.csv 標題列解碼 Big5-HKSCS = 『106年12月18日 信用額度總量管制餘額表』(=2017-12-18)。DB sbl_borrowing 2330:date=2016-10-29 → prev=9,348,000/sold=1,209,000/bal=10,557,000/limit=8,270,071,與 date=2017-12-18 逐欄相同、且等於原始檔 2017_12_18.csv 的 2330 借券欄;而真實鄰日 2016-10-28 = prev 4,662,000/bal 5,106,000(2016 年水位,完全不同)。cache 同值。全貌雙法互證:(1) 標題 vs 檔名日期(全 6,266 檔,docs/data_audit/scripts/A-sbl_borrowing/02_recon.py):26 個 twse 不符、tpex 0 個;(2) DB 內容指紋去重(md5 over sorted code:6欄 per market,date):20 個叢集有 ≥2 日期逐位元組相同,涉及的壞日期正好=這 26 個、無額外隱藏,其中 2017-12-18 這份被存成 5 個錯檔名(2016-10-29/2017-07-04/2017-09-23/2017-12-14/2021-05-16)。26 天:16 幽靈(2016-08-07,2016-10-29,2017-01-02,2017-08-06,2017-09-23,2018-01-06,2018-02-19,2018-04-28,2018-10-07,2018-10-13,2021-02-12,2021-05-16,2021-11-13,2022-02-01,2022-06-05,2022-06-19)+ 10 交易日被覆蓋(2016-04-08,2016-12-20,2017-05-15,2017-06-30,2017-07-04,2017-12-14,2018-01-12,2018-09-06,2018-10-08,2018-12-12)。SQL:SELECT count(*) … WHERE market='twse' AND date IN(…26…) = 26354。",
+      "fix": "① PG + var/cache/cache.duckdb 兩邊 DELETE FROM sbl_borrowing WHERE market='twse' AND date IN(…26 個…)。② 16 個幽靈日刪檔改回 0-byte sentinel;10 個真實交易日刪錯檔、重抓 https://www.twse.com.tw/exchangeReport/TWT93U?response=csv&date=YYYYMMDD,落檔前驗標題民國日期==請求日期,不符即 [deferred] 刪檔重抓。③ 根因守護(先紅後綠):readSblBorrowing 解析標題列取民國日期,與檔名不符即拒收並告警(勿靜默插入);validate 併入同檢查。④ 舉一反三:此『只認檔名日期+validate 不驗標題』是 TradingReader 共通骨架——readForeignHoldingRatio 讀同源 TWSE CSV、daily_quote 已知有 2009-12-12 過期案例;守護應對所有 TWSE CSV 來源一體套用,並確認 research/audits/04_cross_verify.py 是否涵蓋 sbl_borrowing(目前未攔到)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "備註欄(原始 index 14)是唯一被丟掉、schema 從未接的原始欄位。取值為主管機關狀態旗標,其中 Z=『借券賣出餘額已達總量控管標準或初次上市無賣出額度暫停借券賣出』正是軋空訊號的關鍵情境(餘額卡天花板時,不上升不代表沒有空壓),!=停止買賣,X/V/Y 為融券/借券處置與擔保成數狀態。這不是解析錯而是刻意不接,但丟掉 Z 旗標會讓『餘額停滯』被誤讀。",
+      "evidence": "檔尾圖例(iconv -f BIG5-HKSCS data/sbl_borrowing/twse/2026/2026_7_8.csv | tail):『Z-借券賣出餘額已達總量控管標準或初次上市無賣出額度暫停借券賣出』『!─停止買賣』。全史非空比例:recon_meta 聚合 notes_nonblank/notes_total = 742,171 / 4,691,508(twse 320,909/2,759,690、tpex 421,262/1,931,818)。近四年抽樣分佈:X 137,796、XV 85,709、Y 18,582、XV! 900、Z 305…(docs/data_audit/scripts/A-sbl_borrowing/probe_signs_notes_shortcols.py)。TradingReader.readSblBorrowing 只取 values(0),(1),(8..13),未取 (14)。",
+      "fix": "若要用天花板/停止買賣訊號:SblBorrowing 依 Slick Schema Contract 加 note 欄(先改 Slick 再 ALTER TABLE),reader 取 values(14),自 data/ 重讀回填;若確定不用,在 reader 註解明記刻意不接以免下一人重查。"
+    },
+    {
+      "severity": "REAL",
+      "what": "語意坑(非解析錯):sbl_borrowing 借券六欄的單位是『股』,而同源檔的融券資料落在 margin_transactions 是以『張』存,兩者差 1000 倍。跨表 join 或把借券餘額與融券餘額相比時若不換算,會系統性錯 3 個數量級。此點同時反證『被刻意丟掉的融券 2-7 欄確實在 margin_transactions 有覆蓋、沒有白丟』。",
+      "evidence": "0050 於 2016-01-11:原始檔融券今日餘額=3,867,000(股),margin_transactions.short_balance_of_the_day=3867(張),1000 倍互證。借券單位為股之佐證:0050 同日借券當日餘額=32,761,000(=3,276 萬股,非張;0050 流通股數量級相符)。TWSE/TPEx 兩市場借券單位一致(皆股)。",
+      "fix": "資料不需修。在 docs 與任何 join sbl_borrowing×margin_transactions 的程式處註記 1000 倍單位差。"
+    },
+    {
+      "severity": "OK",
+      "what": "解析正確性主結論(全史逐欄,非抽樣):欄位對位、單位、正負號、編碼、漏列、重複全部通過。自寫獨立解析器(TWSE Big5 CSV / TPEx JSON,不呼叫受測程式)對 6,266 檔 × (market,date,code) 與 PG 全外連接,only_raw/only_db/各欄差異皆 0;恆等式在全 4,691,508 列僅 38 列不成立(0.0008%,逐一=原始檔,屬來源端更正/個股離開可借券宇宙,非解析錯);當日調整可為負且正確保留(DB 2,883 列為負、最負 −20,700,000),其餘五欄全史無負值;短列 0、被大寫代號正規表擋掉的真實證券 0、檔內重複代號 0、主鍵重複 0;欄位索引 8-13 對位在 2016-2026 兩市場全一致(TPEx fields 陣列 2016 起未變、TWSE 標頭未漂移)。",
+      "evidence": "docs/data_audit/scripts/A-sbl_borrowing/{02_recon.py,verify_parse_vs_pg.py,probe_signs_notes_shortcols.py,probe_dups_dropped.py}。6 樣本逐格比對(twse/tpex×2016/2022/2026)名稱+6數字欄零不符、每檔原始有效列數==DB列數(diff 0);恆等式 SQL:SELECT market,count(*),count(*) FILTER(WHERE prev+sold-ret+adj<>bal) FROM sbl_borrowing GROUP BY 1 → twse 32 / tpex 6;負值 SQL:count(*) WHERE daily_adjustment<0 = 2883、min = -20700000,其餘欄 <0 皆 0;短列/大寫擋掉/重複代號掃描(近四年 2,100 檔)全 0。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "DuckDB cache 與 PostgreSQL 在 sbl_borrowing 上逐列一致:總列數 4,691,508 完全相同(twse 2,759,690 / tpex 1,931,818),日期範圍 2016-01-04~2026-07-17 亦同。cache 忠實鏡射 PG,包含繼承前述 26 個錯期日,故修 bug 時兩邊都要刪。",
+      "evidence": "DuckDB(var/cache/cache.duckdb):SELECT count(*),min(date),max(date) FROM sbl_borrowing → (4691508, 2016-01-04, 2026-07-17);by market = tpex 1931818 / twse 2759690,與 PG GROUP BY market 完全相同。cache 之 2330 date=2016-10-29 = prev 9,348,000/bal 10,557,000(繼承 2017-12-18)。",
+      "fix": ""
+    }
+  ]
+}

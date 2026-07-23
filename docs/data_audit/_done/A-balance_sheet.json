@@ -1,0 +1,51 @@
+{
+  "unit": "A-balance_sheet",
+  "verdict": "OK",
+  "summary": "資產負債表原始檔的每一個數字欄位都正確、完整、單位無誤地落到資料庫,可以信任。抽樣橫跨 1989-2026、兩市場、個別/合併、一般業/金融業模板,值逐位相符、零漏欄、零錯位、正負號與單位保真;唯一要提醒的是 cache 只放合併報表,2004 年以前沒有任何資產負債表資料。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "解析正確性總驗:值保真 + 完整性 + 正負號 + 單位 + 編碼 + 日期,全數通過",
+      "evidence": "獨立解析(Python csv + big5hkscs,不呼叫受測的 FinancialReader)對 8 檔股票逐欄比對 PG concise_balance_sheet:統一1216(2026Q1)、太平洋6023(2026Q1 tpex)、彰銀2801(2013Q1 金融模板)、耀傑-DR 911619(2013Q1 b_c 含負值)、新纖1409(1989Q1 個別)、太欣5302(1993Q1 tpex 個別)、台積2330(2019Q3)、彰銀2801(2019Q3)——每檔 MISSING=0 / EXTRA=0 / VALUE_MISMATCH=0。負值(其他權益 -661546、庫藏股票 -162210、少數股權 -95、台積其他權益 -10675106)與每股淨值(25.47/14.80/61.20)逐位相符,證明正負號與『元/仟元』單位保真、無 ×1000 竄改。腳本:scratchpad/bs_audit.py。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "完整性:period 級對帳,原始檔數值儲格數 == PG 列數,零漏零多(涵蓋 a_c/b_c 併存的碰撞高風險年)",
+      "evidence": "scratchpad/bs_recon.py 對 10 個 period 計算原始檔『不重複 (代號,科目) 數值儲格』對比 PG 列數,diff 全為 0:twse consolidated 2026Q1=5088、2013Q1=13905、2014Q4=16363、2008Q4=15920、2019Q3=16444;tpex 2026Q1=3629、2013Q2=10697;個別 1989Q1=16、2000Q2=7823、tpex1993Q1=32。2013-2014 年 a_c(IFRS 一般/金融)與 b_c(存託憑證 DR)兩種模板同屬 type=consolidated,理論上 unique index 可能碰撞,實測 a∩b 公司代號交集=0(DR 與一般股互斥),兩類全數落地無損。全 1256 檔零 ragged row(欄數 != 表頭)、零重複表頭(allWithHeaders 的 Map 不會吃掉欄位)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "檔名日期為唯一日期來源(reader 不看內容 年度/季別),但實測 465 個 a_c 檔檔名 vs 內容日期零不符",
+      "evidence": "FinancialReader.scala:81-83 以檔名 regex 取 (year,quarter),完全忽略內容的 出表日期/年度/季別 欄。掃描全部 465 個帶 年度/季別 欄的 a_c 檔,檔名西元年/季 對內容民國年+1911/季,MISMATCH=0。b_i/b_c 檔無內容日期欄可比對,但值保真 + period 對帳已間接確認公司落在正確期別。編碼:1256 檔全數 big5hkscs 乾淨解碼(0 失敗),PG title 無空字串/純數字/亂碼(?? )。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "cache 資料可用性邊界(非解析錯,但用資料前必知):bs_concise_raw 只含合併報表,2004(twse)/2006(tpex)以前完全沒有資產負債表",
+      "evidence": "research/cache_tables.py:96-99 的 bs_concise_raw 定義 WHERE type='consolidated'。cache 實測 2,142,171 列全為 consolidated,== PG consolidated(twse+tpex)完全相符、值一致(統一 749062049、台積 -10675106)。但 PG 另有 individual 型 1,339,539 列(twse 1989-2014、tpex 1993-2014)完全不在 cache。任何讀 bs_concise_raw 的研究程式,取不到 2004 前的資產負債表歷史(個別報表時代)。此為 cache 設計選擇,非 readBalanceSheet 解析錯;屬 dim C 範疇,在此標註以免誤用。",
+      "fix": "若研究需要 2004 前資產負債表,直接查 PG concise_balance_sheet(含 individual),或在 cache_tables.py 放寬 type 過濾。"
+    },
+    {
+      "severity": "OK",
+      "what": "來源本質異質性(faithful 解析、非 bug):科目同義詞跨年代、單一列內混合單位、DR 檔 3 個文字欄被丟棄",
+      "evidence": "(1) 同一經濟概念跨模板不同名:資產總計(一般/現代) vs 資產總額(金融模板);每股淨值(註一)(IFRS 前) vs 每股參考淨值(IFRS);全表 159 個 distinct title——reader 忠實保留各模板科目名,消費端須自行對映同義詞(dim B)。(2) 單列混合單位:貨幣科目=仟元、每股參考淨值=元、股數欄(母公司暨子公司所持有之母公司庫藏股股數等,表頭明寫『單位:股』)=股,全以裸數字存 value:Double,消費端不可一律相加。(3) 僅 DR/KY 存託憑證的 b_c 檔有 3 個非數值欄被丟棄:換算匯率(如 'SGD$1:NT$23.5')28 檔、換算匯率參考依據 56 檔、是否經當地會計師查核 57 檔——皆非數字,對 (title,value:Double) 數值事實表本就無法承載,屬設計邊界、有界資訊損失。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "FinancialReader.readBalanceSheet (src/main/scala/reader/FinancialReader.scala:63-112):確認 melt/long-form 設計——每個數值欄→(title,value) 一列;strip 空格與千分位逗號;Try(toDouble) 濾掉非數值(文字欄/『--』);type 取自檔名第4 token(i→individual, c→consolidated);year/quarter 取自檔名 regex",
+    "BalanceSheetSetting.scala:確認各年代模板切換(b_i 1989/1993~2014、b_c 2004/2006~2014、a_c 2013~)與檔名構成",
+    "db/table/BalanceSheet.scala:ConciseBalanceSheet 表定義 + unique index (market,type,year,quarter,company_code,title)",
+    "research/cache_tables.py:96-99:bs_concise_raw = PG concise_balance_sheet WHERE type='consolidated'",
+    "編碼掃描 1256 檔全數 big5hkscs 乾淨解碼(0 bad_decode)",
+    "全域掃描:0 重複表頭、0 括號式負數(45 個括號僅出現在換算匯率文字欄)、0 ragged row、0 超出表頭寬度的數值遺失",
+    "值保真逐欄比對 8 檔(1989/1993/2013/2019/2026 × twse/tpex × individual/consolidated × 一般/金融模板):MISSING/EXTRA/VALUE_MISMATCH 全 0",
+    "完整性 period 對帳 10 個期別(含 a_c/b_c 併存的 2013Q1、2014Q4):原始不重複儲格數 == PG 列數,diff 全 0;a∩b 公司交集=0",
+    "檔名 vs 內容日期:465 個 a_c 檔零不符",
+    "cache 對帳:bs_concise_raw 2,142,171 列 == PG consolidated;值一致;確認 individual 1,339,539 列不在 cache",
+    "PG title 健全性:無空字串/純數字/亂碼;科目分布合理(股本/保留盈餘/資本公積 為最高頻)",
+    "sibling balance_sheet 表(7,205,860 列)確認由不同 reader(readFinancialStatements,line 166)寫入、非本單位範疇、非死表"
+  ]
+}

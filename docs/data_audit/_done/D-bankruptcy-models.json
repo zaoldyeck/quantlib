@@ -1,0 +1,90 @@
+{
+  "id": "D-bankruptcy-models",
+  "title": "破產/財務危機模型 + DuPont + 品質因子",
+  "scope": "research/apex/experiments/q01_financial_scores.py + q02/q03 + Altman/Ohlson/DuPont/GPOA/accruals 實作(欄位源 research/strat_lab/raw_quarterly.py)",
+  "unit": "D-bankruptcy-models",
+  "verdict": "BUG",
+  "summary": "上線用的品質因子(GPOA、accruals、cfo/資產、獲利波動)學理定義都正確、可信;但只出現在 q01 研究 IC 廣篩、沒進生產策略的兩個破產分數(Altman Z''、Ohlson O)有真 bug —— Z'' 的『保留盈餘』用『權益−股本』代理,把 114 家已累虧公司的虧損訊號抹掉(中位誤差 57%),而真保留盈餘欄位其實抓得到;Ohlson 的『連兩年虧損』被寫成『連兩季虧損』,10.8% 樣本判定不同。這兩支分數在 q01 量出來的 IC 不可信,據以接受/否決它們的結論要重跑。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "Altman Z'' 之 X2 = 保留盈餘/總資產 (re_ta);q01_financial_scores.py:71-72,90",
+      "textbook_def": "Altman (1993/1995) Z''-Score X2 = Retained Earnings / Total Assets。RE 是資產負債表『保留盈餘(累積盈虧)』科目,衡量公司累積獲利/存活年資,是 Z 系列對『年輕、累虧』公司最靈敏的鑑別項(Altman, 'Corporate Financial Distress and Bankruptcy', 3rd ed.; Altman 1968 原始論文 X2 定義)。",
+      "implementation": "re_ta = (total_equity − capital_stock) / total_assets。以『權益總計 − 股本』代理保留盈餘,實際上等於 資本公積 + 保留盈餘 + 其他權益 + 非控制權益(把資本公積等 paid-in capital 全灌進來)。",
+      "evidence": "cache 2023Q4 共 1,951 家(twse+tpex,同 COALESCE 口徑):中位 |proxy − 真RE|/|真RE| = 57.4%;114 家 proxy_re>0 但真保留盈餘<0 —— 累積虧損(Altman 要抓的核心訊號)被 IPO 資本公積完全遮蔽;X2 項 cross-sectional Spearman(proxy, 真值) 僅 0.758。最惡例 6854:x2_true = −8.18(嚴重危困)vs x2_proxy = +1.25(看起來健康),單一項擺盪 9.4 分,而 Z'' 危困界約 <1.1。真『保留盈餘（或累積虧損）』科目確實存在於 bs_concise_raw(已查證),此代理可避免。z_pp 僅用於 q01 rank-IC 廣篩,代理改變截面排序(非常數平移)故直接汙染量到的 IC。",
+      "fix": "在 research/strat_lab/raw_quarterly.py 的 BS_TITLES 增列 'retained_earnings': ['保留盈餘（或累積虧損）','保留盈餘'],重建 raw_quarterly.parquet;q01 改 re_ta = pos-guarded(retained_earnings) / total_assets。真保留盈餘可直接取用,不需代理。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "Ohlson O-Score 之 INTWO(連續虧損啞變數);q01_financial_scores.py:101",
+      "textbook_def": "Ohlson (1980, JAR) 九變數模型第 8 項 INTWO = 1 if net income was negative for the last TWO YEARS, else 0(連續兩個『年度』淨利為負)。係數 +0.285。",
+      "implementation": "0.285 * ((ni_q < 0) & (ni_q.shift(1).over(C) < 0));ni_q 是『單季』淨利、shift(1) 是『前一季』,故實際判的是『連續兩「季」虧損』,不是連續兩「年」。",
+      "evidence": "raw_quarterly.parquet 全樣本 102,474 firm-quarters:程式版(2季)點火 16,637、學理版(2年,ni_ttm<0 且 ni_ttm.shift(4)<0)點火 14,712;兩者判定不同者 11,035 = 10.8%(6,480 筆程式誤報『危困』實際只虧兩季非兩年;4,555 筆真的連兩年虧損卻被程式漏掉)。o_score 僅用於 q01 rank-IC,此偏差改變截面排序。",
+      "fix": "改為年度口徑:0.285 * ((pl.col('ni_ttm') < 0) & (pl.col('ni_ttm').shift(4).over(C) < 0))(本年 TTM 與去年同季 TTM 皆為負),或直接用兩個財年的年度淨利皆 < 0。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Altman Z'' 之 X3 = EBIT/總資產 (ebit_ttm);q01_financial_scores.py:65,91",
+      "textbook_def": "Altman X3 = EBIT / Total Assets;EBIT = Earnings Before Interest and Taxes = 稅前淨利 + 利息費用,『含』業外損益(投資收益、匯兌等),只排除利息與稅。",
+      "implementation": "ebit_ttm = rolling_sum(4) of op_income_q(營業利益 TTM);以『營業利益』代理 EBIT,排除了全部營業外損益,也未加回利息費用。",
+      "evidence": "cache FY2023(Q4 YTD=全年)twse 1,034 家:中位 |EBIT_true − op_income|/|op_income| = 21.2%(EBIT_true = 稅前淨利 + 減:利息費用);Spearman(op_income, EBIT_true) = 0.916;86 家(8.3%)正負號翻轉(營業虧損但含業外後 EBIT 為正,或反之 —— 常見於有大額投資收益/匯損的公司)。『稅前淨利（淨損）』與『減：利息費用』科目皆存在於 is_progressive_raw(已查證),真 EBIT 可算。營業利益雖是業界常見 EBIT 代理(故列 SUSPECT 非 BUG),但與 Altman 定義不符且可避免。",
+      "fix": "IS_TITLES 增列 pretax('稅前淨利（淨損）') 與 interest('減：利息費用'),EBIT_q = pretax_q + interest_q,ebit_ttm = rolling_sum(4);X3 改用 ebit_ttm/total_assets。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Ohlson O-Score 之 CHIN(淨利變動率);q01_financial_scores.py:103-104",
+      "textbook_def": "Ohlson (1980) 第 9 項 CHIN = (NI_t − NI_{t−1}) / (|NI_t| + |NI_{t−1}|),其中 NI 為『年度』淨利,故為年對年變動;係數 −0.521。",
+      "implementation": "−0.521 * ((ni_ttm − ni_ttm.shift(1).over(C)) / (|ni_ttm| + |ni_ttm.shift(1)|));lag 用 shift(1)=前一『季』的 TTM,非前一『年』。分子 ni_ttm − ni_ttm.shift(1) 展開後 = 本季單季NI − 去年同季單季NI(YoY 單季差),分母卻用 TTM 量級,尺度不一致。",
+      "evidence": "根因與 INTWO 同:把 Ohlson 的『年度』動態項套在『季』頻節奏上。lag 應為 shift(4)(去年同季 TTM = 年對年)。純程式讀碼可證(sort [C,year,quarter] → shift(1)=前一季);分子/分母量級口徑不一致使 −0.521 校準意義喪失,rank 亦受影響。o_score 僅 q01 IC 廣篩。",
+      "fix": "lag 統一用 shift(4):CHIN = (ni_ttm − ni_ttm.shift(4)) / (|ni_ttm| + |ni_ttm.shift(4)|),使分子分母皆為年對年 TTM 口徑,符合 Ohlson 年度定義。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "DuPont 三因子分解一致性(dupont_turnover vs dupont_leverage/roe 資產口徑);q01:73-75,127 + raw_quarterly.py:215",
+      "textbook_def": "DuPont: ROE = 淨利率 × 總資產週轉率 × 權益乘數 = (NI/Sales)(Sales/TA)(TA/Equity),三項相乘須恆等於 ROE(同一 TA、同一 Equity 口徑)。",
+      "implementation": "dupont_margin = ni_ttm/rev_ttm;dupont_turnover = asset_turnover_ttm = rev_ttm / total_assets_begin(Piotroski『年初資產』口徑,raw_quarterly.py:215 用 total_assets.shift(4));dupont_leverage = total_assets(期末)/total_equity;roe_ttm = ni_ttm/total_equity(期末)。週轉率用『年初』資產、槓桿與 ROE 用『期末』資產,資產口徑不一致。",
+      "evidence": "三項相乘 = (ni/rev)(rev/TA_begin)(TA_end/eq) = ni·TA_end/(TA_begin·eq) ≠ ni/eq = ROE(除非 TA_end=TA_begin),故不構成自洽 DuPont 恆等式。純讀碼即可證(週轉率分母 total_assets_begin vs 槓桿分母 total_assets 期末)。緩解事實:q01 是把三項各自當『獨立因子』做 IC(NAMES 列表逐一評估、從不相乘),故不造成 IC 失真,每項各自仍是合法指標;僅『DuPont 分解』標籤在學理上不自洽。另 roe/leverage 用期末權益而非教科書平均權益,屬常見簡化。",
+      "fix": "若要當『分解』用(相乘還原 ROE),週轉率與槓桿須用同一資產口徑(統一期末或統一平均);若維持各自獨立因子,turnover 命名宜標明為『年初資產週轉率』以免暗示恆等式。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "權益/淨利含非控制權益(Z'' X4、DuPont 槓桿、ROE);q01:74-75,92 + raw_quarterly.py:57-71",
+      "textbook_def": "嚴格 ROE / 權益乘數用『歸屬母公司普通股東權益』與『歸屬母公司淨利』;Altman Z'' X4 之 Book Value of Equity 一般取股東權益(含 NCI 可接受但非嚴格普通股權益)。",
+      "implementation": "total_equity 取『權益總計/權益總額/股東權益總計』= 含非控制權益(NCI);ni 取『繼續營業單位本期淨利』= 含 NCI 部分。roe/leverage/X4 皆用含 NCI 之 total_equity。",
+      "evidence": "bs_concise_raw 有『歸屬於母公司業主之權益』『非控制權益』,is_progressive_raw 有『淨利（淨損）歸屬於母公司業主』,嚴格口徑可得。分子分母同含 NCI 時 ROE 內部自洽(= 總權益報酬率),故列 SUSPECT-低而非 BUG;僅在嚴格『歸母 ROE』語意下有別。",
+      "fix": "若要嚴格歸母口徑:total_equity 改『歸屬於母公司業主之權益』、ni 改『淨利歸屬於母公司業主』,一致套用於 roe/leverage/Z''-X4。否則於註解標明採『總權益/總淨利』口徑。"
+    },
+    {
+      "severity": "OK",
+      "metric": "GPOA = 毛利/總資產 (gpoa);q01:66,77 + q02:104,109",
+      "textbook_def": "Novy-Marx (2013, JFE 'The Other Side of Value: The Gross Profitability Premium') GP/A = (Revenue − COGS)/Total Assets;AQR 'Quality Minus Junk' 同義。高=好,直接用不取負。",
+      "implementation": "gp_ttm = rolling_sum(4) of gross_pf_q(營業毛利 TTM);gpoa = gp_ttm / total_assets(期末),NAMES 直接用(不取負)。",
+      "evidence": "分子為毛利(營業毛利（毛損）淨額,非淨利)、分母為總資產、方向高=好,完全符合 Novy-Marx 定義。期末總資產 vs 論文有時用當期總資產屬同口徑,無實質偏差。q02 品質書(生產路徑)沿用同定義。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "accruals = (NI − CFO)/資產,取負 (accruals_neg);q01:76 + q02:110",
+      "textbook_def": "Sloan (1996, TAR) 應計異常;現金流量表法總應計 = (NI − CFO)/Total Assets(Collins & Hribar 2002 證此法優於資產負債表法)。高應計→低品質盈餘→低未來報酬,故因子取負(高=好)。",
+      "implementation": "accruals_neg = −(ni_ttm − cfo_ttm) / total_assets = (cfo_ttm − ni_ttm)/total_assets。取負後高=好。",
+      "evidence": "定義(NI−CFO)/TA 與符號(取負)皆正確;分母用期末總資產而非 Sloan 原始平均總資產,屬常見簡化、不影響方向與截面排序意義。q02 品質書(生產路徑)沿用。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "Ohlson SIZE 之 GNP 平減省略 + FFO≈CFO 代理;q01:95,100",
+      "textbook_def": "Ohlson SIZE = log(TA / GNP price-level index);FUTL = FFO/TL,FFO=funds from operations(常以營運現金流近似)。",
+      "implementation": "−0.407 * log(total_assets)(省略 GNP 平減);−1.83 * (cfo_ttm/tl)(FFO 以 CFO 代理)。",
+      "evidence": "GNP 平減對同一日全體公司是常數,log(TA/GNP)=log(TA)−log(GNP),截面 rank 不變;q01 IC 為每日截面 rank 相關(evaluate_factor:Pearson on ranks),故 rank-invariant,docstring 已誠實揭露且推理正確。FFO≈CFO 因無折舊明細(schema 查證無此欄)屬資料受限之標準代理。兩者對 rank-IC 用途皆可接受。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "文件『O-score 算 7/9 項』陳述 vs 實作;q01:5 docstring",
+      "textbook_def": "Ohlson O 有 9 個預測變數 + 常數項。",
+      "implementation": "程式其實實作了全部 9 項(SIZE/TLTA/WCTA/CLCA/OENEG/NITA/FUTL/INTWO/CHIN)+ 常數 −1.32,其中 2 項為近似(INTWO 季頻、CHIN 位移;真缺者僅 GNP 平減)。",
+      "evidence": "逐項對照 q01:94-105 可數出 9 項全在。docstring『算 7/9 項』為低估(保守、非灌水),屬文件與實作不同步的小瑕疵,不影響計算。",
+      "fix": "更新 docstring:9 項全實作,其中 INTWO/CHIN 為近似、GNP 平減省略(rank-safe)。"
+    }
+  ]
+}

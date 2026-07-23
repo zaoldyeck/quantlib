@@ -1,0 +1,70 @@
+{
+  "unit": "A-income_statement",
+  "verdict": "OK",
+  "summary": "綜合損益表原始檔的每一個數字欄位都正確、完整、單位無誤地落到資料庫,可以信任。獨立解析橫跨 2006-2025、兩市場、個別/合併、一般業/金融/證券/保險/金控各模板,值逐位相符、零漏欄、零錯位、正負號與單位(仟元/每股元)保真、Big5 編碼乾淨、檔名民國西元轉換零錯。唯二提醒:(1) reader 寫死 Big5-HKSCS 無 UTF-8 分支,若 MOPS 哪天把損益表 CSV 改 UTF-8(營收表 2012 就發生過)會整檔炸掉,目前 2026 前全 Big5 尚未觸發;(2) cache 只放合併報表,2004 前(個別報表時代)不在 cache。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "解析正確性總驗:值保真 + 完整性 + 正負號 + 單位 + 編碼 + 日期,全數通過",
+      "evidence": "獨立解析(Python csv + big5hkscs,不呼叫受測的 FinancialReader.readIncomeStatement)對 12 個 period 逐 (代號,科目) 儲格比對 PG concise_income_statement_progressive:twse 2025Q1/Q2、2020Q1、2018Q3、2013Q1/Q2、2014Q2/Q3、2010Q1、2006Q4 + tpex 2025Q1、2010Q1——每個 period 的 raw_not_in_db=0 / val_mismatch=0 / db_not_in_raw=0 / cross-chunk collision=0。經濟錨:台積2330 2024Q4 營業收入=2,894,307,699(仟元,即 NT$2.894 兆,對真實年報一致)、基本每股盈餘（元）=45.25(對真實 EPS 一致,證明 EPS 是元不是仟元)、本期淨利=1,172,431,759;實際虧損公司(力積電6770 -6,777,299、南亞科2408、彩晶6116…)本期淨利正確為負,證明正負號保真。腳本:scratchpad/verify_is.py。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "設計本身抗欄位漂移:melt/long-form 依『表頭名』對映,非固定欄位序,故『新增欄位→fall-through 錯位』在此結構上不可能發生",
+      "evidence": "FinancialReader.scala:140-154 用 CSVReader.allWithHeaders() 把每列讀成 Map[表頭→值],再排除 5 個 meta 欄(公司代號/公司名稱/出表日期/年度/季別)後把剩餘數值欄 melt 成 (title,value)。年份間 MOPS 無聲增減欄(實測欄數 20→33 隨年代與模板變動)只會讓新科目以新表頭名自動落地,不會位移既有欄——正是 CLAUDE.md『TWSE CSV schema drift』壞味道的正解。實測 12 period 全 0 錯位佐證。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "檔名日期為唯一日期來源(reader 不看內容 年度/季別),實測 179 檔檔名 vs 內容日期零不符;IFRS 前檔無內容日期欄,由值保真間接確認期別",
+      "evidence": "FinancialReader.scala:132-133 以檔名 regex (\\d+)_(\\d+)_(\\w)_(\\w) 取 (year=西元,quarter),完全忽略內容欄。掃描含 年度/季別 欄的 179 檔(2013+ a_c):檔名西元年 對 內容民國年+1911、季別相符,MISMATCH=0。IFRS 前 b_i/b_c 檔(1993-2014)根本沒有 出表日期/年度/季別 欄(表頭直接由 公司代號 起),reader 靠檔名定期別、值保真 + period 對帳已間接確認正確落期。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "IFRS 過渡年(2013-2014)a_c(IFRS)與 b_c/b_i(舊 GAAP)同期併存,理論上 unique index 可能碰撞,實測零碰撞零損失",
+      "evidence": "2013-2014 每季同時存在 a_c(IFRS 一般/金融各 chunk)與 b_c/b_i(舊 GAAP 殘餘申報),a_c 與 b_c 同屬 type=consolidated,unique index (market,type,year,quarter,code,title) 有碰撞風險。實測 2013Q1/Q2、2014Q2/Q3:(代號,科目) 跨檔碰撞=0(舊 GAAP 殘餘公司與 IFRS 公司互斥),raw 儲格數 == PG 列數逐位相符,兩制度資料全數落地無損。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "19 個 chunk 檔其實是 MOPS『檔案不存在』HTML 錯誤頁存成 .csv,reader 安全吞掉(0 列、不炸),且無真實資料損失",
+      "evidence": "全庫掃描 19 檔首位元組為 '<'(tpex 2004/2005 各 4 季 _0、tpex2007/2009/2012、twse2008/2009/2012/2013/2014/2025 零星 chunk),內容為 <font color='red'>檔案不存在</font>。這些是該市場該季某產業模板無公司(如 OTC 無銀行)的空頁,非漏抓。reader:HTML 各列無純數字 cell → Try(toDouble) 全濾掉 → 該檔產出 0 列;companyCode.get(line 152)在 .filter 之後才呼叫,0 列時不觸發 → 不炸不汙染。無損證明:tpex2004 個別 _1 檔 327 家 == PG tpex2004Q1 個別 327 家;含 HTML chunk 的 2025Q2/2014Q3/2013Q1 逐位對 PG 相符。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "潛在脆弱(目前未觸發):readIncomeStatement 寫死 Big5-HKSCS,無 UTF-8 分支——若 MOPS 改用 UTF-8 供檔,整檔會炸(NoSuchElementException)而非靜默錯值",
+      "evidence": "FinancialReader.scala:140 固定 CSVReader.open(file, \"Big5-HKSCS\");對照 readOperatingRevenue line 366 對 year>2012 已切 UTF-8——證明 MOPS 確有把某資料源改 UTF-8 的前例(營收表)。若損益表 CSV 改 UTF-8,中文表頭解碼成亂碼 → 排除集 k==\"公司代號\" 不匹配 → values.get(\"公司代號\")=None → companyCode.get(line 152)拋例外,該檔平行任務失敗。實測 1989-2026 全部檔案皆 Big5(file -I 全 iso-8859-1、big5hkscs strict 解碼 0 失敗),故『目前』無資料錯誤;屬看門風險,非現行 bug。",
+      "fix": "比照 readOperatingRevenue,對新年份加編碼偵測或 UTF-8 分支;或在 read 後對每檔驗『公司代號 欄是否存在』,不存在即 fail-loud 而非讓 companyCode.get 裸拋。"
+    },
+    {
+      "severity": "OK",
+      "what": "來源本質異質性(faithful 解析、非 bug):value 欄同表混合單位、僅 DR/KY 外幣模板有文字欄被丟棄",
+      "evidence": "(1) value:Double 同表混單位:貨幣科目=仟元、基本/稀釋每股盈餘（元）=元;消費端須依 title 判單位、不可一律相加(下游 raw_quarterly.py 算 margin 用 仟元/仟元 比值單位自動抵消、EPS 另取,處理正確)。(2) 純文字非數值欄被 Try(toDouble) 丟棄:換算匯率參考依據(數值率 0/115)、換算匯率(18/115),僅出現在 DR/KY 外幣申報小模板(全表 115 列),本就無法承載於 (title,value:Double) 數值事實表,屬設計邊界、有界資訊損失,不影響任何 P&L 線科目。其餘低數值率科目(合併前非屬共同控制股權損益、停業單位損益、生物資產損益…)皆為稀疏真科目——有值時為數字且正確落地,空白時丟棄(無資訊損失)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "cache 資料可用性邊界(非解析錯,用資料前必知):is_progressive_raw 只含合併報表,2004 前無任何損益表",
+      "evidence": "research/cache_tables.py:92-95 的 is_progressive_raw 定義 WHERE market IN('twse','tpex') AND type='consolidated'。cache 實測 2,045,371 列全為 consolidated、年份 2004-2026(合併報表 2004Q4 起才存在);PG concise_income_statement_progressive 另有 individual 型(twse 1989-2014、tpex 1993-2014)完全不在 cache。任何讀 is_progressive_raw 的研究程式取不到 2004 前歷史。此為 cache 設計選擇,非 readIncomeStatement 解析錯,屬 dim C 範疇,在此標註以免誤用。",
+      "fix": "若研究需要 2004 前損益表,直接查 PG concise_income_statement_progressive(含 individual),或放寬 cache_tables.py 的 type 過濾。"
+    }
+  ],
+  "checked": [
+    "FinancialReader.readIncomeStatement (src/main/scala/reader/FinancialReader.scala:114-163):確認 melt/long-form 設計——allWithHeaders 依表頭名對映;排除 5 meta 欄;strip 空格與千分位逗號;Try(toDouble) 濾非數值;type 取自檔名第4 token(i→individual,c→consolidated);year/quarter 取自檔名 regex;寫入 concise_income_statement_progressive;僅 refresh matview",
+    "setting/IncomeStatementSetting.scala:確認各年代模板切換(b_i 1989~、b_c 2004Q4~、a_c 2013~)與檔名構成 {西元年}_{季}_{b|a}_{i|c}_{chunk}",
+    "db/table/IncomeStatement.scala:ConciseIncomeStatement 表定義 + unique index (market,type,year,quarter,company_code,title);value:Double",
+    "research/cache_tables.py:92-95,138:is_progressive_raw = PG concise_income_statement_progressive WHERE market IN(twse,tpex) AND type=consolidated",
+    "編碼:1989-2026 抽樣 file -I 全 iso-8859-1(Big5);big5hkscs strict 解碼全部真 CSV 檔 0 失敗;PG title 無亂碼",
+    "負數格式掃描:全部以 minus 記號(非括號),故 CSV 路徑無括號處理不是 bug(括號負數處理屬 HTML 的 readFinancialStatements 路徑)",
+    "值保真逐儲格比對 12 period(2006/2010/2013/2014/2018/2020/2025 × twse/tpex × individual/consolidated × 銀行/一般/證券/保險/金控各 chunk):raw_not_in_db / val_mismatch / db_not_in_raw / cross-chunk collision 全 0(scratchpad/verify_is.py)",
+    "經濟錨:台積2330 2024Q4 營收 2.894 兆仟元、EPS 45.25 元、淨利 1.172 兆——對真實年報一致;2024 虧損股本期淨利正確為負",
+    "檔名 vs 內容日期:179 個帶 年度/季別 欄的檔零不符(民國+1911==西元、季相符)",
+    "IFRS 過渡碰撞:2013-2014 a_c 與 b_c/b_i 同 type=consolidated 併存,(代號,科目)跨檔碰撞=0、raw==PG",
+    "19 個 HTML『檔案不存在』chunk 檔:reader 安全產出 0 列不炸;為空產業模板;含 HTML chunk 的 period 仍逐位對 PG 相符,tpex2004 個別 327 家 == 原始檔 == PG",
+    "全表健全:PG 1989-2026、2064 家、122 distinct title、3,181,254 列、351 期別;cache 2,045,371 列全 consolidated",
+    "sibling 表 income_statement_progressive(不同 reader readFinancialStatements 寫入)非本單位範疇、非死表"
+  ]
+}

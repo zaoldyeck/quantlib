@@ -1,0 +1,66 @@
+{
+  "id": "B-view-6_cbs_ttm_5y_over75",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/view/6_cbs_ttm_5y_over75.sql",
+  "unit": "B-view-6_cbs_ttm_5y_over75",
+  "verdict": "SUSPECT",
+  "summary": "cbs_ttm_5y_over75 挑出「最近連續 20 季（5 年）品質綜合分 cbs 都 > 75」的公司。演算法本身正確、當前跑出的 35 檔全是真高獲利藍籌（2330/5274/8464/3008…，roic 11%-50%、無一是資料破洞灌水或金融扇出受害股），所以『今天這張清單可以信』。但整張 view 完全沒有時點（PIT）紀律：每家公司被錨定在各自 DB 最新一季（實測同一天 20 檔看 2025Q4、15 檔看 2026Q1，被拿不同財季評比）、無公告日防線（拿去回測會前視）、殭屍公司零守門；腳下的 cbs 又繼承 2006-2012 扇出污染與缺財報公司灌滿分的已證缺陷，今天沒踩到只是窗落在乾淨區的運氣。結論：當『現在有哪些公司連續 5 年體質好』的手動快照可用，當選股規則或任何跨時間篩選則不行。目前無任何程式引用（孤兒 view），不在資金路徑上。",
+  "findings": [
+    {
+      "severity": "SUSPECT",
+      "what": "完全沒有時點（PIT）紀律，不能拿去做跨時間選股。view 只有 (year, quarter)、無公告日、無 publication lag、無共同 as-of 對齊。distinct on … order by year desc 把每家公司錨定在『它自己 DB 裡最新那一季』而非共同截止日：(1) 同一次查詢的入選股被拿不同財季評比；(2) 拿去回測會前視；(3) 下市/停報公司財報凍結在幾年前，只要最後 20 季夠好仍會入選，零守門。判 SUSPECT 而非 BUG：當『現在體質好』的即時快照用（今天資料本就已公告）名單仍可信，當選股規則/歷史篩選用才是硬缺陷。",
+      "evidence": "6_cbs_ttm_5y_over75.sql:2-64 無任何 filing-date/lag。verify.sql [4] 實測（2026-07-23）：pass=true 的 35 檔中 20 檔錨定 2025Q4、15 檔錨定 2026Q1——差別在該公司 2026Q1 財報進 DB 了沒，非日期。當前 35 檔最新季皆 ≥2025Q4（殭屍情形目前未發生，但無守門）。",
+      "fix": "加共同 as-of 參數，把所有公司收斂到『≤ as-of 且已過公告落後』的同一最新季（沿用 strategy/PublicationLag：Q1→5/22、Q2→8/21、Q3→11/21、Q4→次年 4/7），並排除最新季早於 as-of 一年以上的殭屍公司；檔頭寫明『現況快照、非 PIT、禁用於回測』。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "腳下的 cbs 分數繼承三個已證缺陷會滲進本 view（今天剛好沒踩到）：(a) 2006-2012 金融業科目扇出污染（姊妹 B-view-5 BUG 1）使那幾年排名分母灌水 30-37%、TTM 算錯、不可重現 → 用本 view 做 2013 年以前篩選一律壞；(b) 缺財報公司在 ROIC 排名被 NULLS LAST 灌到最高百分位；(c) ROIC 分子稅前/稅後混用（B-view-1 量到 ~24% firm-year 用稅前）。當前 35 名輸出乾淨是『觀察窗落在乾淨區、入選股皆非受害股』的運氣，不是設計保證。",
+      "evidence": "cbs 定義 4_financial_index_ttm.sql:120-176，經 5_growth_analysis_ttm.sql:477 繼承。verify.sql [6b] 實測 2025Q4 有 30 家 roic 為 NULL 卻全拿 operating_performance=98.5（最高），佔掉排名頂端 30 格。verify.sql [6c]：抽 10 檔入選股 roic 全非 NULL、0.113-0.498，故當前輸出未受污染。另上游 4_financial_index_ttm.sql:91-92 的 inventories/total_assets、receivable/total_assets 未包 nullif（B-view-5 SUSPECT 4），未來某列 total_assets=0 且分子非 NULL 時 select * from cbs_ttm_5y_over75 會 ERROR: division by zero。",
+      "fix": "依姊妹單位 B-view-5 / B-view-1 治本：修 concise_financial_statement_with_titles 扇出、rank 改 NULLS FIRST 或排除 NULL-roic、profit 統一取稅後、上游補 nullif(total_assets,0)。修好前本 view 的 2013 年以前輸出不可信。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "lag(1..19) 是『往前 19 列』不是『往前 19 季』——window 只寫 order by year, quarter，無日曆對齊。缺季的公司 lag 會跳過破洞往更早的好季抓，於是『中間體質變差、但那幾季剛好沒進 DB』的公司會被誤判成連續 5 年 > 75（假陽性）。判 SUSPECT：當前 35 檔入選股最近 20 列全部連續，機制尚未放行任何假陽性，但資料補齊狀態一變即咬。",
+      "evidence": "6_cbs_ttm_5y_over75.sql:5-61 的 20 條 lag over (partition by company_code order by year, quarter) 無季別連續性檢查。verify.sql [3] 實測：2077 家中 1719 家（82.8%）歷史有缺季；149 家的最近 20 列即含缺季（recent20_has_gap）；但 pass=true 的 35 家 span19 全 = 19（連續）。",
+      "fix": "先建連續季索引 year*4+quarter，用 range between 或 self-join 要求 20 季真的連續，缺季讓該窗為 NULL 而非跳格比較。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "lag 視窗的 partition by company_code 漏了 market，而 distinct on 與最終 join 都用 (market, company_code)。轉板（上櫃→上市）而同一 code 橫跨兩市場的股票，lag 序列會把 TWSE 與 TPEx 兩段季別混成一條，且 distinct-on 對同一 code 各市場各吐一列（重複掛牌）。目前潛伏。",
+      "evidence": "6_cbs_ttm_5y_over75.sql:6/9/12… 全部 partition by company_code（缺 market）vs 行 2 distinct on (market, company_code) 與行 68-69 join on (market, company_code)。verify.sql [1] 實測 13 檔跨市場 code（1597,1752,3092,3652,4736,5306,6423,6426,6438,6446,6472,6589,8476），無一落在 35 名入選股內。",
+      "fix": "20 條 lag 全改 partition by market, company_code。"
+    },
+    {
+      "severity": "OK",
+      "what": "演算法正檢通過：(1) distinct-on + window-lag 機制正確——PG 先算 window 再套 DISTINCT ON，留下的最新季 lag(1..19) 確實指向前 19 季；5y=20 季（current+19）季數對。(2) cbs 各子分方向正確（ROIC/ROA 越高分越高、槓桿越低分越高）。(3) TTM 版 liquidity 未被 cbs_by_year 的『百分比 vs 倍數』單位錯配鎖死（TTM 自算真實倍數）。(4) 當前 35 名入選股乾淨可信、皆真高獲利藍籌。",
+      "evidence": "verify.sql [5] 2330 最新 22 季：2025Q4~2021Q1 共 20 季 cbs 81-91 全 > 75 → 正確入選。verify.sql [6a] 2025Q4 liquidity 分布 0/20/30/40/50/60/80/100 均勻（未鎖死，對比 B-view-1 的 99.69% 鎖死）。verify.sql [6c] 抽 10 檔入選股 roic 0.113-0.498 全非 NULL，op_perf 由真實高獲利驅動。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "孤兒 view：repo 全文無任何 Scala/Python/conf/其他 SQL 引用 cbs_ttm_5y_over75（僅出現在本次稽核自己的報告）。姊妹 B-view-5 OK 3 已證整條 growth_analysis_ttm 鏈不進 DuckDB cache、現役 Serenity/apex 不碰。故本單位所有 SUSPECT 缺陷目前皆潛伏，不傷實盤資金路徑。",
+      "evidence": "grep -rIn 'cbs_ttm_5y_over75' . | grep -v .git/ | grep -v 6_cbs_ttm_5y_over75.sql → 只中 docs/data_audit/{findings,_done}/B-view-5 兩處自我引用；grep 'cbs_ttm|cbs_by_year' src/ 除 .sql 定義外為空（無 Scala/conf 消費者）。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "魔術數字：門檻 cbs > 75 及 cbs 內所有分桶切點（流動比 2.5/1、速動比 1.5/1/0.5、現金比率 0.25/0.2/0.15/0.1/0.05、收現天數 15/30/60/90/150/180）與權重（0.25/0.25/0.1/0.1/0.3）在 repo 內無出處或校準回測。cbs 是自訂綜合分非教科書比率，『cbs > 75』不等於『全市場前 25%』。當啟發式看板可接受，當已驗證選股規則不合格。",
+      "evidence": "6_cbs_ttm_5y_over75.sql:4 的 > 75 與 4_financial_index_ttm.sql:124-163 的分桶/權重皆為硬編碼常數，全 repo 無對應校準腳本或樣本外驗證。",
+      "fix": "若要當選股規則，需對門檻與權重做樣本外驗證（IC/分位報酬）；否則明確標為啟發式看板、不宣稱『前 25%』語意。"
+    }
+  ],
+  "checked": [
+    "精讀 6_cbs_ttm_5y_over75.sql 全文（71 列）：pass CTE（20 條 lag，current+19=20 季=5 年）+ distinct-on 取最新季 + 外層 join 輸出",
+    "追 cbs 定義鏈：growth_analysis_ttm(5) → financial_index_ttm(4,cbs=op*0.25+roi*0.25+cap*0.1+liq*0.1+cf*0.3) → concise_financial_statement_with_titles(matview 6) → concise_income_statement_individual(matview 5, 累計→單季差分含 quarter=1 處理)",
+    "確認 TTM 差分正確（姊妹 B-view-5 REAL 1 已證 2330 TTM 營收/EPS 對得上官方；本單位複用結論）",
+    "consumer trace（grep 全 repo）：cbs_ttm_5y_over75 零程式引用，孤兒 view",
+    "verify.sql [1] 跨市場 code：13 檔（partition 漏 market 的受影響集），無一在 35 名內",
+    "verify.sql [2][3] 位移非日曆：全市場 82.8% 有缺季、149 家最近 20 列含缺季；35 名入選股 recent20 全連續",
+    "verify.sql [3] 重建 pass 邏輯單次掃 growth_analysis_ttm：pass=true 35 家 / false 2032 / null 10",
+    "verify.sql [4] PIT 破口：35 檔入選股 20 錨 2025Q4 + 15 錨 2026Q1（同日不同財季）",
+    "verify.sql [5] 演算法正檢：2330 最近 20 季 cbs 81-91 全 > 75 → 正確入選",
+    "verify.sql [6a] liquidity 分布未鎖死（對照 B-view-1 的單位錯配 BUG，TTM 版乾淨）",
+    "verify.sql [6b] NULL-roic 灌分 BUG 有傳進來（30 家 op=98.5 最高）但 [6c] 35 名入選股 roic 全非 NULL、非金融扇出股 → 當前輸出未受污染",
+    "對照姊妹單位 B-view-5_growth_analysis_ttm（cbs 上游 BUG）、B-view-1_cbs_by_year（年度版 cbs BUG）、B-view-4_financial_index_ttm，避免重複並釘出哪些上游缺陷實際滲入本 view"
+  ]
+}

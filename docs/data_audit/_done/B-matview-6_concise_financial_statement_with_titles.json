@@ -1,0 +1,69 @@
+{
+  "id": "B-matview-6_concise_financial_statement_with_titles",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/materialized_view/6_concise_financial_statement_with_titles.sql",
+  "unit": "B-matview-6_concise_financial_statement_with_titles",
+  "verdict": "BUG",
+  "rows": 170503,
+  "coverage": "1989Q1-2026Q1, twse+tpex",
+  "consumers": ["financial_index_ttm", "financial_index_quarterly"],
+  "summary": "這張 matview 是下游一整排『算錯的財務比率』的取值源頭，本身只做撈 title + join、不做任何除法，但攤平方式有三個定義層級的錯。(1) 根因 fan-out：13 個科目 CTE 裡只有 net_operating_income 與 profit 兩個有 distinct-on，其餘 11 個(total_assets/total_current_assets/total_liabilities/total_current_liabilities/total_non_current_liabilities/total_equity/total_retained_earnings/total_operating_revenue/total_operating_costs/operating_expenses/ebit/eps)都沒有，且同義詞清單彼此不互斥(如『資產合計』與『資產總計』同時存在→回 2 列)，多個 CTE join 成 2^n 笛卡兒積；直接量測 view 6 本身有 858 組重複鍵、最多 64×、全落在 2006-2012(統一證 2855 2011Q4 = assets2×equity2×revenue2×opex2×ebit2×eps2 = 64)。(2) profit(本期稅後淨利)同義詞清單混進『稅前純益』，collation C 位元組序下稅前只在舊制唯一存在時勝出，pre-2006 有 29026/30040=96.6% 列 profit 與 ebit 逐位相同(台積電 2003 四季 profit 相加 510 億是稅前不是稅後~473 億)，在 2005/2006 造成 profit_margin/roic/roa 的假斷層。(3) 有個叫 ebit 的欄位其實裝的是稅前淨利(EBT，利息已扣)不是 EBIT：2330 2024Q1 ebit=266,543,204=原始『稅前淨利』，稅前−所得稅 41,321,941=225,221,263=profit 逐位吻合；此欄目前無存活消費者(死欄位)但缺 distinct-on 仍在幫 fan-out 加乘。另外 net_operating_income 混了營業利益與稅前淨利(2,355 列 distinct-on 選中稅前 title→下游 operating_margin 變稅前利益率)；合併/個體口徑跨 2013 混用且無標記(繼承上游)；total_liabilities CTE 定義了卻沒 select、operating_expenses/total_retained_earnings 是死欄位。好消息:2013 年後原始金額本身正確(台積電 2024 四季營收/營益/稅後/EPS 全對公告，四季 EPS 相加 45.25)，view 不做除法所以無 ±inf，PIT 由下游 PublicationLag 負責。爆炸半徑:pg_depend 只有 financial_index_ttm(Scala 凍結策略層 Signals.scala:142,531,549 在用)與零消費者的 financial_index_quarterly 依賴本表;現役 Python 路徑(Serenity/apex/Evergreen)直讀 concise_income_statement_progressive 鎖 type=consolidated、完全不經此表。實盤沒中彈，但任何 Scala 時期 2006-2012 財務因子回測地基是壞的。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "11 個科目 CTE 沒有 distinct-on + 同義詞清單彼此不互斥 → 同一(市場,年,季,公司)產生 2^n 笛卡兒積複本。只有 net_operating_income(行49)與 profit(行72)有 distinct on;total_assets/total_current_assets/total_liabilities/total_current_liabilities/total_non_current_liabilities/total_equity/total_retained_earnings/total_operating_revenue/total_operating_costs/operating_expenses/ebit/eps 都沒有。此為下游 financial_index_* 非決定性、排名分母灌水、TTM 視窗吃複本的根因。",
+      "evidence": "psql: WITH d AS (SELECT market,year,quarter,company_code,count(*) n FROM concise_financial_statement_with_titles GROUP BY 1,2,3,4) SELECT count(*) FILTER (WHERE n>1), max(n) FROM d; => dup_keys=858, max_mult=64, 全部 year∈[2006,2012]。複本分佈 2份413/4份180/8份118/64份147。機制:2855 2011Q4 各 CTE title 命中數 assets=2,equity=2,revenue=2,opex=2,ebit=2,eps=2 → 2^6=64(costs=0 由 left join 補 null;net_operating_income/profit 有 distinct-on 收斂為1)。查詢見 docs/data_audit/scripts/B-matview-6_concise_financial_statement_with_titles/verify.sql [2][3]。",
+      "fix": "每個科目 CTE 加 DISTINCT ON (year,quarter,company_code) + 明確 title 優先序(不靠 collation 字典序);加『(market,year,quarter,company_code) 零重複』守護測試(先紅後綠)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "profit CTE(本期稅後淨利,行72-80)同義詞清單混進『稅前純益』(稅前),與真正的稅後科目(本期稅後淨利/本期淨利)並列。collation C 位元組序下 合併總損益(E5)<本期*(E6)<稅前純益(E7),故稅前純益只在它是舊制唯一存在的 title 時被選中→2005 年前資料。導致 profit_margin/roic/roa 在 2005/2006 有純口徑切換的假斷層(把稅前變稅後誤讀成獲利惡化)。",
+      "evidence": "psql: SELECT count(*) n, count(*) FILTER (WHERE profit=ebit) FROM concise_financial_statement_with_titles WHERE year BETWEEN 1995 AND 2005; => 30040 列中 29026 (96.6%) profit==ebit(兩者都=稅前)。台積電 2330 2003 四季 profit 相加≈510 億=當年稅前淨利,而 2003 稅後淨利約 473 億。DB collation: SELECT datcollate FROM pg_database WHERE datname='quantlib' => C。",
+      "fix": "從 profit 同義詞清單移除『稅前純益』;只有稅前數的舊期給 NULL,不要用另一概念頂替。另確認『合併總損益』(2005-2014勝出)是否含少數股權。"
+    },
+    {
+      "severity": "BUG",
+      "what": "名為 ebit 的欄位(行60-71)實際裝的是稅前淨利(EBT,Earnings Before Taxes,利息已扣),不是 EBIT(需把利息加回)。命名/定義錯誤,誰拿它當真 EBIT 算 EV/EBIT 或利息保障倍數,對高槓桿公司會系統性偏低。目前無存活消費者(死欄位),但其 CTE 缺 distinct-on 且多 title,是 BUG 1 那 2^n 的一個 ×2 因子。",
+      "evidence": "psql 2330 2024Q1: ebit 欄=266,543,204 == 來源 concise_income_statement_progressive 的『稅前淨利（淨損）』;稅前 266,543,204 − 所得稅費用 41,321,941 = 225,221,263 = profit(本期淨利) 逐位吻合 → ebit 欄=EBT、profit 欄=稅後。2855 2011Q4 ebit CTE 命中 2 title(參與 fan-out)。verify.sql [7]。",
+      "fix": "欄位改名 pretax_income / ebt,或直接刪掉這個沒人用的欄位;若保留務必補 distinct-on。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "net_operating_income CTE(行49-59)把『營業利益（損失）』(營業利益)與『繼續營業單位稅前*』(含業外的稅前利益)混在同一欄。collation C 下 營(E7 87)<繼(E7 B9),有營業利益時取營業利益(正確),缺時退回稅前。那些退回稅前的列,其下游 operating_margin(3_financial_index_quarterly.sql:58、4_financial_index_ttm.sql:80)其實是稅前利益率;且『取哪個 title』靠位元組序,換 DB collation 會無聲改變結果。",
+      "evidence": "psql: WITH picked AS (SELECT DISTINCT ON (year,quarter,company_code) title FROM concise_income_statement_individual WHERE title IN (...8 個...) ORDER BY year,quarter,company_code,title) SELECT CASE WHEN title LIKE '%稅前%' THEN 'PRETAX' ELSE 'OP' END, count(*) FROM picked GROUP BY 1; => PRETAX_selected 2,355 列(2006-2026)、operating_selected 154,573。verify.sql [6]。",
+      "fix": "net_operating_income 只收營業利益類 title;缺就給 NULL,不要用稅前頂替。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "合併/個體(consolidated/individual)口徑未在 view 帶任何標記,跨 2013 混用。來源 concise_*_individual 用 DISTINCT ON…ORDER BY…type,字母序 consolidated<individual→有合併取合併、只有個體才退個體,2013 前約 20% 格子是個體(母公司)口徑。view 6 無 statement_type 欄,跨 2013 時序比較無聲混報表範圍。繼承自上游、非本檔 originated。",
+      "evidence": "見 B-matview-5_concise_income_statement_individual.md(BUG1 跨 type 差分)與 B-view-3 SUSPECT 13(2013 前 individual 佔比~20%)。本檔確認 view 6 未加 statement_type 標記把它原封傳下。",
+      "fix": "輸出加 statement_type 欄位讓消費端自決;根治在上游 concise_*_individual。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "死碼。total_liabilities CTE(行11-14)定義了卻從未被 select(行97 與 join 都被註解)。ebit/operating_expenses/total_retained_earnings 三個欄位有產出但無存活消費者。ebit、operating_expenses 兩個 CTE 缺 distinct-on,還在幫 BUG 1 加乘複本。",
+      "evidence": "grep 全庫 sql views:只有 4_financial_index_ttm/3_financial_index_quarterly 讀 view 6,消費的欄位為 total_operating_revenue/total_operating_costs/net_operating_income/eps/profit/資產負債類;未見 ebit/operating_expenses/total_retained_earnings/total_liabilities 被讀。行97 total_liabilities.value 註解掉。",
+      "fix": "刪掉不用的 CTE/欄位(連同它們對 fan-out 的貢獻),或補齊 distinct-on。"
+    },
+    {
+      "severity": "REAL",
+      "what": "2013 年以後的原始金額本身正確——壞的是取值定義(BUG 1-3)與跨年口徑,不是現代金額。這張 view 只做撈 title+join+passthrough,不做除法,所以不可能除以零/產生 ±inf/NaN(分母保護是下游 financial_index_* 的責任);PIT 由下游 PublicationLag 負責,本檔只帶 (year,quarter) 是設計非缺陷。",
+      "evidence": "2330 2024 view6 輸出四季 營收 592,644,201/673,510,177/759,692,143/868,461,178、net_operating_income(營益) 249,018,306/286,555,542/360,766,289/425,712,913、profit(稅後) 225,221,263/247,661,438/325,080,170/374,468,888、eps 8.70/9.55/12.55/14.45(相加=45.25=全年 EPS),全與公告一致。verify.sql [7]。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "精讀 6_concise_financial_statement_with_titles.sql 全 149 行,寫出 13 個科目 CTE 的 title 對照與 join 結構,標出僅 net_operating_income/profit 有 distinct-on",
+    "精讀上游 1_concise_balance_sheet_individual.sql(時點值無差分)、5_concise_income_statement_individual.sql(累計差分)、7_income_statement_individual.sql",
+    "精讀下游 3_financial_index_quarterly.sql、4_financial_index_ttm.sql,盤點被消費/死欄位",
+    "量測 view 6 重複鍵:858 組、max 64×、全 2006-2012;複本數分佈 2/4/8/64",
+    "拆解 2855 2011Q4=2^6,逐 CTE 數 title 命中(assets/equity/revenue/opex/ebit/eps 各 2)",
+    "量測 profit==ebit 逐段比例(pre2006 29026/30040=96.6%),確認 collation=C 決定 distinct-on 勝者",
+    "量測 net_operating_income 選中稅前 title 的列數=2,355(2006-2026)",
+    "2330 2024 逐季驗算 revenue/op-income/EBT/profit/EPS;用 progressive 原始『稅前−所得稅=本期淨利』逐位對帳,證明 ebit 欄=EBT、profit 欄=稅後",
+    "pg_depend×pg_rewrite 盤點消費者=financial_index_ttm/financial_index_quarterly",
+    "確認現役 Python 路徑不讀本表(cache_tables.py:86 移除 financial_index_quarterly、db.py:42 取代 PG views)、refresh 掛 FinancialReader.scala:161",
+    "確認 view 6 不做除法→無 ±inf;PIT 由下游 PublicationLag.scala 負責→本檔無責",
+    "交叉比對 B-view-3_financial_index_quarterly.md / B-matview-5_concise_income_statement_individual.md / B-view-4_financial_index_ttm.md,把根因釘回 view 6 這一層,避免重複"
+  ]
+}

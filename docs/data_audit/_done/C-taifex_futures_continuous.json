@@ -1,0 +1,52 @@
+{
+  "id": "C-taifex_futures_continuous",
+  "dim": "C",
+  "table": "taifex_futures_continuous",
+  "unit": "C-taifex_futures_continuous",
+  "verdict": "BUG",
+  "summary": "這張表大部分能信,但 2026 年 1-2 月整段(33 個交易日)期貨資料沒抓到,連帶讓 3/2 冒出物理不可能的 +21%(金融期 +25%)假跳空,把 3 月起的連續指數整條墊高 21%;其餘歷史乾淨、cache 與 PG 完全一致、接軌演算法本身正確。缺口是上游沒下載到原始檔(缺 2026_1.csv/2026_2.csv),cache 只是忠實照抄。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "2026-01-02~02-26(33 交易日)全 5 商品(TX/MTX/TE/TF/TMF)零資料;連續序列從 2025-12-31 直跳 2026-03-02(61 日曆天缺口)。缺口後第一天 2026-03-02 的 daily_return 被算成把 2 個月漲幅壓成一天:TX/MTX/TMF=+0.2101、TE=+0.2540、TF=+0.0597(台指期單日上限 ±10%,+21~+25% 不可能),continuous_close 一次墊高 11755→14225(+21%),3/2 起每商品 56 列都站在被灌 21% 的基準上,日報酬類統計在此接縫全毀。",
+      "evidence": "根因(raw 缺檔):data/taifex/futures_daily/2026/ 只有 2026_3.csv/2026_4.csv/2026_5.csv,缺 2026_1.csv、2026_2.csv(其餘年份皆完整單一 YYYY_fut.csv)。PG+cache 同時為空:`SELECT COUNT(*) FROM taifex_futures_daily WHERE date BETWEEN '2026-01-01' AND '2026-02-26'` → 0(cache 與 pg 皆 0);同窗 daily_quote twse = 33 交易日。接縫假報酬:`SELECT product,date,daily_return FROM taifex_futures_continuous WHERE date='2026-03-02'` → TX/MTX/TMF 0.2101,TE 0.2540,TF 0.0597。演算法出處 research/futures/taifex.py:75-78(lag over (product,contract_month),不檢查是否前一交易日)+ :98-107(累乘成連續指數),缺口未守護。",
+      "fix": "補下載 TAIFEX 每日期貨 2026-01、2026-02(sbt \"runMain Main pull taifex\" 產出 2026_1.csv/2026_2.csv → Main read taifex 匯入 PG → uv run python research/cache_tables.py 重建 cache 讓連續表重算)。次要治本:builder 在接軌處加『上一筆須為前一交易日』守護,多日缺口日的 daily_return 設 NULL(維持水準不製造假日報酬)。不要自己下載,交主流程統一補。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "尾端約 2 個月不新鮮:5 商品最後一筆全停在 2026-05-21,今天 2026-07-23,尾端缺約 39 交易日(2026-05-22 起)。期貨爬取不在每日 Main update loop(走獨立 Main pull taifex),長期落後。",
+      "evidence": "`SELECT product, MAX(date) ... GROUP BY product` 全 = 2026-05-21;daily_quote twse 在 2026-05-21 後有 39 交易日;raw 只到 2026_5.csv(mtime 5/21)。cache==PG(皆止 05-21)→ 非 cache 不一致,是上游新鮮度。",
+      "fix": "週期性補跑 Main pull/read taifex(或納入每日 loop)後重建 cache。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "2009-12-12(六)單日缺:該補行交易日股市開盤但期貨 0 筆,連續表無此日。是 2004 年(股市日曆起點)以來唯一『股市開、期貨缺』單日。",
+      "evidence": "`SELECT COUNT(*) FROM taifex_futures_daily WHERE date='2009-12-12'` → 0;daily_quote twse 同日 772 檔。全史大缺口掃描:除 2026 的 61 天外,其餘最大缺口皆 11-13 日曆天=農曆年假,無其他異常。",
+      "fix": "查 TAIFEX 該補行日是否有期貨盤;若有補該日 2009 年檔。低影響。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache↔PG 上游完全一致,且加工表無 drift。",
+      "evidence": "taifex_futures_daily cache 5,780,185==PG 5,780,185(同範圍、同 6,877 distinct dates);final_settlement 3,152==3,152。用現行 committed research/futures/taifex.py 就地重算連續表,與 cache 物化 26,645 列雙向 EXCEPT 皆 0 差異(scratchpad/verify_continuous.py)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "接軌演算法正確、前月選取乾淨、除接縫外無異常值。",
+      "evidence": "2025-12 正常換月(202512→202601)daily_return 全 <2%(用新合約自身報酬,不注入跨合約價差)。front 序列 contract_month 含 '/'(價差合約)= 0 列。無負/零價(close/continuous_*/settlement 全>0),raw high<low=0。唯 109/26,645(0.4%)continuous_close 落在 [low,high] 外,抽查全為結算價本就超出當日成交區間(期貨結算價≠收盤,薄量週合約常見)——真實現象非 bug,但下游不可假設 low≤close≤high。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema:taifex_futures_continuous 18 欄型別(DATE/VARCHAR/DOUBLE/BIGINT)已列出;此表無 PG 對應(cache 內衍生),故 schema 比對對象為 build 定義本身",
+    "上游 parity:taifex_futures_daily cache vs PG 逐項(rows/min/max/distinct dates)=完全相同;final_settlement 3152==3152",
+    "drift:in-memory 用現行 builder 重算連續表 vs cache 物化表,雙向 EXCEPT=0(逐列相同,含 continuous_close/open/high/low/daily_return/adjustment_factor 6 位四捨五入)",
+    "逐年/逐商品筆數與日期範圍:TX 6875、TE/TF 6606、MTX 6152、TMF 406 distinct dates",
+    "抽樣逐欄:2025-12 換月序列、2026 缺口接縫(12/29~03/04)逐列 close/settle/return/cont_close 檢視",
+    "覆蓋缺口:TX 連續 vs 股市日曆(daily_quote twse 2004+)雙向比對;全史 date-to-date 缺口>5 日掃描(除 2026 的 61 天外全是 11-13 天農曆年假)",
+    "gap 邊界確認:2026-02-27/28、03-01 股市亦休(equity_rows=0),缺口精確為 33 個交易日 2026-01-02..02-26",
+    "根因定位:data/taifex/futures_daily/2026/ 僅 2026_3/4/5.csv,缺 2026_1/2.csv;其餘年份皆完整",
+    "異常值:負/零價(6 欄)、raw high<low、continuous OHLC 排序、daily_return 極值(|r|>11% 僅 4 筆全在缺口/漲停)、未來日期",
+    "價差合約洩漏:front(month_rank=1)含 '/' 合約=0;附帶發現 daily_factors(姊妹表)month_rank=2 可能取到價差合約(出範圍,建議另立單位)"
+  ]
+}

@@ -1,0 +1,101 @@
+{
+  "unit": "B-view-8_valuation",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/view/8_valuation.sql",
+  "audited_at": "2026-07-23",
+  "verdict": "BUG",
+  "summary": "這支 view 的『估值』核心（DCF 內在價值 dcf_1y/3y/5y/10y 及其 _err）算出來的數字不能拿來選股。在 2025-06-16 一個平常交易日、1799 檔股票裡，就有 313 檔（17%）的 dcf_1y_err > 1000%（合理價喊到市價 10 倍以上），極端值到 ±10^156——因為成長率 g 沒有上限、DCF 又把 (1+g)/(1+r) 連乘 10 次直接爆掉；虧轉盈的股票（基期 EPS 為負）成長率會反號，合理價變負數（2704 dcf_5y=-335）。另有一處明確前視 bug：eps_growth_rate_10y 用 `order by year, quarter desc`，把同年後面幾季（未來）灌進『過去 10 年平均』。反過來說，這支 view 有兩件事做對了：把價格日對映到『當時已公告』財報季的 PIT join 是保守正確的、DCF 的年度基底 eps 是 TTM。此 view 不在現役實盤/cache 路徑上（無任何程式 select from valuation），影響限研究與歷史回測。財報面欄位（f_score/roic/成長率等）是從 growth_analysis_ttm 直接 SELECT 穿透，已由 B-fscore-academic 稽核，本單不重複。",
+  "findings": [
+    {
+      "id": "BUG-1",
+      "severity": "BUG",
+      "what": "DCF 內在價值全毀：成長率 g 無上限，dcf = eps · x·(1-x^10)/(1-x) + … 其中 x=(1+g)/(1+r)，g 大時 x^10 天文數字，合理價爆炸；不是邊角案例而是全市場常態",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:116-128（dcf CTE）。單一交易日 2025-06-16、1799 檔非空：dcf_1y_err ∈ [-1.3e152, 7.8e149]，313 檔（17.4%）dcf_1y_err>10（>1000%），dcf_10y_err 309 檔>1000%、min -3.2e156 / max 1.65e156。psql -c \"WITH v AS (SELECT dcf_1y_err,dcf_10y_err FROM valuation WHERE date='2025-06-16' AND dcf_1y_err IS NOT NULL) SELECT count(*),count(*) FILTER(WHERE dcf_1y_err>10),max(dcf_10y_err) FROM v\"。根因：eps_growth_rate_1y 可達數十倍（見 BUG-3），x_1y=(1+g)/1.12 遠大於 1，:117 的 x_1y^years_of_growth_rate(=10) 連乘爆掉",
+      "fix": "採用前必須為成長率設上限（例如 clamp 到 [-0.5, 0.30]）並改用有終值收斂的兩段式（第二段用永續 Gordon 而非再連乘 10 年），或整支 DCF 欄位廢用並在檔頭標註『數值不可用』。既然 Scala 層凍結且無消費者，最省成本是 deprecate"
+    },
+    {
+      "id": "BUG-2",
+      "severity": "BUG",
+      "what": "前視（look-ahead）：eps_growth_rate_10y 的視窗用 `order by year, quarter desc`，把『同年、季別較大』的未來季當成 preceding 灌進『過去 10 年平均』；3y/5y 正確用 ASC，只有 10y 抄錯成 DESC",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:101-103（`over (partition by company_code order by year, quarter desc rows between 39 preceding and current row)`）對比 :95-100 的 3y/5y 用 `order by year, quarter`（ASC）。合成證明（psql）：ROWS 3 preceding 下，DESC 版 (2021,Q1) 視窗 = {204,203,202,201} 含 2021 Q2/Q3/Q4（未來），ASC 版正確為 {102,103,104,201}（過去四季）。此欄 → x_10y(:113) → dcf_10y(:126-128) → dcf_10y_err(:189)，任何用 dcf_10y 的截面排名都含未來資訊",
+      "fix": "移除 `desc`，統一為 `order by year, quarter`"
+    },
+    {
+      "id": "BUG-3",
+      "severity": "BUG",
+      "what": "基期 EPS 為負或極小時 YoY 成長率反號/爆量：eps_growth_rate_1y = eps / nullif(lag(eps,4),0) - 1 只擋『剛好 0』，不擋負數；虧轉盈（強烈利多）被算成巨大負成長，餵進 DCF 後合理價變負數或 0",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:91-92。真實 2026Q1（乾淨非重複季）：1459 eps -0.04→+1.55 報 growth=-39.75（-3975%）；2408 -1.88→+11.17 報 -6.94；2704 -2.57 基期→ growth -1.93。端到端（date=2025-06-16 對映 2025Q1）：2408 eps=-1.88 → dcf_1y=-5.9/dcf_5y=-64.0；2704 → dcf_5y=-334.9（合理價為負，無意義）；1459 → dcf 全 0。同類病灶已見 B-fscore SEC-4，但那是 growth_analysis_ttm 自身的 *_growth_rate 欄位；此處是 8_valuation 新算、專餵 DCF 的 eps_growth_rate_1y，是獨立的一份",
+      "fix": "lag(eps,4)<=0（或 < 某最小正 EPS 門檻）時輸出 NULL；或整段改用不因基期為負而反號的定義。務必與 SEC-4 同批修（同一缺陷類散落多檔）"
+    },
+    {
+      "id": "BUG-4",
+      "severity": "BUG",
+      "what": "最終 join 不容忍上游一季多列：growth_analysis_ttm 部分公司同一 (code,year,quarter) 有 2/4/8/64 列，channel left join dcf 便對單一 (date,company) 產出多列互相矛盾的估值；且 lag(eps,4) 會落在重複列上而非真正 4 季前",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:214-220（join 只綁 company_code + year/quarter，未去重）。growth_analysis_ttm 重複規模：psql GROUP BY code,year,quarter HAVING count>1 → 413 組 2 列、180 組 4 列、118 組 8 列、147 組 64 列。實測 fan-out：SELECT ... FROM valuation WHERE company_code='1409' AND date='2008-07-01' 回 8 列，eps 0.23/0.18/0.13/0.08×5、dcf_1y 0.027~0.675 全不同。時間分布：全部落在 2006-2012（2013+ 為 0），根因屬 B-fscore BUG-5 類（concise_income_statement_individual 缺 type 過濾、合併/個體與多版報表堆疊）。2330 等主流股與近期資料乾淨",
+      "fix": "上游修（type='consolidated' 過濾 + 去重，見 B-fscore BUG-5）為本；在本 view 亦應對 dcf 來源加 DISTINCT ON (company_code,year,quarter) 防禦。修好前，凡跨 2006-2012 的回測不可用此 view"
+    },
+    {
+      "id": "SUSPECT-1",
+      "severity": "SUSPECT",
+      "what": "3y/5y/10y 平均成長率用固定除數 12/20/40，不管實際可用列數：上市未滿期的公司 sum(<N 項)/N 會系統性把成長率壓低 → DCF 低估年輕股合理價",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:95-103（`rows between 11/19/39 preceding and current row` 產生最多但早期更少的列數，卻各除以固定 12/20/40）。受影響家數：以去重後單列季計，202 家 <12 季（3y 平均偏低）、90 家 12-19 季（5y 偏低）、1772 家 >=20 季",
+      "fix": "除數改用 count(*) over(同框) 或 avg() 取代 sum()/常數"
+    },
+    {
+      "id": "SUSPECT-2",
+      "severity": "SUSPECT",
+      "what": "per_err/pbr_err/dividend_yield_err 的區間正規化只用 nullif(range,0) 擋『剛好 0』：3.5 年 PER/PBR 近乎常數時分母極小 → err 爆量；虧損股 PER 為負/0 會污染 3.5y high-low 帶",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:183-188。分母 (past_3.5y_highest_per - past_3.5y_lowest_per) 等只包 nullif(...,0)，未設最小區間；PER 來源 sppdy.price_to_earning_ratio 對虧損公司常為 0/負，會拉歪 :14-17 的 max/min 帶。影響低於 DCF，但作為『便宜/貴』分數仍不穩健",
+      "fix": "分母加最小區間門檻或改用穩健分位（如 IQR）；PER<=0 的列先濾掉再算 3.5y 帶"
+    },
+    {
+      "id": "OK-1",
+      "severity": "OK",
+      "what": "PIT 對齊正確且保守：把價格日對映到『當時已依台股申報期限公告』的最近財報季，從不使用未來財報，最多在申報日前後略微偏舊（安全方向）",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:214-220 的 month CASE。逐段對台股期限核對：1-3 月→前一年 Q3（年報 3/31 前尚未公告，正確）；4-5 月→前一年 Q4/年報（3/31 已公告）；6-8 月→當年 Q1（5/15 已公告）；9-11 月→當年 Q2（8/14 已公告）；12 月→當年 Q3（11/14 已公告）。無前視，僅申報日到區間切換日之間略舊",
+      "fix": ""
+    },
+    {
+      "id": "OK-2",
+      "severity": "OK",
+      "what": "DCF 年度基底 eps 是 TTM（近四季滾動），非單季；用年度盈餘能力當第 0 年基底正確，不會低估 4 倍",
+      "evidence": "psql SELECT year,quarter,eps FROM growth_analysis_ttm WHERE company_code='2330' → 2023 Q1-Q4 = 39.36/37.23/34.54/32.34（逐季滾動 TTM，2023 全年 EPS 32.34 落在 Q4），確認 eps 為 TTM。8_valuation.sql:117 起 dcf 以此 eps 為基底",
+      "fix": ""
+    },
+    {
+      "id": "OK-3",
+      "severity": "OK",
+      "what": "DCF 幾何級數的代數本身正確：兩段式（前 10 年成長 Σx^t + 後 10 年終值 Σy^t）閉式無誤，x=1/y=1 的極點有 nullif 保護；問題出在輸入的成長率，不在級數公式",
+      "evidence": "src/main/resources/sql/view/8_valuation.sql:117-128。第一段 eps·x·(1-x^10)/(1-x)=eps·Σ_{t=1..10} x^t；第二段 eps·x^10·y·(1-y^10)/(1-y)=以第 10 年 PV 起再折現 10 年終值，Σ_{t=11..20}。:110-114 的 nullif((1-discount),0) 等擋 0 分母。此為有限 20 年模型（無永續終值），是建模選擇非錯誤",
+      "fix": ""
+    },
+    {
+      "id": "OK-4",
+      "severity": "OK",
+      "what": "價格通道/回歸機制健全：closing_price 來自 daily_quote（sppdy 本身無此欄）經 left join 取得，daily_quote 無 (date,code) 重複故無 fan-out；x=rank() 無間隙；通道=3.5 年時間趨勢 ±1/2σ，屬合理技術面建構（非基本面估值）",
+      "evidence": "sppdy 欄位無 closing_price（information_schema.columns 確認 8 欄無收盤），故 8_valuation.sql:8 的 closing_price 解析到 :30-33 join 的 daily_quote。psql 檢查 daily_quote GROUP BY date,company_code HAVING count>1 → 0 列（TWSE/TPEx 代碼不撞）。:28 rank() over(order by date) 在日頻唯一日期下等同 row_number",
+      "fix": ""
+    },
+    {
+      "id": "OK-5",
+      "severity": "OK",
+      "what": "此 view 不在現役實盤/cache 路徑：DuckDB cache 無 valuation 表，且無任何 Scala/Python 程式 select from valuation view；為 Scala 時期的分析基礎設施，缺陷影響限研究與歷史回測，不涉實盤下單",
+      "evidence": "cache：duckdb information_schema.tables ILIKE '%valuation%' → []。程式：grep -rn 'from valuation|FROM valuation' src/ research/ 僅命中 8_valuation.sql / 9_valuation_1q.sql 自身；Python 的 'valuation' 命中皆為概念（factor family、method 名、serenity_valuation 研究腳本），無一 query 此 view。Scala 只在 Task.createViewsAndMaterializedViews 建立它",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "精讀 src/main/resources/sql/view/8_valuation.sql 全 220 行：price/linear_regression/channel/growth_analysis/eps_growth_average/dcf_parameters/dcf 七個 CTE + 最終 select 的每個計算欄位（分子/分母/期間/幣別/單位）",
+    "確認 stock_per_pbr_dividend_yield 無 closing_price 欄，closing_price 實來自 daily_quote left join；查 daily_quote (date,company_code) 無重複故 join 不 fan-out",
+    "確認 eps 為 TTM（2330 逐季滾動 39.36/37.23/34.54/32.34，年 EPS 落 Q4）",
+    "逐段核對 :214-220 month→quarter PIT join 對台股申報期限（年報 3/31、Q1 5/15、Q2 8/14、Q3 11/14），確認保守無前視",
+    "合成 window 查詢證明 eps_growth_rate_10y 的 `quarter desc` 把同年未來季灌進『過去平均』（DESC vs ASC 視窗成員逐列對照）",
+    "找真實 2026Q1 虧轉盈案例（1459/2408/2704）證明負基期 EPS 使 growth_1y 反號，並端到端在 valuation view 看到對應 dcf 變負/歸零",
+    "在單日 date=2025-06-16、1799 檔量化 DCF 爆炸：dcf_1y_err 313 檔（17%）>1000%、極值 ±10^152~10^156",
+    "量化 growth_analysis_ttm 重複規模（2/4/8/64 列各 413/180/118/147 組）與時間分布（全落 2006-2012，2013+ 為 0），並實測 1409 2008-07-01 valuation 回 8 列矛盾估值",
+    "量化固定除數偏誤影響家數（<12 季 202 家 / 12-19 季 90 家 / >=20 季 1772 家）",
+    "確認 DCF 幾何級數閉式代數正確、極點 nullif 保護到位（問題在輸入成長率非公式）",
+    "確認 valuation view 不在 DuckDB cache、無任何程式 select from（grep src/ + research/），為凍結 Scala 層遺產",
+    "交叉比對 B-fscore-academic 已涵蓋範圍（growth_analysis_ttm/financial_index_ttm 內部、負基期成長率 SEC-4、合併個體混用 BUG-5），本單只報 8_valuation 新算欄位、不重複穿透欄位"
+  ]
+}

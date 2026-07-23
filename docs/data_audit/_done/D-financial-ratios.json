@@ -1,0 +1,111 @@
+{
+  "unit": "D-financial-ratios",
+  "title": "財務比率 view(ROIC/ROE/margins/週轉)",
+  "scope": "src/main/resources/sql/view/3_financial_index_quarterly.sql + 4_financial_index_ttm.sql",
+  "audited_at": "2026-07-23",
+  "verdict": "BUG",
+  "summary": "這兩張表的比率大多算對(毛利率/淨利率/營業利益率/流動比/速動比/收現天數/存貨天數/三個現金流量比率全部符合學理),但有兩個確定的定義錯誤:(1) TTM 版的『總資產週轉率』平均資產分母錯用 5 季前的數字(off-by-one,同檔 ROA 用 4 季前),(2) 兩張表的『現金比率』分母用總資產而不是流動負債——算出來的是『現金佔資產比』不是教科書的現金比率。另外 ROIC 用稅後淨利當分子(學理該用 NOPAT)、負權益公司排名會反轉、每股自由現金流除的是股本不是股數。這些都只影響研究/評分,不在實盤資金路徑上。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "total_assets_turnover(TTM)· 4_financial_index_ttm.sql:69",
+      "textbook_def": "總資產週轉率 = 營收 / 平均總資產(Damodaran, Applied Corporate Finance;Brigham FM)。對『截至 Qt 的 TTM』,平均 = (期末 TA_t + 期初)/2,期初 = TTM 窗第一季(Q_{t-3})的期初 = Q_{t-4} 的期末 = lag(TA,4)。",
+      "implementation": "sum(rev, 4Q) / ((total_assets + lag(total_assets, 5) over (order by year,quarter)) / 2) — 分母平均用了『5 季前(Q_{t-5})』的期末資產。",
+      "evidence": "同一支 SQL 的 roa(:18)用 lag(total_assets,4)、DSO(:48)用 lag(receivable,4)、DSI(:85)用 lag(inventories,4),唯獨週轉率用 lag 5,明顯是打字錯。數字重現(2330 2024Q4):view 值 0.4754 = 用 lag5(2023Q3 TA=5,484,556,381)算 2,894,307,699/((6,691,938,000+5,484,556,381)/2)=0.47540 完全吻合;正確 lag4(2023Q4 TA=5,532,371,215)應為 0.47353。TSMC 資產平滑故差 ~0.4%,但併購/增資讓資產跳動的公司可差數十 %。(此項亦已被姊妹單位 B-fscore-academic BUG-3 記錄,因 F-Score 第 9 項消費此欄。)",
+      "fix": "lag(total_assets, 5) → lag(total_assets, 4)。修完所有 total_assets_turnover_*_5y_* 旗標與引用此欄的因子掃描結論要重跑。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "cash_ratio(兩張表)· 3_financial_index_quarterly.sql:21 + 4_financial_index_ttm.sql:26",
+      "textbook_def": "現金比率 Cash Ratio = (現金 + 約當現金) / 流動負債(Ross/Westerfield, Corporate Finance;衡量最嚴格的短期償債能力)。分母是流動負債。",
+      "implementation": "cash / nullif(total_assets, 0) — 分母是總資產。算出來的是『現金佔總資產比』(cash-to-assets / 現金強度),不是現金比率。",
+      "evidence": "尺度差 5 倍:2330 2024Q4 impl=0.318 vs 教科書 cash/CL=1.683;2603 0.277 vs 1.685;2412 0.068 vs 0.454。CBS 的評分門檻(0.25/0.2/0.15/0.1/0.05)是照 cash/TA 的尺度校準的——若換成真現金比率,幾乎所有現金充裕股都會頂到最高分級、失去鑑別力,反證分母被當成總資產在用。view 3 手查值 0.2934/0.3007/0.3060/0.3179 逐季遞增,與 cash/TA 一致。餵入 liquidity/cash 分級 → 影響 cbs。(姊妹單位 SEC-2 亦提及。)",
+      "fix": "分母改 total_current_liabilities 並重新校準分級門檻;或若刻意要『現金強度』這個構念,把欄位更名為 cash_to_assets_ratio,不要叫 cash_ratio。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "roic(兩張表)· 3_financial_index_quarterly.sql:13 + 4_financial_index_ttm.sql:13-15",
+      "textbook_def": "ROIC = NOPAT / 投入資本(Koller, Valuation;Damodaran)。NOPAT = 稅後營業利益 = EBIT×(1−t),刻意排除利息(融資)與業外損益,才能衡量與資本結構無關的營運報酬。投入資本常再扣除閒置現金(operating invested capital)。",
+      "implementation": "分子 = profit(本期淨利,稅後、已含業外與利息);分母 = total_assets − total_current_liabilities(= 資本運用額 Capital Employed = 權益 + 非流動負債),未扣閒置現金。分子用淨利而非 NOPAT;TTM 版分子改 sum(profit,4Q)。",
+      "evidence": "profit 經查為 2330 的『本期淨利（淨損）』(稅後)。跨產業 2024Q4:淨利/營業利益 = 2330 0.880、2603 0.926、2882 0.858、1216 1.065、3008 1.071 → 用淨利取代營業利益基礎的 NOPAT,會讓橫斷面 roic_rank 因各公司業外/融資結構不同而位移達 ±14%。分母 TA−CL 含現金(2330 現金佔 TA 0.32)→ 現金多的公司投入資本被灌大、ROIC 被低估。分母『資本運用額』本身是標準 ROCE 分母(可接受),問題在分子與含現金。影響有限:只餵 roic_rank → operating_performance(佔 cbs 25%)。(姊妹單位 SEC-2 亦提及。)",
+      "fix": "分子改 net_operating_income×(1−有效稅率)(NOPAT)或至少 net_operating_income;要嚴謹可再從投入資本扣除閒置現金。若維持 TA−CL/淨利的口徑,應更名為 roce 並註明非教科書 ROIC。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "equity_multiplier / roic 分母 / capital_structure 排名的負值處理(兩張表)· 4_financial_index_ttm.sql:22,116 + :13-15",
+      "textbook_def": "權益乘數 = 總資產/權益,學理上假設權益為正;ROIC 假設投入資本為正。分母為負時比率無定義(不是『極端值』)。",
+      "implementation": "只用 nullif(total_equity,0) / nullif(TA−CL,0) 擋『剛好等於 0』,不擋負數。負權益公司 → 權益乘數為負;rank() ... order by equity_multiplier desc 把負值排到最後 → capital_structure 百分位 ≈ 100(最佳)。負資本運用額 → ROIC 符號反轉。",
+      "evidence": "全史 170,503 列中 total_equity<0 有 13 列、(TA−CL)<0 有 176 列。實例 3043 2018Q1 權益乘數 = −245.35,卻因『最負排最後』拿到 capital_structure 最佳分;6287 2025Q1、6497 2019Q4 同類。raw_quarterly.py 一律用 pl.when(...>0) 護欄(total_assets_begin>0、current_liabilities>0),view 只用 nullif(≠0) → 與『已修版本』定義不一致。罕見(~0.1%)、只扭曲少數財務危機股的 cbs。",
+      "fix": "排名前把 total_equity<=0 與 (TA−CL)<=0 設為 NULL(比照 raw_quarterly.py 的 >0 護欄),讓負權益/負資本運用額不參與排序。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "fcf_par_share(view3:66)/ fcf_per_share(view4:99)",
+      "textbook_def": "每股自由現金流 = 自由現金流(OCF − 資本支出)/ 流通在外股數。台股股數 = 股本 / 面額(10)。",
+      "implementation": "(ocf + capital_expense) / nullif(total_capital_stock, 0) — 分母是股本(面額計價的資本額,千元)而非股數。結果 = 真每股 FCF ÷ 10(面額 10)。view4 命名為 fcf_per_share(宣稱 NT$/股)卻是每『元面額』;view3 的 fcf_par_share 命名有含糊帶過。",
+      "evidence": "2330 股本 259,327,332 千元 → 股數 ≈ 259.3 億股 = 股本(千元)×100;FCF/股本 相對真正的 NT$/股 低估約 10×。同表的 eps 是真正的每股(取自申報)→ 單位不一致(eps 是 NT$/股、fcf_per_share 是 NT$/元面額)。此欄不進 cbs 評分,只是輸出欄。低嚴重度。",
+      "fix": "分母改 (total_capital_stock/10) 得 NT$/股;或更名 fcf_per_par_dollar 表明是『每元面額』。"
+    },
+    {
+      "severity": "OK",
+      "metric": "roa(兩張表)— 平均 vs 期初資產,與 raw_quarterly.py 不一致(定義註記)· 3_…:14-16 + 4_…:16-21",
+      "textbook_def": "ROA = 淨利 / 平均總資產(Damodaran,平均 = (期初+期末)/2)為主流定義;Piotroski (2000) 特別指定用『期初』總資產。兩者皆為合法教科書定義,但屬不同標準。",
+      "implementation": "view3:單季淨利 / avg(TA_t, TA_{t-1});view4:TTM 淨利 / avg(TA_t, TA_{t-4})——皆用『平均』資產(標準 ROA)。raw_quarterly.py roa_ttm = ni_ttm / total_assets_begin(shift4,期初,遵 Piotroski)。",
+      "evidence": "4_financial_index_ttm.sql:18 用 lag4 平均、raw_quarterly.py:208 用 shift(4) 期初。分子兩邊都是稅後淨利。非 bug,但『已修版本』用期初、view 用平均,兩者不會逐位相同——消費端若假設 parity 會誤判。view4 的 lag4 期別本身正確(不像週轉率的 lag5)。",
+      "fix": "無需修正;若期望與 raw_quarterly.py parity,需在註解標明各自用的標準(平均 vs 期初)。"
+    },
+    {
+      "severity": "OK",
+      "metric": "gross_margin / profit_margin / operating_margin(兩張表)· 3_…:51-52,57,58 + 4_…:60-66,75-84",
+      "textbook_def": "毛利率 = (營收 − 營業成本)/營收;淨利率 = 淨利/營收;營業利益率 = 營業利益/營收。",
+      "implementation": "gross = (rev − cogs)/rev(view3 單季、view4 TTM 各自加總後相減再除);profit_margin = profit/rev;operating_margin = net_operating_income/rev。分母皆 nullif(rev,0)。",
+      "evidence": "單位/口徑正確:2330 2024Q4 view3 gross_margin=0.5900(單季 GM≈59% 吻合);gross_margin_ttm 0.561224 與手算 1,624,353,564/2,894,307,699=0.5612 吻合(姊妹單位 OK-2 交叉驗證)。毛利率分母是營收(正確),不是成本。唯一 caveat:net_operating_income 在缺『營業利益』科目的公司會退回『繼續營業單位稅前淨利』(matview 6 的 distinct-on 選科目),使該少數公司的 operating_margin 變成稅前利益率——上游問題、影響小。",
+      "fix": "無;若要嚴謹,matview 6 的 net_operating_income 應只取『營業利益』科目、不與稅前淨利混選。"
+    },
+    {
+      "severity": "OK",
+      "metric": "cash_flow_ratio / cash_flow_adequacy_ratio / cash_flow_reinvestment_ratio(兩張表)· 3_…:22-42 + 4_…:27-47",
+      "textbook_def": "營運現金流量比率 = 營業活動現金流量/流動負債;現金流量允當比率(台灣官方)= 最近五年營業現金流量 / 最近五年(資本支出+存貨增加額+現金股利);現金再投資比率 = (營業現金流量 − 現金股利)/(固定資產+長期投資+其他資產+營運資金)。",
+      "implementation": "cash_flow_ratio = sum(ocf,4Q)/CL(即使在季表也用 TTM 流量對期末 CL,正確);adequacy = sum(ocf,20Q) / −(sum(capex,20Q)+sum(ΔInv,20Q)+sum(div,20Q));reinvestment = (sum(ocf,4Q)+sum(div,4Q))/(TA−CL)。",
+      "evidence": "20Q = 5 年,符合官方允當比率;符號處理正確——capex/ΔInv/div 的 CTE 都 filter value<0(現金流出存負值),外層取負號 → 分母為正。再投資比率分母 TA−CL = 非流動資產+營運資金,對應官方分母(用帳面淨值近似毛額,可接受)。分子加 dividends(負值)= OCF−股利,正確。ΔInv 只計存貨增加(value<0)符合『存貨增加額』定義。",
+      "fix": "無。"
+    },
+    {
+      "severity": "OK",
+      "metric": "days_sales_outstanding / days_sales_of_inventory(兩張表)· 3_…:43-46,59-62 + 4_…:48-53,85-90",
+      "textbook_def": "應收帳款收現天數 DSO = 平均應收 / 營收 × 天數;存貨週轉天數 DSI = 平均存貨 / 營業成本 × 天數。以日曆天計(季 91.25、年 365)。",
+      "implementation": "DSO(view3)= avg(AR_t,AR_{t-1})×91.25/單季營收;DSO(view4)= avg(AR_t,AR_{t-4})×365/TTM營收。DSI 同結構、分母用營業成本(正確)。",
+      "evidence": "91.25 = 365/4,日曆天慣例正確(此處是營運週轉天數,用日曆天而非 252 交易天——與報酬年化無關,正確)。DSI 分母正確用 COGS 而非營收。平均用連續兩期(季)/去年同期(TTM),lag 期別正確(view4 皆 lag4,無週轉率那種 lag5 錯誤)。",
+      "fix": "無。"
+    },
+    {
+      "severity": "OK",
+      "metric": "current_ratio / quick_ratio / equity_multiplier / inventories_ratio / receivables_ratio(兩張表)· 3_…:17-20,63-64",
+      "textbook_def": "流動比率 = 流動資產/流動負債;速動比率(酸性測試)= (流動資產 − 存貨 − 預付)/流動負債;權益乘數 = 總資產/權益。",
+      "implementation": "current = CA/CL;quick = (CA − inventories − prepaid_expenses)/CL;equity_multiplier = TA/Equity(皆 nullif 分母)。inventories_ratio = inv/TA、receivables_ratio = AR/TA 為組成比(自定義、無教科書名可違反)。",
+      "evidence": "current/quick/equity_multiplier 皆符合教科書(quick 用『扣存貨與預付』法,正確)。equity_multiplier 正權益情形正確(負權益見上方 SUSPECT)。inventories_ratio/receivables_ratio 的分母 total_assets 未包 nullif(3_…:63-64、4_…:91-92)——TA 幾乎不為 0/null,穩健性微瑕、非學理問題。",
+      "fix": "無(inventories_ratio/receivables_ratio 可補 nullif(total_assets,0) 以求一致)。"
+    },
+    {
+      "severity": "OK",
+      "metric": "CBS 綜合評分 + 百分位排名 + 分級門檻(兩張表)· 3_…:79-148 + 4_…:112-181",
+      "textbook_def": "此為專案自訂的綜合品質分數(operating_performance/return_on_investment/capital_structure 百分位 + liquidity/cash_flow 門檻分級 + 加權和),非教科書財務比率,無標準學理定義可對照。",
+      "implementation": "百分位 = rank/count×100;分級為 case-when 門檻;cbs = 0.25×operating + 0.25×return + 0.1×capital + 0.1×liquidity + 0.3×cash_flow。",
+      "evidence": "排名方向內部自洽:roic/roa 升冪 → 高 roic/roa 得高分;equity_multiplier 降冪 → 高槓桿得低 capital_structure。門檻值(2.5/1.5/0.25…)與權重是無出處的魔術數字,但屬啟發式評分、不在學理稽核範圍。註記:capital_structure 在 industry 內排名,而 industry 取『最新』(非 PIT、前視,姊妹單位 SEC-1)——只影響 capital_structure。",
+      "fix": "無(學理層);評分參數若要當決策依據,應各自附回測出處,且 industry 改用 industry_taxonomy_pit 的 PIT 產業別。"
+    }
+  ],
+  "checked": [
+    "確立來源粒度:concise_income_statement_individual 為『單季』值(2330 2024 各季營收 592/673/759/868 億千元,加總 = 全年 ~2.89 兆),cash_flows_individual 亦單季(2024 各季 OCF 436/377/392/620 → 全年 ~1.83 兆)→ view4 對 4 季加總得 TTM 正確",
+    "精讀 3_financial_index_quarterly.sql(173 行)全部 19 個比率算式 + CBS 評分",
+    "精讀 4_financial_index_ttm.sql(206 行)全部 TTM 比率算式 + CBS 評分",
+    "精讀底層 matview 6_concise_financial_statement_with_titles / 2_balance_sheet_with_titles / 4_cash_flows_with_titles 的科目對映(確認 profit=本期稅後淨利、net_operating_income=營業利益、符號慣例)",
+    "對照 research/strat_lab/raw_quarterly.py 已修版本(ROA/週轉率用期初、槓桿用平均、缺料傳 NULL 的定義)",
+    "數字驗證 total_assets_turnover 的 lag5 off-by-one(2330 2024Q4:0.47540 vs 應為 0.47353)",
+    "數字驗證 cash_ratio 的分母:2330/2317/1301/2412/2603 的 cash/TA vs cash/CL 尺度差 ~5×",
+    "量化 ROIC 分子敏感度:淨利/營業利益跨產業 0.858(國泰金)~1.071(大立光)",
+    "全史統計負權益(13 列)/ 負資本運用額(176 列)/ 170,503 列,找出實例 3043 2018Q1 em=−245.35",
+    "手查 view3(financial_index_quarterly)2330 2024 各季 roic/cash_ratio/turnover/gm,確認 view3 週轉率用 lag1(正確、無 off-by-one)、cash_ratio 同用 TA 分母",
+    "確認週轉率/DSO/DSI 用日曆天(91.25/365)而非交易天,符合營運週轉學理"
+  ]
+}

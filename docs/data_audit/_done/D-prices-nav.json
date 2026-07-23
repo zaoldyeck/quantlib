@@ -1,0 +1,82 @@
+{
+  "unit": "D-prices-nav",
+  "title": "NAV/報酬/成本會計",
+  "scope": "research/prices.py 的 daily_returns/DRIP + Backtester 每日 NAV walk（v4.py / apex/engine.py / serenity/engine.py）+ 手續費稅成本（constants.py 及各引擎）",
+  "focus": "DRIP 報酬 (close_t + div_t)/close_{t-1}−1 的正確性、換手成本公式、round-trip 成本、TargetPercent 再平衡、複利計算;摩擦成本是否雙邊、賣稅 0.3% 與手續費折數",
+  "verdict": "OK",
+  "summary": "核心 NAV/報酬/成本會計全部符合學理,可信。DRIP 用 Yahoo/CRSP 標準乘法還原收盤價,對純現金股利與教科書加法式 (P_t+D_t)/P_{t-1}−1 實測 21 年僅差 <0.5%(中華電 15 次配息累積 −0.53%),且 Python 版還多還原了『減資』參考價重設——正是 D-backtester-scala 記為 BUG 的 Scala 漏項,同一資料 Python 端處理正確。逐日複利 NAV=資本×∏(1+r)、CAGR=(末/初)^(1/年)−1、MDD=min(NAV/歷史高−1) 皆逐字符合定義;成本手續費買賣雙邊 0.0285%(=0.1425%×2折)、證交稅只收賣方 0.3%、round-trip 0.357%,event 引擎另加單邊滑價假設,方向皆對且偏保守。範圍內無 BUG。SUSPECT 皆為保守方向小瑕疵:(1) v4 首次純買卻按 round-trip 收費,一次多扣 0.33%(CAGR −0.04pp);(2) CLAUDE.md 換手成本公式寫反(用交集當分子,程式其實用『1−交集』——程式對、文件錯,新策略照抄會反向);(3) 0050/ETF 賣出一律課 0.3% 應為 0.1%。風險調整指標 Sharpe/Sortino 的 v4/evaluation.py 幾何基礎與下行離差問題已歸屬 D-perf-validation,此處僅交叉引用。",
+  "findings": [
+    {
+      "severity": "OK",
+      "metric": "DRIP 日報酬 = 乘法還原收盤價比值 — prices.py:195-212, 310-329, 434-483",
+      "textbook_def": "單期總報酬(Fisher/CRSP holding-period return)= (P_t + D_t)/P_{t-1} − 1,D_t 為除息日每股分配。等價乘法約定(Yahoo adjusted-close / CRSP price-adjustment factor):除息因子 f=(P_pre−D)/P_pre 回乘所有過去價,則 adj[T]/adj[t]−1 即買 t 賣 T 總報酬。出處:CRSP methodology、Yahoo/標普 total-return index 建構。",
+      "implementation": "daily_returns_from_panel 回 close_t/close_{t-1}−1,close 為 fetch_adjusted_panel 還原收盤價。因子優先序 FC1:① 有交易所參考價→f=ref/pre(官方因子,配息+配股一體);② 只有現金股利→f=(pre−cash)/pre。_apply_back_adjustment 以逆向累乘+forward asof(probe=date+1)套 ∏_{ex_date>date} f_e;最近日無未來事件→factor=1→adj=raw。",
+      "evidence": "逐事件實測 2412 中華電 2009–2024(15 次配息):∏(add/mult)=0.9947,整段乘法 vs 加法僅差 −0.53%;2330 差 15.2pp/3771%(相對 0.4%)、1301 差 0.078pp。兩約定僅在 P_t=P_{t-1}−D(除息日無其他波動)時逐項相等,否則差二階再投入基準項。docstring『mathematically equivalent』略誇大——正確為二階近似。test_prices.py parity 比對的是另一個乘法實作(_independent_total_return),保障乘法自洽但未驗證乘法對加法等價。(初次探針 73pp 落差為探針缺陷:crude 加法 walk 未中性化非現金公司行動,prices.py 正確還原。)方向:近似無系統偏。",
+      "fix": "非 BUG。建議 docstring 改為『二階等價(exact iff ex-price=prev−div),cash-div 下 21y <0.5%』,並補一條乘法 vs 加法 parity 測試把差異上界寫死,免未來誤讀為逐位等價。"
+    },
+    {
+      "severity": "OK",
+      "metric": "減資參考價重設還原(相對 Scala 為強項)— prices.py:172-179, 332-357",
+      "textbook_def": "總報酬 NAV 須中性化每一種公司行動的參考價重設,含減資(TWSE『減資恢復買賣參考價』計算辦法);標準 TRI(CRSP/Bloomberg)對 capital change 與 split 一視同仁。",
+      "implementation": "載入 capital_reduction 表,factor=post_reduction_reference_price/pre_close(asof 取除權前最後收盤),守衛 0.05<f<100(彌補虧損型可到 factor 40)。逆向累乘與股利/分割同層套用。",
+      "evidence": "方向正確:彌補虧損型(價跳高 f>1)如 8103 +11.6% 機械跳被還原 ~0%;現金減資型(價跌 f<1)以還原隱含再投入返還股款。實測 2412 中華電 2008-10-17 現金減資的 factor 跳 1.30 正確套用,把金融海嘯期 −25% 中的機械部分還原、保留真實市場波動。Python 路徑因此避開 D-backtester-scala 記錄的 Scala 減資 BUG(350/386 筆漏接)。",
+      "fix": "無。(退還股款型 100% 精確尚需補記返還現金;參考價重設已消 ~95% 誤差。)"
+    },
+    {
+      "severity": "OK",
+      "metric": "每日 NAV 複利 / CAGR / MDD / 年化波動 — v4.py:257-268、apex/metrics.py:16-38",
+      "textbook_def": "NAV=資本×∏(1+r_t);CAGR=(end/begin)^(1/years)−1,years=日曆日/365.25;MDD=min(NAV/cummax−1);年化波動=σ_daily×√252,σ 用樣本標準差 ddof=1。",
+      "implementation": "navs=capital*np.cumprod(1+rets_arr);cagr=(navs[-1]/capital)**(1/years)−1,years=(days[-1]-days[0]).days/365.25;MDD 逐日 peak=max(peak,v);mdd=min(mdd,(v-peak)/peak);vol=rets.std(ddof=1)*sqrt(252)。apex/metrics.py 同構(np.std ddof=1、runmax、(v[-1]/v[0])**(1/years)−1)。",
+      "evidence": "全部逐字符合教科書。年化 252、無風險利率近似另計皆台股標準約定;複利透過 cumprod 自然發生;MDD 用 NAV/歷史高 正確。無偏差。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "摩擦成本雙邊 + 賣稅 0.3% + 手續費折數 + round-trip — constants.py:9-11、apex/engine.py:16-18,48-50、serenity/engine.py:77-78,462,505",
+      "textbook_def": "台股手續費 0.1425%(2 折=0.02850%)買賣雙邊;證交稅賣方單邊普通股 0.3%;round-trip=賣稅+2×手續費。滑價/衝擊為額外可加摩擦。",
+      "implementation": "COMMISSION=0.000285、SELL_TAX=0.003、ROUND_TRIP_COST=SELL_TAX+2*COMMISSION=0.00357。apex:買 cash-=N×(1+comm)、shares=N/(px×(1+slip));賣 cash+=shares×px×(1−slip)×(1−comm−tax),slippage=0.001。serenity:FEE_BUY=comm+0.0005、FEE_SELL=comm+tax+0.0005,proceeds=value×(1−FEE_SELL)、value=alloc×(1−FEE_BUY)。",
+      "evidence": "手續費雙邊、賣稅單邊、折數 0.0285%=0.1425%×0.2、round-trip 0.357% 全對。滑價(10bps/5bps 單邊)為明確標註模型摩擦參數(保守加成本),非學理錯誤。event 引擎以股數/現金逐筆會計優於 v4 扁平換手近似。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "換手成本公式(穩態)+ TargetPercent 再平衡 + T+1 成交無前視 — v4.py:124,199,208-246",
+      "textbook_def": "等權替換籃 rebalance 賣出比例 s、買入 s,成本=s×賣稅+(s賣+s買)×手續費=s×(賣稅+2×手續費)。TargetPercent=每檔目標 1/N NAV。避免前視:close_t 排名的訊號只能 ≥t+1 成交。",
+      "implementation": "sold_frac=(size−overlap)/size(size=max(len(cur),1));cost=sold_frac×(SELL_TAX+2×COMMISSION)。weight 由 SQL 給 1/TOPN(regime 抱 0050 時 weight=1.0),恆和為 1 全額投資。picks asof +1 day shift(T 決策、T+1 成交)。",
+      "evidence": "穩態公式相符;sold_frac 用非重疊比例正確。+1 day shift 正確避免前視(與 apex next_open 一致,對照 Scala 同收盤成交的 SUSPECT)。已註記近似(非 BUG):日報酬用固定權重 Σw_i·r_i(隱含每日 rebalance 回等權)但成本只在月度 rebal 日計→免費得到日再平衡方差縮減,差異二階、CLAUDE.md『Speed over bit-exact』明文接受。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "首次建倉多收『賣稅 + 一次手續費』— v4.py:240-246",
+      "textbook_def": "第一筆建倉是純買,成本應只有買方手續費 1.0×COMMISSION,不含賣稅、不含賣方手續費。",
+      "implementation": "if prev_set is None: sold_frac=1.0,再 cost=sold_frac×(SELL_TAX+2×COMMISSION)→對初始純買也收整份 round-trip。",
+      "evidence": "charged=0.00357 vs 正確 pure-buy=0.000285,一次性多扣 0.329%;對 8.29 年回測 CAGR 影響 −0.0397pp。方向保守(低估報酬),僅發生在首個 rebal 日。",
+      "fix": "首個 rebal 成本改為 1.0×COMMISSION(只算買方手續費);或 first_buy_cost=bought_frac×COMMISSION,穩態維持 sold_frac×(SELL_TAX+2×COMMISSION)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "CLAUDE.md 換手公式寫反(文件 vs 程式;傳播風險)— CLAUDE.md Strategy Semantics Contract(程式 v4.py:245)",
+      "textbook_def": "換手成本 ∝ 實際交易比例 = 非重疊比例 1 − |prev∩cur|/TOPN。",
+      "implementation": "CLAUDE.md 寫『Per-rebal turnover cost = |prev∩cur|/TOPN × (SELL_TAX + 2×COMMISSION)』並附『match v4.py formula』。|prev∩cur|/TOPN 是交集(保留)比例,與程式 sold_frac=(size−overlap)/size 恰互補(反向)。",
+      "evidence": "依文件公式:持股完全不變(overlap=TOPN)→扣滿 round-trip;持股全換(overlap=0)→零成本,與現實相反。程式碼(v4.py:245、iter_13_event_exit.py:162,177)全部用正確非重疊比例,全庫掃描(sold_frac|overlap|SELL_TAX + 2)未見任何消費者採反向式;風險純在未來新策略照文件抄。",
+      "fix": "改 CLAUDE.md 為 (1 − |prev∩cur|/TOPN) × (SELL_TAX + 2×COMMISSION) 與程式對齊(文件修正,程式無需動)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "ETF/0050 賣出一律課 0.3%(法定 0.1%)— v4.py:196-199 regime 0050 leg;event 引擎 SELL_TAX 扁平",
+      "textbook_def": "ETF(0050/0052…)證交稅 0.1%,非普通股 0.3%。",
+      "implementation": "SELL_TAX=0.003 扁平套用。v4 純股票池以 regex ^[1-9][0-9]{3}$ 排除 ETF(0050 首位 0 被擋)→股票腿正確;但 regime 風險偏好時整檔抱 0050(weight=1.0),切回股票時賣 0050 仍按 0.3%。event 引擎若持 ETF 亦同。",
+      "evidence": "每次賣出整本 0050 多扣 0.2% NAV;8 年約 10–20 次 regime 切換→累積 ~2–4%(上界)、保守方向。benchmark 0050 買抱不賣無影響。",
+      "fix": "依代號分流賣稅(ETF 0.1%);普通股純用途優先度低。"
+    },
+    {
+      "severity": "OK",
+      "metric": "風險調整指標 Sharpe/Sortino(交叉引用 D-perf-validation)— apex/metrics.py:32-33 正確;v4.py:264、strat_lab/evaluation.py:120,134-135 幾何/子集偏差",
+      "textbook_def": "Sharpe=(E[Rp]−Rf)/σp 用算術均值超額報酬;Sortino 用下行離差=√(mean over all N of min(r−MAR,0)²),MAR=0。",
+      "implementation": "apex/metrics.py:Sharpe=mean/std×√252、Sortino=mean/√mean(min(r,0)²)×√252(皆教科書正確)。v4.py:264 與 evaluation.py:135:Sharpe=(cagr−rf)/vol 用幾何 CAGR 當分子;evaluation.py:120,134:Sortino 下行離差用 np.std(rets[rets<0],ddof=1)(對負子集自身均值離差、除 n_neg)。",
+      "evidence": "apex 版正確。v4/evaluation.py 版:Sharpe 幾何分子系統低估 ~σ/2;Sortino 子集離差非目標半離差(某 Gaussian 樣本比值 0.86x,方向依分佈而定)。此兩項已由 D-perf-validation 立案(明列 Sharpe 幾何 CAGR 基礎、Sortino 下行標準差,覆蓋 validate_hybrid.py+evaluation.py),此處僅交叉引用不重複計列;v4.py:264 為同類另一實例。",
+      "fix": "歸 D-perf-validation:Sharpe 分子改算術年化均值超額報酬;Sortino 下行離差改 √(mean_over_N(min(r−MAR,0)²))(=採 apex/metrics.py 正確式)。"
+    }
+  ]
+}

@@ -1,0 +1,52 @@
+{
+  "id": "B-matview-1_concise_balance_sheet_individual",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/materialized_view/1_concise_balance_sheet_individual.sql",
+  "unit": "B-matview-1_concise_balance_sheet_individual",
+  "verdict": "OK",
+  "summary": "這張表是把資產負債表攤平成一格一列再去重,算式沒有錯,可以信。最關鍵的一點:資產負債表是季末當天的存量快照,本來就不該像損益表那樣把累計數前後相減——這張 view 正確地不相減(全文只有 distinct on 去重、零 lag/零除法),所以它沒有姊妹表(損益表 5_...)那種累計數亂減、單季被放大一萬倍的病。現代年份(2013+)逐格正確,台積電 2330 2024Q4 資產總計 6,691,938,000 = 負債總計 2,368,362,135 + 權益總計 4,323,575,865 對平到 0。三個要記住的語意邊界(都不是算錯):(1)名字叫 individual(個體)但去重時字母序讓 consolidated 恆勝、實際偏合併——對台股分析取合併其實是對的預設,但名字會誤導;(2)2013 前有 27,563 個公司季是合併+個體混口徑拼裝(全部雙口徑組都至少有一個個體專有科目),跨口徑不對帳,但現役消費端只讀兩口徑都有的頂層總額 → 一律取到合併值、實際沒中彈,且限 2013 前(2013+ 雙口徑僅 98 個);(3)無財報公告日欄位、源表唯一鍵會用重編後數字覆蓋原值 → 殘留前視風險,與姊妹檔 B-matview-5 同株。現役 Python/實盤根本不讀這張 view(research/cache_tables.py:88-91 直接讀原始表 type='consolidated',全 research/ 對本 view 零引用),只餵給已凍結的 Scala 舊 view 鏈,實盤沒中彈。",
+  "checked": [
+    "精讀 1_concise_balance_sheet_individual.sql 全文(11 行):distinct on (market,year,quarter,company_code,title) + order by ...,type,無任何 lag/減法/除法",
+    "對照姊妹檔 5_concise_income_statement_individual.sql:19-22(損益表才做 value-lag(value) 單季還原)確認本檔正確地不差分",
+    "FinancialReader.scala:63-112 確認 type 來自原始檔名尾碼 c=consolidated/i=individual,view 於 readBalanceSheet 匯入後 refresh(:110)",
+    "消費端盤點:grep 全庫 concise_balance_sheet_individual → 只有 6_concise_financial_statement_with_titles.sql、view/1_cbs_by_year.sql、reader refresh;research/ Python 側零引用",
+    "PG type 分佈:consolidated 2,142,171 / individual 1,339,539;雙口徑 (m,y,q,code,title) key 數 532,288",
+    "PG Frankenstein 混口徑:有雙口徑的公司季 27,661 個全部含至少一個個體專有科目;pre-2013 雙口徑 27,563 / 2013+ 98;個體專有 title 18 個",
+    "合併恆勝 spot-check:1333/1336/1565 2006Q2 資產合計 合併值≠個體值時 view 一律回合併值",
+    "台積電 2330 2024Q4 footing:透過 view 資產=負債+權益 residual=0(單位千元)",
+    "消費端扇出:6_...total_equity 標題集(股東權益總計/合計/股東權益/權益總額/權益總計)透過 view 回>1 列的公司季 = pre-2013 287 / 2013+ 0",
+    "research/cache_tables.py:88-91 確認 cache 快取原始表 concise_balance_sheet WHERE type='consolidated',不快取本 mat view"
+  ],
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "TTM/累計差分——正確地不做。資產負債表是時點存量(季末餘額),不該像損益表那樣前後季相減。這張 view 全文零 lag/零減法,只做去重,是正確做法;跨年第一季問題根本不存在(因為不差分)。這正是它沒有姊妹損益表 view 那種累計數亂減病的原因。",
+      "evidence": "檔案全文(:1-11)只有 distinct on 去重 + order by,無 lag/window/算術。對照 5_concise_income_statement_individual.sql:19-22 的 case when quarter=1 then value else value-lag(value) over(...)——那是損益表該做、資產負債表不該做。正面佐證:psql -c \"WITH v AS (SELECT title,value FROM concise_balance_sheet_individual WHERE company_code='2330' AND year=2024 AND quarter=4) SELECT (SELECT value FROM v WHERE title='資產總計') - (SELECT value FROM v WHERE title='負債總計') - (SELECT value FROM v WHERE title='權益總計')\" → residual=0(6,691,938,000 = 2,368,362,135 + 4,323,575,865,單位千元)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "去重具決定性、無除法、不可能 ±inf。distinct on 的欄位與 order by 前綴一致(market,year,quarter,company_code,title),符合 PostgreSQL 慣用法;字母序 consolidated<individual 使結果穩定可重現,無隨機 tie-break。本 view 完全沒有除法,分母保護/ROE/ROIC/毛利率分母等檢查對本 artifact 不適用(那是下游 1_cbs_by_year 的責任)。",
+      "evidence": "unique index idx_ConciseBalanceSheet_market_type_year_quarter_companyCode_ti = (market,type,year,quarter,company_code,title) 保證每個去重 key 至多 2 列(consolidated/individual),order by ...,type 決定性取其一。spot-check:psql 查 1333/1336/1565 2006Q2 資產合計,合併值(3,023,145 / 1,566,099 / 1,772,719)與個體值不同時,view_returns 全部=合併值(view_picked='consolidated')。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "名為 _individual(個體)實際偏 consolidated(合併),且 2013 前 27,563 個公司季為混口徑(Frankenstein)。去重字母序讓 consolidated 恆勝(取合併對台股分析其實是對的預設,只是名字誤導)。混口徑:去重是逐科目做的,若某公司某季合併與個體科目集不完全重疊,拼出的資產負債表就大部分來自合併、少數個體專有科目來自個體,跨口徑不對帳。實務未中彈:現役消費端只讀兩口徑都有的頂層總額 → 一律取到合併值,那些個體專有科目沒被讀到;且幾乎全在 2013 前。",
+      "evidence": "SQL order by market,year,quarter,company_code,title,type(consolidated<individual)。psql:有雙口徑的公司季=27,661,其中含個體專有科目者=27,661(全部);按時代拆 CASE WHEN year<2013 → pre-2013 雙口徑 27,563 / 2013+ 98;個體專有 title 18 個(股東權益、基金及長期投資、無形及其他資產、多個銀行業科目)。消費端(6_...with_titles、1_cbs_by_year)WHERE title IN(...) 只含 資產合計/流動資產/負債總計/流動負債/長期負債/權益總額/保留盈餘 等兩口徑共有科目 → 取合併值。FinancialReader.scala:70-73,84-87 證 type 來源。",
+      "fix": "改善建議(非現役路徑,低優先):(1)view 重命名或加註解說明實際是『consolidated-preferred 去重』而非個體報表,避免未來消費者誤解;(2)若要杜絕 pre-2013 混口徑,dedup 改成整組(公司×季)只取一種 type(先看哪種 type 該季科目最完整),而非逐 title 各取一種。現役 Python 已繞過(cache 直接 type='consolidated'),此為 Scala 凍結鏈的歷史品質問題。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "殘留前視偏誤:本 view 無任何財報公告日欄位,把季末數字當成季末當天就知道即為前視;且源表唯一索引不含版本欄,重編(restatement)直接覆蓋原值,歷史季度存的是最新重編版而非當時已公告版。與姊妹檔 B-matview-5 同一株 SUSPECT。這是消費端責任(Scala 凍結策略以 PublicationLag 補公告落後),但需標註以免下游誤用。",
+      "evidence": "view 欄位僅 id,market,year,quarter,company_code,company_name,title,value——無 filing_date/announce_date。源表唯一索引 (market,type,year,quarter,company_code,title) 無版本維度 → restatement upsert 覆蓋。B-matview-5_concise_income_statement_individual.md 已記錄同一問題。",
+      "fix": "消費端在使用 (year,quarter) 財報時一律套公告落後(季報約季末後 45 天、年報約隔年 3/31);若要在源頭治本需為 concise_balance_sheet 增設公告日欄位並改唯一鍵保留版本——屬跨單位 schema 變更,交主流程裁決。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "下游消費端假設不一致(屬 unit 6、限 pre-2013,非本檔缺陷):6_concise_financial_statement_with_titles 的 total_equity 標題集同時列了多個並存同義詞(股東權益總計/股東權益合計/股東權益/權益總額/權益總計)。本 view 忠實地一 title 一列,若同一公司季同時存在兩個以上同義 title,該 CTE 回多列 → LEFT JOIN 扇出、重複計列。歸屬為消費端標題集過寬,列出供 unit 6 修。",
+      "evidence": "psql:透過 view,該標題集回 >1 列的公司季 = pre-2013 287 / 2013+ 0;例 2514/2855/1409(2012Q1)同時有『股東權益總計』與『股東權益合計』兩列。6_concise_financial_statement_with_titles.sql:22-28 total_equity CTE 無 distinct on。",
+      "fix": "unit 6 的 total_equity(及同類 CTE)改用 distinct on (year,quarter,company_code) + 明確的 title 優先序,或收斂同義詞清單;本 view 不需改。"
+    }
+  ]
+}

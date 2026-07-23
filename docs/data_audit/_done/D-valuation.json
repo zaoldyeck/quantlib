@@ -1,0 +1,103 @@
+{
+  "unit": "D-valuation",
+  "verdict": "BUG",
+  "summary": "SQL 估值檢視(8_valuation / 9_valuation_1q)裡的樂活五線譜和 DCF 有三個真學理錯:五線譜的『標準差』用了收盤價原始標準差(該用迴歸殘差標準差),整條通道被系統性撐寬——全市場中位股寬 1.28 倍、越有趨勢的股票越誇張(p90 是 2.35 倍),使得『貴/便宜』訊號在最該作用的趨勢股身上被稀釋;DCF 的成長率用『逐季 YoY 的算術平均』而非幾何 CAGR(算術一定偏高,把合理價灌水);DCF 十年成長率那條的視窗排序寫成 desc、變成非時序甚至前視。所幸這兩張 SQL 檢視目前沒有任何生產程式在讀(Scala、research 都查無消費者),真正上線用的估值(Evergreen 的 PE/PB 三年百分位、research 的 fiveline_z_neg 對數殘差 z、dcf_proxy 兩階段含 Gordon 永續)反而都是學理正確的。研究端 peg_inv(用營收成長不是盈餘成長)與 ev_ebit_inv(EV 用總負債不是淨負債)是有註記的近似、且 peg_inv 已被 IC 篩掉。結論:上線的錢沒被這些錯汙染,但那兩張 SQL 檢視不能當估值真源用,要嘛修、要嘛標為棄用。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "樂活五線譜通道寬度(標準差口徑)｜src/main/resources/sql/view/8_valuation.sql:41-49；9_valuation_1q.sql:42-50",
+      "textbook_def": "線性迴歸通道 / 樂活五線譜(薛兆亨、tivo168《五線譜投資術》)：中心線=OLS 趨勢線 slope·t+intercept,上下 ±1σ、±2σ 的 σ 是『價格對趨勢線的殘差標準差』(Excel 原版用 STEYX=sqrt(SSE/(n-2)),即估計標準誤),量的是價格偏離趨勢的典型幅度。數學上 σ_resid²=σ_price²·(1−R²)。",
+      "implementation": "channel 用 stddev(closing_price)(Postgres=stddev_samp,除以 n-1)當 σ,再 slope·x+intercept ± σ、±2σ 畫五線;σ 取的是『原始收盤價』的標準差,不是殘差。中心線卻是迴歸趨勢線 → 中心=去趨勢、頻寬=含趨勢,兩者口徑不一致。evaluation(-2/-1/0/1/2)與 price_err 全建在這條通道上。",
+      "evidence": "σ_price 除了殘差還包含趨勢本身造成的變異,恆有 σ_price ≥ σ_resid,通道被系統性撐寬,倍數=1/√(1−R²)。全市場實測(cache daily_quote,twse,最近 3.5 年、n≥600 的 1198 檔,以 regr_r2(close, epoch(date)) 估 R²):中位 R²=0.392→頻寬 1.28×;p75 R²=0.651→1.69×;p90 R²=0.819→2.35×;p95→2.89×。58.1% 的股票通道至少寬 1.2 倍、35.3% ≥1.5 倍、16.4% ≥2.0 倍。趨勢越乾淨(R² 越高)撐得越兇,而通道正是給趨勢股用的 → 穩步上漲的股票幾乎永遠踩不到過寬的上軌,evaluation 恆為 0、price_err 失真。反證:本 repo 自己的 research/apex/experiments/v01_valuation_factors.py:92-111 fiveline_z_neg 就用對數價 OLS『殘差』標準化 z,是正確口徑,兩份實作互相打臉。次要:SQL 用線性價、research 用對數價(多年期報酬應取對數才線性)。",
+      "fix": "把 σ 改成殘差標準差:在同一 3.5 年 RANGE 窗上,σ_resid = sqrt( var_samp(close) − slope²·var_samp(x) )(等價 Var(y)−b²·Var(x));或用 regr_sxy/regr_sxx/regr_syy 併出 SSE 再 /(n-2) 對齊 STEYX。中心線與頻寬統一在『去趨勢』口徑;建議同步改用對數價(ln close)與對數殘差,和 fiveline_z_neg 對齊成單一真源。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "eps_growth_rate_10y 視窗排序(DCF 十年成長率)｜8_valuation.sql:101-103；9_valuation_1q.sql:103-105",
+      "textbook_def": "N 年平均成長率應是『當期往前回看 N 年』的過去樣本(trailing),排序必須嚴格時序遞增(year asc, quarter asc),窗框取 rows between k preceding and current row。任何用到未來季度的平均都是前視洩漏。",
+      "implementation": "eps_growth_rate_10y = sum(eps_growth_rate_1y) over (partition by company_code order by year, quarter desc rows between 39 preceding and current row)/40。而同段的 3y/5y 用的是 order by year, quarter(遞增)、rows 11/19 preceding——只有 10y 這條加了 desc。",
+      "evidence": "order by year, quarter desc 解析為 year ASC, quarter DESC:年遞增但年內季倒序(…2020Q4,2020Q3,2020Q2,2020Q1,2021Q4…),是非時序的亂序,『39 preceding』取到的是一段錯亂季度的混合,不是任何有意義的 10 年平均;若作者本意是完整反時序(year desc,quarter desc),則『39 preceding』在反時序下=當期之後 39 季=未來季度=前視。兩種解讀都壞。此值經 x_10y=(1+g)/(1+r) 餵進 dcf_10y 與 dcf_10y_err。3y/5y/10y 三條並列、只有 10y 排序不同,幾可確定是筆誤。",
+      "fix": "把 desc 去掉,統一成 order by year, quarter rows between 39 preceding and current row。同時建議每條加最小樣本數保護(窗內實際季數 <k 時輸出 NULL 而非用 0 補、再除以固定分母),避免早期歷史被低估。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "DCF 成長率 g 的口徑:算術平均 YoY vs 幾何 CAGR｜8_valuation.sql:94-100；9_valuation_1q.sql:96-105",
+      "textbook_def": "用於複利折現的期望成長率應是幾何平均(CAGR)= (EPS_t/EPS_{t-N})^(1/N)−1。對同一組成長序列,算術平均 ≥ 幾何平均(AM-GM / Jensen),序列越波動差距越大;把算術平均當 g 餵進 (1+g)^t 會系統性高估內在價值。",
+      "implementation": "eps_growth_rate_3y/5y/10y = 逐季 YoY 成長率(eps/lag(eps,4)−1)在 rows 11/19/39 preceding 上的『算術平均』(sum/12、/20、/40);再 x=(1+g)/(1+r) 做十年複利折現。用的是重疊 YoY 的算術平均,不是端點對端點的 CAGR。",
+      "evidence": "玩具序列 EPS=[1,1.5,1.2,2.0,1.8,2.5]:算術平均 YoY=0.2511,幾何 CAGR=0.2011,g 被灌水約 5 個百分點(相對高估 25%),經 (1+g)^10 放大後 dcf_Ny 顯著偏高、股票看起來更便宜。另一風險:eps/lag(eps,4)−1 在盈餘接近 0 或轉正負時會爆量,算術平均被離群值主宰,幾何/端點法對此穩健。反證:research dcf_proxy(v01_valuation_factors.py:60)g3y=(rev_ttm/rev_ttm.shift(12))^(1/3)−1 就是正確的幾何 CAGR,SQL 錯、Python 對。",
+      "fix": "g 改幾何:g_Ny = (eps / lag(eps, 4N) over (order by year,quarter))^(1/N) − 1,或先取端點 TTM-EPS 再開 N 次方根;避免對重疊 YoY 取算術平均。並對 eps≤0 的端點加域外處理。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "DCF 終值:有限 10 年成長年金 vs Gordon 永續｜8_valuation.sql:104-128；9_valuation_1q.sql:106-131",
+      "textbook_def": "兩階段 DCF 的定義特徵是終值用 Gordon 永續:TV_N = CF_N·(1+g_t)/(r−g_t),再折現回現值;第二階段代表『永遠以 g_t 成長』。",
+      "implementation": "第二段寫成 eps·x^N·y·(1−y^M)/(1−y),y=(1+0.04)/(1+0.12),M=years_of_terminal_growth=10——是一段『有限 10 年』的成長年金,不是永續;整個模型在第 20 年後價值歸零。r、g_t、N、M 皆為硬編常數(discount_rate 0.12、terminal_growth_rate 0.04)。",
+      "evidence": "以程式常數 r=0.12、g_t=0.04 實算:Σ_{s=1}^{10} y^s = 6.804,Gordon 永續 y/(1−y)=13.000 → 終值段只擷取了永續的 52.3%、短少 47.7%。即這個『終值』相對教科書 Gordon 終值系統性低估近半(第一段 10 年與教科書相同,故整體低估幅度小於 47.7% 但方向一致且顯著)。反證:research dcf_proxy(v01_valuation_factors.py:82-83)終值用 (1+G1)^5·1.02/(0.10−0.02)/1.10^5,是正確的 Gordon 永續,SQL 用有限年金、Python 用永續。另 r=12% 全市場一體適用、無 CAPM/WACC 個股化,屬無證據魔術數字。",
+      "fix": "若要對齊教科書兩階段 DCF,第二段改 Gordon 永續:eps·x^N·(1+g_t)/(r−g_t);若刻意採有限年金(保守),須在檢視註解寫明『這是有限 20 年 DCF、非永續,終值刻意截斷』並接受其系統性低估。r 建議至少按產業或個股 beta 差異化,或明確標為情境常數。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "DCF 折現標的用 EPS(會計盈餘)而非自由現金流/股利｜8_valuation.sql:116-128；9_valuation_1q.sql:119-131",
+      "textbook_def": "DCF 應折現可分配現金流:FCFF(對 WACC)、FCFE 或股利(對 r_e)。盈餘折現模型(如剩餘所得/EPS 折現)須額外處理再投資,不能既把 EPS 全額當可分配、又假設它靠再投資成長。",
+      "implementation": "dcf_1y…dcf_10y 直接把 TTM EPS 當每期現金流做 (1+g)^t 成長並折現;EPS 全額被視為可分配,同時又以 g 成長。",
+      "evidence": "成長需要保留盈餘再投資,EPS 未扣再投資,把成長來源(保留盈餘)重複計入 → 對成長股高估內在價值。這是『盈餘 DCF』的已知結構性偏誤,非隨機誤差。屬有意的零售式簡化(五線譜圈常見),但與教科書 DCF 定義不符。對照:research 端至少用 CFO_ttm(營運現金流,較接近可分配),SQL 用 EPS 更遠離定義。",
+      "fix": "折現標的改 FCFE 或股利(EPS×派息率);若資料只有 EPS,至少乘以保留/派息調整或在文件標明『EPS 代理、對成長股偏高估』。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "peg_inv 的成長率口徑:營收成長 vs 盈餘成長｜research/apex/experiments/v01_valuation_factors.py:62,87-88",
+      "textbook_def": "PEG(Peter Lynch)= (P/E) / (盈餘成長率×100),g 是『每股盈餘/盈餘』的年成長率;其倒數(越大越便宜)= (E/P)×g_earnings。",
+      "implementation": "peg_inv = (ni_ttm/mcap_k)×g_yoy,分子是盈餘殖利率(E/P)沒錯,但 g_yoy = rev_ttm/rev_ttm.shift(4)−1 是『營收』YoY,不是盈餘成長。gated g_yoy>0(g≤0 域外,合理)。",
+      "evidence": "PEG 的 g 學理上是盈餘成長,這裡用營收成長替代,營收成長≠盈餘成長(毛利/費用槓桿會脫鉤)。docstring 已誠實註明『E/P×營收成長』,屬有聲明的近似;但 ledger batches.md:1809 又把它寫成『EP×NI 成長』,文件內部自相矛盾(實際碼是營收)。此因子已被 IC 篩掉(factors.jsonl:peg_inv h63 mean_ic −0.017、spread −12%,判死),不進生產。常數 100 對截面 rank 無影響,可忽略。",
+      "fix": "若要對齊 PEG,g 改用盈餘/EPS 成長(ni_ttm YoY 或 eps_ttm YoY);並修正 ledger 標註使其與碼一致。因子已死,亦可直接標棄用不修。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "ev_ebit_inv 的 EV 口徑:總負債 vs 淨負債｜research/apex/experiments/v01_valuation_factors.py:58,86",
+      "textbook_def": "企業價值 EV = 市值 + 附息負債 − 現金及約當現金(+少數股權+特別股),即市值加『淨負債』;EV/EBIT 以此為分母。",
+      "implementation": "ev_ebit_inv = ebit_ttm/(mcap_k + tl),tl = current_liabilities + non_current_liab = 『總負債』(含應付帳款、預收、遞延等非附息營業負債),且未扣現金。docstring 明寫『EV=市值+總負債,無現金扣除聲明』。",
+      "evidence": "用總負債取代淨負債會把 EV 顯著灌大,對營運負債/金融負債龐大的公司(銀行、壽險、大量預收的營建)尤其失真——例如銀行的存款是負債,EV 會被灌到荒謬、ev_ebit_inv 趨近 0。屬有聲明的近似,僅供截面 rank 的估值 IC 篩選,不作為上線估值。名稱叫 ev_ebit 但非教科書 EV,故列 SUSPECT。",
+      "fix": "EV 改市值 + 附息負債(短期借款+長期借款+一年內到期長債)− 現金約當;若季報無法拆附息負債,至少扣現金並在名稱標註為近似(如 ev_ebit_approx)。"
+    },
+    {
+      "severity": "OK",
+      "metric": "研究端五線譜 fiveline_z_neg(對數價 OLS 殘差標準化 z)｜research/apex/experiments/v01_valuation_factors.py:92-111",
+      "textbook_def": "線性迴歸通道的標準化偏離 = 殘差/殘差標準差:z=(y_t − ŷ_t)/σ_resid,σ_resid=sqrt(Var(y)−b²·Var(t)),y 用對數價。",
+      "implementation": "400 日滾動閉式 OLS:slope=cov_ty/var_t(var_t=(W²−1)/12 為等距整數 t 的變異,常數);殘差=y−my−slope·(W−1)/2;分母=sqrt(vy−slope²·var_t)=殘差標準差;z=殘差/σ_resid,fiveline_z_neg=−z。",
+      "evidence": "逐項推導核對:當期在窗內 t=最新,ŷ=my+b·(W−1)/2,故殘差=y−my−b·(W−1)/2 ✓;Var(resid)=Var(y)−b²·Var(t) ✓;var_t 用連續整數封閉式正確 ✓。這正是 8_valuation 五線譜『該有』的殘差口徑,是本 repo 內部正解、可當修 SQL 的參照。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "研究端 dcf_proxy 兩階段(Gordon 永續+幾何 CAGR)｜research/apex/experiments/v01_valuation_factors.py:81-90",
+      "textbook_def": "兩階段 DCF:第一段有限年成長、第二段 Gordon 永續 CF_N(1+g_t)/(r−g_t) 折現回現值;成長率用幾何 CAGR。",
+      "implementation": "G1=clip(3y 營收 CAGR,0,0.25);_dcf_pv=Σ_{t=1}^{5}(1+G1)^t/1.10^t + (1+G1)^5·1.02/(0.10−0.02)/1.10^5;dcf_proxy=cfo_ttm·_dcf_pv/mcap。第一段 5 年 + 正確 Gordon 永續終值,g 用幾何 CAGR。",
+      "evidence": "終值 (1+G1)^5·(1+g_t)/(r−g_t)/1.10^5 為教科書 Gordon 形式 ✓;g 幾何 CAGR ✓;用 CFO 而非 EPS 較接近可分配現金 ✓。caveat(皆有聲明、僅供截面 IC):把營收 CAGR 套在 CFO 基準上、r=10% 與 g=2% 為全市場常數、CFO 未扣 capex(非嚴格 FCF)。作為 rank 因子屬合理近似。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "生產用 Evergreen 估值:PE/PB 三年百分位(PIT)｜research/evergreen/ev18_make_packs.py:108-125",
+      "textbook_def": "相對估值分位 = 當前值在過去 N 年分佈的經驗百分位;PIT 要求只用觀察日『之前』的資料。PE/PB 越低分位越便宜。",
+      "implementation": "取 date < t0 的最近 756 筆(≈3 年交易日),PE三年分位% = 100·count(pe≤cur)/count(pe),PB 同法;當前值取窗內最新一筆。",
+      "evidence": "date < t0 嚴格排除觀察日,無前視 ✓;756≈252×3 對齊 3 年 ✓;經驗百分位含等於(≤)為標準定義 ✓。這是實際上線 Evergreen packs 的估值特徵,方法學正確。PE/PB/殖利率原值直接取自 stock_per_pbr(TWSE 官方每日公告 trailing 值),PIT 天然成立。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "SQL 估值檢視的 PIT 價格↔財報季對齊(月→季 case 映射)｜8_valuation.sql:215-220；9_valuation_1q.sql:218-223",
+      "textbook_def": "PIT:觀察月只能用『當時已依法公告』的最近一季財報。台股期限:Q1 5/15、Q2 8/14、Q3 11/14、年報(Q4)次年 3/31。",
+      "implementation": "month<4→前一年 Q3;month<6→前一年 Q4;month<9→當年 Q1;month<12→當年 Q2;else(12 月)→當年 Q3。",
+      "evidence": "逐月對照:1–3 月最新只到前一年 Q3(年報 3/31 才出)✓;4–5 月用前一年 Q4(3/31 已出)✓;6–8 月用當年 Q1(5/15 已出)✓;9–11 月用當年 Q2(8/14 已出)✓;12 月用當年 Q3(11/14 已出)✓。全程保守(每段後半略偏舊但絕不前視),無 look-ahead。這是正面發現。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "per_err / pbr_err / dividend_yield_err 相對估值分數 + 迴歸用 rank() x｜8_valuation.sql:28,36-42,183-188；9 同段",
+      "textbook_def": "此為自訂『相對便宜度』分數,非具名教科書量;要求方向一致(便宜為正)、標準化合理。OLS 斜率與當期擬合值對 x 平移不變。",
+      "implementation": "per_err=(hi+lo−2·cur)/(hi−lo) 把當前 PE 標到 [−1,1](cur=lo 最便宜→+1、cur=hi→−1);dividend_yield_err 翻號使高殖利率(便宜)→+1;hi/lo 取 3.5 年 max/min。x=rank() over(order by date) 為全域序號,經 slope·x+intercept 在窗內當期取值。",
+      "evidence": "符號約定一致(便宜=+1)✓;為 min-max 置中標準化,非本益比乘數等具名量,無教科書定義可違。x 用全域 rank:OLS 斜率與『當期擬合值』對 x 常數平移不變(intercept 吸收),不影響 evaluation/price_err ✓;RANGE 3.5 年為 trailing 窗、PIT 正確 ✓。caveat:hi/lo 用極值(max/min)當界,對單日離群值敏感(單根長影就撐開分母),分位/穩健界更佳,但非學理錯。",
+      "fix": ""
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "unit": "D-evergreen-live",
+  "title": "Evergreen 計分引擎(LIVE)",
+  "scope": "research/evergreen/engine.py 的 score_expr/scores/replay_nav(含其委派的 refit / walk-forward / DRIP 還原路徑)",
+  "focus": "計分因子定義、NAV 重放的 DRIP 與還原、refit 的樣本內外切割、walk-forward 有無洩漏",
+  "verdict": "SUSPECT",
+  "summary": "現役 Evergreen 引擎的『錢路』——計分因子、除權息還原(DRIP)、樣本內外切割、走查有無偷看未來——四項全部學理正確、可以信:報酬曲線用的是 total-return 還原價(股利/減資/分割都折進價格),持有固定股數乘還原收盤 = 含息總報酬,不會像讀原始收盤那樣少算股利;每一段走查用的參數只由『該段之前』的資料選出,滾動擴張窗、沒有前視;因子(52 週高點距離、Donchian 突破、法人 5 日淨買、營收年增加速)都用『當下已知』的資料算、營收還嚴格延到次月 10 號才可見,沒有偷看。要提醒的三件事都不影響現役選型與 NAV:(1) 走查用的統計函式 kpis_full 裡的 Sortino 下行風險公式寫錯(用『下跌日的標準差』而非學理的『全期對 0 的下行差』,會把 Sortino 高估約一成)——但 refit 只讀它的 p5、根本沒用到這個 Sortino,live config 不受污染;(2) 那個 p5 名字叫『5% 下界』其實是 bootstrap 的 2.5 百分位(= 雙尾 95% 信賴區間下界,正好對上 CLAUDE.md 的驗收口徑,算對了、只是綽號取得鬆);(3) 走查『誠實線』的彙總 CAGR 把第一年『樣本內』那段也算進去了,會讓那條線的年化看起來比真正的樣本外好一點——但這段有 in_sample 旗標、儀表板畫成虛線標明,只有 _wf_report 這支診斷列印沒扣掉。另有兩處是刻意且一致的代理選擇(52 週高點用收盤而非盤中最高、adv20 用中位數而非平均),不是錯。",
+  "findings": [
+    {
+      "severity": "OK",
+      "metric": "DRIP / 除權息還原 —— replay_nav→replay→simulate(engine.py:164-186)委派的還原價 panel(research/prices.py:24-41、research/apex/data.py:49-94 load_panel)",
+      "textbook_def": "含息總報酬(total return)需把現金股利再投入:買 t 賣 T 的報酬應等於 ∏_{t<s≤T}(close_s + cash_div_s)/close_{s-1} − 1。標準做法 = Yahoo 式後復權(back-adjustment):現金股利因子 (close_pre−div)/close_pre、減資因子 post_ref/close_pre、分割因子 post/pre,adj_factor(t)=∏ 除息日>t 的因子,adj_close=raw_close×adj_factor;持有固定股數 × 還原收盤即為總報酬。",
+      "implementation": "replay_nav 的 NAV 全由 simulate 在 d.panel 上走。d.panel 來自 data.load_panel = prices.fetch_adjusted_panel,回傳的 open/close/high/low 全部用同一 adj_factor 後復權(prices.py:33『Same factor applied to open/high/low』),trade_value/volume 保留原始(股利不改股數/成交金額,對流動性指標正確)。simulate 以還原收盤 mark 部位(apex/engine.py:159,403-406),持有股數固定 → invested = shares × 還原收盤 = 含息總報酬。除息日原始收盤跳水已被因子抵銷,不會產生幽靈崩跌。",
+      "evidence": "prices.py:38-41 明列不變式 adj[T]/adj[t]−1 == cumprod((close+div)/prev_close),並有 research/tests/test_prices.py 十項 parity(含跨實作對照 active_etf_metrics.py)鎖死。2026-07-23 FC1 修正後改用交易所公告『除權息前收盤/參考價』一次涵蓋配息+配股,對純配息與舊 cash 法實測僅差 4e-5(20,273 筆)。open/close 同因子 → simulate 的 next_open 成交價與 close mark 在還原空間一致,無混用。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "walk-forward 樣本外無前視 —— walkforward/_folds(engine.py:232-282)",
+      "textbook_def": "誠實走查(anchored / expanding-window walk-forward):第 k 段 OOS 只能用『該段訓練終點(≤ OOS 起點)之前』選出的參數;因子與計分在每個日期只能依賴 ≤ 該日的資料(無 look-ahead)。",
+      "implementation": "_folds 三段滾動:tr 終點分別 2023-07-10 / 2024-07-10 / 2025-07-10,對應 OOS 起點 2023-07-11 / 2024-07-11 / 2025-07-11(訓練終點恒 < OOS 起點,擴張窗);最後一段 forward 用實際上場的 live_config(其訓練窗 2023-07~2026-07 完全早於 forward 起點 2026-07-10)。每段 cfg 由 _refit_cached 只在其 tr 窗上網格搜尋。因子 h120/h52 = close/rolling_max(N)(僅含 ≤t 的價),rank .over('date') 為單日橫截面,故 EvergreenData 一次性建到 end 全窗不會把未來資訊漏進過去日。",
+      "evidence": "結構即證:engine.py:237-240 訓練/OOS 日界不重疊且訓練終點 ≤ OOS 起點;engine.py:256 refit 段用 _refit_cached(d,*f['tr'])、engine.py:266 OOS 段用同 cfg replay 於 [o0,o1];rolling_max(120) 實測含當列且需 120 日暖機(早列 null → scores 以 fill_null(0) 濾除),shift(1).rolling_max(60) 實測只取『前 60 日』不含今日。fold1 OOS(2024-07~2025-07)、fold2 OOS(2025-07~2026-07)雖落在 live_config 訓練窗內,但各自用的是 fold1/fold2 自己 refit 的參數、非 live_config,故非前視。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "refit 樣本內外切割 —— refit(engine.py:192-211)",
+      "textbook_def": "選型(參數網格搜尋 + 量尺挑選)必須只在訓練窗上進行;樣本外驗證另用未參與選擇的窗。兩階段選型(先 martin 預篩再 p5)只要全在訓練窗內即無洩漏。",
+      "implementation": "refit 對官方網格(GATES×SCORES×_GRID_NUM,engine.py:38-40,195-198)全部以 seg_kpi(replay_nav(d,cfg,train_start,train_end)) 計 martin/cagr(僅訓練窗);按 martin 降序取前 _TOPN_P5=40,再以 kpis_full(...)['p5'](亦僅訓練窗)取最大者為上場 cfg。OOS 由 walkforward 另段套用,選擇資料與驗證資料分離。",
+      "evidence": "engine.py:201 與 208 兩處 replay_nav 的 (train_start,train_end) 皆為訓練窗;live_config.json 記錄 train_window=[2023-07-11,2026-07-09]、selection_metric、train_kpi(cagr 3.164/martin 37.33/p5 1.505),與 refit 產出方式一致;_selfcheck(engine.py:330-343)+ tests/test_engine_parity.py 鎖死引擎逐位重現此 train KPI(漂移即紅燈),確認 replay_nav 計分路徑無沉默漂移。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "計分因子定義與 PIT —— feat_cols/score_expr/_build_trig(engine.py:44-63,98-132)",
+      "textbook_def": "52 週高點距離(George & Hwang 2004)= 現價/過去 52 週最高價;Donchian 突破(Donchian)= 收盤突破『前 N 日』最高;橫截面百分位 = rank/N;台股月營收 PIT 生效 = 次月 10 日(公司法定每月 10 日前公告上月營收)後首個交易日,早於此不可見。",
+      "implementation": "h52 = close/rolling_max(252)(52 週≈252 交易日)、h120 = close/rolling_max(120);don60 = close > close.shift(1).rolling_max(60)(shift(1) 剔除今日,只比前 60 日,無前視);_rank = (rank()/len()).over('date') 單日橫截面百分位(polars rank 預設 average-ties,top→1.0);base 分數 = h52 百分位 × h120 百分位,xadv_inv 再 ×(1−adv20 百分位);rev_accel 的可見日 avail = pl.date(year+month//12, month%12+1, 10) = 次月 10 號,再 join_asof backward(tolerance 70d)取 ≤ 決策日最新一筆;inst5/f5 = 法人 5 日淨買股數 rolling_sum(5)>0(收盤後已知)。",
+      "evidence": "實測 polars:rolling_max(3) 含當列且前 2 列 null;shift(1).rolling_max(2) 值 = 前 2 日最大(不含今日),證 don60 剔今日正確;rank([3,1,2,2])→[4,1,2.5,2.5],rank(null)→null(暖機列 score null 被 drop_nulls 濾除,不誤入池)。avail 算式代入 month=12→次年 1 月 10 日、month=1→當年 2 月 10 日,皆為次月 10 號、PIT 正確、無 look-ahead。因子皆為專屬複合分數(非教科書單一指標),定義內部自洽、被驗證版 ev36 run_cfg 逐位沿用。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "kpis_full 的 Sortino 下行風險公式(refit 途經,但被丟棄)—— research/evergreen/ev36_walkforward.py:84-86",
+      "textbook_def": "Sortino(Sortino & Price 1994)/ empyrical.downside_risk:下行差 = sqrt( (1/N_total)·Σ min(0, r−MAR)² ),對『全部 N 期』取平均、以 MAR(此處 0)為錨;分子 = E[r−MAR],年化 ×√252。",
+      "implementation": "dstd = dn.std(ddof=1),dn = ret[ret<0](只取下跌日);sortino = ret.mean()/max(dstd,1e-9)*sqrt(252)。分子 ret.mean() 對全期取平均、MAR=0(正確);但分母是『下跌報酬自身的樣本標準差』——對下跌報酬自己的均值取離差(非以 MAR=0 為錨)、且 ÷(n_downside−1)(非 ÷N_total),與學理下行差不符,系統性偏小 → Sortino 高估。",
+      "evidence": "此即 D-metrics-scala 已編錄的 Sortino class-bug 的第 5 個實例(其清單未含 ev36_walkforward.py):同型公式(np.std(neg,ddof=1)、MAR=下跌均值)在該單位 seed=42 合成序列上實測 0.5954 vs empyrical 學理 0.5239,高估 +13.7%。**關鍵限縮**:engine.py:208 的 refit 只讀 kpis_full(...)['p5'],Sortino 欄位在 Evergreen 選型被丟棄(其餘 evergreen/apex 呼叫者亦僅讀 ['p5']),故此偏差不進 live_config、不影響任何上場決策或 NAV。",
+      "fix": "下行差改為 sqrt( mean( minimum(r−MAR,0)² ) )×√252,對全部 N 期取平均、以固定 MAR 為錨,分子分母同一 MAR;最省事直接 empyrical.sortino_ratio(returns, required_return=MAR)。因不進決策路徑,屬清償技術債(修一次順手補齊 D-metrics-scala 未列的此實例),非現役風險。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "p5『5% 下界』實為 2.5 百分位 —— refit 讀取(engine.py:208)委派的 block_bootstrap_cagr(research/apex/validate.py:23-41)",
+      "textbook_def": "『bootstrap 95% 信賴區間下界』(CLAUDE.md 驗收口徑『Bootstrap 95% CI lower bound > 10% CAGR』)雙尾解讀 = 分佈第 2.5 百分位;若指『單尾 95% 下限』則為第 5 百分位。兩者名實需一致。",
+      "implementation": "block_bootstrap_cagr 回傳 ci_lo = np.percentile(cagr, 2.5);kpis_full 將其命名為 p5、engine.py 註解與 live_config 稱『bootstrap 5% 下界 / P5』。circular moving-block bootstrap 本身正確(block=21、growth^(252/t)−1、保留自相關,D-metrics-scala 已驗 OK)。",
+      "evidence": "validate.py:37 明碼 np.percentile(cagr, 2.5);即『雙尾 95% CI 下界』——與 CLAUDE.md 的『95% CI lower bound』口徑一致(算對了)。爭議僅在綽號:『p5 / 5% 下界』字面暗示第 5 百分位,實為第 2.5。refit 以 max p5 選型,對所有 cfg 一致取同一百分位 → 是單調一致的選擇尺,cfg 間排序不受名實不符影響;live_config p5=1.505 即一個 bootstrap ci_lo。",
+      "fix": "二擇一以消歧義:若要對齊『95% CI 雙尾下界』就把名稱與註解由『5%/P5』改為『p2.5 / 95%CI-lo』;若真要第 5 百分位就把 validate.py 的 2.5 改 5.0。因是一致選擇尺,不影響現役選型結果,屬命名清償。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "walk-forward 誠實線彙總把首年『樣本內』段一併年化 —— walkforward(engine.py:255-262)+ _wf_report(engine.py:346-361)",
+      "textbook_def": "誠實走查曲線的整體績效彙總應只涵蓋樣本外段;把 fit-on-itself 的樣本內段混入年化 CAGR/MDD 會系統性高估『樣本外』表現。",
+      "implementation": "walkforward 在 k==0 額外把 fold0 cfg 套回自己訓練窗(2022-07-11~2023-07-10)當首段、標 in_sample=True 以求曲線自 2022-07 起(engine.py:257-262,_ENGINE_VER 註 -4『初始 in-sample 段』)。此段有旗標、儀表板畫成虛線標明;但 _wf_report(診斷列印)以 v[-1]^(1/yrs)−1 對『含首年在內』的全線算 CAGR/MDD,未扣掉樣本內首年。",
+      "evidence": "engine.py:354-356 的 yrs/CAGR/MDD 覆蓋 wf['date'][0]~[-1] 全域(含 2022-07~2023-07 樣本內段);此段是 fold0 在其訓練窗的 in-sample replay(engine.py:258),年化自然偏高。in_sample 欄位存在(engine.py:262,270)供 dashboard 分虛實線,故『線』本身誠實標註;僅 _wf_report 這支彙總未分離。屬診斷輸出、非資金/選型路徑。",
+      "fix": "_wf_report 彙總 CAGR/MDD 時 filter in_sample==False(或分開列『含首年/純 OOS』兩個數字),使『誠實線』對外年化只反映樣本外。dashboard 既已虛實線分離,主要修診斷列印以免被引用時誤讀。"
+    },
+    {
+      "severity": "OK",
+      "metric": "walk-forward 分段從全現金重啟 + 段界正規化 —— walkforward 拼接(engine.py:266-280)",
+      "textbook_def": "分段走查若各段獨立回測再串接,段界會液化重建組合(交易成本/曝險不連續);此為建模選擇,只要不製造前視、且方向保守(不高估)即可接受,惟須揭露。",
+      "implementation": "每段 replay_nav→simulate 都以 cash=capital、positions={} 從全現金起跑(apex/engine.py:252-254),故各 OOS 段在起點清空重買、trailing 峰值與持有期重置;拼接時各段 r=nav/nav.first() 再逐段複利(base 起 1.0)。段首日 r=1.0 → 該日對上一段末日的報酬被歸零(約 3 個段界、4 年內 ~3 日)。",
+      "evidence": "engine.py:261,269 正規化 nav/nav.first();simulate 每次呼叫重置現金與空倉。方向為保守:段界重建付再進場成本、起點數日全現金拖累(低估),僅省下未記的出場成本;非前視、不高估。docstring(engine.py:249-252)明揭 NAV 線為分段走查、另以連續 replay(engine.py:281,_live_cfg 從 MEMB_FLOOR 到 end)產生 trades 供交易行為視角,顯示作者已知並揭露此不連續。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "52 週高點用收盤 rolling_max、adv20 用中位數 —— feat_cols(engine.py:49-50)",
+      "textbook_def": "George & Hwang(2004)的 52 週高點嚴格用『最高價』(盤中高);ADV(average daily value)字面為『平均』日成交值。",
+      "implementation": "h52 = close/rolling_max(252) 以收盤代替盤中最高(系統性略低估真高點、使 h52 略偏近 1),但橫截面一致、為業界常見簡化;adv20 = trade_value.rolling_median(20) 以中位數代替平均(對成交爆量更穩健)。兩者皆為刻意且全庫一致的代理(adv20 與 data.eligibility:122 同式)。",
+      "evidence": "engine.py:49-50 即證;adv20 僅用於 xadv_inv 排序與 gate 缺值填 1e12(engine.py:63,131),非絕對門檻,中位數 vs 平均對『排序』影響極小;h52 收盤代理不改變同日跨股排序方向。屬 §2 台股語境下的合理近似(252 交易日/年亦為專案 TRADING_DAYS 慣例),非學理偏差。",
+      "fix": ""
+    }
+  ]
+}

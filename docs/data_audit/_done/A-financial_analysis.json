@@ -1,0 +1,36 @@
+{
+  "unit": "A-financial_analysis",
+  "verdict": "BUG",
+  "summary": "這張表近半數資料不能信:41,144 列裡 18,591 列(45%,全部是 2011 年含以前)欄位整體錯位一格——最後 6 個財務比率欄全放到隔壁,其中『每股盈餘(EPS)』欄裝的其實是『純益率(%)』(錯指標又錯單位),真 EPS 被擠去『現金流量比率』欄,真『現金再投資比率』整欄被丟棄。2012 年起(含)的資料正確。根因:讀取器用寫死的欄位位置且不依欄數分支,而此資料源 IFRS 前(_b,22 欄)比 IFRS 後(_a,21 欄)多一欄『營業利益佔實收資本比率』。所幸目前無現役策略消費此表(不在 cache、research/ 零引用),唯一下游是退役的 cbs_by_year view,不在資金路徑上。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "IFRS 前(_b)年度全部欄位錯位:最後 6 個指標欄(profit_before_tax_to_capital / profit_to_sales / earnings_per_share / cash_flow_ratio / cash_flow_adequacy_ratio / cash_flow_reinvestment_ratio)整體右移一格,影響 18,591 列(45.2%,year<=2011)。前 13 欄對齊無誤。",
+      "evidence": "FinancialReader.scala:44-55 用寫死索引 transferValues(0..18)=原始第2~20欄,無欄數分支。實測 76 檔:_b 檔 22 欄(多一欄 [15] 營業利益佔實收資本比率)、_a 檔 21 欄;DB schema 照 _a 的 19 欄設計。逐位比對 PG vs 獨立重解:1989/1409(_b) profit_before_tax_to_capital=-4.01=raw[15]營業利益、profit_to_sales=5.16=raw[16]稅前純益佔資本、cash_flow_adequacy=18.51=raw[19]現金流量比率——全數命中『錯位一格』的位置對應,0 例外。scope 分類器逐(market,year)判源:純_b 42 個市場-年(TWSE1989-2011+TPEx1993-2011=17,144列)+2012-2014 混合年的_b部分1,447列。",
+      "fix": "readFinancialAnalysis 改依表頭中文欄名對應(比照 readBalanceSheet 的 allWithHeaders()),或依欄數分支(22欄:跳過[15]營業利益佔實收資本比率、補收[21]現金再投資;21欄:現行)。修後清 year<=2011 區間重跑 read,並重物化 cbs_by_year。"
+    },
+    {
+      "severity": "BUG",
+      "what": "earnings_per_share(NTD) 欄在所有 _b 年度(2011前)裝的是『純益率(%)』——錯指標且錯單位(百分比冒充元);真正的每股盈餘被塞到 cash_flow_ratio 欄。",
+      "evidence": "reader 把 transferValues(15)=原始第17欄映到 earnings_per_share,但 _b 檔第17欄表頭是『獲利能力-純益率(%)』,第18欄才是『每股盈餘(元)』。實測台泥(1101)2011:PG earnings_per_share=35.84(=純益率%,台泥真 EPS≈NT$1.8,35.84 作 EPS 荒謬),PG cash_flow_ratio=2.33(=真每股盈餘);對照 2020(_a)PG earnings_per_share=4.32 正確。SQL: SELECT year,\"earnings_per_share(NTD)\" FROM financial_analysis WHERE market='twse' AND company_code='1101' AND year IN(2011,2020)。",
+      "fix": "同上;修正後 EPS 欄應回到原始第18欄(每股盈餘)。另原始第21欄『現金再投資比率』對 _b 年度整欄被截斷丟棄(reader 只讀到 transferValues(18)),屬資訊遺失,一併於重跑時補回。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "下游 view cbs_by_year 的現金流量子分(權重 0.3)吃了三個錯位欄,導致 2011 前 firm-year 的現金流量評分用錯指標。",
+      "evidence": "src/main/resources/sql/view/1_cbs_by_year.sql:48-50,79-81,113-123 使用 cash_flow_ratio(%)/cash_flow_adequacy_ratio(%)/cash_flow_reinvestment_ratio(%);這三欄對 _b 年度分別實裝 每股盈餘/現金流量比率/現金流量允當比率。此 view 為退役 CBS 選股法,grep 全庫僅姊妹 view 2_cbs_by_year_5y_over75.sql 引用,無 Scala/Python 現役策略消費,故非現行資金路徑外洩;詳見兄弟單位 B-view-1_cbs_by_year。",
+      "fix": "修正上游 reader 後重物化 cbs_by_year;或該 view 明確限制只用 year>=2012 的資料。"
+    }
+  ],
+  "checked": [
+    "跨時代抽樣:實測全部 76 原始檔的表頭欄數與欄名(1989-2025、TWSE+TPEx 皆含)——確認只有兩套 schema(_b=22欄/_a=21欄),差異僅在 _b 多第[15]欄『營業利益佔實收資本比率』;[3]固定資產→不動產廠房設備、[8]應收款項收現日數→平均收現日數、[11]同義,皆同位置同義,IFRS 更名不影響對齊。",
+    "前 13 個指標欄(liabilities/assets ~ return_on_equity):OK。對全部 _b 列逐格比對 222,872 格,0 mismatch,確認錯位僅發生在第[15]欄之後的尾 6 欄。",
+    "2012-2025 _a 年度(22 個市場-年):OK,全列命中 _a 位置對應,earnings_per_share 為真 EPS(如台泥 2020=4.32)。",
+    "解析→DB 忠實度:OK。逐(market,year)以獨立重解的 _a/_b 兩套映射分類全 41,144 列,0 列『兩套都不符』,PG 完全忠實反映讀取器的位置對應(含 bug),無額外插入/型別汙染。",
+    "千分位逗號靜默 NULL:OK。reader 用 _.toDoubleOption 不去逗號,但實測原始檔數值欄 0 格含逗號,無因此產生的 NULL。",
+    "編碼:OK。Big5-HKSCS 解析,以股票代號(ASCII)為 join key,公司名(新纖/台泥…)正常呈現無 mojibake。",
+    "2012-2014 混合年 dedup:_a 與 _b 的公司集互斥(列數乾淨相加:如 twse2012=13_a+847_b=860),故 (market,year,code) 唯一索引無碰撞、無因去重造成的漏列;但 reader 以 (market,year) 去重屬脆弱設計(僅載入_b後再遇_a會被跳過),此次全史載入未觸發。",
+    "消費端盤點:financial_analysis 不在 research/cache_tables.py(確認無 cache 表)、research/ 全庫零 .py 引用、src/main/scala/strategy 零引用;唯一分析型消費為 SQL view cbs_by_year(退役)。Scala 端 Crawler/Job/Task/Main 僅為 crawl/read CLI 接線。",
+    "設計對照:姊妹 readBalanceSheet/readIncomeStatement 用 allWithHeaders() 依中文欄名對應(抗欄位增減),本 reader 用硬編碼位置索引為孤例——即根因,亦即建議修法方向。"
+  ]
+}

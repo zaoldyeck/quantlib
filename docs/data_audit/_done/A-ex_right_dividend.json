@@ -1,0 +1,65 @@
+{
+  "id": "A-ex_right_dividend",
+  "dim": "A",
+  "source": "ex_right_dividend",
+  "reader": "TradingReader.readExRightDividend",
+  "table": "ex_right_dividend",
+  "raw_files": 237,
+  "unit": "A-ex_right_dividend",
+  "verdict": "BUG",
+  "summary": "除權息資料的『舊制』部分(2003-2024/06 的 twse、2008 起舊制檔覆蓋處的 tpex)完全可信,而『新制 MOPS 月檔』(2024-07 起)只對了一半。我另寫一支不呼叫 TradingReader 的獨立解析器(自讀 Big5-HKSCS、自切 CSV),重解跨時代抽樣檔逐格對帳:含一個 6,156 筆橫跨 2008-2020 的大批量檔在內,八個價量欄零差異、零缺零多;再拿 DB 的『除權息前收盤價』去比對 daily_quote 的真實前一日收盤(獨立源),8,539 筆舊制列 99.6% 落在 1% 內、超過 5% 的只有 twse 1 筆(來源特性非錯位)。單位對(元,非千元/張)、正負號對(全≥0)、民國轉西元對、Big5 編碼無走樣、22 欄變體檔不錯位、ETF 的 Excel 防護殼 ='0052' 被正確清成 0052、檔名vs內容日期一律用內容日期。但 2024-07 之後 twse 舊端點停擺改抓 MOPS,MOPS 檔沒有價格欄故解析器全寫 0——問題在配股:純配股(除權)事件被存成 cash=0 且價格欄全 0,而 MOPS 檔其實有『股票股利元/股』(第4、5欄),解析器讀了卻只當布林、把數值丟掉;下游 prices.py 因此對這 59 檔(元大金/富邦金/國巨/凱基金/保瑞/信驊等,2024-07~2026-07)算不出還原因子→除權日留下假跌,污染所有 NAV 回測與 live S 出場重放。此事 prices.py:314-315 已有 TODO(FC1-parse)標記知道要補、但尚未修。另有兩個較輕的點:tpex 新舊雙源同鍵平行匯入靠唯一索引擋(現況 0 損失但時序相依,健壯性技術債);cash_dividend 欄舊制存權值+息值、MOPS 存純現金的跨時代語意漂移(不影響 prices.py)。MOPS 丟掉 211 筆純現金增資除權經查與舊制同範圍、非退化。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "2024-07 起 MOPS 月檔的純配股(除權)事件被存成整列 0(cash_dividend=0 且 closing_price_before / reference_price / limits / opening / ex_dividend_reference 全 0),而 MOPS 原始檔其實帶有『股票股利-盈餘轉增資配股(元/股)』與『資本公積轉增資配股(元/股)』(第4、5欄)——解析器讀了這兩欄卻只拿來當『>0 就發一列權』的布林,數值本身丟棄。下游 research/prices.py 的還原因子三段優先序全部落空(①參考價/前收盤=0 ②現金股利=0 ③→null 被濾),導致這些股票在除權日的自然跳水無因子還原=假跌,直接污染 canonical 還原價面板(所有 NAV 回測 + live S exit_replay 的地基)。共 59 檔中鏢(twse 50 + tpex 9),含元大金2885、富邦金2881、凱基金2883、國巨*2327、富邦媒8454、保瑞6472、藥華藥6446、信驊5274、潤弘2597 等主流權值/中大型股。",
+      "evidence": "TradingReader.scala:372-373 讀 stockSurplus=d(r(4))、stockCapital=d(r(5)) 但只在 :388 用 totalStock>0 當布林,:390 產出的 rightRow 是 (market,date,code,name, 0.0,0.0, 0.0(cash),'權', 0.0,0.0,0.0,0.0)——股票股利數值未落任何欄。SQL 實證:SELECT ... WHERE date>='2024-07-01' AND right_or_dividend='權' AND cash_dividend=0 AND closing_price_before_ex_right_ex_dividend=0 → 59 列(twse 2024=23/2025=22/2026=5 全零;tpex 2024=2/2025=3/2026=4)。下游確認:research/prices.py:316-323 factor = when(tbl_pre>0 & tbl_ref>0) then tbl_ref/tbl_pre .when(pre_close>cash & cash>0) then (pre_close-cash)/pre_close .otherwise(None);:326 filter(factor.is_not_null()) 把這些列丟掉。開發者已知:research/prices.py:314-315 註解『兩者皆無 → null,下方過濾掉並回報(那些是 pre/ref/cash 全 0 的壞列,須重解析 ex_right_dividend 補回,見 FC1-parse)』。獨立驗證腳本 docs/data_audit/scripts/A-ex_right_dividend/01_reparse_parity.py Part 1/2 已證舊制列的還原欄全對且對得上 daily_quote,故此 59 列是 MOPS 特有缺陷而非全表問題。",
+      "fix": "MOPS 檔既有配股元/股,除權還原因子可由面額回推:factor = 10/(10 + 股票股利元/股)(台股面額 10 元)。二選一:(a) parseMopsRows 對配股列反算一個合成的 exRightExDividendReferencePrice 與 closingPriceBeforeExRightExDividend(令 ref/pre = factor)填進現有價格欄,讓 prices.py 的優先序①自然生效;或 (b) db.table.ExRightDividend 新增一欄 stock_dividend_per_share 存 r(4)+r(5),prices.py 讀它算 factor。修後對這 59 個除權日重跑 prices.fetch_adjusted_panel,確認假跌消失、且對舊制列逐位不變(before/after diff)。配息列現金已正確保留、無需動。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "tpex 2025-2026 同時存在舊制範圍檔(有真實價格)與 MOPS 月檔(價格全 0),兩者涵蓋同一批除權息事件、(market,date,company_code) 唯一鍵相同,且在同一次 readExRightDividend() 裡被 .par 平行一起處理。哪個檔的值最終入庫是時序/平行順序相依:去重閘 dataAlreadyInDB 是迴圈前拍的快照,同一 run 內兩檔都通過閘,最後靠唯一索引擋後到者。現況無資料損失,但全庫重建時 MOPS 的 0 值可能非確定地贏過真價格,或觸發一串 unique-violation 例外。",
+      "evidence": "TradingReader.scala:303 dataAlreadyInDB 迴圈外一次性快照;:305 files=...getMarketFilesFromDirectory.par 平行(含 tpex 2025/2026 的舊制日檔與 MOPS 月檔同時在列);:351 filterData=data.distinctBy(...).filterNot(dataAlreadyInDB.contains) 只比對 stale 快照;:352-353 ++= 批次插入,衝突交給 db/table/ExRightDividend.scala:43 unique idx。實證現況無害:docs/data_audit/scripts/A-ex_right_dividend/01_reparse_parity.py Part 3『tpex 2025-2026 PG 存 0 但磁碟舊制檔有真實價格』= 0 筆(舊制真價格在並存處全贏)。tpex 2026 zero_close=401/663 全部落在無舊制檔覆蓋的 2026-05 之後(MOPS-only),非被 MOPS 覆寫。",
+      "fix": "去重閘改用『執行內已插入集合』做 test-and-set(如 TDCC 同類建議:if (!existing.contains(key) && inserted.add(key))),並在同鍵衝突時明確優先保留『有非零價格』的來源(舊制優於 MOPS),讓重建行為變確定、不再靠唯一索引擋例外。屬健壯性技術債,現有資料無需重匯。"
+    },
+    {
+      "severity": "OK",
+      "what": "MOPS 月檔含 211 筆(2024:68/2025:87/2026:56)純現金增資(現增)除權事件(有除權交易日、無配股也無配息,如光罩2338、國喬1312 現增4億股),解析器不發任何列。經查此為與舊制一致的範圍決策、非退化:舊制端點本來就幾乎不收這類事件。",
+      "evidence": "獨立重解 MOPS 全月檔:distinct(market,exRightDate,code) 純現增除權 = 211。反查舊制:tpex/2020/2020_7_10.csv(2008-2020 大批量)僅 3 筆『除權且權值+息值=0』、tpex/2025/2025_9_27.csv 與 tpex/2026/2026_1_21.csv 各 0 筆 → 舊制 ex_right_dividend 表本就是配息/配股導向、不含純現增。故 parseMopsRows(TradingReader.scala:382-392 僅在 totalCash>0 或 totalStock>0 才發列)丟棄純現增列 = 維持表範圍一致。",
+      "fix": "無需修(by-design)。若未來策略需要現增的除權還原,MOPS 檔有『現金增資認股比率(%)』『認購價』可補,屬新需求。"
+    },
+    {
+      "severity": "OK",
+      "what": "cash_dividend 欄跨時代語意漂移:舊制存『權值+息值』(交易所把配股折算成價值一併計入),MOPS 存純現金(盈餘分配+法定公積+特別股現金)。純配息事件兩者一致;配股配息混合事件舊制此欄會比實際現金多。不影響 prices.py。",
+      "evidence": "TradingReader.scala:333 舊制 twse cash<-values(5)=『權值+息值』欄;:341 舊制 tpex cash<-values(7)=『權值+息值』欄;:379/384 MOPS cash<-totalCash=cashSurplus+cashStatutory+cashPreferred(純現金)。prices.py:316 舊制走 tbl_ref/tbl_pre(不吃 cash_dividend);:318-322 現金 fallback 僅在 tbl_pre=0(即 MOPS 列)且 cash>0(即 MOPS 息列)觸發,該情境下 cash_dividend=純現金正是正確值,故漂移不落入 money-path。",
+      "fix": "無需修;若要消除歧義可將欄位語意於註解或欄名標註(現況欄名 cash_dividend 對舊制配股列是誤稱但不被使用)。"
+    },
+    {
+      "severity": "OK",
+      "what": "語意交叉驗證的唯一離群:和康生(1783)@2021-08-19,DB 存除權息前收盤 65.2 vs daily_quote 真實前一日收盤 69.6(差 6.3%)。屬 TWSE 公告『除權息前收盤價』與實際收盤本身的來源落差,非欄位錯位。",
+      "evidence": "01_reparse_parity.py Part 2:twse 舊制 4,248 筆比對 daily_quote 前收盤,off_gt5pct=1(僅此 1 筆);tpex 4,291 筆 off_gt5pct=0。若為系統性欄位錯位應為數千筆全歪而非 1 筆;同日該檔的逐格 parity(Part 1 抽樣)顯示 raw==DB,證明解析器忠實複製了 TWSE 公告值。",
+      "fix": "無需修(來源特性)。"
+    }
+  ],
+  "checked": [
+    "TradingReader.readExRightDividend(TradingReader.scala:300-358)逐行讀完:三分支 dispatch——isMopsMonthly(檔名 YYYY_M.csv,:315-318)走 parseMopsRows;twse 舊制 filter row.size==16 && head!='資料日期'(:323)、tpex 舊制 filter row.size>20 && head!='除權息日期'(:336);:323/336 的 .map(_.replace(' ','').replace(',','')) 去空白與千分位;去重 :351 distinctBy((market,date,code)).filterNot(dataAlreadyInDB)",
+    "欄位映射逐一核對——twse 舊制:date<-年月日 head+1911、code<-v(1)、name<-v(2)、closing_bef<-v(3)、ref<-v(4)、cash<-v(5)=權值+息值、rd<-v(6) 原樣、limUp<-v(7)、limDn<-v(8)、openRef<-v(9)、exdivRef<-v(10),v(11-15)=詳細資料/季別/淨值/盈餘丟棄;tpex 舊制:cash<-v(7)=權值+息值(非 v(5)/v(6) 的個別權值/息值)、rd<-v(8) 映射(除權→權/除息→息/除權息→權息)、openRef<-v(11)=開始交易基準價、exdivRef<-v(12),v(5,6,13-20)丟棄;MOPS:code<-r(0)、stock<-r(4)+r(5)、exRightDate<-r(6)、cash<-r(7)+r(8)+r(9)、exDivDate<-r(10),價格欄全 0",
+    "db/table/ExRightDividend.scala:13 欄型別(market/date LocalDate/company_code/company_name/6 個 Double 價量欄/right_or_dividend String)與 unique idx_ExRightDividend_market_date_companyCode(:43);setting/ExRightDividendSetting.scala:MopsDetail 兩步 POST(TYPEK sii/otc)、fileName=YYYY_M.csv、2024-07 起改 MOPS(TWT49U 停擺)",
+    "util/QuantlibCSVReader.scala 全檔:tototoshi CSVParser 正確處理引號與內嵌逗號(MOPS『參加分派總股數 35,782,800』不會被切碎);:23 nextLine.replace('=','') 去 Excel 文字防護殼(='0052'→0052);:21 含 '\"\"' 但無 ',\"\"' 就跳整列——對本資料無誤傷(所有空欄皆 ,\"\" 形式)",
+    "獨立重解 vs PG 逐格 parity(01_reparse_parity.py Part 1,不呼叫 TradingReader):twse/2020_7_15(21筆)、tpex/2020_7_15(11筆)、tpex/2020_7_10(6,156筆橫跨2008-2020)、twse/2022_4_27(11筆)、tpex/2023_8_19(164筆)、tpex/2026_1_21(108筆舊制範圍檔)——八個價量欄 val_mismatch 全 0、only_in_raw 全 0(twse/2022 的 7 筆 ETF ='0052' 是我方未清 = 的假差,實查 DB 已存乾淨代號)",
+    "語意交叉驗證(Part 2):DB closing_price_before vs daily_quote 除權日前一交易日真實收盤,twse 4,248 筆 within_1pct=4,230/off_gt5pct=1、tpex 4,291 筆 within_1pct=4,274/off_gt5pct=0 → 該欄確為收盤價、未與鄰欄互換",
+    "雙源損失實查(Part 3):tpex 2025-2026『PG 存 0 但磁碟舊制檔有真實價格』= 0 筆——舊制真價格在新舊並存處全贏,現況無資料損失(但時序相依,見 SUSPECT 2)",
+    "MOPS 零價量規模(SQL):twse 2025/2026 closing_bef 100% 為 0(945/945、713/713,MOPS-only 無舊制檔);tpex 2026 zero=401/663(皆 2026-05 後無舊制覆蓋處);tpex 2025 zero 僅 35/1285(舊制多數贏)",
+    "純配股除權失還原名單(SQL):date>='2024-07-01' AND rd='權' AND cash=0 AND closing_bef=0 → 59 檔逐一列出(含元大金/富邦金/凱基金/國巨*/富邦媒/保瑞/藥華藥/信驊/潤弘…)",
+    "現增除權丟棄規模與退化性(獨立重解):MOPS 211 筆純現增除權被丟;反查舊制大批量檔 12 年僅 3 筆、2025/2026 舊制檔 0 筆 → 丟棄=與舊制同範圍非退化",
+    "跨時代抽樣涵蓋:最早(2020,但透過 2020_7_10 大批量檔實際回溯到 2008)、中段(2022 twse/2023 tpex)、最近(2026 MOPS 月檔 twse+tpex + 2026 tpex 舊制範圍檔),twse/tpex/MOPS 三種版型俱含",
+    "欄位數漂移全掃:237 檔——twse 舊制一律 16 欄;tpex 舊制 102 檔 21 欄 + 1 檔(2020_7_10)22 欄(多『員工紅利轉增資』插第15欄,但解析器只讀到第12欄故無害,6,156 筆 parity 零差異佐證);MOPS 月檔一律 19 欄",
+    "單位:價格欄與 daily_quote 同量級(元,非千元/張/股);cash_dividend 為元/股(如 0052=10.19、國巨配股元/股量級)",
+    "正負號:全表價量欄 min>=0,無錯誤負值(除權息無賣超/減資類負號情境)",
+    "日期:民國→西元(twse『109年07月15日』regex+1911、tpex『109/07/15』MinguoChronology parseLenient,Reader.scala:23-27);一律取內容日期而非檔名(2020_7_10 檔名 2020 內容 2008-2020,日期全對);tpex『日檔』實為範圍檔(檔名=區間結尾)",
+    "編碼:Big5-HKSCS 解碼(reader :311 指定,獨立解析器用 big5hkscs 相同),中文股名/欄名無亂碼;中文僅出現在被 size/head 過濾掉的標頭與(不入 join key 的)股名欄",
+    "檔名 vs 內容日期:tpex 2020_7_10.csv(檔名 2020)內容涵蓋 2008-01-10~2020-07-10,解析器用內容日期正確落到各年,無檔名污染",
+    "prices.py 消費端(research/prices.py:150-181, 290-330):FC1(2026-07-23)還原因子優先序 ref/pre → cash fallback → null 濾除;確認 MOPS 配息列走 cash fallback 正確、配股列落 null 被丟(BUG 1 根源);:314-315 開發者 TODO 已標記待補",
+    "排除已知真實現象:金融業月營收為負/營建業月營收為 0/週六補行交易日/concise_* 無 market 欄——皆與本表(除權息)無關;本表無這些邊界。MOPS 價格欄為 0 屬來源限制(MOPS t108sb27 確無收盤價/參考價欄,已檢視原始檔標頭 19 欄無價格)非解析漏欄",
+    "資料源時間跨度(SQL group by market,year):tpex 2008-2026、twse 2003-2026;磁碟原始檔僅 2020+(pre-2020 由已刪除檔匯入,但 tpex 2008-2020 大批量檔 2020_7_10 使其可重解驗證),raw_files=237(twse 109 + tpex 128)全數版型已掃"
+  ]
+}

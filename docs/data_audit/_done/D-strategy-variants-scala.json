@@ -1,0 +1,108 @@
+{
+  "unit": "D-strategy-variants-scala",
+  "dim": "D",
+  "artifact": "src/main/scala/strategy/ 策略變體因子與邏輯 (RegimeAware / MagicFormulaPiot / ValueRevert / MomentumValue / ValueMomentum / DividendYield / AlphaStack / MultiFactor)",
+  "audited_at": "2026-07-23",
+  "verdict": "BUG",
+  "summary": "這幾支 Scala 策略是已凍結的歷史參考碼(實盤走 Python Serenity ev_v3_wf,不吃這些),但就『照學理算對了沒』來看有真的錯,集中在招牌的 Greenblatt Magic Formula:兩根支柱(ROIC 與 Earnings Yield)都用錯會計科目——把『繼續營業單位稅前淨利(EBT)』當成 EBIT(長榮 2603 因此被灌水 +85%,但華航 2610 反而 -8%,連方向都不一致,選股排名真的會變)、把『負債總計(含應付帳款等營運負債)』當成有息負債害 EV 灌水;ROC 分母用的是 Total Assets − Current Liabilities(這是 ROCE/資本運用,不是 Greenblatt 的有形資本 NWC+淨固定資產);EBIT 又是累計 YTD(3/6/9/12 個月)而非 Greenblatt 明定的 TTM,且 docstring 反過來宣稱『不用 TTM 才符合原著』是講反了。另外『52 週高點』其實只回看 252 個日曆天 ≈ 168 個交易日(約 34 週)。這些讓選股排名失真,但因程式已凍結、實盤未用,無資金風險。價值面 pbBandPosition、殖利率、fcfYield、營收 YoY、z-score(n−1)、百分位排名、以及發布落後 PublicationLag(PIT 除視資料外正確)這些定義都對。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "Magic Formula EBIT 分子(greenblattROIC 與 earningsYield 共用) — Signals.scala:606-609(ROIC)、651-654(EY);docstring 稱之為 EBIT (Signals.scala:594-596, 638)",
+      "textbook_def": "Greenblatt《The Little Book That Beats the Market》(2005):Magic Formula 兩根支柱都用 EBIT(operating earnings,息前稅前)。ROC = EBIT/(NWC+Net Fixed Assets);Earnings Yield = EBIT/EV。EBIT 對應台灣 GAAP 的『營業利益』,不含利息費用與業外損益。用 EBIT 的整個目的就是把不同資本結構(利息)與稅率的公司拉到同一基準比較。",
+      "implementation": "從 income_statement_progressive 取『繼續營業單位稅前淨利（淨損）』等 title(= 稅前淨利 EBT),變數命名為 ebit_val 直接當 EBIT 用。EBT = 營業利益 + 業外收入 − 業外支出(含利息費用),重新引入了 Greenblatt 刻意要消掉的利息/業外扭曲。正確科目『營業利益（損失）』其實就在同表、且 opIncomeGrowthYoY(Signals.scala:748)已在用。",
+      "evidence": "psql 實測(仟元,2023 全年):長榮 2603 營業利益=34,750,086 vs 稅前淨利=64,171,957 → 用 EBT 當 EBIT 把分子灌水 +84.7%(業外投資/匯兌/利息收益),其 ROIC/EY 被同比例高估;華航 2610 營業利益=10,157,421 vs 稅前淨利=9,305,472 → EBT 反而 −8.4%;長榮航 2618 +2.5% 方向又不同;台積 2330 2022 全年 1,121,278,851 vs 1,144,190,718 (+2.0%)。缺口的正負隨公司而異 → 這不是等比放大(排名不變),而是真的改變橫截面排序 → 選股會不同。",
+      "fix": "greenblattROIC 與 earningsYield 的 EBIT 子查詢改抓『營業利益』/『營業利益（損失）』/『營業利益(損失)』(已在 opIncomeGrowthYoY 白名單),兩處一起改。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "Magic Formula Enterprise Value 的負債項(earningsYield) — Signals.scala:667-671(抓 負債總計)、693-695/701(EV 公式)",
+      "textbook_def": "Greenblatt EV = 市值 + 淨有息負債(Total interest-bearing Debt − 超額現金)(+ 特別股 + 少數股權)。『Total Debt』= 短期借款 + 應付短期票券 + 一年內到期長期負債 + 長期借款 + 應付公司債 + 租賃負債;不含應付帳款、應付費用、合約負債等『無息營運負債』。",
+      "implementation": "EV = (closing_price × capital_stock/10) + total_debt − cash,其中 total_debt 抓 balance_sheet 的『負債總計』(= Total Liabilities,含全部流動與非流動負債)。程式註解自己寫『EV = Market Cap + Total Debt − Cash』(意圖是有息負債),但取的欄位是負債總計,兩者不一致;且未加特別股/少數股權。",
+      "evidence": "psql 實測台積 2330 2022Q4(仟元):負債總計=2,004,290,011,但其中光『流動負債合計』就 944,226,817(絕大多數是應付帳款/應付費用等無息項),有息負債遠小於 2.0 兆。以市值 ~11.6 兆計,把整包營運負債塞進 EV 使 EV 高估約一成以上 → Earnings Yield 系統性低估,且對『應付帳款多』的公司(通路、代工)懲罰最重,橫截面偏向資產輕/低應付公司。",
+      "fix": "total_debt 改為有息負債合計(加總 短期借款+應付短期票券+一年或一營業週期內到期長期負債+長期借款+應付公司債+租賃負債),或使用專門的有息負債欄;現金維持(可再精緻化為超額現金);必要時加特別股+少數股權。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Greenblatt ROC 分母(投入資本)— greenblattROIC,Signals.scala:629-633(EBIT/(資產總計 − 流動負債合計));docstring Signals.scala:594-595",
+      "textbook_def": "Greenblatt ROC = EBIT/(Net Working Capital + Net Fixed Assets),NWC = 流動資產 − 流動負債,Net Fixed Assets = 淨不動產廠房及設備;刻意排除商譽、無形資產、長期投資(只算對『有形營運資本』的報酬)。",
+      "implementation": "分母 = 資產總計 − 流動負債合計 = NWC + 全部非流動資產(含無形資產、商譽、長期股權投資、使用權資產、遞延稅資產)。這是標準的 Capital Employed(即 ROCE 的分母),是相關但不同的指標;docstring 也如實寫成 TA−CL,即刻意選了 ROCE 而非 Greenblatt。",
+      "evidence": "台積 2330 2022Q4:程式分母 = 4,964,778,878 − 944,226,817 = 4,020,552,061;Greenblatt 有形資本(NWC + 淨 PP&E)≈ 3.56 兆(含 ~1.34 兆現金與大額長投/無形被程式多算進去)→ 程式分母對台積約大 13%,對商譽/長投很重的控股型公司會大更多、ROC 被系統性低估。是『有註解的刻意近似』但與 focus 明列的 Greenblatt 定義(NWC+固定資產)不符。",
+      "fix": "分母改為 (流動資產合計 − 流動負債合計) + 不動產廠房及設備淨額,排除無形資產/商譽/長期投資,對齊 Greenblatt 有形資本定義。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Magic Formula EBIT 期間 = 累計 YTD 而非 TTM;docstring 誤稱『not TTM to match original』 — greenblattROIC/earningsYield,Signals.scala:596(docstring)、602-611(取最新 year,quarter 的 progressive 值)",
+      "textbook_def": "Greenblatt 用 TTM(trailing-twelve-month)EBIT。income_statement_progressive 為『累計』(YTD)欄位。",
+      "implementation": "取『最新可用 (year,quarter)』的 progressive 值 = 依 rebalance 當下落在哪一季而定的 3/6/9/12 個月累計。因僅用於排名,同一 rebalance 日各股期間長度一致(scale 一致),但整年在 3→6→9→12 個月間擺盪、且從不等於 TTM;docstring 反稱『不用 TTM 才符合原著』與 Greenblatt(用 TTM)正好講反。",
+      "evidence": "已驗 progressive 為累計:台積 2330 2022 營業利益 Q1..Q4 = 223,790,118→485,913,867→796,238,081→1,121,278,851。故 Q1 rebalance 用的是單季(3 個月)數字,TTM 會約 4 倍;季節性強(Q1 淡/旺)的公司在 3 個月 YTD 與 TTM 下排名不同。",
+      "fix": "改算 TTM EBIT(近 4 個單季合計,或 YTD_latest + 去年全年 − 去年同期 YTD);同時修正 docstring 對 Greenblatt 的錯述。"
+    },
+    {
+      "severity": "BUG",
+      "metric": "distFrom52wHigh 的『52 週』回看窗 — Signals.scala:289(INTERVAL '252 days',且無交易日 rn 上限);用於 ValueMomentumStrategy 第二段排名(ValueMomentumStrategy.scala:62)",
+      "textbook_def": "『52 週高點』/『12 個月高點』= 近 ~252 個『交易日』≈ 365 個日曆天的最高價(George & Hwang 2004 的 52-week-high 動能)。",
+      "implementation": "MAX(closing_price) WHERE date >= asOf − INTERVAL '252 days'(日曆天),且無 rn<=N 的交易日上限——與同檔其他函式的正確寫法不一致(rsv120d 在 180 天窗內 rn<=120;technicalConfirmation 在 1 年窗內 rn<=200 算 MA200)。252 日曆天 ≈ 168 交易日。",
+      "evidence": "psql 實測 2330:252 日曆天窗 = 168 交易日(≈34 週);真正 52 週(365 日曆天)= 245 交易日。窗只涵蓋約 168/245 ≈ 69% 的一年 → 取到的『高點』系統性偏低 → distFrom52wHigh 系統性偏高(較不負),且對『真高點落在 8–12 個月前』的股票排序錯誤。",
+      "fix": "窗改為 INTERVAL '365 days'(或在 ~380 天窗內 rn<=252),與 rsv120d/technicalConfirmation 的 rn-cap 慣例一致,才是真 52 週高點。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "同棒執行(signal 與成交都用『當日收盤』)— Backtester.scala:95-99(rebal 日算 targetWeights(today))、151-199(以 loadClosingPrices(today) 成交);受影響的價格型 signal:distFrom52wHigh px_now(Signals.scala:281-285)、dividendYield/fcfYield/earningsYield 取近 10 日內最新收盤",
+      "textbook_def": "PIT 回測要求決策只用『成交價之前』就已知的資訊。專案自己的 CLAUDE.md『Asof-join +1 day shift』鐵律:as-of T 算出的 picks 應在 T+1 生效(T 的收盤要收盤後才知道,故隔日成交)。",
+      "implementation": "rebalance 日以 date<=today(含當日收盤、含當日盤後才發布的 T86 法人/融資資料)算分,再以 today 的收盤價成交,無 +1 位移 → 同一根 K 棒『用收盤決策又用收盤成交』。價格型因子(距高、殖利率、EY 市值)都讀當日最新收盤再以之成交。",
+      "evidence": "Backtester.scala:96 strategy.targetWeights(today,db) → 152-199 成交價 = prices(loadClosingPrices(today),line 99/219-228)。月頻下偏誤小(約持有期 1/21)、且對所有候選對稱,但確為同棒前視、且違反專案自訂 T+1 契約。屬『有文件、已被接受的簡化』(CLAUDE.md 明載 Scala strategy/ 凍結、Python 為 canonical 且已做 +1 位移;實盤 Serenity 不走此引擎)。",
+      "fix": "凍結的 Scala 引擎在此明確標註為已知簡化即可(canonical 的 Python 已做 +1);若任何時候拿來做 live 推論,成交改為隔一交易日收盤。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "F-Score 閘門吃的是非 Piotroski 的 view;且 QualityFilter 註解把 Piotroski 寫成『8 binary factors』 — QualityFilter.scala:20;MagicFormulaPiotStrategy.scala:38(minFScore=8)、68(Signals.growthAnalysisField(\"f_score\"))",
+      "textbook_def": "Piotroski (2000) F-Score = 9 項二元(ROA、ΔROA、CFO、Accruals=CFO>ROA、ΔLeverage、ΔLiquidity、ΔShares、ΔGross Margin、ΔAsset Turnover),全部『年對年』比較。",
+      "implementation": "策略層自身不算 F-Score,而是讀 growth_analysis_ttm.f_score view;QualityFilter 註解稱 F-Score 為『8 binary factors』(數目寫錯,應為 9)。MagicFormulaPiot 要 minFScore=8(即 9 項中要中 8 項),但底層分數本身定義有誤。",
+      "evidence": "QualityFilter.scala:20 註解字面『8 binary factors』。該 view 的正確性已在姊妹單位 B-fscore-academic 判為 BUG(view 的 Δ 項用 lag()=上一季而非去年,與正統 Piotroski 僅 27.3% 逐格相同)。本單位僅為『消費端』——真正的算式在 SQL view,屬 B 範疇。",
+      "fix": "把消費端(QualityFilter / MagicFormulaPiot / factor scan)改指向 B-fscore-academic 修正後的 f_score_raw;順手把註解改為『9 criteria』。view 本身的修法見 B-fscore-academic。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "因子合成權重無出處(魔術數字)— AlphaStackStrategy.scala:97-101(0.30/0.25/0.15/0.15/0.15);MomentumValueStrategy.scala:73(0.6/0.4)",
+      "textbook_def": "多因子合成權重應有依據(等權 z-score、IC 加權、或最佳化)並經樣本外驗證;無推導的固定權重是無證據的參數。",
+      "implementation": "AlphaStack 用固定 0.30 基本面加速 + 0.25 法人流 + 0.15 相對強度 + 0.15 技術 + 0.15 PB;MomentumValue 用固定 0.6 動能 + 0.4 價值。程式與 docstring 均無權重來源。",
+      "evidence": "AlphaStackStrategy.scala:97-101、MomentumValueStrategy.scala:73 為裸字面權重。兩者皆自述為基準/被否決策略(AlphaStack『比單用 pbBand 還差』;MomentumValue 是 v1 對照)。對照 MultiFactor 用可辯護的等權 z-score(較無此問題)。影響小(皆非冠軍),為完整性登記。",
+      "fix": "若維持為對照基準,標明『固定權重、非最佳化』即可;若復用,改以 IC 加權或等權 z-score 並做 OOS 驗證。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "RegimeAware 進場門檻 docstring 與預設值不一致 — RegimeAwareStrategy.scala:36(regimeThreshold 預設 0.05) vs docstring 30-32(稱 RegimeThreshold=0.10)",
+      "textbook_def": "無標準教科書定義(regime 門檻本為啟發式參數);但同一參數的文件敘述與程式預設應一致,否則讀者對『何時切 0050』的理解會錯。",
+      "implementation": "建構子預設 regimeThreshold=0.05(≥5% 的近季 0050 報酬即切 100% 0050),但 class docstring 第 30-32 行以 0.10(年化 >40%)論述門檻語意。",
+      "evidence": "RegimeAwareStrategy.scala:36 `regimeThreshold: Double = 0.05` 與 30-32 行『RegimeThreshold = 0.10 means...』矛盾;實際生效值取決於呼叫端注入,文件會誤導。屬文件債,非計算錯。",
+      "fix": "統一 docstring 與預設值(擇一為準),並在呼叫點註明實際使用的門檻與其證據來源。"
+    },
+    {
+      "severity": "OK",
+      "metric": "rsv120d 用『收盤價』的 120 日高低,而非盤中最高/最低 — Signals.scala:723-734(用於 MagicFormulaPiot RSV>=0.9 濾網)",
+      "textbook_def": "RSV/%K(Stochastic)= (C − Ln)/(Hn − Ln),Hn/Ln 傳統取 n 期『盤中』最高最低。",
+      "implementation": "以收盤價的 120 交易日(rn<=120,窗 180 日曆天,HAVING>=120)取 min/max,值域 [0,1]。用收盤價替代盤中 H/L。",
+      "evidence": "資料庫僅有日收盤(daily_quote.closing_price),用收盤價的高低是常見且合理的 close-only 代理(finlab MFPiot 移植),交易日 rn-cap 正確(對照 distFrom52wHigh 的錯窗,rsv120d 反而做對)。標 OK 並註明近似。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "發布落後(PIT)、pbBandPosition、dividendYield、fcfYield、revenueYoY、zscore、percentileRank 等定義正確",
+      "textbook_def": "PIT:財報只在法定申報截止(+緩衝)後才可用;YoY=(本期−去年同期)/去年同期;FCF yield=FCF/Price;樣本標準差 n−1;百分位排名 rank/n。",
+      "implementation": "PublicationLag 季報 5/15、8/14、11/14、次年 3/31 各 +7 天緩衝、月營收次月 10 日 +3 天,asOfQuarter/asOfMonthlyRevenue 取截止<=決策日的最新期(RebalanceCalendar 亦以此為 day15+ 依據),為正確保守 PIT。pbBandPosition=現值/3.5 年中位(低=便宜);dividendYield/fcfYield/revenueYoYLatest 定義標準;MultiFactor zscore 用 n−1 樣本標準差、clip 至 ±3;percentileRank=(idx+1)/n。",
+      "evidence": "PublicationLag.scala:32-74 截止日+緩衝、月/季 asOf 取『截止不晚於 d』的最新期,無前視。MultiFactorStrategy.scala:88-96 zscore 除以 (n−1)。皆與學理相符,列為對照(唯一保留:financial_index_ttm/growth_analysis_ttm 這些 view 內部算式屬 B 範疇,不在本單位)。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "RegimeAwareStrategy.scala:全檔 — regime 訊號=0050 近 63 交易日報酬(split 調整正確,rows.size-64 取 63 日前),對稱門檻/遲滯(hysteresis)邏輯;預設 0.05 vs docstring 0.10 不一致(見 finding)",
+    "MagicFormulaPiotStrategy.scala:全檔 — 宇宙∩PIT減資黑名單→硬濾(F-Score/營收 YoY/營益成長/FCF/RSV)→ROIC rank+EY rank 合成;Magic Formula 定義偏差見 finding 1-4",
+    "Signals.greenblattROIC/earningsYield/rsv120d/distFrom52wHigh/opIncomeGrowthYoY/pbBandPosition/dividendYield/fcfYield/revenueYoYLatest/revenueYoY3M/institutionalFlow20d/technicalConfirmation/capitalReductionBlacklist:逐一對照學理",
+    "ValueRevertStrategy / ValueMomentumStrategy / DividendYieldStrategy / MultiFactorStrategy / AlphaStackStrategy / MomentumValueStrategy:選股/排名/合成/dropScore 濾網/percentileRank",
+    "PublicationLag.scala + RebalanceCalendar.scala:PIT 截止日與 day15+ rebalance 時點(正確,無財報前視)",
+    "Backtester.scala:re-balance 時點與成交價(同棒收盤執行,見 finding 6);Universe.scala + QualityFilter.scala 濾網",
+    "psql 實測:income_statement_progressive 為累計 YTD;稅前淨利 vs 營業利益缺口(2603 +85% / 2610 −8% / 2618 +2.5% / 2330 +2%);負債總計 vs 流動負債;252 日曆天=168 交易日 vs 365 日曆天=245 交易日",
+    "交叉引用:F-Score view 正確性見姊妹單位 B-fscore-academic(判 BUG,view 用季比季非年比年);financial_index_ttm/growth_analysis_ttm 內部算式屬 B 範疇"
+  ]
+}

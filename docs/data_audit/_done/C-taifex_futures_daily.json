@@ -1,0 +1,51 @@
+{
+  "id": "C-taifex_futures_daily",
+  "dim": "C",
+  "table": "taifex_futures_daily",
+  "unit": "C-taifex_futures_daily",
+  "verdict": "BUG",
+  "summary": "Cache 與 PostgreSQL 一模一樣、可以完全信任(逐欄逐筆對過零差異);但期貨表本身有兩段大洞,不是 cache 的錯而是根本沒抓進來:2026 年 1-2 月整整兩個月(33 個交易日)、以及 2026-05-22 到現在(39 個交易日、還在擴大),共約 72 個交易日查嘸資料。用到這兩段期間期貨資料的任何回測/訊號會拿到空序列或被靜靜截斷。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "Cache vs PG 一致性:完美。schema、筆數、逐欄聚合、整日逐筆、唯一鍵去重全數吻合",
+      "evidence": "schema:cache 19 欄 vs PG 20 欄,唯一差異是 id(bigint 代理主鍵)被刻意捨棄,cache_tables.py:64-68 明列 19 個分析欄、無型別降級。筆數:兩邊 total=5,780,185,29 年逐年 count 完全相同,date range 皆 1998-07-21~2026-05-21,distinct dates=6877 / contracts=751 / sessions=2 皆同。逐欄聚合(14 數值+4 字串欄的 sum/min/max/非空數/distinct):0 mismatch(sum_close 僅第 13 位有效數字因浮點加總順序不同)。整日逐筆 EXCEPT(2026-05-21/2020-06-15/2011-08-10 三天全欄):pg-only=0、ca-only=0。唯一鍵(date,contract_code,contract_month,trading_session)distinct=5,780,185=total → cache 零重複,符合 PG UNIQUE index。",
+      "fix": ""
+    },
+    {
+      "severity": "BUG",
+      "what": "時間序列缺口 1:2026-01-02~2026-02-26 整整 Jan+Feb 兩個月缺資料(33 個交易日)。這是被前後完整資料包夾的中間洞,非『回補中』能解釋",
+      "evidence": "futures 日期由 2025-12-31 直接跳到 2026-03-02(SELECT MAX(date) WHERE date<2026-01-01 = 2025-12-31;MIN(date) WHERE date>=2026-01-01 = 2026-03-02)。同窗 daily_quote(twse)有 33 個交易日、data_calendar.is_trading_day('2026-01-05'/'2026-02-05')=True → 確為交易日。根因在爬取層:raw 目錄 data/taifex/futures_daily/2026/ 只有 2026_3/4/5.csv,無 2026_1.csv、2026_2.csv(find 計數=0),原始檔從未下載。cache 忠實反映 PG,非同步問題。",
+      "fix": "用官方免費端點 https://www.taifex.com.tw/cht/3/futDataDown(application.conf:153;down_type=1 抓當年日期區間 CSV)補抓 2026-01-02~2026-02-26,落 data/taifex/futures_daily/2026/2026_1.csv、2026_2.csv,再 Main read 匯入 PG,最後 cache_tables.py 重建。補抓由主流程統一安排。"
+    },
+    {
+      "severity": "BUG",
+      "what": "時間序列缺口 2:2026-05-22 至今(2026-07-23)缺資料(39 個交易日、持續擴大)。期貨爬蟲在 2026-05-21 後停擺,與每日更新脫節",
+      "evidence": "futures MAX(date)=2026-05-21,但 daily_quote(twse)MAX(date)=2026-07-20;之後 39 個 twse 交易日(2026-05-22~07-20)期貨全無,is_trading_day('2026-06-01')=True。raw 目錄無 2026_6.csv/2026_7.csv(find 計數=0),且 2026_5.csv 為半月檔(只到 05-21,14 天 vs 正常 ~20)。daily_quote 新到 07-20 而期貨停在 05-21 → 期貨爬蟲未納入每日 loop 或已中斷。cache=PG,非同步問題。",
+      "fix": "同上端點補抓 2026-05-22 起(含補齊 2026_5.csv 下半月)至最新交易日,匯入+重建 cache;並將 taifex 日檔納入每日 Main update 例行,避免再度停擺。"
+    },
+    {
+      "severity": "REAL",
+      "what": "異常值掃描:所有『看似異常』旗標經查證皆為 TAIFEX 真實結構,非 bug",
+      "evidence": "物理不可能項全為 0:high<low=0、close/open 超出[low,high](vol>0)=0、負價/負量/負未平倉=0、未來日期=0。軟旗標皆有結構解釋:(a) 63% 全 OHLC 為 null(3,649,863 筆)中 2,980,898 帶 settlement_price、2,986,398 帶 open_interest → 掛牌但當日未成交的遠月契約,TAIFEX 每個掛牌契約月都出一列;(b) vol>0 但 close=null 共 287,425 筆,其中 204,787 有 spread_single_volume、contract_month 形如 '202506/202507' → 月間價差(calendar spread)組合列,非離群;(c) best_bid>best_ask 僅 38 筆、全在 1999 年 → 早期 TAIFEX 快照舊報價殘留;(d) close<1 的極小價全屬 CDF/XAF/DHF 等個股/匯率期貨,合理;(e) change_pct 精確落在 ±10(1462 筆)與 ±20(4 筆)= TAIFEX 每日漲跌幅限制。均與 PG 逐位相同。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "附帶觀察(不屬本表缺陷,提示 daily_quote 稽核):5 天期貨有資料但 daily_quote(twse)無 — 2005-02-04/05、2021-08-18、2025-08-15、2026-04-29",
+      "evidence": "overlap 範圍內 fut_not_eq=5。2005-02-05 為週六(補班日型態),但 2021-08-18/2025-08-15/2026-04-29 為週三/五,期貨有值而 twse 日報無 → 疑似 daily_quote 漏日,而非期貨問題。本單位(期貨表)有資料屬正常。",
+      "fix": "轉交 daily_quote 稽核單位查這 5 日 twse 是否漏抓。"
+    }
+  ],
+  "checked": [
+    "Schema 對比:cache 19 欄 vs PG 20 欄(psql \\d + duckdb information_schema),確認唯一差異是刻意捨棄的 id 代理鍵、無漏欄/漏表/型別降級;cache_tables.py:64-68 為同步 SQL",
+    "整表與逐年筆數:PG vs cache 皆 5,780,185,29 年(1998-2026)逐年 count 完全相同",
+    "全欄聚合對比:14 數值+4 字串欄的 count/sum/min/max/非空/distinct,經 DuckDB 同時 ATTACH PG(read-only)+cache 計算,0 mismatch",
+    "整日逐筆 EXCEPT 雙向對比 3 天(2026-05-21/2020-06-15/2011-08-10):pg-only=0、ca-only=0;外加 3 日×5 契約(TX/MTX/TE/TF)顯式逐值 dump 全 match",
+    "唯一鍵去重:cache 在 (date,contract_code,contract_month,trading_session) 上 distinct=total,零重複",
+    "覆蓋缺口:以 daily_quote(twse)交易日曆 + data_calendar.is_trading_day 交叉比對 2004-2026,只有兩段真缺口(Jan-Feb 2026、post-2026-05-21)+ 一天 2009-12-12(週六、is_trading_day=False、期貨合法未開,非缺陷)",
+    "缺口根因定位:檢視 raw data/taifex/futures_daily/ 檔案,確認缺 2026_1/2/6/7.csv 且 2026_5.csv 半月 → 屬爬取層未下載(非匯入或 cache 問題)",
+    "異常值掃描:負價、high<low、close 超界、負量/負未平倉、未來日期(皆 0);best_bid>best_ask(38)、null-OHLC(63%)、vol>0&close-null(287K)、極小價、change_pct 極值 — 全查證為 TAIFEX 結構真實現象",
+    "端點確認:application.conf:149-155 taifex.futuresDaily = https://www.taifex.com.tw/cht/3/futDataDown,供補抓 fix 引用"
+  ]
+}

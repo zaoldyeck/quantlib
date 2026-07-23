@@ -1,0 +1,87 @@
+{
+  "unit": "D-scala-python-parity",
+  "verdict": "SUSPECT",
+  "summary": "現役(live)算法可以信:live = Serenity Python(launchd),參考儀表板叫 Python 的 evergreen/apex 引擎,實測到的 Python 指標(Sharpe/Sortino/CAGR/MDD/IC/前瞻報酬/調整價)全部符合學理。Scala strategy 整包是凍結歷史碼、無任何 live/排程路徑引用(部分因子連 Scala 策略都沒接=死碼);其中有 1 個確定算式錯誤(Sortino 用錯分母,低估 ~37%)加幾個定義偏差(Sharpe 用幾何 CAGR、價格因子未還原、F-Score 用季比非年比、Greenblatt 拿稅前淨利當 EBIT),全部 off-live、不是 live bug。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "metric": "Sortino 下行標準差(Scala)· src/main/scala/strategy/Metrics.scala:69-72",
+      "textbook_def": "Sortino(Sortino & Price 1994)分母 = target downside deviation = sqrt( Σ min(r-MAR,0)^2 / N ),N 為全部期數,非只有下跌日數。",
+      "implementation": "downside = dailyRets.filter(_ < 0);downVol = sqrt(Σ_{r<0} r^2 / downside.size) * sqrt(242) — 分母用下跌日數 n_downside,不是總期數 N。",
+      "evidence": "可重現:日報酬 [.02,-.01,.03,-.02,0,.015,-.005,-.03,.01,0](N=10,下跌 4 天)→ textbook 下行標準差 0.011937 vs Scala 0.018875(膨脹 x1.581)→ Sortino 被低估 36.8%。Python 對照 research/apex/metrics.py:23 用 np.sqrt(np.mean(np.minimum(rets,0)**2)) 即 ÷N,Python 正確。off-live:Metrics.scala 只被凍結 Scala Backtester 使用,無 live 路徑。",
+      "fix": "分母改總期數:sqrt(downside.map(r=>r*r).sum / dailyRets.size) * sqrt(242)(下跌日平方和不變,除以全體 N)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Sharpe 分子用幾何 CAGR(Scala)· src/main/scala/strategy/Metrics.scala:67",
+      "textbook_def": "Sharpe = (E[Rp]-Rf)/σp,分子為算術平均超額報酬(年化)。",
+      "implementation": "sharpe = (cagr - 0.01) / vol — 分子用幾何 CAGR、rf=1%;年化 vol 用 sqrt(242)。",
+      "evidence": "Python research/apex/metrics.py:32 用 mean/std*sqrt(252)、rf=0 = 教科書算術形態。幾何 CAGR ≈ 算術平均 - σ²/2,Scala Sharpe 系統性略低,屬公認 practitioner 變體、偏差溫和。年化 242(Scala)vs 252(Python)差 ~2%,Scala 有註解「TWSE ~242」屬刻意有據=OK。台股 rf≈0 可接受。off-live。",
+      "fix": "若求教科書一致,分子改『日報酬年化算術平均 − rf』;否則明註為幾何 Sharpe 變體。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "價格/報酬因子用原始收盤價未還原(Scala)· Signals.scala momentum12m1m:239 / relativeStrength:80 / priceReturn:202 / rsi14 / bollinger / lowVol / rsv120d",
+      "textbook_def": "動量/報酬類因子應建在總報酬(除權息還原)價上;台股股利/減資大,原始價在除息日跳空會低估真實報酬(專案自訂鐵律 research/prices.py 亦明文)。",
+      "implementation": "Scala 全讀 daily_quote.closing_price(raw);Python research/apex/assemble.py:61-84 的 close 來自 data.load_panel→prices.fetch_adjusted_panel(data.py:62)=還原價。J-T 12-1 動量本身定義正確(skip≈1月前/base≈12月前,(p1-p0)/p0)。",
+      "evidence": "定義層:同一高股息股跨除息日,raw-close 動量 < 還原價動量;Python 正確、Scala 偏差。實務衝擊近零——momentum12m1m/relativeStrength/rsi14/bollinger 無任何 Scala 策略消費(死碼),被接的僅供凍結 MFPiot/value 策略。off-live。",
+      "fix": "Scala 若復用,價格面板改接還原價來源;否則標註『凍結:未還原,勿用於現役驗證』。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Piotroski F-Score 變化訊號用 lag(1) 季比(Scala)· src/main/resources/sql/view/5_growth_analysis_ttm.sql:3-37(被 MagicFormulaPiotStrategy.scala:69 消費)",
+      "textbook_def": "Piotroski(2000)9 分,其中 ΔROA、ΔCurrent ratio、ΔLeverage、ΔGross margin、ΔAsset turnover 五項比較會計年度 t vs t-1(年比)。",
+      "implementation": "9 個成分全數到位且對應正確(roa>0、ocf>0、ocf>profit=應計、非流動負債↓、流動比↑、股本≤前期=未增發、roa↑、毛利率↑、資產週轉↑),但五個變化項用 lag(...) over(order by year,quarter)=lag(1)=前一季;季頻 TTM/資產負債表上年比應為 lag(4)。",
+      "evidence": "定義層對照 Piotroski 原文:lag(1) 對 TTM 流量項是重疊 9 個月的季環比,對資產負債表項(槓桿/流動比/股本)是純季比,皆非年比語義,會改變哪些訊號點亮。無 Python 對照(Python 只用單一 cfo_ni_ratio_ttm 當品質閘,無完整 F-Score)。off-live(僅餵凍結 MFPiot)。",
+      "fix": "五個變化項改 lag(4)(同季去年);或明註為『季環比 F-Score 變體』。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "Greenblatt ROIC/EY 用稅前淨利當 EBIT(Scala)· Signals.scala:602-609(ROIC)/ 642-654(EY)",
+      "textbook_def": "Greenblatt Magic Formula 用 EBIT(營業利益,資本結構中性)算 ROIC=EBIT/投入資本、EY=EBIT/EV。",
+      "implementation": "EBIT 取 title IN ('繼續營業單位稅前淨利(淨損)'...) = 稅前淨利(已扣利息費用、含業外損益),非 EBIT。專案本身有『營業利益』(opIncomeGrowthYoY:748 在用)才是正確 EBIT 代理。",
+      "evidence": "定義層:稅前淨利 = EBIT − 利息 ± 業外,對高槓桿/業外大公司偏離明顯,違背 Greenblatt『跨資本結構可比』初衷。無 Python 對照。off-live(僅凍結 MFPiot)。market-cap 代理 close×capital_stock/10(台股面額 10、忽略庫藏)屬合理有註近似=OK。",
+      "fix": "EBIT 改用『營業利益(損失)』line。"
+    },
+    {
+      "severity": "SUSPECT",
+      "metric": "revenueAccel 名為加速度實為水準比(Scala)· Signals.scala:782-813",
+      "textbook_def": "營收『加速度』= 成長率的變化(二階差分)。",
+      "implementation": "latest_month_rev / avg(prior 3 months rev) = 水準比(近月營收暴衝),非成長率二階差分。",
+      "evidence": "對照 evergreen rev_accel(YoY_t > YoY_{t-1},engine.py:114-115)、apex rev_yoy_accel(avg3 YoY − avg12 YoY,assemble.py:100-104)才是合格加速度代理。revenueAccel 零消費者(死碼)+ off-live;三種『accel』各屬不同策略、非 parity 要求。",
+      "fix": "更名為 revenueSurgeRatio 或改為成長率二階差分。"
+    },
+    {
+      "severity": "OK",
+      "metric": "營收 YoY parity:Scala 自算比率 vs Python TWSE 百分比欄 · Signals.scala revenueYoY3M:30 / revenueYoYLatest:579 vs cache_tables.py:52",
+      "textbook_def": "YoY = (rev_t − rev_{t-12mo})/rev_{t-12mo}。",
+      "implementation": "Scala 自算 (rev − last_year_rev)/last_year_rev(比率);Python 讀 monthly_revenue_yoy = TWSE 『monthly_revenue_compared_last_year(%)』(百分比)。",
+      "evidence": "cache 實測 1101/2026-06 monthly_revenue_yoy=32.398782(=+32.4%),Scala 同口徑得 0.324;100x 尺度差。但兩側皆在截面做 rank()/len() 百分位轉換,尺度對排名無影響、無選股偏差。概念同=YoY。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "IC / 前瞻報酬 · research/apex/factors.py:25-101",
+      "textbook_def": "IC = 截面 Spearman(因子, 前瞻報酬);前瞻報酬 T+1 起算、零 look-ahead;IC t-stat = IR·sqrt(n)。",
+      "implementation": "每日 rank(value)、rank(fwd) 後 pl.corr(=Spearman);forward_returns = close.shift(-(1+k))/close.shift(-1)-1(T+1 基期);t = mean_ic/std_ic*sqrt(n)。",
+      "evidence": "定義逐項符合。t_adj=t/sqrt(k)(重疊樣本粗校正)、pooled-decile × 252/k 線性年化 = 有 docstring 註明的刻意近似,非偏差。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "CAGR / MDD / Calmar 兩側一致 · Metrics.scala:61,113-123 vs apex/metrics.py:24-27,35",
+      "textbook_def": "CAGR=(end/begin)^(1/years)-1(years=日曆/365.25);MDD=min(NAV/cummax-1);Calmar=CAGR/|MDD|。",
+      "implementation": "Scala 與 Python 三者算式逐位一致。",
+      "evidence": "Metrics.scala:61 cagr=pow(final/initial,1/years)-1、years=(end-start)/365.25;Python metrics.py:27 同。MDD 兩側皆 running-max 比值最小。全符合學理。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "metric": "結構/headline:無任何 Scala 因子/指標在 live 路徑",
+      "textbook_def": "凍結引擎的定義偏差只有在被 live 路徑引用時才是 live bug。",
+      "implementation": "live = research/serenity/launchd/com.quantlib.serenity-daily.plist → python -m research.serenity.daily;serenity/engine.py 不 import Scala 亦不 import apex/evergreen 因子。",
+      "evidence": "grep 'runMain Main strategy' 全 repo 僅命中 Main.scala(人工 CLI)與一個 agent 說明 toml,無 shell/plist/cron。Scala strategy 整包凍結(CLAUDE.md 明文),momentum12m1m/relativeStrength/rsi14/bollingerPosition/revenueAccel 於 Scala 策略層零消費者(死碼)。結論:F1 的 BUG 與 F2-F6 偏差全數 off-live,非 live bug。",
+      "fix": ""
+    }
+  ]
+}

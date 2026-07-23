@@ -1,0 +1,44 @@
+{
+  "id": "C-taifex_futures_contract_rank",
+  "dim": "C",
+  "table": "taifex_futures_contract_rank",
+  "unit": "C-taifex_futures_contract_rank",
+  "verdict": "BUG",
+  "summary": "這張表沒有 PG 對應表——它是 cache 用 taifex_futures_daily + taifex_futures_final_settlement(兩者與 PG 逐筆一致)在 cache 內現算的衍生表(cache_tables.py:145 → futures/taifex.py build_taifex_futures_tables)。算出來的每個『值』都對(join 回 base 對 8 欄逐格零差異、0 孤兒、筆數 148,031 照過濾條件從 base 重算完全相等),但『排序』有一個真 bug:futures/taifex.py:56 的過濾 regexp_matches(contract_month,'^\\d{6}') 沒收尾錨,把不是月份合約的兩種東西——月間價差(calendar spread,如 202606/202609)與週結算(weekly,如 202605W4)——混進來一起排 month_rank。近月 rank=1 對 TX 乾淨(價差 0 列),但 MTX 有 985 列 rank=1 是週合約;次近月 rank=2 有 1,833 列(6.9%)是價差合約,下游 taifex_futures_daily_factors 的 second_month=WHERE month_rank=2 因此把價差合約當次月,tx_next_term_spread 變成 -41267、tx_next_term_spread_pct 落在 [-1.0,-0.9906](≈ -99%,共 515 列 / 7.5%),而這欄正被 research/futures/strategies.py 拿去做 63 日 z-score 交易訊號。另有覆蓋缺口(繼承 base、非 cache 問題):2026-01-02~02-26 整整兩個月(33 交易日)與 2026-05-22 至今(~40 交易日)期貨全缺,與姊妹單位 C-taifex_futures_daily 同源。能信的:值、覆蓋到的日期、rank=1 的 TX 近月;不能信的:rank>=2 的月份排序、tx_next_term_spread(_pct)、2026 那兩段期間。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "價差(calendar spread)與週結算(weekly)合約污染 month_rank:次近月(rank=2)有 1,833 列(6.9%)指到價差合約,把真正的次月月份合約擠到後面;近月(rank=1)另有 985 列(全 MTX)是週合約。下游 taifex_futures_daily_factors 把 rank=2 當『次月』,產出 ≈ -99% 的垃圾 tx_next_term_spread(_pct),而這欄被 research/futures/strategies.py 當交易訊號。",
+      "evidence": "根因:research/futures/taifex.py:56 過濾 regexp_matches(d.contract_month,'^\\d{6}') 未加收尾錨 '$',價差 '202606/202609' 與週 '202605W4' 皆『開頭 6 位數字』故通過;month_key(line 39 regexp_extract '^(\\d{6})')只抓前 6 碼,於是三者共用同一 month_key 一起排 row_number()(line 61-64)。規模(cache 實測 var/cache/cache.duckdb,148,031 列):月份 141,175 + 週 3,488 + 價差 3,368 = 148,031(三者相加對齊)。month_rank 污染:rank1 價差 0/26,645、rank2 價差 1,833/26,645(6.9%)、rank3 678/26,645;rank1 週合約 985(全 MTX,2013-08-23~2026-05-21;TX rank1 週合約=0)。具體 TX 2026-05-21:rank1 cm=202606 close=41473、rank2 cm=202606/202609 close=236、rank3 cm=202606/202612 close=733、rank4 cm=202607 close=41474(真次月被擠到第 4)。下游 taifex_futures_daily_factors:tx_next_contract_month 含 '/' 共 515/6,875 列(7.5%);tx_next_term_spread_pct 乾淨列(次月為月份)範圍 [-0.0372,0.056]、污染列範圍 [-1.0,-0.9906](全表 |值|>=0.5 恰 515 列);tx_next_term_spread 樣本 2026-05-21=-41267、2026-05-20=-40049。消費端:research/futures/strategies.py:209 SELECT f.tx_next_term_spread_pct、:243 WHERE r.month_rank=1、:323-324 rolling_mean/std(63)、:371 z-score=(tx_next_term_spread_pct-term_mean63)/term_std63。(ev48/ev51/f10 只用 foreign_*_net_oi,不受影響。)驗證 SQL 全部可從 cache 重跑。",
+      "fix": "把 taifex.py:56 錨死成只收純月份合約:regexp_matches(d.contract_month,'^\\d{6}$')(或加 AND contract_month NOT LIKE '%/%' AND contract_month NOT LIKE '%W%'),移除 3,368 價差 + 3,488 週合約,留 141,175 純月份合約使 month_rank 為真月份階梯。價差『一定』要移除(其 close 是價差報價非指數價位,混進來數學上就錯);週合約是否保留可討論(價格與月份合約幾近相同),依 docstring『nearest listed contract month』語意兩者皆應排除。改完重建 cache、回跑 research/futures/tests/test_taifex_futures.py;加守護:contract_rank 不得出現 contract_month LIKE '%/%',且 daily_factors 的 ABS(tx_next_term_spread_pct)<0.5(先拿現況資料跑必須紅、修完轉綠)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "覆蓋缺口(繼承自 base 表、非 cache 同步問題):2026-01-02~2026-02-26 整整 1、2 月缺(33 交易日),及 2026-05-22 至今(~40 交易日、持續擴大)期貨全無資料。衍生表忠實地也沒有這兩段。",
+      "evidence": "衍生表 MAX(date)=2026-05-21,但 daily_quote(twse) 已到 2026-07-20、market_index(twse) 到 2026-07-17。以 daily_quote 交易日曆比對 TX 日期(在 TX span 內):內部缺 34 天,集中在 2026-01/02 連續交易日(2026-01-02、01-05..01-09、01-12..01-16、01-19..01-30、02-02..02-11、02-23..02-26)且 base taifex_futures_daily 該區間 5 檔產品 0 列;base 2026 月覆蓋 2025-12=22 天→2026-01/02 完全空→2026-03=22、04=20、05=14(半月止於 05-21)。另 3 個週六(2015-08-29/2018-08-04/2018-09-15)base 亦 0 列,屬 TWSE 補行交易日但 TAIFEX 一般盤未開,合理非缺陷。根因見姊妹單位 C-taifex_futures_daily(raw 缺 2026_1/2/6/7.csv、2026_5.csv 半月)。",
+      "fix": "由 base 端統一補:官方端點 https://www.taifex.com.tw/cht/3/futDataDown(application.conf taifex.futuresDaily),補抓 2026-01-02~2026-02-26 與 2026-05-22 起至最新交易日,匯入 PG 後重建 cache(cache_tables.py),衍生表隨之補齊。此缺口跨所有 taifex_* 單位共用,補抓由主流程統一安排,本稽核不下載。"
+    },
+    {
+      "severity": "OK",
+      "what": "Cache-vs-來源一致性 / 衍生忠實度:全部乾淨(負結果)。沒有 PG 對應表屬正常(cache-only 衍生表);依賴的 base 表與 PG 逐項相等;值忠實複製;異常值掃描全 0;month_rank 結構完整。",
+      "evidence": "(1) 無 PG 表:psql \\d taifex_futures_contract_rank 查無 → 為 cache_tables.py:145 build_taifex_futures_tables 現算。(2) base 一致:taifex_futures_daily cache=PG=5,780,185、final_settlement cache=PG=3,152,日期範圍皆同(逐筆見 C-taifex_futures_daily)。(3) 衍生筆數重算:照 builder 五過濾條件從 base 重建 count=148,031=實表。(4) 值忠實:衍生 join base 對 open/high/low/close/settlement/volume/open_interest IS DISTINCT FROM = 0 筆;孤兒(base 無對應)=0;final_settlement_price join 不符=0。(5) 抽樣:2020-03-19/2023-06-15/2026-05-21 × TX/MTX rank1 顯式 dump 值全 match。(6) 異常掃描(限 contract_month ~ '^[0-9]{6}$' 純月份):負/零 close、負/零 settlement、high<low、close 超出[low,high]、負量、負未平倉、未來日期、null month_key、量>0 三價全 null —— 全 0。(7) month_rank 每 (date,product) 連續 1..N 無跳號/重號;(date,product,contract_month) 無重複鍵。(8) 2 個 base 日期 2005-02-04/05 不在衍生表 → 該日 5 檔產品任何盤別 0 列,正確排除。(9) 反向缺口:TX 有而 market_index 無的 2,645 日中 2,644 日早於 market_index 起點 2009-01-05(daily_quote 起 2004),為日曆歷史較短,非期貨問題。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "Schema:psql \\d 確認 taifex_futures_contract_rank 不在 PG(cache-only 衍生表);讀 cache_tables.py:145-148 與 futures/taifex.py:23-67 builder 全文,欄位 = date/product/contract_month/month_key/open/high/low/close/settlement_price/final_settlement_price/volume/open_interest/trading_session/month_rank(14 欄)",
+    "base 一致性:cache vs PG 對 taifex_futures_daily(5,780,185)、taifex_futures_final_settlement(3,152)筆數與 MIN/MAX date 逐項比對,相等",
+    "衍生筆數重算:照 builder 過濾(contract_code IN 5 產品 AND trading_session='一般' AND regexp_matches '^\\d{6}' AND 三價非全 null AND month_key 非 null)從 base 重建 = 148,031 = 實表",
+    "contract_month 形狀分佈:LIKE 分桶月份 141,175 / 週('%W%')3,488 / 價差('%/%')3,368,三者相加 = 148,031",
+    "值忠實性:衍生 join base 對 8 欄 IS DISTINCT FROM 逐格 diff = 0;LEFT JOIN 找孤兒 = 0;final_settlement join 不符 = 0",
+    "具體抽樣:2020-03-19 / 2023-06-15 / 2026-05-21 × TX/MTX rank=1 顯式 rank_close vs base_close,全 OK",
+    "month_rank 污染量化:rank 1/2/3 的價差('%/%')污染列 = 0 / 1,833 / 678;週('%W%')在 rank=1 = 985(GROUP BY product 全 MTX,TX=0)",
+    "下游傳播:taifex_futures_daily_factors 的 tx_next_contract_month LIKE '%/%' = 515/6,875(7.5%);tx_next_term_spread_pct 乾淨 vs 污染分佈 [-0.0372,0.056] vs [-1.0,-0.9906];|值|>=0.5 = 515",
+    "消費端盤點:grep tx_next_term_spread(_pct) / month_rank / mtx_close → research/futures/strategies.py:209/243/323/324/371 確用作 63 日 z-score 訊號;evergreen/ev48_chip_axes.py、ev51_regime_defs.py、apex/experiments/f10_chip_axes.py 僅用 foreign_*_net_oi(不受影響)",
+    "覆蓋缺口:daily_quote(twse,起 2004)+ market_index(twse,起 2009)兩套日曆交叉比對 TX 日期,定出 Jan-Feb 2026(33 天)與 post-2026-05-21(~40 天)兩段真缺口 + 3 週六(合理)；base 2026 月覆蓋(01/02 空、03-05 半)佐證根因在爬取層",
+    "異常值掃描(限純月份合約):負/零價、high<low、close 超界、負量/負未平倉、未來日期、null month_key、量>0 三價全 null —— 皆 0(價差列 close 可為小/負值屬正常,故掃描排除價差)",
+    "month_rank 結構:每 (date,product) 連續 1..N 無跳號/重號;(date,product,contract_month) 無重複鍵;2 個 base 日期 2005-02-04/05 因 5 產品 0 列被正確排除",
+    "反向缺口成因:TX vs market_index 2,645 反向缺中 2,644 早於 market_index 起點 2009-01-05;vs daily_quote 1,425 早於 2004 起點 → 日曆歷史較短非期貨問題",
+    "排除已知真實現象:週六補行交易日、價差合約 close 為價差報價(可小/可負)、遠月掛牌未成交列 —— 皆 TAIFEX 結構真實,非 bug"
+  ]
+}

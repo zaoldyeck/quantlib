@@ -1,0 +1,72 @@
+{
+  "unit": "B-matview-7_income_statement_individual",
+  "verdict": "BUG",
+  "summary": "這張 matview 用「本季累計 − 上季累計」把台股累計損益表還原成單季數，算式有真實缺陷（缺一季時把兩季貼成一季：光營收就約 6,760 列被污染、3,217 列變負；另有 14 萬列算不出來的 NULL 被原封留下，還與 Slick 宣告的非 nullable Double 相牴觸）。但關鍵事實是：全 repo 沒有任何程式 SELECT 這張表——它是孤兒，每次匯入財報白刷新 399 萬列，爆炸半徑為零。它躲過了姊妹檔 view #5 最毒的合併/個體互減（來源表無 type 欄、一鍵一值）；台積電 2011/2012/2023/2024 逐季驗算全部逐位吻合，乾淨大型股資料本身是對的。建議直接刪掉這張孤兒表。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "爆炸半徑為零：本 matview 沒有任何 SELECT 消費者。全 repo grep income_statement_individual（排除 concise_）只命中三處——自己的 DDL、Slick class 定義（全 repo 無 TableQuery[IncomeStatementIndividual]、無任何查詢）、FinancialReader 的 refresh 呼叫（只刷新不讀）。BUG 1/2 的錯誤產出因此不污染任何回測、因子或實盤決策。",
+      "evidence": "grep -rn 'income_statement_individual' src research docs --include=*.scala --include=*.sql --include=*.py --include=*.md | grep -v concise_income_statement_individual → 僅 (1) src/main/resources/sql/materialized_view/7_income_statement_individual.sql:1（DDL）(2) src/main/scala/db/table/IncomeStatement.scala:38（class IncomeStatementIndividual，無人 TableQuery）(3) src/main/scala/reader/FinancialReader.scala:289（refresh materialized view，只刷新）。\n旁證：Scala 策略層讀原始 income_statement_progressive 而非本 view（strategy/Signals.scala:604,649,746,754，Greenblatt ROIC/EY），且用 DISTINCT ON (company_code) ORDER BY year DESC,quarter DESC 取最新累計快照、不做單季差分。下游 6_concise_financial_statement_with_titles.sql 用 view #5（concise）而非 #7。Python 路徑（research/cache_tables.py）不碰本 view。\n代價：每次 Main update 白刷新一張 399 萬列死表。",
+      "fix": "首選直接刪除此孤兒 matview：移除 7_income_statement_individual.sql 的 DDL、IncomeStatement.scala:38 的 Slick class、FinancialReader.scala:289 的 refresh 呼叫。功能與 view #5（concise 管線）重疊，且刪除可一併消滅 BUG 2 的潛伏 NULL→Double Slick 彈。"
+    },
+    {
+      "severity": "BUG",
+      "what": "缺一季時 lag 跳到不相鄰期別（與 view #5 BUG 2、cash_flows_individual 同類，本檔獨立復現）：第 8-11 行只判斷 quarter=1，沒有檢查前一筆是不是 (同年, 本季−1)。缺季時橫跨多季的差額被貼上「單季」標籤，產出看起來正常的錯數字（缺 Q3→H2 貼成 Q4 約 2 倍高估；缺 Q1→半年累計減去年全年→巨額負值）。",
+      "evidence": "檔案：src/main/resources/sql/materialized_view/7_income_statement_individual.sql:8-11。\n缺季 lag 落點分佈（僅 title='營業收入合計'，可重跑）：\nWITH w AS (SELECT market,year,quarter,company_code,value, lag(value) OVER win pv, lag(year) OVER win py, lag(quarter) OVER win pq FROM income_statement_progressive WHERE title='營業收入合計' WINDOW win AS (PARTITION BY market,company_code ORDER BY year,quarter)) SELECT quarter, (py=year), pq, count(*) FROM w WHERE quarter<>1 AND pv IS NOT NULL AND NOT (py=year AND pq=quarter-1) GROUP BY 1,2,3 ORDER BY 4 DESC;\n→ Q4←同年Q2 2,992 / Q2←去年Q4 2,970 / Q2←去年Q2 435 / Q3←同年Q1 222 / Q4←去年Q4 153 / 其他 ~28（單一科目約 6,760 列受污染）。\n輸出端指紋（income_statement_individual, title='營業收入合計', 共 112,006 列）：3,217 列單季營收為負、2,669 列為 NULL。負值主要來自「缺 Q1、Q2 減去年 Q4」那 2,970 列。這只是 1,914 個 title 中的一個，全表污染量級遠大於此。",
+      "fix": "比照 view #5 修法加缺季守衛：case when quarter=1 then value when lag(year) over w=year and lag(quarter) over w=quarter-1 then value-lag(value) over w else null end。同類掃描：3_cash_flows_individual.sql:8-12（完全同型）、research/strat_lab/raw_quarterly.py（現役研究路徑，位移一列≠位移一季，缺季同 bug）。本 view 是這一類的第三個樣本。"
+    },
+    {
+      "severity": "BUG",
+      "what": "算不出來的 NULL 列被原封留在 matview（view #5 有 where value is not null 濾網、本檔沒有），且與 Slick schema 相牴觸：db/table/IncomeStatement.scala:29,38 把 IncomeStatementIndividual.value 宣告為非 nullable 原生 Double，但這張 matview 含 140,128 列 NULL value。任何人用 TableQuery[IncomeStatementIndividual] 查它，Slick 對 NULL→Double 會炸（NPE / 讀成 0.0）。目前無人查 → 潛伏彈。",
+      "evidence": "檔案：7_income_statement_individual.sql（無 where value is not null，對照 5_concise_income_statement_individual.sql:28 有）。\nSELECT count(*) FILTER (WHERE value IS NULL) FROM income_statement_individual; → 140,128（占全表 3,989,598 的 3.5%）。\nSELECT quarter,count(*) FROM income_statement_individual WHERE value IS NULL GROUP BY 1; → Q1 0 / Q2 47,350 / Q3 9,692 / Q4 83,086。全部非-Q1（Q1=0 證明 Q1 特判正確、NULL 全來自無前一季的差分頭）。Q4 佔 83,086 列＝完整財報大量只在年報出現的科目無 Q1-Q3 前身。\nSlick：db/table/IncomeStatement.scala:29 def value = column[Double](\"value\")（非 Option[Double]）；:38 class IncomeStatementIndividual 映射此 matview。",
+      "fix": "加 where value is not null（與 view #5 一致），或把 Slick value 改成 column[Option[Double]]，二擇一消除 schema 牴觸。若採首選『刪除孤兒表』則本問題一併消失。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "非加總型科目（EPS 等每股數）被無差別差分：第 8-11 行對全部 1,914 個 title 一律做減法。基本每股盈餘合計（98,858 列）、稀釋每股盈餘合計（84,016 列）等每股值被差分。累計 EPS 差分是業界通用近似，但季間加權平均股數不同（台股股票股利頻繁）→ 非精確值。列 SUSPECT 而非 BUG（可接受近似 + 本表無人消費）。",
+      "evidence": "SELECT p.year,p.quarter,p.value eps_cum,m.value eps_mv FROM income_statement_progressive p JOIN income_statement_individual m USING (market,year,quarter,company_code,title) WHERE p.company_code='2330' AND p.title='基本每股盈餘合計' AND p.year=2024; → Q1 8.70→8.70 / Q2 18.25→9.55 / Q3 30.80→12.55 / Q4 45.25→14.45（累計差分成單季）。\n好消息：view #5 有的『換算匯率』被差分（水準值減法無意義）在本表不存在——SELECT count(*) FROM income_statement_progressive WHERE title LIKE '%換算匯率%'; → 0。故該子 bug 不適用。",
+      "fix": "若保留本表，建非加總型科目白名單：EPS 類差分保留但於 view 檔頂端註明『單季 EPS 為累計差分近似、季間加權股數不同、非精確值』，讓下游知道精度等級。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "殘留前視（重編覆蓋，繼承自來源表）：本 view 與來源表都無申報日欄位，來源表唯一索引 (market,year,quarter,company_code,title) 使重編（restatement）直接覆蓋原值、不保留版本 → 歷史季度存的是最新重編版而非 as-filed。PIT 由 Scala 下游 strategy/PublicationLag.scala 處理、非本檔責任；因本表無人消費，此點對現況無實害。",
+      "evidence": "psql \\d income_statement_progressive → 欄位僅 id/market/year/quarter/company_code/title/value，無 filing_date；唯一索引 idx_IncomeStatement_market_year_quarter_companyCode_title UNIQUE (market,year,quarter,company_code,title)（db/table/IncomeStatement.scala:31）→ 再匯入即覆蓋、無版本史。屬 C-is_progressive_raw 範疇，原封傳導到本 view。",
+      "fix": "根治須在來源表加 (filing_date, revision_seq) 並改 PIT 查詢為『取 filing_date ≤ 決策日的最新一筆』。因本表建議刪除，此點不需在本 view 補救。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "報表口徑（合併 vs 個體）是解析期選的、未文件化：來源表無 type 欄，口徑由爬蟲 reader/FinancialReader.scala:201（2019+）用檔名 type token sortBy(_._1).distinctBy(_._2) 每家每季各留一種（字母序最小者）。2019+ 兩口徑每季都申報→穩定選同一種→序列內不換基，跨年換基被 Q1 特判擋住。但這選擇是隱性、未寫進任何文件，若某公司某季只申報另一口徑會無聲換基而無 type 欄可偵測。",
+      "evidence": "reader/FinancialReader.scala:194-201（2019+ 分支）：val type = splitName(4); ... .sortBy(_._1).distinctBy(_._2) → 每 company_code 留字母序最小 type 的檔案。來源表唯一索引無 type → 一鍵一值。佐證口徑穩定：2330 各年 ΣFY 逐位吻合（2011 427,080,645 / 2012 506,248,580 / 2023 2,161,735,841 / 2024 2,894,307,699）。未見實害故列 SUSPECT。",
+      "fix": "若保留本表，於檔頂註明口徑來源（爬蟲解析期 alphabetical 選擇）與適用範圍；理想為在來源表補回 type 欄以可稽核。"
+    },
+    {
+      "severity": "OK",
+      "what": "view #5 的兩大問題在 view #7 結構上不會發生。(1) 合併/個體跨口徑相減（view #5 BUG 1）：來源表無 type 欄、唯一索引一鍵一值 → 不可能。(2) 轉板公司單季序列斷裂（view #5 by-market 分區隱憂）：market 只有 tw 一值 → partition by market,... 為 no-op。",
+      "evidence": "來源表 schema 無 type 欄（psql \\d，對照 concise_income_statement_progressive 有 type）。SELECT string_agg(DISTINCT market, ',') FROM income_statement_progressive; → 'tw'（單一值）。pre-2013 2330 逐季 ΣFY 吻合（2011 105,377,495/110,508,367/106,483,616/104,711,167=427,080,645；2012=506,248,580）→ view #5 的 pre-2013 雙口徑災難在此不重現。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "Q1 跨年邊界、現代與早期年份正確性、鍵唯一性、分母保護、幣別單位 — 全部查過無誤。乾淨大型股（2330）四段驗算逐位吻合，資料本身是對的。",
+      "evidence": "(1) Q1 特判：2330 2024Q1 matview=592,644,201（=累計直取），naïve lag 會給 -1,569,091,640 → matview 正確避開。\n(2) 2330 2023 單季營收 508,632,973/480,841,254/546,732,758/625,528,856（ΣFY 2,161,735,841 ✓）；2024 592,644,201/673,510,177/759,692,143/868,461,178（ΣFY 2,894,307,699 ✓，與 view #5 concise 管線逐位相同）。\n(3) 鍵唯一：SELECT count(*) FROM (SELECT market,year,quarter,company_code,title FROM income_statement_individual GROUP BY 1,2,3,4,5 HAVING count(*)>1) t; → 0。\n(4) 本 view 只有減法無除法 → 不可能 ±inf。\n(5) 單位新台幣千元，差分後不變（2330 FY2024 = NT$2.894 兆）。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "精讀 src/main/resources/sql/materialized_view/7_income_statement_individual.sql 全 12 行，逐行寫出算式（Q1 直取累計、Q2-Q4 差分、partition by market,company_code,title）",
+    "對照姊妹檔 5_concise_income_statement_individual.sql 與其已完成稽核（B-matview-5），逐項比對來源表/type 欄/market 值域/Q1 特判/缺季守衛/NULL 濾網/去重的有無",
+    "讀來源表 income_statement_progressive schema（psql \\d）：無 type 欄、無申報日、唯一索引 (market,year,quarter,company_code,title)",
+    "讀 Slick 定義 db/table/IncomeStatement.scala:16-38（value 宣告為非 nullable column[Double]，class IncomeStatementIndividual 映射本 matview）",
+    "讀爬蟲 reader/FinancialReader.scala:165-291：來源表填充路徑、口徑選擇（:201 sortBy(_._1).distinctBy(_._2)）、refresh 呼叫（:289）",
+    "讀 strategy/Signals.scala:594-670：確認 Scala 策略讀原始 progressive、用 DISTINCT ON 最新累計快照、不做單季差分",
+    "全 repo grep 消費者（.scala/.sql/.py/.conf/.md）：確認本 matview 零 SELECT、Slick class 零 TableQuery、下游 view #6 用 view #5 而非 #7、Python 路徑不碰",
+    "PG 實測：全表/matview 筆數（3,989,598）、NULL value 列數（140,128；逐季 Q1=0/Q2=47,350/Q3=9,692/Q4=83,086）、distinct title（1,914）、market 值域（僅 tw）、quarter 值域（{1,2,3,4}）、逐年覆蓋（2009-2026，2026 部分 544 家）",
+    "缺季 lag 落點分佈（營業收入合計：Q4←同年Q2 2,992 / Q2←去年Q4 2,970 / Q2←去年Q2 435 / Q3←同年Q1 222 / Q4←去年Q4 153 / 其他）",
+    "單季負營收（3,217 列）與 NULL（2,669 列）計數（title=營業收入合計，共 112,006 列）",
+    "手算對帳 2330：2011 / 2012 / 2023 / 2024 四段逐季 ΣFY 逐位吻合；2024 與 view #5 concise 管線逐位相同",
+    "EPS 差分示範（2330 2024 基本每股盈餘合計 累計 8.7/18.25/30.8/45.25 → 單季 8.7/9.55/12.55/14.45）",
+    "確認 換算匯率 在本表不存在（title LIKE '%換算匯率%' = 0 列）→ view #5 該子 bug 不適用",
+    "確認 matview 鍵唯一（0 重複）、Q1 特判正確（naïve lag 對照）",
+    "排除台股已知真實邊界：金融業負營收（本 view 僅減法）、營建業零營收、週六補行交易日、concise_* 無 market 欄（本表有 market 欄且僅 tw）"
+  ]
+}

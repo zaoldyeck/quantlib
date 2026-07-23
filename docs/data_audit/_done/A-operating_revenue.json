@@ -1,0 +1,76 @@
+{
+  "unit": "A-operating_revenue",
+  "dim": "A",
+  "source": "operating_revenue",
+  "reader": "FinancialReader.readOperatingRevenue",
+  "table": "operating_revenue",
+  "verdict": "OK",
+  "summary": "月營收原始檔每一個數字欄位都正確、完整、單位無誤地落到 PostgreSQL,解析可信。獨立重解析(自寫 Python,不呼叫受測 reader)橫跨 2001-2026、twse/tpex、個別/合併、三種實體格式(早期 HTML、2005-2012 Big5 的 11 欄 CSV、2013 後 UTF-8 的 14 欄 CSV)逐欄比對值全對:千分位剝除、='XXXX' 還原、N/A 與 &nbsp; 轉 NULL、浮點全精度、仟元單位不竄改、正負號保真、民國西元換算零錯、header 不外洩、產業累積正確。全 CSV 欄數只有 {11,14} 兩種故 case 分派免疫欄位錯位;壞 HTML(缺 </tr>)Jsoup 錯誤修復照樣正確。唯三個別儲格不能信、但都是原始檔自己壞掉 reader 忠實照抄、非解析錯:聯發科 2454 合併 2007-7 月營收 6.93 兆(約大 1000 倍、全表唯一 >NT$1 兆、來源自帶 999999.99 溢位哨兵佐證)、720 筆百分比是來源哨兵 999999.99、1805 在 2004-9 公司名亂碼(只毀名不毀數字)。另『備註』欄從未進資料庫(與 C-operating_revenue 同結論,判斷金融負營收真偽正需要它)。cache/PG 一致性與近三月缺列屬 dim C(見 C-operating_revenue,verdict BUG),非本單位解析範疇。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "解析正確性總驗:值保真 + 完整性 + 單位 + 正負號 + 編碼 + 日期,三種格式跨 25 年全數通過",
+      "evidence": "獨立解析(Python csv/html.parser + big5hkscs/utf-8,不呼叫 FinancialReader.readOperatingRevenue)對 5 個跨時代樣本逐欄比對 PG:twse 個別 2001-6 台泥1101(月營收 1,690,526→1690526、產業水泥、cum 9,761,724、YoY 16.93 全對)、tpex 個別 2001-6 五鼎生技4101、twse 合併 2008-1 三芳1307(='1307'→1307、產業 NULL)、遠東新1402(N/A→NULL)、twse 合併 2024-1 台泥1101(產業水泥工業、月營收 7237930、百分比全精度 -23.923687931066922 保真)。單位仟元原數照存無 ×1000(台泥 2024-1 = 7,237,930 仟元 = NT$72.4 億對真實月報一致);百分比原數照存(-23.92=-23.92%)。腳本:docs/data_audit/scripts/A-operating_revenue/rowcount_parity.py。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "欄位錯位/schema-drift 免疫:全 CSV 資料列欄數只有 {11,14} 兩種,case 11/case _ 二分法對 25 年全部檔案命中;第三種欄數會 fail-loud 整檔炸不會靜默錯值",
+      "evidence": "docs/data_audit/scripts/A-operating_revenue/full_scan.py 掃全部 496+20 CSV 檔:11 欄 28,405 列(IFRS 前合併,無產業欄)、14 欄 259,418 列(IFRS 後),{11,14} 以外 = 0 檔。FinancialReader.scala:371/375 的 case 11(代號=col0)vs case _(代號=col2、產業=col4)靠欄數 11≠14 互斥。若出現 12/13 欄,case _ 的 transferValues(7)(line 378)會 IndexOutOfBounds 讓該檔平行任務失敗(fail-loud)。HTML 路徑:FinancialReader.scala:328-364 用 Jsoup elements(tr/td);實測 2001 tpex 4108 懷特新藥列缺 </tr> 閉合(原始 byte: <td>4108</td>...<td>&nbsp;</td><tr>合計...),土炮 regex 會誤併成 19 cell 漏掉,但 Jsoup HTML5 錯誤修復正確切 10 cell → 月營收 0、百分比 &nbsp;→NULL,PG 正確。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "聯發科 2454 合併 2007-7 月營收 = 6,932,075,206 仟元(約大 1000 倍,全表唯一 >NT$1 兆):原始檔本身壞值,reader 忠實照抄,非解析錯",
+      "evidence": "原始檔 data/operating_revenue/twse/2007/2007_7_c.csv 該列(11 欄 Big5):['=\"2454\"','聯發科','6932075206','6010229','0','115237.95','999999.99','39979216644','0','999999.99','']——月營收 6,932,075,206、上月比較增減 +115237.95%、去年同月增減 999999.99(來源溢位哨兵)、累計 39,979,216,644。鄰月月營收 6-9 百萬仟元量級(2007-6=6,010,229、2007-8=9,681,926),同月個別(HTML)檔為正常 6,389,013。psql 佐證:SELECT year,month,type,monthly_revenue FROM operating_revenue WHERE company_code='2454' AND year=2007 → 合併 7 月 6932075206 vs 個別 7 月 6389013。原始=PG 逐位相符,故解析正確;值本身是來源合併 CSV 的錯。全表 SELECT count(*) WHERE monthly_revenue>1e9 = 1(僅此列)。research/audits/05_revenue_audit.py 本該攔(極端 YoY)但現在一跑就 crash(見 C-operating_revenue)。",
+      "fix": "修好並接回每日健檢 research/audits/05_revenue_audit.py 讓極端值例行被攔;或在來源層對此格做修正/排除。屬資料品質事件,建議記入 docs/data/data_quality_incidents.md。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "720 筆百分比欄是來源哨兵 999999.99(無法計算/溢位),reader 原數照存而非 NULL,下游對百分比做統計會被毒化",
+      "evidence": "psql -h localhost -p 5432 -d quantlib -c \"SELECT count(*) FROM operating_revenue WHERE \\\"monthly_revenue_compared_last_month(%))\\\"=999999.99 OR \\\"monthly_revenue_compared_last_year(%))\\\"=999999.99 OR \\\"cumulative_revenue_compared_last_year(%))\\\"=999999.99\" = 720。來源在去年當月/上月營收為 0 等無法算百分比時填 999999.99(如聯發科 2007-7、懷特新藥列)。reader .toDoubleOption 忠實轉成字面 999999.99。非解析錯(來源如此),但這三欄不可當真實百分比直接平均/加總。",
+      "fix": "選項:reader 端把已知哨兵 999999.99 映射成 NULL(需先確認所有消費端都想要 NULL);或在文件標註此欄含哨兵,消費端過濾。"
+    },
+    {
+      "severity": "REAL",
+      "what": "1805(凱聚)在 twse 2004-9 個別的公司名亂碼:原始檔 byte 毀損 reader 忠實照抄,只毀名不毀數字、無欄位位移",
+      "evidence": "data/operating_revenue/twse/2004/2004_9_i.html 第 59769 byte 名稱欄為非法 Big5 序列 \\x84P\\xbe\\xdb(0x84 非標準 Big5 lead byte),big5hkscs 嚴格解碼在此失敗(全 278 HTML 唯一一檔)。PG:SELECT company_name,monthly_revenue,cumulative_revenue FROM operating_revenue WHERE company_code='1805' AND year=2004 AND month=9 AND type='individual' → 名稱『�擄』、月營收 85、累計 8083;同代號其他月份名稱皆『凱聚』。代號 1805 與所有數字正確、無欄位右移。Jsoup 寬鬆解碼照過(換 fail-loud 會丟整檔 600+ 好列,不划算)。策略以代號+數字為鍵,顯示名亂碼無分析影響。",
+      "fix": "單格來源毀損,建議記入 docs/data/data_quality_incidents.md 即可,不需改碼。"
+    },
+    {
+      "severity": "OK",
+      "what": "『備註』欄從未進資料庫(reader .init 丟最後一欄、Slick 表亦無此欄):資訊損失、非數字正確性 bug;與 C-operating_revenue 同源結論,此處從 reader 角度覆述",
+      "evidence": "FinancialReader.scala:373/377 兩個 CSV 分支皆 splitValues._2.init 丟掉尾欄(IFRS 後 col13=備註;IFRS 前合併 col10=恆空)。備註多半 '-'/'無',但抽樣 twse 2020+2024 的 14 欄檔見 2,662 個不同實質備註,含判斷金融負營收真偽所需說明(新光金 2025-6 -44,427,526 該列備註『主係增提外匯價格變動準備金 611 億元所致』;另『自結數尚未經會計師簽證』『海外子公司之營收係以當月平均匯率換算』)。CLAUDE.md Data Judgement Rules 明言金融負營收『always has 備註 field, check before flagging』,但備註不在庫,此 check 從 DB 做不到。",
+      "fix": "若要 research 端能自行判斷負營收真偽:db/table/OperatingRevenue.scala 加 remark 欄、reader 兩 CSV 分支保留最後一欄、並同步 research/cache_tables.py 的 SELECT(dim C 已提同一修法)。"
+    },
+    {
+      "severity": "OK",
+      "what": "檔名為期別唯一來源、民國西元換算零錯、header 不外洩、負值/零值皆真",
+      "evidence": "(日期)docs/data_audit/scripts/A-operating_revenue/date_and_sign.py:324 個 IFRS 後 CSV 檔,內容『資料年月』(民國)+1911 對檔名年月 MISMATCH=0。(header 不外洩)psql 查 company_code/name 含『公司|代號|名稱|合計』或 ='N/A' → 只回 唐榮公司/味王公司 等真的以『公司』結尾的公司名,無一列 code/name = 表頭字串,證明 reader guard values.head!='公司 代號'(靠 Jsoup 空白正規化)實際生效、278 個 HTML 檔零 header 洩漏。(負值)psql monthly_revenue<0 全落金融保險/金控(新光金2888/華南金2880/富邦金2881/第一金控2892),最負 -44,427,526 對原始檔相符、備註自證外匯準備金,屬 CLAUDE.md 已載真實現象。(零值)月營收=0 共 1,434 列(新上市/暫停/建設完工比例法)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "DB 健全性:零空鍵、零整列解析失敗、產業 NULL 精確等於 IFRS 前合併列數、零空字串產業",
+      "evidence": "psql:company_code/name 空或 NULL = 0;八個數字欄全 NULL 的列 = 0(無整列解析失敗);SELECT type,count(*) FILTER(WHERE industry IS NULL) → consolidated 28,405 全 NULL(= full_scan.py 的 11 欄列數,IFRS 前合併來源無產業欄,正確為 None)、individual 0 NULL;空字串產業 0 列(HTML 產業累積器無『資料列早於首個產業標題』漏洞)。全表:73 distinct 產業、monthly_revenue 範圍 -44,427,526..6,932,075,206。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "FinancialReader.readOperatingRevenue (src/main/scala/reader/FinancialReader.scala:293-400):HTML 分支(Jsoup elements(tr/td)、10-cell 且 head!='公司 代號' 為資料、產業由『產業別：(.*)』累積)、CSV 分支(reader.all().tail 丟表頭、case 11 代號=col0 產業=None、case _ 代號=col2 產業=col4、兩分支皆 .init 丟尾欄、.toDoubleOption 濾 N/A/&nbsp;/空)、期別取自檔名 regex、type i→individual c→consolidated、distinctBy(market,code) 去重、revenueRefreshWindow(dayOfMonth<=15 重抓上月)",
+    "setting/OperatingRevenueSetting.scala:三模板切換(<2005 個別 HTML;<2013 加合併 CSV;>=2013 IFRS 後 CSV)與檔名構成 {西元年}_{月}_{i|c}.{html|csv}",
+    "util/QuantlibCSVReader.scala:每列 .replace('=','')(拆 ='2330' 包裝)、跳過含 '\"\"' 但不含 ',\"\"' 的列",
+    "db/table/OperatingRevenue.scala:16 欄 Slick 定義 + unique index (market,type,year,month,company_code);百分比欄名帶多餘右括號 monthly_revenue_compared_last_month(%)) 屬命名瑕疵、非資料問題",
+    "三種實體格式實檔頭確認:2001 HTML(產業標題列+10-cell 資料+9-cell 合計)、2008 Big5 CSV(表頭 10 欄/資料 11 欄)、2024 UTF-8 CSV(14 欄:出表日期/資料年月/代號/名稱/產業/當月/上月/去年當月/上月%/去年同月%/累計/去年累計/前期%/備註)",
+    "值保真逐欄比對 5 樣本(2001/2008/2024 × twse/tpex × 個別/合併 × 一般/含 N/A):docs/data_audit/scripts/A-operating_revenue/rowcount_parity.py + 手動 SQL",
+    "獨立重解析 distinct-code 列數對帳 12 檔:10 檔逐位相符;2 檔(tpex 2001-6、twse 2005-1)DB 多 2/1 列,追查為 reader 正確、我的土炮解析器漏抓缺 </tr> 的零營收壞列(4108/8710/3701),Jsoup 錯誤修復勝出(diff_codes.py + inspect_rows.py + find_by_name.py)",
+    "全欄數掃描:full_scan.py 對全 CSV 檔資料列欄數分佈 = {11:28405, 14:259418},無 {11,14} 以外",
+    "編碼掃描:全真 CSV 檔用 reader 編碼規則(>2012 UTF-8 否則 Big5)解碼零 U+FFFD;278 HTML 檔 big5hkscs 嚴格解碼 277 乾淨、1 檔(twse/2004/2004_9_i.html byte 0x84)例外",
+    "檔名 vs 內容日期:date_and_sign.py 對 324 個 IFRS 後檔『資料年月』民國+1911 對檔名 = 0 mismatch",
+    "header 不外洩:psql 查 code/name 含表頭字串或 N/A,僅回真公司名(唐榮公司等),零 header 列滲入",
+    "異常值:psql monthly_revenue<0(全金融/金控、-44,427,526 對原始檔+備註自證)、=0(1,434 列)、>1e9(僅聯發科 2007-7 一列,原始檔壞值)、999999.99 百分比哨兵(720 列)",
+    "DB 健全:空/NULL 鍵=0、八數字欄全 NULL 列=0、industry NULL(28,405=IFRS 前合併)、空字串產業=0、73 distinct 產業",
+    "全表規模:PG operating_revenue 481,529 列、794 期別(=397 twse+397 tpex 檔)、2001-2026",
+    "交叉參照 docs/data_audit/_done/C-operating_revenue.json(dim C,verdict BUG):cache/PG 一致性、近三月 refresh-window 缺列、雙寫入者互覆、TDR 正則、備註欄不入庫——皆非本單位(解析正確性)範疇,本單位只認原始檔→PG 的解析保真"
+  ]
+}

@@ -1,0 +1,59 @@
+{
+  "unit": "B-view-1_cbs_by_year",
+  "verdict": "BUG",
+  "summary": "cbs_by_year 這個財務品質分不能拿來選股：流動性子分 99.69% 被鎖在滿分(單位錯配)、缺財報的公司在營運績效反而拿近滿分(NULL 排最後)、24% 的公司 ROIC 分子用的是稅前而非稅後——三個確認 BUG 同時存在。所幸目前沒有現役策略在吃它(只有姊妹 view 引用),不在資金路徑上。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "流動性子分(liquidity, 0.1 權重)因『百分比 vs 倍數』單位錯配而失效,對 99.69% 的公司退化成常數 100",
+      "evidence": "financial_analysis.current_ratio(%) 中位 185.83、quick_ratio(%) 中位 131.13(以百分比存),但 1_cbs_by_year.sql:93-103 門檻 >2.5/>1/>0 與 >1.5/>1/>0.5/>0 是倍數尺度。實測 liquidity 分佈:100 分=40,162 列(99.69%),其餘 8 種值合計僅 123 列(0.31%)。要離開最高桶需流動比<2.5%(≈倒閉)。",
+      "fix": "門檻乘 100(2.5→250、1→100、1.5→150、0.5→50)或先把欄位/100;並向 TWSE 財務分析文件確認 current/quick ratio 單位。"
+    },
+    {
+      "severity": "BUG",
+      "what": "缺財報的公司在 operating_performance(ROIC 排名, 0.25 權重)反而拿接近滿分——rank 升冪 NULLS LAST 把資料破洞排到最高百分位",
+      "evidence": "1_cbs_by_year.sql:70 rank() over(order by roic) 升冪,PostgreSQL 預設 NULLS LAST。實測:roic 為 NULL 的 1,064 個 firm-year 平均 operating_performance=96.86,roic 有值者=48.76。第 71 行 roa_rank 同結構、同類病。",
+      "fix": "rank 的 order by 加 NULLS FIRST,或先濾掉指標為 NULL 的列,或給缺值地板值。"
+    },
+    {
+      "severity": "BUG",
+      "what": "ROIC 分子把稅前(稅前純益)與稅後淨利混用:約 24% 的 firm-year 用稅前,其餘用稅後,放在同一橫截面排名裡",
+      "evidence": "profit CTE(1_cbs_by_year.sql:20-30)白名單並列稅前純益與稅後標題。實測選中標題:本期淨利(淨損)22,492、稅前純益 10,059、合併總損益 8,792…;且這 10,059 筆全是『白名單無任何稅後標題』的覆蓋缺口(非 tie-break)。台灣營所稅~20%,稅前系統性高於稅後→這 24% 的 ROIC 與排名被高估。matview 6 concise_financial_statement_with_titles 用一模一樣的 profit CTE(同缺陷類)。",
+      "fix": "把稅前純益移出 profit 白名單,補上這 1 萬個 firm-year 實際使用的稅後標題,或 coalesce 到單一正規化稅後淨利科目;同步修 matview 6。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "現金流量三條件桶(cash_flow 子分內, 0.3 權重)被同一單位錯配拖累,最高桶退化成『只要現金流為正』,失去強弱層次",
+      "evidence": "cash_flow_ratio(%)/adequacy/reinvestment 皆百分比(中位 3.11/52.8/10.3),但 1_cbs_by_year.sql:113-123 門檻 >1/>1/>0.1 是倍數尺度。實測桶分佈:20 分=53.93%、10 分=8.55%、0 分=37.52%。還能分正負,但 adequacy 1.5% 與 500% 同拿 20 分。",
+      "fix": "門檻改百分比尺度(1→100、0.1→10)或三欄先/100。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "無時點對齊(PIT):純用日曆年 join,年度(Q4)財報隔年 Q1 才公告,任何當年即用的消費端會前視",
+      "evidence": "1_cbs_by_year.sql:53-64 全部只用 year 串接,無公告落差。目前無現役策略消費(grep 僅命中姊妹 view 2_cbs_by_year_5y_over75.sql 與稽核文件),故為潛在設計缺口而非現行外洩。",
+      "fix": "上線前必須改為以財報公告日 as-of;可對接 strategy/PublicationLag 的 PIT 邏輯。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "產業前視 + 過時來源:industry CTE 取最新產業套用到所有年度,且用已被鐵律禁用的 operating_revenue.industry",
+      "evidence": "1_cbs_by_year.sql:31-35 distinct on(company_code) order by year desc,month desc;CLAUDE.md 現行鐵律要求改用 industry_taxonomy_pit。2022 legacy view,影響小(產業近乎不變,只用於負債比的年×產業分組)。",
+      "fix": "改用 industry_taxonomy_pit 的 asof 查詢(effective_date<=觀察日)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "84 列(0.2%)扇出:total_assets/total_current_liabilities CTE 未對標題去重,同年同掛兩個資產標題的公司會扇出,輕微污染 rank 的 count",
+      "evidence": "cbs_by_year total_rows=41,226 vs distinct(year,company_code)=41,142 → 多 84 列。cash CTE 已驗證無扇出(每 company-year 恰 1 筆)。",
+      "fix": "total_assets/total_current_liabilities CTE 加 distinct on(year,company_code) 依偏好標題排序取一筆。"
+    }
+  ],
+  "checked": [
+    "合併 vs 個體混用:OK。台積電 2330 FY2020 Q4 實測 cash(balance_sheet tw)=660,170,647、total_assets(concise_individual)=2,760,711,405、profit=518,158,082 三者皆吻合台積電合併財報;matview 名稱 individual 指按 type 去重而非個體報表,兩來源同基礎",
+    "TTM/累計:OK。profit 取 progressive 的 Q4=全年累計,正是年度 ROIC 分子所需,無需單季差分;資產負債表科目是 Q4 年底存量快照,無跨期差分誤用",
+    "rank 型子分(operating_performance/return_on_investment/capital_structure):OK,百分比 vs 倍數在排序抵銷——唯一例外是 BUG 2 的 NULL 排序",
+    "cash_ratio 桶:OK。cash_ratio=現金/總資產 是真比率(0~1),門檻 0.25/0.2/… 為正確比率切點",
+    "average_collection_days 桶:OK,以天為單位,門檻 15/30/60/90/150/180 天正確",
+    "cash CTE 扇出:OK。balance_sheet market='tw' 每 (year,company) 恰 1 筆現金列(32,165 個 company-year 全 n=1)",
+    "消費端盤點:grep cbs_by_year 全庫只命中姊妹 view 2_cbs_by_year_5y_over75.sql 與稽核文件,無 Scala/Python 策略消費;financial_analysis 表僅 Main.scala 與 db/table/FinancialAnalysis.scala 引用 → legacy view,不在現役資金路徑",
+    "物化狀態:cbs_by_year 已物化可查,41,226 列,其中 5,888 列 cbs>75 會餵下游 5 年連續篩選 view"
+  ]
+}

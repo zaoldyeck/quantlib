@@ -1,0 +1,46 @@
+{
+  "unit": "B-view-2_cbs_by_year_5y_over75",
+  "verdict": "BUG",
+  "summary": "這個『連續 5 年財務品質 > 75』選股 view 不能拿來選股,兩個獨立理由各自就足以否決:(1) 它自己的邏輯有前視偏誤——只在每家公司最新一年判定近 5 年是否都 > 75,再把整段歷史(含分數很低的年份)無條件吐出,實測 2,049 列輸出裡 794 列(38.75%)自己 cbs<=75、104 家入選公司裡 84 家(81%)歷史中有低於門檻的年份;(2) 它唯一的門檻 cbs>75 蓋在一個已被 B-view-1 判 BUG 的分數上(流動性子分近乎常數、缺財報反而高分、稅前稅後混用)。所幸目前 0 個消費端(grep+pg_depend 皆空),是 legacy 死 view,不在現役資金路徑。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "前視偏誤(本 view 自己的缺陷):pass 只在每家公司『最新一年』判定近 5 年是否都 >75,主 join 卻不帶 year 條件,把該公司整段歷史(含 cbs 很低的年份)全部吐出;逐列面板在時間上不誠實",
+      "evidence": "2_cbs_by_year_5y_over75.sql:23-26 join 只比對 market+company_code、無 year 條件。實測(session 內物化 cbs_by_year 後重現 view):輸出 2,049 列中 794 列(38.75%)自己的 cbs<=75;104 家入選公司裡 84 家(81%)歷史中至少一年 cbs<=75,最低吐出 cbs=14.8。範例 3046 建碁:1998-2020 年 cbs 皆在 14.8~69(2004=16.90、2005=14.83),只有 2021-2025 才 >75,但 view 把它 28 列全吐出,包含 2005 年 cbs=14.83 那列。任何把 (year,company,cbs) 當時序讀的消費端都會拿到『2005 年建碁是連續 5 年品質>75 好公司』的錯誤結論——資格是用該公司最新年(未來)資料回算的。",
+      "fix": "要當逐年 PIT 面板:pass 必須逐年計算(每列用它自己那年的近 5 年窗判定),而非只算最新年再無條件 join 整段歷史;若只要『目前合格公司名單』,改成每家一列的快照、別輸出逐年歷史,避免被誤讀成時序。"
+    },
+    {
+      "severity": "BUG",
+      "what": "選股門檻蓋在已被判壞的分數上(繼承自 view-1):本 view 唯一篩選邏輯是 cbs>75,而 cbs 的五個子分裡有三個算壞",
+      "evidence": "2_cbs_by_year_5y_over75.sql:4-8 唯一條件即 cbs>75。cbs 根因見 docs/data_audit/findings/B-view-1_cbs_by_year.md:流動性子分因百分比 vs 倍數單位錯配 99.69% 鎖滿分、缺財報公司因 rank() 升冪 NULLS LAST 在營運績效(0.25 權重)反而近滿分、ROIC 分子約 24% firm-year 用稅前純益其餘用稅後。故 104 家入選公司是依失真分數挑出,即使修好前視、名單本身仍不可信。",
+      "fix": "先修好 view-1 的三個 BUG(見該單位),本 view 的 cbs>75 門檻才有意義。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "lag 是『列偏移』非『年偏移』,5 家入選公司的『連續 5 年』其實跨越 6-7 個日曆年(中間有缺口)",
+      "evidence": "2_cbs_by_year_5y_over75.sql:5-8 lag(cbs,n) over(order by year) 取前 n 列而非前 n 年;公司某年缺財報時 lag 跳過缺口往更早抓。實測 104 家入選公司中 5 家(4728、2755、5274、8480、8924)『最新 5 列』跨越的日曆年 != 5:4728 跨 2019-2025(缺 2 年),其餘 4 家跨 6 個日曆年(缺 1 年)。對這 5 家『連續 5 年』字面不成立,缺的那年很可能正是分數掉下來/財報缺漏的年份。",
+      "fix": "改用年值判定(lag 前確認 year=前列 year+1,或用 generate_series 補齊年格),或明確接受『5 個資料點』語義並改名/註明。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "lag 分區只用 company_code、distinct on 與 join 卻用 market+code——轉板公司分區不一致(潛在但現無翻轉)",
+      "evidence": "2_cbs_by_year_5y_over75.sql:5-8 partition by company_code 缺 market。實測基底 15 個 code 同時出現在兩市場(轉板),僅 1 個(4736)入選;它以 TPEx 端點(最新年 2022)入選,lag(1..4) 回看 2021→2018 全在 TPEx(TWSE 的 2023-2025 年序更晚、lag 抓不到),故此唯一入選案例無跨市場污染。潛在不一致但現有資料上零翻轉。",
+      "fix": "lag 的 partition by 補上 market,與 distinct on/join 對齊。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "無時點對齊(PIT,繼承自 view-1):基底純用日曆年 join,年度 Q4 財報隔年 Q1 才公告;本 view 再疊『最新年回貼整段歷史』前視更重",
+      "evidence": "基底 1_cbs_by_year.sql:53-64 全用 year 串接、無公告落差;本 view 疊 BUG 1 的整段歷史回貼。目前無現役消費端,屬潛在設計缺口。",
+      "fix": "上線前改為以財報公告日 as-of;可對接 strategy/PublicationLag 的 PIT 邏輯。"
+    }
+  ],
+  "checked": [
+    "消費端盤點:0 個(OK,legacy 死 view)。全庫 grep cbs_by_year_5y_over75/5y_over75 只命中三支 view 的 .sql 定義本身;PostgreSQL pg_depend 查 cbs_by_year_5y_over75 下游依賴為空。無任何 Scala/Python 策略或其他 view 消費 → 不在現役 Serenity/Evergreen/Iter 資金路徑",
+    "物化狀態:OK。cbs_by_year、cbs_by_year_5y_over75、cbs_ttm_5y_over75 三者在 PG 皆普通 view(relkind='v')非 matview。直接查 cbs_by_year_5y_over75 逾時(>300s,基底 cbs_by_year 為重管線),本稽核以 session 內 temp table 物化基底(41,226 列)後驗證",
+    "pass 對 <5 年公司:OK。不足 5 年公司 lag(4) 回 NULL → ...AND NULL>75 = NULL,pass.pass is true 過濾掉 NULL,正確排除,無誤收",
+    "輸出市場切分與 join 一致:OK。join 帶 market,轉板公司 TPEx 段與 TWSE 段各對應各自 pass 列(4736 以 TPEx 段入選、TWSE 段各自 pass=false 未吐出),per-market 的整段歷史吐出是一致的",
+    "資料真實性:OK。入選/範例公司皆真實存在(3046=建碁、4736 等為真實 TWSE/TPEx 個股),非髒資料造成的假入選",
+    "會計語義:沿用 B-view-1_cbs_by_year 既有查證(TTM/累計制、合併 vs 個體、子分定義)。本 view 未新增任何算式,僅套 cbs>75 門檻+5 年窗,不重複查證",
+    "基底/輸出形狀:cbs_by_year 41,226 列(2,042 個 market×code,1989-2025,5,888 列 cbs>75);本 view 輸出 2,049 列、104 家入選公司、年份 1990-2025"
+  ]
+}
