@@ -10,6 +10,7 @@ import math
 from datetime import date
 from typing import Iterable, Mapping
 
+import empyrical as ep  # 學理正解基準:Sharpe/Sortino 一律走它,不手刻(2026-07-23 稽核)
 import numpy as np
 import polars as pl
 
@@ -116,8 +117,13 @@ def nav_metrics(
     cagr = math.exp(log_cagr) - 1 if math.isfinite(log_cagr) else -1.0
 
     vol = float(np.std(rets, ddof=1) * math.sqrt(TDPY)) if rets.size > 1 else 0.0
-    downside = rets[rets < 0]
-    downvol = float(np.std(downside, ddof=1) * math.sqrt(TDPY)) if downside.size > 1 else 0.0
+    # Sharpe/Sortino 一律走 empyrical(學理正解;2026-07-23 稽核 D-metrics 修):
+    # 舊版 Sharpe 分子用幾何 CAGR(波動拖累使其低估約 4 成)、Sortino 下行差用「只取
+    # 負報酬對自身均值 ddof=1」(非 sqrt(mean(min(r−MAR,0)²)) 對全期取平均、MAR 錨),
+    # 同序列給出的值差達 3 倍。rf 以日頻超額餵入(annual/TDPY),年化因子 = TDPY。
+    rf_daily = rf / TDPY
+    sharpe = _finite(ep.sharpe_ratio(rets, risk_free=rf_daily, annualization=TDPY)) if rets.size > 1 else 0.0
+    sortino = _finite(ep.sortino_ratio(rets, required_return=rf_daily, annualization=TDPY)) if rets.size > 1 else 0.0
     dd = drawdown_series(nav, capital)
     mdd = float(np.min(dd)) if dd.size else 0.0
     ulcer = float(math.sqrt(np.mean(np.square(np.minimum(dd, 0.0))))) if dd.size else 0.0
@@ -131,8 +137,8 @@ def nav_metrics(
     return {
         f"{prefix}cagr": float(cagr),
         f"{prefix}log_cagr": float(log_cagr) if math.isfinite(log_cagr) else -1.0,
-        f"{prefix}sortino": float((cagr - rf) / downvol) if downvol > 0 else 0.0,
-        f"{prefix}sharpe": float((cagr - rf) / vol) if vol > 0 else 0.0,
+        f"{prefix}sortino": sortino,
+        f"{prefix}sharpe": sharpe,
         f"{prefix}mdd": mdd,
         f"{prefix}calmar": float(cagr / abs(mdd)) if mdd < 0 else 0.0,
         f"{prefix}ulcer_index": ulcer,

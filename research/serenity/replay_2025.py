@@ -33,6 +33,8 @@ RESEARCH_ROOT = REPO_ROOT / "research"
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(RESEARCH_ROOT))
 
+import empyrical as ep  # noqa: E402  Sharpe/Sortino 學理正解基準(2026-07-23 稽核)
+
 from research.constants import CAPITAL, COMMISSION, SELL_TAX, TDPY  # noqa: E402
 from research.db import connect  # noqa: E402
 from research.prices import fetch_adjusted_panel, total_return_series  # noqa: E402
@@ -493,11 +495,12 @@ def max_drawdown(nav: pd.Series) -> float:
 
 
 def sortino_ratio(returns: pd.Series) -> float:
-    downside = returns[returns < 0]
-    downside_std = float(downside.std())
-    if downside_std <= 0 or math.isnan(downside_std):
-        return float("nan")
-    return float(np.sqrt(TDPY) * returns.mean() / downside_std)
+    # empyrical 學理正解(2026-07-23 稽核 D-metrics 修):舊版下行差用「只取負報酬對
+    # 自身均值 ddof=1 std」,而 Sortino & Price (1994) 是 sqrt(mean(min(r−MAR,0)²)) 對
+    # **全期 N** 取平均、以 MAR 為錨——舊法系統性把 live Sortino 灌高。rf=0(CLAUDE.md
+    # 定調台股 rf≈0,與本檔 summarize_nav 的 Sharpe 同慣例)。
+    val = ep.sortino_ratio(returns, required_return=0.0, annualization=TDPY)
+    return float(val) if np.isfinite(val) else float("nan")
 
 
 def recent_cagr(daily: pd.DataFrame, days_back: int) -> tuple[float, str]:

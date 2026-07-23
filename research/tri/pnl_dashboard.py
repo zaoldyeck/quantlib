@@ -24,6 +24,7 @@ import sys
 from datetime import date
 from pathlib import Path
 
+import empyrical as ep  # Sharpe/Sortino 學理正解基準(2026-07-23 稽核 D-metrics)
 import numpy as np
 import pandas as pd
 import polars as pl
@@ -196,13 +197,15 @@ def kpis(nav: pd.Series) -> dict:
     r = nav.pct_change().dropna()
     yrs = (nav.index[-1] - nav.index[0]).days / 365.25
     dd = nav / nav.cummax() - 1
-    downside = r[r < 0].std()
     mrets = nav.groupby(nav.index.to_period("M")).last().pct_change().dropna()
     ytd = nav.iloc[-1] / nav[nav.index.year < nav.index[-1].year].iloc[-1] - 1 \
         if (nav.index.year < nav.index[-1].year).any() else nav.iloc[-1] - 1
+    # Sortino 走 empyrical 學理正解(2026-07-23 稽核 D-metrics):舊版下行差用「負報酬
+    # 對自身均值 std」→ 系統性偏高;正解 sqrt(mean(min(r−MAR,0)²)) 對全期平均、MAR=0。
+    sortino = float(ep.sortino_ratio(r, required_return=0.0, annualization=252))
     return {"total_x": float(nav.iloc[-1]), "cagr": float(nav.iloc[-1]) ** (1 / yrs) - 1,
             "mdd": float(dd.min()),
-            "sortino": float(r.mean() / downside * np.sqrt(252)) if downside > 0 else np.nan,
+            "sortino": sortino if np.isfinite(sortino) else np.nan,
             "p5": boot_p5(mrets), "ytd": float(ytd)}
 
 
