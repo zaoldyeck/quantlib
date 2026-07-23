@@ -183,9 +183,9 @@ class TradingReader extends Reader {
             rows.map {
               values =>
                 val splitValues = values.splitAt(2)
-                val transferValues = splitValues._2.init.map(value => Try(value.toInt).getOrElse(0))
+                val transferValues = splitValues._2.init.map(value => Try(value.toLong).getOrElse(0L))
                 val companyCode = values.head
-                val noneInt: Option[Int] = None
+                val noneInt: Option[Long] = None
                 values.size match {
                   case 13 =>
                     marketFile.market :: date :: companyCode :: values(1) :: noneInt :: noneInt :: noneInt :: noneInt :: noneInt :: noneInt ::
@@ -211,9 +211,9 @@ class TradingReader extends Reader {
             rows.map {
               values =>
                 val splitValues = values.splitAt(2)
-                val transferValues = splitValues._2.map(value => Try(value.toInt).getOrElse(0))
+                val transferValues = splitValues._2.map(value => Try(value.toLong).getOrElse(0L))
                 val companyCode = values.head
-                val noneInt: Option[Int] = None
+                val noneInt: Option[Long] = None
                 values.size match {
                   case 12 =>
                     marketFile.market :: date :: companyCode :: values(1) ::

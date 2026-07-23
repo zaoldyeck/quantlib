@@ -226,12 +226,12 @@ class Crawler {
 
   def getDailyQuote(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get daily quote of ${date.toString}")
-    getFile(DailyQuoteSetting(date))
+    getFile(DailyQuoteSetting(date), perTradingDay = true)
   }
 
   def getIndex(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get index of ${date.toString}")
-    getFile(IndexSetting(date))
+    getFile(IndexSetting(date), perTradingDay = true)
   }
 
   def getTaifexFuturesDailyYear(year: Int): Future[Seq[File]] = {
@@ -392,17 +392,17 @@ class Crawler {
 
   def getMarginTransactions(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get margin transactions of ${date.toString}")
-    getFile(MarginTransactionsSetting(date))
+    getFile(MarginTransactionsSetting(date), perTradingDay = true)
   }
 
   def getDailyTradingDetails(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get daily trading details of ${date.toString}")
-    getFile(DailyTradingDetailsSetting(date))
+    getFile(DailyTradingDetailsSetting(date), perTradingDay = true)
   }
 
   def getStockPER_PBR_DividendYield(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get stock PER, PBR and dividend yield of ${date.toString}")
-    getFile(StockPER_PBR_DividendYieldSetting(date))
+    getFile(StockPER_PBR_DividendYieldSetting(date), perTradingDay = true)
   }
 
   def getETF: Future[Seq[File]] = {
@@ -417,12 +417,12 @@ class Crawler {
 
   def getSblBorrowing(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get SBL borrowing of ${date.toString}")
-    getFile(SblBorrowingSetting(date))
+    getFile(SblBorrowingSetting(date), perTradingDay = true)
   }
 
   def getForeignHoldingRatio(date: LocalDate): Future[Seq[File]] = {
     Log.debug(s"Get foreign holding ratio of ${date.toString}")
-    getFile(ForeignHoldingRatioSetting(date))
+    getFile(ForeignHoldingRatioSetting(date), perTradingDay = true)
   }
 
   def getTreasuryStockBuyback(year: Int, month: Int): Future[Seq[File]] = {
@@ -590,7 +590,7 @@ class Crawler {
     })
   }
 
-  private def getFile(setting: Setting): Future[Seq[File]] = {
+  private def getFile(setting: Setting, perTradingDay: Boolean = false): Future[Seq[File]] = {
     Thread.sleep(20000)
     Future.sequence(setting.markets.map {
       detail =>
@@ -600,7 +600,7 @@ class Crawler {
             .withMethod("GET")
             .withFollowRedirects(false)
             .stream()
-            .flatMap(downloadFile(detail.dir, Some(detail.fileName), detail.validate))
+            .flatMap(downloadFile(detail.dir, Some(detail.fileName), detail.validate, perTradingDay))
         }.recover {
           case e =>
             // Stateless recovery: after bounded retries still fail, DELETE any partial download
@@ -619,7 +619,8 @@ class Crawler {
 
   private def downloadFile(filePath: String,
                            fileName: Option[String] = None,
-                           validate: File => DownloadValidation = _ => DownloadValidation.Valid): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
+                           validate: File => DownloadValidation = _ => DownloadValidation.Valid,
+                           perTradingDay: Boolean = false): StandaloneWSResponse => Future[File] = (res: StandaloneWSResponse) => {
     val fn = fileName.getOrElse(res.header("Content-disposition").get.split("filename=")(1).replace("\"", ""))
 
     // Extract year from any file whose name starts with YYYY_...  This covers
@@ -660,22 +661,19 @@ class Crawler {
         val deleted = file.delete()
         throw new RuntimeException(s"HTML error response for ${file.getAbsolutePath} (deleted=$deleted)")
       } else if (isMarketHolidayResponse(file)) {
-        if (isSentinelUnsafe(fn)) deferSameDayNoData(file)
-        else {
-          // Non-trading day fallback (e.g. TWSE "很抱歉，沒有符合條件的資料" / JSON total=0).
-          // Truncate to 0 bytes so Detail.getDatesOfExistFiles considers the date "done"
-          // and future pullAllData runs don't retry this weekend forever.
-          new FileOutputStream(file).close()
-        }
-        file
+        // A near-empty / no-data response looks the same whether the exchange was
+        // closed or the server just hiccupped. Writing a 0-byte "holiday" sentinel
+        // is only safe with POSITIVE evidence the date was a non-trading day (see
+        // sentinelOrDefer); otherwise this permanently drops a real trading day's
+        // TWSE margin/PER/T86/index rows because getDatesOfExistFiles counts the
+        // sentinel as "done" and never retries (audit D-crawler-scala: 27 lost days).
+        sentinelOrDefer(file, fn, perTradingDay)
       } else {
         validate(file) match {
           case DownloadValidation.Valid => file
           case DownloadValidation.NoData(reason) =>
             Console.err.println(s"[nodata] ${file.getAbsolutePath}: $reason")
-            if (isSentinelUnsafe(fn)) deferSameDayNoData(file)
-            else new FileOutputStream(file).close()
-            file
+            sentinelOrDefer(file, fn, perTradingDay)
           case DownloadValidation.Invalid(err) =>
             val deleted = file.delete()
             throw new RuntimeException(s"Schema validation failed for ${file.getAbsolutePath} (deleted=$deleted): $err")
@@ -710,6 +708,54 @@ class Crawler {
   private def deferSameDayNoData(file: File): Unit = {
     file.delete()
     println(s"[deferred] ${file.getName}: no data yet and the date is not past its completeness time (D+1 00:30) — deleting instead of sentinelling; a later run will retry")
+  }
+
+  /** Decide what to do with a "no-data" response: write a 0-byte market-holiday
+   *  sentinel, or delete + defer (retry on a later run).
+   *
+   *  Policy (docs/data_ops/twse_publish_times.md, CLAUDE.md "sentinel 規則"): a
+   *  sentinel is a POSITIVE claim "the exchange was closed that day" and doubles
+   *  as our holiday calendar — so it must not be written without positive evidence.
+   *  When uncertain we defer (寧晚勿錯), because a false sentinel is permanent
+   *  (getDatesOfExistFiles treats it as "done" and never retries).
+   *
+   *  For per-trading-day market sources the evidence is daily_quote, our trading-
+   *  day ground truth. pullAllData fetches daily_quote FIRST, so it is already on
+   *  disk when every derived daily source (margin / PER / T86 / index) is fetched:
+   *    - daily_quote has real data (> 1 KB)  → real trading day  → DEFER (transient).
+   *    - daily_quote is a ≤ 1 KB sentinel    → confirmed holiday → write sentinel.
+   *    - daily_quote file absent             → calendar unknown  → DEFER.
+   *  Non-per-day sources (capital_reduction is a date RANGE whose empty result is
+   *  legitimate; etf / tdcc are snapshots) pass perTradingDay=false and keep the
+   *  plain time-gated behaviour. Before D+1 00:30 (isSentinelUnsafe) we always defer. */
+  private def sentinelOrDefer(file: File, fn: String, perTradingDay: Boolean): File = {
+    val confirmedHoliday =
+      !perTradingDay || dailyFileDate(fn).exists(d => twseTradingDayEvidence(d).contains(false))
+    if (isSentinelUnsafe(fn) || !confirmedHoliday) deferSameDayNoData(file)
+    else new FileOutputStream(file).close() // genuine holiday → sentinel so pull stops retrying
+    file
+  }
+
+  private lazy val dailyQuoteTwseDir: String = DailyQuoteSetting().twse.dir
+
+  /** Parse a daily YYYY_M_D.csv filename into its date (None for non-daily names). */
+  private def dailyFileDate(fileName: String): Option[LocalDate] = fileName match {
+    case dailyCsvName(y, m, d) => Try(LocalDate.of(y.toInt, m.toInt, d.toInt)).toOption
+    case _ => None
+  }
+
+  /** Trading-day ground truth from the LOCAL daily_quote TWSE archive (DB-free —
+   *  the crawl layer must not read PostgreSQL). Taiwan TWSE + TPEx share one
+   *  trading calendar, so TWSE daily_quote answers for both markets.
+   *    Some(true)  = real data (> 1 KB)  → trading day
+   *    Some(false) = ≤ 1 KB sentinel     → non-trading day
+   *    None        = file absent         → unknown
+   *  The > 1 KB threshold matches Task.loadLocalTwseDailyQuoteTradingDays; a
+   *  wrong-date daily_quote body can never persist here because DailyQuoteSetting's
+   *  validateCSVHeaderDate deletes header-date mismatches at download time. */
+  private def twseTradingDayEvidence(date: LocalDate): Option[Boolean] = {
+    val f = new File(s"$dailyQuoteTwseDir/${date.getYear}/${date.getYear}_${date.getMonthValue}_${date.getDayOfMonth}.csv")
+    if (!f.exists()) None else Some(f.length() > 1024)
   }
 
   /** Detect "no data for this date" responses from TWSE/TPEx, used to distinguish

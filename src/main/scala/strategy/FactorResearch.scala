@@ -58,12 +58,12 @@ object FactorResearch {
         }
       }
       val icSnapshots = snapshots.flatMap { case (date, scores) =>
-        val returns = RankMetricsEx.forwardReturns(date, horizonDays, scores.keySet, db)
+        val returns = RankMetrics.forwardReturns(date, horizonDays, scores.keySet, db)
         val pairs = scores.toSeq.flatMap { case (code, score) =>
           returns.get(code).map(score -> _)
         }
         if (pairs.size < 20) None
-        else Some(RankMetrics.ICSnapshot(date, pairs.size, RankMetricsEx.spearman(pairs)))
+        else Some(RankMetrics.ICSnapshot(date, pairs.size, RankMetrics.spearman(pairs)))
       }
       val summary = RankMetrics.summarize(icSnapshots)
       FactorICResult(name, higherIsBetter, summary, snapshots)
@@ -86,7 +86,7 @@ object FactorResearch {
           if (common.size < 20) None
           else {
             val pairs = common.toSeq.map(c => aScores(c) -> bScores(c))
-            Some(RankMetricsEx.spearman(pairs))
+            Some(RankMetrics.spearman(pairs))
           }
         }.flatten
       }
@@ -110,78 +110,5 @@ object FactorResearch {
       sb.append(f"  ${a}%-30s  ${b}%-30s  ρ=${c}%+.3f\n")
     }
     sb.toString
-  }
-}
-
-/** Helpers borrowed from RankMetrics' private methods — exposed here for
- *  FactorResearch. Could be folded back into RankMetrics if both modules
- *  stabilize. */
-private[strategy] object RankMetricsEx {
-  def spearman(pairs: Seq[(Double, Double)]): Double = {
-    val n = pairs.size
-    if (n < 2) return 0.0
-    val xRanks = averageRanks(pairs.map(_._1))
-    val yRanks = averageRanks(pairs.map(_._2))
-    val ranked = xRanks.zip(yRanks)
-    val meanX = xRanks.sum / n
-    val meanY = yRanks.sum / n
-    val num = ranked.map { case (rx, ry) => (rx - meanX) * (ry - meanY) }.sum
-    val denX = math.sqrt(xRanks.map(r => math.pow(r - meanX, 2)).sum)
-    val denY = math.sqrt(yRanks.map(r => math.pow(r - meanY, 2)).sum)
-    if (denX == 0 || denY == 0) 0.0 else num / (denX * denY)
-  }
-
-  private def averageRanks(xs: Seq[Double]): Seq[Double] = {
-    val sorted = xs.zipWithIndex.sortBy(_._1)
-    val ranks = Array.ofDim[Double](xs.size)
-    var i = 0
-    while (i < sorted.size) {
-      var j = i
-      while (j + 1 < sorted.size && sorted(j + 1)._1 == sorted(i)._1) j += 1
-      val meanRank = (i + j) / 2.0 + 1
-      (i to j).foreach(k => ranks(sorted(k)._2) = meanRank)
-      i = j + 1
-    }
-    ranks.toSeq
-  }
-
-  def forwardReturns(asOf: LocalDate, horizonDays: Int, codes: Set[String],
-                     db: Database): Map[String, Double] = {
-    if (codes.isEmpty) return Map.empty
-    val codeList = codes.map(c => s"'$c'").mkString(",")
-    val q = sql"""
-      WITH candidates AS (
-        SELECT company_code, closing_price,
-               ROW_NUMBER() OVER (PARTITION BY company_code ORDER BY date) AS rn_asc
-        FROM daily_quote
-        WHERE market = 'twse'
-          AND date > #${"'" + asOf + "'"}::date
-          AND date <= #${"'" + asOf + "'"}::date + INTERVAL '#${horizonDays * 2} days'
-          AND company_code IN (#$codeList)
-          AND closing_price > 0
-      ),
-      start_px AS (
-        SELECT DISTINCT ON (company_code) company_code, closing_price AS p0
-        FROM daily_quote
-        WHERE market = 'twse'
-          AND date <= #${"'" + asOf + "'"}::date
-          AND date > #${"'" + asOf + "'"}::date - INTERVAL '10 days'
-          AND company_code IN (#$codeList)
-          AND closing_price > 0
-        ORDER BY company_code, date DESC
-      ),
-      end_px AS (
-        SELECT company_code, closing_price AS p1
-        FROM candidates
-        WHERE rn_asc = #${horizonDays}
-      )
-      SELECT s.company_code, (e.p1 - s.p0) / s.p0
-      FROM start_px s JOIN end_px e USING (company_code)
-      WHERE s.p0 > 0
-    """.as[(String, Double)]
-    import scala.concurrent.Await
-    import scala.concurrent.duration.Duration
-    import scala.concurrent.ExecutionContext.Implicits.global
-    Await.result(db.run(q), Duration.Inf).toMap
   }
 }

@@ -5,6 +5,10 @@
 --    NULL→0 造成隱形濾網、缺一季當兩季合計、期末 vs 年初資產分母、合併/個體混用、
 --    負權益拿滿分等。F-Score 已於 raw_quarterly.py 重寫為 Piotroski (2000) 學理精確版。
 --    專案全面 Python 化 + PostgreSQL 退役後,本檔隨 PG 一併封存。
+--    (2026-07-23 稽核 D-financial-ratios 已修正本檔學理 bug:TTM 總資產週轉率 lag5→lag4、
+--     現金比率分母改流動負債、ROIC 分子改營業利益 net_operating_income、
+--     負權益/負資本運用額 rank guard、每股 FCF 除股數〔股本/10〕;
+--     view 仍 deprecated,Python raw_quarterly.py 為唯一真源。)
 -- ============================================================================
 create view financial_index_ttm as
 with industry as (select distinct on (company_code) company_code, industry
@@ -18,20 +22,20 @@ with industry as (select distinct on (company_code) company_code, industry
                                 cfswt.company_code,
                                 company_name,
                                 industry,
-                                sum(profit)
+                                sum(net_operating_income)
                                 over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row) /
-                                nullif((total_assets - total_current_liabilities), 0)                                                              as roic,
+                                nullif(greatest(total_assets - total_current_liabilities, 0), 0)                                                              as roic,
                                 sum(profit)
                                 over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row) /
                                 nullif((total_assets + lag(total_assets, 4)
                                                        over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter)) /
                                        2,
                                        0)                                                                                                          as roa,
-                                total_assets / nullif(total_equity, 0)                                                                             as equity_multiplier,
+                                total_assets / nullif(greatest(total_equity, 0), 0)                                                                             as equity_multiplier,
                                 total_current_assets / nullif(total_current_liabilities, 0)                                                        as current_ratio,
                                 (total_current_assets - coalesce(inventories, 0) - coalesce(prepaid_expenses, 0)) /
                                 nullif(total_current_liabilities, 0)                                                                               as quick_ratio,
-                                cash / nullif(total_assets, 0)                                                                                     as cash_ratio,
+                                cash / nullif(total_current_liabilities, 0)                                                                                     as cash_ratio,
                                 sum(ocf)
                                 over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row) /
                                 nullif(total_current_liabilities, 0)                                                                               as cash_flow_ratio,
@@ -52,7 +56,7 @@ with industry as (select distinct on (company_code) company_code, industry
                                  coalesce(sum(cash_dividends_paid)
                                           over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row),
                                           0)) /
-                                nullif((total_assets - total_current_liabilities), 0)                                                              as cash_flow_reinvestment_ratio,
+                                nullif(greatest(total_assets - total_current_liabilities, 0), 0)                                                              as cash_flow_reinvestment_ratio,
                                 (receivable + lag(receivable, 4)
                                               over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter)) /
                                 2 * 365 /
@@ -74,7 +78,7 @@ with industry as (select distinct on (company_code) company_code, industry
                                        0)                                                                                                          as gross_margin,
                                 sum(total_operating_revenue)
                                 over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row) /
-                                nullif(((total_assets + lag(total_assets, 5)
+                                nullif(((total_assets + lag(total_assets, 4)
                                                         over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter)) /
                                         2),
                                        0)                                                                                                          as total_assets_turnover,
@@ -104,7 +108,7 @@ with industry as (select distinct on (company_code) company_code, industry
                                  over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row) +
                                  sum(capital_expense)
                                  over (partition by cfswt.company_code order by cfswt.year, cfswt.quarter rows between 3 preceding and current row)) /
-                                nullif(total_capital_stock, 0)                                                                                     as fcf_per_share
+                                nullif(total_capital_stock / 10.0, 0)                                                                                     as fcf_per_share
                          from concise_financial_statement_with_titles cfswt
                                   left join balance_sheet_with_titles on balance_sheet_with_titles.market = 'tw'
                              and cfswt.year = balance_sheet_with_titles.year
@@ -118,10 +122,10 @@ with industry as (select distinct on (company_code) company_code, industry
                          where cfswt.market = 'twse'
                             or cfswt.market = 'tpex'),
      rank as (select *,
-                     rank() over (partition by year, quarter order by roic)                      as roic_rank,
-                     rank() over (partition by year, quarter order by roa)                       as roa_rank,
+                     rank() over (partition by year, quarter order by roic nulls first)                      as roic_rank,
+                     rank() over (partition by year, quarter order by roa nulls first)                       as roa_rank,
                      rank()
-                     over (partition by year, quarter, industry order by equity_multiplier desc) as equity_multiplier_rank,
+                     over (partition by year, quarter, industry order by equity_multiplier desc nulls first) as equity_multiplier_rank,
                      count(*) over (partition by year, quarter)                                  as count_by_year,
                      count(*) over (partition by year, quarter, industry)                        as count_by_year_industry
               from financial_index),

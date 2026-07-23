@@ -157,7 +157,7 @@ object Signals {
     Await.result(db.run(q), Duration.Inf).toMap
   }
 
-  /** Boolean score in {0, 0.5, 1}: current close > 200D MA (1/3),
+  /** Boolean score in {0, ⅓, ⅔, 1}: current close > 200D MA (1/3),
    *  50D MA > 200D MA (1/3), max 20-day volume / 20-day avg volume > 1.5 (1/3).
    *  Summed to [0, 1]. Captures "trend + volume confirmation". */
   def technicalConfirmation(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
@@ -269,7 +269,9 @@ object Signals {
 
   // ====== Technical indicators ======
 
-  /** Distance from 52-week high: (px_now - max_52w) / max_52w.
+  /** Distance from 52-week high: (px_now - max_52w) / max_52w, where max_52w is
+   *  the highest intraday high over the trailing 52 weeks (full 1-year window,
+   *  per George & Hwang 2004) and px_now is the latest close.
    *  Negative = below high; values near 0 = at high. */
   def distFrom52wHigh(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
     if (universe.isEmpty) return Map.empty
@@ -277,7 +279,7 @@ object Signals {
     val q = sql"""
       WITH stats AS (
         SELECT company_code,
-               MAX(closing_price) AS max_px,
+               MAX(highest_price) AS max_px,
                MAX(closing_price) FILTER (WHERE date = (
                  SELECT MAX(date) FROM daily_quote dq2
                  WHERE dq2.market='twse' AND dq2.company_code=dq.company_code
@@ -286,7 +288,7 @@ object Signals {
         FROM daily_quote dq
         WHERE market = 'twse'
           AND date <= #${"'" + asOf + "'"}::date
-          AND date >= #${"'" + asOf + "'"}::date - INTERVAL '252 days'
+          AND date >= #${"'" + asOf + "'"}::date - INTERVAL '1 year'
           AND company_code IN (#$codeList)
           AND closing_price > 0
         GROUP BY company_code
@@ -519,7 +521,10 @@ object Signals {
 
   // ====== Cash-flow factors (from cash_flows_individual) ======
 
-  /** OCF / Net Income ratio (earnings quality). ratio > 1 = conservative accounting.
+  /** OCF / Net Income ratio (earnings quality, Sloan 1996). ratio > 1 =
+   *  conservative accounting. Only defined where Net Income > 0 (the ratio has
+   *  no quality interpretation for loss-makers: a negative denominator flips its
+   *  sign), so unprofitable companies are omitted rather than mis-scored.
    *  Uses TTM-latest OCF and NI (profit). */
   def ocfToNetIncome(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
     if (universe.isEmpty) return Map.empty
@@ -527,14 +532,16 @@ object Signals {
     val codeList = universe.map(c => s"'$c'").mkString(",")
     val q = sql"""
       SELECT DISTINCT ON (company_code) company_code,
-             CASE WHEN ABS(profit) > 0 THEN ocf::double precision / profit ELSE NULL END
+             ocf::double precision AS ocf, profit::double precision AS profit
       FROM financial_index_ttm
       WHERE company_code IN (#$codeList)
         AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         AND ocf IS NOT NULL AND profit IS NOT NULL
       ORDER BY company_code, year DESC, quarter DESC
-    """.as[(String, Double)]
-    Await.result(db.run(q), Duration.Inf).toMap
+    """.as[(String, Double, Double)]
+    Await.result(db.run(q), Duration.Inf).collect {
+      case (code, ocf, profit) if profit > 0 => code -> (ocf / profit)
+    }.toMap
   }
 
   /** Free cash flow yield: fcf_per_share / closing_price.
@@ -591,9 +598,12 @@ object Signals {
 
   // ====== Greenblatt Magic Formula factors ======
 
-  /** Greenblatt ROIC: EBIT / Invested Capital where IC = Total Assets - Current Liabilities.
-   *  Uses latest available quarterly snapshot (not TTM) to match the original
-   *  Magic Formula paper. Higher = better. */
+  /** Greenblatt ROC (Magic Formula pillar 1): EBIT / Invested Capital, where
+   *  EBIT ≈ operating income (營業利益, the non-financial EBIT proxy) and
+   *  Invested Capital = Net Working Capital (流動資產 − 流動負債) + Net PP&E
+   *  (不動產、廠房及設備淨額). Goodwill, intangibles and long-term investments
+   *  are deliberately excluded per Greenblatt (2006) — this is ROC, not ROCE.
+   *  Uses the latest available quarterly (YTD) snapshot. Higher = better. */
   def greenblattROIC(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
     if (universe.isEmpty) return Map.empty
     val (yr, qtr) = PublicationLag.asOfQuarter(asOf)
@@ -603,18 +613,15 @@ object Signals {
         SELECT DISTINCT ON (company_code) company_code, value AS ebit_val
         FROM income_statement_progressive
         WHERE company_code IN (#$codeList)
-          AND title IN ('繼續營業單位稅前淨利（淨損）','繼續營業單位稅前淨利(淨損)',
-                        '繼續營業單位稅前純益（純損）','繼續營業單位稅前純益(純損)',
-                        '繼續營業單位稅前合併淨利(淨損)','繼續營業單位稅前損益',
-                        '本期稅前淨利（淨損）')
+          AND title IN ('營業利益','營業利益（損失）','營業利益(損失)')
           AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         ORDER BY company_code, year DESC, quarter DESC
       ),
-      assets AS (
-        SELECT DISTINCT ON (company_code) company_code, value AS ta
+      curasset AS (
+        SELECT DISTINCT ON (company_code) company_code, value AS ca
         FROM balance_sheet
         WHERE company_code IN (#$codeList)
-          AND title IN ('資產總計','資產總額')
+          AND title = '流動資產合計'
           AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         ORDER BY company_code, year DESC, quarter DESC
       ),
@@ -625,20 +632,37 @@ object Signals {
           AND title IN ('流動負債合計','流動負債總額')
           AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         ORDER BY company_code, year DESC, quarter DESC
+      ),
+      ppe AS (
+        -- Net PP&E. The two presentations never co-occur within a period, so
+        -- DISTINCT ON picks whichever variant the company reports (both net).
+        SELECT DISTINCT ON (company_code) company_code, value AS ppe_net
+        FROM balance_sheet
+        WHERE company_code IN (#$codeList)
+          AND title IN ('不動產、廠房及設備','不動產、廠房及設備合計')
+          AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
+        ORDER BY company_code, year DESC, quarter DESC
       )
-      SELECT e.company_code, e.ebit_val / NULLIF(a.ta - c.cl, 0)
+      SELECT e.company_code,
+             e.ebit_val / NULLIF((a.ca - c.cl) + COALESCE(p.ppe_net, 0), 0)
       FROM ebit e
-      JOIN assets a USING (company_code)
+      JOIN curasset a USING (company_code)
       JOIN curliab c USING (company_code)
-      WHERE (a.ta - c.cl) > 0
+      LEFT JOIN ppe p USING (company_code)
+      WHERE ((a.ca - c.cl) + COALESCE(p.ppe_net, 0)) > 0
     """.as[(String, Double)]
     Await.result(db.run(q), Duration.Inf).toMap
   }
 
-  /** Greenblatt Earnings Yield: EBIT / EV where EV = Market Cap + Total Debt - Cash.
-   *  Higher = cheaper on an enterprise-value basis. The second pillar of Magic
-   *  Formula. Uses latest close × capital_stock/10 as market cap proxy (TW stocks
-   *  have NT$10 par, so total shares outstanding ≈ capital_stock/10). */
+  /** Greenblatt Earnings Yield (Magic Formula pillar 2): EBIT / EV, where
+   *  EBIT ≈ operating income (營業利益) and EV = Market Cap + interest-bearing
+   *  debt − cash. Interest-bearing debt = short-term borrowings + short-term
+   *  notes payable + current portion of long-term debt + long-term borrowings
+   *  + bonds payable; operating liabilities (payables/accruals) are excluded per
+   *  standard EV, and lease liabilities are excluded to keep the pre-/post-
+   *  IFRS-16 series consistent. Higher = cheaper on an enterprise-value basis.
+   *  Market cap ≈ latest close × capital_stock/10 (TW stocks have NT$10 par, so
+   *  shares outstanding ≈ capital_stock/10). */
   def earningsYield(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
     if (universe.isEmpty) return Map.empty
     val (yr, qtr) = PublicationLag.asOfQuarter(asOf)
@@ -648,10 +672,7 @@ object Signals {
         SELECT DISTINCT ON (company_code) company_code, value AS ebit_val
         FROM income_statement_progressive
         WHERE company_code IN (#$codeList)
-          AND title IN ('繼續營業單位稅前淨利（淨損）','繼續營業單位稅前淨利(淨損)',
-                        '繼續營業單位稅前純益（純損）','繼續營業單位稅前純益(純損)',
-                        '繼續營業單位稅前合併淨利(淨損)','繼續營業單位稅前損益',
-                        '本期稅前淨利（淨損）')
+          AND title IN ('營業利益','營業利益（損失）','營業利益(損失)')
           AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         ORDER BY company_code, year DESC, quarter DESC
       ),
@@ -663,13 +684,34 @@ object Signals {
           AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         ORDER BY company_code, year DESC, quarter DESC
       ),
-      debt AS (
-        SELECT DISTINCT ON (company_code) company_code, value AS total_debt
+      debt_period AS (
+        -- pin each company's latest filing period ≤ cutoff (the total-
+        -- liabilities line is universal), then sum interest-bearing debt in it
+        SELECT DISTINCT ON (company_code) company_code, year, quarter
         FROM balance_sheet
         WHERE company_code IN (#$codeList)
           AND title IN ('負債總計','負債總額')
           AND (year < #$yr OR (year = #$yr AND quarter <= #$qtr))
         ORDER BY company_code, year DESC, quarter DESC
+      ),
+      debt AS (
+        -- interest-bearing debt only. Each COALESCE prefers the aggregate face
+        -- line and falls back to its sub-detail, so co-present aggregate+detail
+        -- rows are never double-counted while detail-only filers are still covered.
+        SELECT b.company_code,
+               COALESCE(MAX(b.value) FILTER (WHERE b.title = '短期借款'), 0)
+             + COALESCE(MAX(b.value) FILTER (WHERE b.title = '應付短期票券'), 0)
+             + COALESCE(MAX(b.value) FILTER (WHERE b.title = '一年或一營業週期內到期長期負債'),
+                        MAX(b.value) FILTER (WHERE b.title = '一年或一營業週期內到期長期借款'), 0)
+             + COALESCE(MAX(b.value) FILTER (WHERE b.title = '長期借款'),
+                        MAX(b.value) FILTER (WHERE b.title = '銀行長期借款'), 0)
+             + COALESCE(MAX(b.value) FILTER (WHERE b.title = '應付公司債合計'),
+                        MAX(b.value) FILTER (WHERE b.title = '應付公司債'), 0)
+               AS total_debt
+        FROM balance_sheet b
+        JOIN debt_period p
+          ON b.company_code = p.company_code AND b.year = p.year AND b.quarter = p.quarter
+        GROUP BY b.company_code
       ),
       cash AS (
         SELECT DISTINCT ON (company_code) company_code, value AS cash_val
@@ -691,14 +733,14 @@ object Signals {
       )
       SELECT e.company_code,
              e.ebit_val / NULLIF(
-               (p.closing_price * s.capital_stock / 10) + d.total_debt - c.cash_val,
+               (p.closing_price * s.capital_stock / 10) + COALESCE(d.total_debt, 0) - c.cash_val,
                0)
       FROM ebit e
       JOIN shares s USING (company_code)
-      JOIN debt d USING (company_code)
       JOIN cash c USING (company_code)
       JOIN px p USING (company_code)
-      WHERE ((p.closing_price * s.capital_stock / 10) + d.total_debt - c.cash_val) > 0
+      LEFT JOIN debt d USING (company_code)
+      WHERE ((p.closing_price * s.capital_stock / 10) + COALESCE(d.total_debt, 0) - c.cash_val) > 0
     """.as[(String, Double)]
     Await.result(db.run(q), Duration.Inf).toMap
   }
@@ -734,15 +776,18 @@ object Signals {
     }.toMap
   }
 
-  /** Operating income YoY: (latest_quarter - 4Q_ago) / abs(4Q_ago).
-   *  Positive = accelerating operations. */
+  /** Operating income YoY on the cumulative (YTD) series, comparing the latest
+   *  reported fiscal quarter to the SAME fiscal quarter one year earlier
+   *  (e.g. H1-YTD vs prior-year H1-YTD) so the cumulative windows line up —
+   *  otherwise a late/irregular filer could compare YTD-3M against YTD-6M and
+   *  fabricate a huge false growth. Positive = accelerating operations. */
   def opIncomeGrowthYoY(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
     if (universe.isEmpty) return Map.empty
     val (yr, qtr) = PublicationLag.asOfQuarter(asOf)
     val codeList = universe.map(c => s"'$c'").mkString(",")
     val q = sql"""
       WITH latest AS (
-        SELECT DISTINCT ON (company_code) company_code, value AS op_latest
+        SELECT DISTINCT ON (company_code) company_code, year AS ly, quarter AS lq, value AS op_latest
         FROM income_statement_progressive
         WHERE company_code IN (#$codeList)
           AND title IN ('營業利益','營業利益（損失）','營業利益(損失)')
@@ -750,16 +795,17 @@ object Signals {
         ORDER BY company_code, year DESC, quarter DESC
       ),
       yearago AS (
-        SELECT DISTINCT ON (company_code) company_code, value AS op_yearago
+        SELECT company_code, year, quarter, MAX(value) AS op_yearago
         FROM income_statement_progressive
         WHERE company_code IN (#$codeList)
           AND title IN ('營業利益','營業利益（損失）','營業利益(損失)')
-          AND (year < #${yr - 1} OR (year = #${yr - 1} AND quarter <= #$qtr))
-        ORDER BY company_code, year DESC, quarter DESC
+        GROUP BY company_code, year, quarter
       )
       SELECT l.company_code,
              (l.op_latest - y.op_yearago) / NULLIF(ABS(y.op_yearago), 0)
-      FROM latest l JOIN yearago y USING (company_code)
+      FROM latest l
+      JOIN yearago y
+        ON y.company_code = l.company_code AND y.year = l.ly - 1 AND y.quarter = l.lq
       WHERE ABS(y.op_yearago) > 0
     """.as[(String, Double)]
     Await.result(db.run(q), Duration.Inf).toMap
@@ -779,35 +825,39 @@ object Signals {
     Await.result(db.run(q), Duration.Inf).toSet
   }
 
-  /** Revenue MoM acceleration: latest month revenue / avg of prior 3 months.
-   *  Uses the freshly-published month as the numerator. */
+  /** Revenue growth acceleration (ΔYoY): latest-month revenue YoY minus the
+   *  prior-month revenue YoY. Differencing two same-calendar-month YoY figures
+   *  cancels Taiwan's strong monthly seasonality (Lunar New Year trough, Q4
+   *  electronics peak), isolating the change in growth rate — unlike a raw
+   *  latest/prior-months level ratio, which mixes trend with seasonality.
+   *  Positive = growth is accelerating. */
   def revenueAccel(asOf: LocalDate, universe: Set[String], db: Database): Map[String, Double] = {
     if (universe.isEmpty) return Map.empty
     val (yr, mo) = PublicationLag.asOfMonthlyRevenue(asOf)
     val cutoffEpoch = yr * 12 + mo
-    val priorStart = cutoffEpoch - 3
-    val priorEnd = cutoffEpoch - 1
+    val priorEpoch = cutoffEpoch - 1
     val codeList = universe.map(c => s"'$c'").mkString(",")
     val q = sql"""
-      WITH latest AS (
-        SELECT company_code, monthly_revenue AS rev_latest
+      WITH latest_yoy AS (
+        SELECT company_code,
+               (monthly_revenue - last_year_monthly_revenue)::double precision
+                 / last_year_monthly_revenue AS yoy
         FROM operating_revenue
         WHERE company_code IN (#$codeList)
-          AND year = #$yr AND month = #$mo
-          AND monthly_revenue > 0
+          AND (year * 12 + month) = #$cutoffEpoch
+          AND monthly_revenue > 0 AND last_year_monthly_revenue > 0
       ),
-      prior AS (
-        SELECT company_code, AVG(monthly_revenue) AS rev_prior
+      prior_yoy AS (
+        SELECT company_code,
+               (monthly_revenue - last_year_monthly_revenue)::double precision
+                 / last_year_monthly_revenue AS yoy
         FROM operating_revenue
         WHERE company_code IN (#$codeList)
-          AND (year * 12 + month) BETWEEN #$priorStart AND #$priorEnd
-          AND monthly_revenue > 0
-        GROUP BY company_code
-        HAVING COUNT(*) >= 2
+          AND (year * 12 + month) = #$priorEpoch
+          AND monthly_revenue > 0 AND last_year_monthly_revenue > 0
       )
-      SELECT l.company_code, l.rev_latest::double precision / p.rev_prior
-      FROM latest l JOIN prior p USING (company_code)
-      WHERE p.rev_prior > 0
+      SELECT l.company_code, l.yoy - p.yoy
+      FROM latest_yoy l JOIN prior_yoy p USING (company_code)
     """.as[(String, Double)]
     Await.result(db.run(q), Duration.Inf).toMap
   }

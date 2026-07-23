@@ -33,14 +33,18 @@ with price as (select sppdy.market,
                                       and sppdy.company_code = dq.company_code
                where sppdy.market = 'twse'
                   or sppdy.market = 'tpex'),
+     -- 五線譜通道 σ:中心線是 OLS 趨勢線,故 ±σ/±2σ 的 σ 必須是「價格對趨勢線的殘差
+     -- 標準差」(STEYX/估計標準誤),不是收盤價原始標準差。恆等式 σ_resid²=σ_price²·(1−R²);
+     -- 原本用 stddev(closing_price) 把趨勢本身的變異算進頻寬,系統性撐寬通道(倍數
+     -- 1/√(1−R²),趨勢越乾淨撐越兇)。var_samp(close)·(1−regr_r2) 即殘差變異,與研究端
+     -- fiveline_z_neg(對數殘差 z)同口徑;此處保留線性價,slope 輸出欄語意不變。
      linear_regression as (select *,
-                                  regr_slope(closing_price, x)
-                                  over (partition by company_code order by date range between interval '3 years 6 months' preceding and current row) as slope,
-                                  regr_intercept(closing_price, x)
-                                  over (partition by company_code order by date range between interval '3 years 6 months' preceding and current row) as intercept,
-                                  stddev(closing_price)
-                                  over (partition by company_code order by date range between interval '3 years 6 months' preceding and current row) as sd
-                           from price),
+                                  regr_slope(closing_price, x) over w                        as slope,
+                                  regr_intercept(closing_price, x) over w                    as intercept,
+                                  sqrt(greatest(var_samp(closing_price) over w *
+                                                (1 - regr_r2(closing_price, x) over w), 0))  as sd
+                           from price
+                               window w as (partition by company_code order by date range between interval '3 years 6 months' preceding and current row)),
      channel as (select *,
                         slope * x + intercept + sd * 2 as highest,
                         slope * x + intercept + sd     as high,
@@ -88,44 +92,59 @@ with price as (select sppdy.market,
                                 inventories_ratio_growth_rate,
                                 receivables_ratio_growth_rate,
                                 total_capital_stock_growth_rate,
-                                eps / nullif(lag(eps, 4) over (partition by company_code order by year, quarter), 0) -
-                                1 as eps_growth_rate_1y
+                                -- 1 年 EPS 成長率(YoY);盈餘 DCF 只對正盈餘端點有意義,eps≤0 或
+                                -- 去年 eps≤0 一律 NULL(域外),避免除零與穿越零時的爆量成長率。
+                                case
+                                    when eps > 0
+                                        and lag(eps, 4) over (partition by company_code order by year, quarter) > 0
+                                        then eps / lag(eps, 4) over (partition by company_code order by year, quarter) - 1
+                                    end as eps_growth_rate_1y
                          from growth_analysis_ttm),
+     -- N 年成長率改用幾何 CAGR(端點對端點),取代原本「逐季重疊 YoY 的算術平均」。
+     -- AM-GM:算術平均 ≥ 幾何,把算術平均當 g 餵 (1+g)^t 會系統性高估內在價值;原 10y
+     -- 條另誤用 order by ... desc(非時序/前視)。g_Ny=(EPS_t/EPS_{t−4N})^(1/N)−1,lag 一律
+     -- 時序遞增 order by year, quarter;端點盈餘須皆 >0 否則 NULL(域外,避免穿越零爆量)。
      eps_growth_average as (select *,
-                                   sum(eps_growth_rate_1y)
-                                   over (partition by company_code order by year, quarter rows between 11 preceding and current row) /
-                                   12   as eps_growth_rate_3y,
-                                   sum(eps_growth_rate_1y)
-                                   over (partition by company_code order by year, quarter rows between 19 preceding and current row) /
-                                   20   as eps_growth_rate_5y,
-                                   sum(eps_growth_rate_1y)
-                                   over (partition by company_code order by year, quarter desc rows between 39 preceding and current row) /
-                                   40   as eps_growth_rate_10y,
+                                   case
+                                       when eps > 0 and lag(eps, 12) over (partition by company_code order by year, quarter) > 0
+                                           then power(eps / lag(eps, 12) over (partition by company_code order by year, quarter), 1.0 / 3) - 1
+                                       end  as eps_growth_rate_3y,
+                                   case
+                                       when eps > 0 and lag(eps, 20) over (partition by company_code order by year, quarter) > 0
+                                           then power(eps / lag(eps, 20) over (partition by company_code order by year, quarter), 1.0 / 5) - 1
+                                       end  as eps_growth_rate_5y,
+                                   case
+                                       when eps > 0 and lag(eps, 40) over (partition by company_code order by year, quarter) > 0
+                                           then power(eps / lag(eps, 40) over (partition by company_code order by year, quarter), 1.0 / 10) - 1
+                                       end  as eps_growth_rate_10y,
                                    0.12 as discount_rate,
                                    0.04 as terminal_growth_rate,
-                                   10   as years_of_growth_rate,
-                                   10   as years_of_terminal_growth
+                                   10   as years_of_growth_rate
                             from growth_analysis),
      dcf_parameters as (select *,
-                               (1 + eps_growth_rate_1y) / nullif((1 + discount_rate), 0)   as x_1y,
-                               (1 + eps_growth_rate_3y) / nullif((1 + discount_rate), 0)   as x_3y,
-                               (1 + eps_growth_rate_5y) / nullif((1 + discount_rate), 0)   as x_5y,
-                               (1 + eps_growth_rate_10y) / nullif((1 + discount_rate), 0)  as x_10y,
-                               (1 + terminal_growth_rate) / nullif((1 + discount_rate), 0) as y
+                               (1 + eps_growth_rate_1y) / nullif((1 + discount_rate), 0)  as x_1y,
+                               (1 + eps_growth_rate_3y) / nullif((1 + discount_rate), 0)  as x_3y,
+                               (1 + eps_growth_rate_5y) / nullif((1 + discount_rate), 0)  as x_5y,
+                               (1 + eps_growth_rate_10y) / nullif((1 + discount_rate), 0) as x_10y
                         from eps_growth_average),
+     -- 兩階段 DCF:第一段=EPS 以 g 成長 N 年的折現成長年金 eps·x·(1−x^N)/(1−x);
+     -- 第二段終值改用 Gordon 永續 eps·x^N·(1+g_t)/(r−g_t)。原本第二段是「有限 10 年
+     -- 成長年金」eps·x^N·y·(1−y^M)/(1−y)(第 20 年後歸零、只擷取永續約 52%),系統性
+     -- 低估合理價。註:折現標的用會計 EPS 屬零售式代理(EPS 全額當可分配又假設靠再投資
+     -- 成長,對成長股偏高估);嚴格 DCF 應折現 FCFE/股利,惟本檢視無派息/每股 FCF 可接。
      dcf as (select *,
                     eps * x_1y * (1 - x_1y ^ years_of_growth_rate) / nullif((1 - x_1y), 0) +
-                    eps * x_1y ^ years_of_growth_rate * y * (1 - y ^ years_of_terminal_growth) /
-                    nullif((1 - y), 0) as dcf_1y,
+                    eps * x_1y ^ years_of_growth_rate * (1 + terminal_growth_rate) /
+                    nullif((discount_rate - terminal_growth_rate), 0) as dcf_1y,
                     eps * x_3y * (1 - x_3y ^ years_of_growth_rate) / nullif((1 - x_3y), 0) +
-                    eps * x_3y ^ years_of_growth_rate * y * (1 - y ^ years_of_terminal_growth) /
-                    nullif((1 - y), 0) as dcf_3y,
+                    eps * x_3y ^ years_of_growth_rate * (1 + terminal_growth_rate) /
+                    nullif((discount_rate - terminal_growth_rate), 0) as dcf_3y,
                     eps * x_5y * (1 - x_5y ^ years_of_growth_rate) / nullif((1 - x_5y), 0) +
-                    eps * x_5y ^ years_of_growth_rate * y * (1 - y ^ years_of_terminal_growth) /
-                    nullif((1 - y), 0) as dcf_5y,
+                    eps * x_5y ^ years_of_growth_rate * (1 + terminal_growth_rate) /
+                    nullif((discount_rate - terminal_growth_rate), 0) as dcf_5y,
                     eps * x_10y * (1 - x_10y ^ years_of_growth_rate) / nullif((1 - x_10y), 0) +
-                    eps * x_10y ^ years_of_growth_rate * y * (1 - y ^ years_of_terminal_growth) /
-                    nullif((1 - y), 0) as dcf_10y
+                    eps * x_10y ^ years_of_growth_rate * (1 + terminal_growth_rate) /
+                    nullif((discount_rate - terminal_growth_rate), 0) as dcf_10y
              from dcf_parameters)
 
 select market,

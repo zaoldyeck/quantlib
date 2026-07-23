@@ -57,6 +57,16 @@ IS_TITLES = {
     "ni":        ["繼續營業單位本期淨利（淨損）", "繼續營業單位淨利(淨損)",
                   "本期淨利（淨損）", "本期淨利(淨損)",
                   "本期稅後淨利（淨損）", "本期稅後淨利(淨損)"],
+    # 稅前淨利（EBT）:Altman Z'' X3 EBIT 的可得代理。concise IS 自 2013 IFRS 起不再
+    # 逐項列示利息費用（僅「營業外收入及支出」彙總、已內含利息），「減：利息費用」僅
+    # 2006–2012 存在,故無法對現代樣本用「稅前+利息」還原嚴格 EBIT;稅前淨利已含營業
+    # 外損益,是資料受限下正確的 EBIT 代理（嚴格優於營業利益——後者排除全部業外）。
+    # 全形/半形 + 繼續營業單位變體皆收（schema drift）;稅前淨利（淨損）= 營業利益 +
+    # 營業外收入及支出（2330 2023Q4 實測恆等）。
+    "pretax":    ["稅前淨利（淨損）", "稅前淨利(淨損)",
+                  "繼續營業單位稅前淨利（淨損）", "繼續營業單位稅前淨利(淨損)",
+                  "繼續營業單位稅前淨利",
+                  "繼續營業單位稅前純益（純損）", "繼續營業單位稅前純益(純損)"],
 }
 
 BS_TITLES = {
@@ -70,6 +80,12 @@ BS_TITLES = {
     "non_current_liab":     ["非流動負債"],
     "total_equity":         ["權益總計", "權益總額", "股東權益總計"],
     "capital_stock":        ["股本"],
+    # 保留盈餘（累積盈虧）:Altman Z'' X2 = 保留盈餘/總資產 的真值科目。務必用真 RE、
+    # 不用「權益−股本」代理——代理把資本公積/NCI 灌進來,會抹掉累積虧損訊號（2023Q4
+    # 實測 114 家真 RE<0 卻被代理判為正;最惡 6854 X2 由 +1.25 誤成 −8.18 反轉）。兩個
+    # title 互斥（同格不併存,實測 0 併存）,COALESCE 順序安全。RE 可為負,消費端不得
+    # 對其做正值守門（僅分母 total_assets 守門）。
+    "retained_earnings":    ["保留盈餘（或累積虧損）", "保留盈餘"],
 }
 
 CF_TITLES = {
@@ -176,7 +192,7 @@ def build_raw_quarterly(con, start: date, end: date) -> pl.DataFrame:
                 .alias(col + "_q"))
 
     panel = panel.with_columns([_standalone(c) for c in
-                                ("rev", "cogs", "gross_pf", "op_income", "ni")]
+                                ("rev", "cogs", "gross_pf", "op_income", "ni", "pretax")]
                                + [_standalone("cfo")])
 
     def _ttm(col_q: str) -> pl.Expr:

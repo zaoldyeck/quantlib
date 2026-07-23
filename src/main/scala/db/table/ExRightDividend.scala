@@ -28,6 +28,16 @@ class ExRightDividend(tag: Tag) extends Table[ExRightDividendRow](tag, "ex_right
 
   def exRightExDividendReferencePrice = column[Double]("ex_right_ex_dividend_reference_price")
 
+  // 語意警告(稽核 D-slick-schema-full BUG1):欄名 cash_dividend 但存的不是純現金
+  //   股利,且語意跨資料源翻轉,直接當「現金股利」用會錯:
+  //   ① legacy TWT49U(2024-06 前,readExRightDividend 取 values(5)):存「權值+息值」=
+  //      除權息前收盤 − 除權息參考價 的總股價調整額(非純息值);純除權(配股無現金)列
+  //      在此仍為正(PG 實測 avg ≈ 2.669),因它是總調整額而非現金股利。
+  //   ② MOPS t108sb27(2024-07 起,parseMopsRows):改存 totalCash = 純現金股利(息值),
+  //      且 closing_price_before / reference_price 皆為 0——同欄語意於此翻轉。
+  //   還原因子官方真源是「參考價 / 除權息前收盤」;prices.py 已於 FC1 改優先採該兩欄,
+  //   cash_dividend 僅在缺參考價時作純現金 fallback(gate cash_dividend > 0)。要純現金
+  //   股利 / 殖利率請勿直接讀本欄。
   def cashDividend = column[Double]("cash_dividend")
 
   def rightOrDividend = column[String]("right_or_dividend")

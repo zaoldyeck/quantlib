@@ -28,14 +28,23 @@ object QualityFilter {
     val codeList = universe.map(c => s"'$c'").mkString(",")
     val q = sql"""
       SELECT company_code
-      FROM growth_analysis_ttm
-      WHERE company_code IN (#$codeList)
-        AND (year < #$year OR (year = #$year AND quarter <= #$quarter))
-        AND COALESCE(drop_score, 0) < #$MaxDropScore
+      FROM (
+        SELECT DISTINCT ON (company_code) company_code, f_score, drop_score
+        FROM growth_analysis_ttm
+        WHERE company_code IN (#$codeList)
+          AND (year < #$year OR (year = #$year AND quarter <= #$quarter))
+        ORDER BY company_code, year DESC, quarter DESC
+      ) latest
+      WHERE COALESCE(drop_score, 0) < #$MaxDropScore
         AND COALESCE(f_score, 0) >= #$MinFScore
-      ORDER BY company_code, year DESC, quarter DESC
     """.as[String]
-    // Each company may match several rows across quarters; distinct collapses to one.
+    // DISTINCT ON collapses each company to its latest available quarter (the PIT
+    // snapshot); the veto is then applied to THAT single row, so a stock passes iff its
+    // *current* quarter is healthy — not "ever passed in some historical quarter".
+    // Without the inner DISTINCT ON the f_score/drop_score predicates matched on ANY
+    // quarter, making membership once-passed => always-passed (measured buggy 1033 vs
+    // correct 624 names at PIT=2024Q1; 409 deteriorating leaks, e.g. 1301 latest drop=14
+    // slipping through on a 2022Q3 drop=8). .toSet also converts the Vector result.
     Await.result(db.run(q), Duration.Inf).toSet
   }
 }
