@@ -309,6 +309,11 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
         # S 的價位門只有 trail 35%;訊號過期 26 日 / 時間止損 30 日 / 輸家止損
         # (水下且 ≥15 日)都是時間門,沒有固定止盈。
         stop = peak * 0.65 if peak else None
+        # 「水下」判定與規則同基準:輸家門吃**還原(總報酬)價**(now.px),不是原始
+        # 收盤——高殖利率持股除息後原始價看似水下、但總報酬未破成本(見 exit_replay
+        # 總報酬正規化)。損益/現價顯示仍用原始 px(帳戶真實損益,股利另以現金入帳)。
+        tr_px = now.px if now else px
+        underwater = epx is not None and tr_px is not None and tr_px < epx
         lv = levels_line(cost, basis, px, stop, None,
                          stop_note=f"(trail 35%,峰 {peak:g})" if peak else "",
                          take_note="(無固定止盈:靠 trail/時間出場)")
@@ -322,7 +327,7 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
             "gates": [("移動停損 −35%", f"{stop:g}(峰 {peak:g})" if stop else "—"),
                       ("訊號過期 26 日", f"距最近月營收 {fresh_all.get(code)} 日"),
                       ("時間止損 30 日", f"持有 {now.days_held if now else 0} 交易日"),
-                      ("輸家止損 15 日", f"{'水下' if epx and px < epx else '水上'}(對進場錨)")],
+                      ("輸家止損 15 日", f"{'水下' if underwater else '水上'}(對進場錨)")],
             # S 是純量化,沒有 LLM 理由——「為什麼買」就是這六個因子的值與排名
             "factors": ({k: round(float(prow[k]), 3) for k in list(S_WTS) if prow.get(k) is not None}
                         if prow else {}),

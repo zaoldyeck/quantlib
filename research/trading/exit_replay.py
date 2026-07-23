@@ -33,11 +33,19 @@ FIRST_SEEN = paths.REVENUE_FIRST_SEEN
 
 @dataclass(frozen=True)
 class DayState:
-    """重放到某一交易日時,規則能看到的全部東西(全部 PIT)。"""
+    """重放到某一交易日時,規則能看到的全部東西(全部 PIT)。
+
+    **價格空間(2026-07-23 修 D-serenity-live money-path bug)**:`px`/`peak`/`trough`
+    一律是**還原(總報酬)價**——以進場錨日原始收盤為基準、用還原價比值捕捉持有期內
+    的除權息再投入(見 `replay` 註解)。所有出場門檻(trail/輸家/絕對/止盈)都吃這個,
+    才與回測引擎(engine.py 全程還原 close)同源;`raw_px` 是當日原始收盤,**只供顯示**
+    (螢幕報價),不得進規則。無公司行為時 `px == raw_px`。
+    """
     day: date
-    px: float
-    peak: float          # 進場日以來的最高收盤(含當日)
-    trough: float        # 進場日以來的最低收盤(含當日)
+    px: float            # 還原(總報酬)價——出場門檻用
+    raw_px: float        # 當日原始收盤(螢幕報價;僅顯示,不進規則)
+    peak: float          # 進場日以來的還原價最高(含當日;trailing 錨)
+    trough: float        # 進場日以來的還原價最低(含當日)
     days_held: int       # 交易日
     inst20: float | None  # 近 20 日法人淨買賣(股);None = 當日尚無資料
     yoy3: float | None    # 近三月營收 YoY 均值(%),PIT(依首見日)
@@ -80,9 +88,27 @@ def load_paths(codes: list[str], start: date, end: date) -> dict[str, pl.DataFra
             f"GROUP BY company_code, date ORDER BY company_code, date",  # 防同代碼跨市場重複列
             [*codes, start, end],
         ).pl()
+        # **還原價(總報酬)另抓一份供止損評估**(2026-07-23 修 D-serenity-live):
+        # 止損衡量的是「部位價值自峰值/成本回落」,必須用還原價,否則除息當天原始價
+        # 機械性跳空(鈊象 2024-07-24 原始 -46%)會在股東其實拿到股息、無經濟損失時
+        # 假觸發 trailing/水下停損。與回測引擎 engine.py 同源(prices.fetch_adjusted_panel)。
+        from research import prices
+        adj_frames = []
+        for _mkt in ("twse", "tpex"):
+            _ap = prices.fetch_adjusted_panel(con, start.isoformat(), end.isoformat(),
+                                              market=_mkt, codes=list(codes))
+            if not _ap.is_empty():
+                adj_frames.append(_ap.select(["company_code", "date", pl.col("close").alias("adj_close")]))
+        adj = (pl.concat(adj_frames) if adj_frames
+               else pl.DataFrame(schema={"company_code": pl.Utf8, "date": pl.Date, "adj_close": pl.Float64}))
+        adj = adj.group_by(["company_code", "date"]).agg(pl.col("adj_close").first())
+        px = px.join(adj, on=["company_code", "date"], how="left")
+        # 法人流一律用 total_difference(外資+投信+**自營商**),與回測引擎逐位同源
+        # (engine.py:971 / replay_2025.py:703 `total_difference AS inst_diff`)。舊版只加
+        # 外資+投信、漏自營商,在自營商翻轉當日淨額正負時會與引擎法人門判決分岔
+        # (2026-07-23 修:tri/advisors、serenity/daily 的 Serenity 路徑都吃這個 inst20)。
         flows = con.execute(
-            f"SELECT company_code, date, "
-            f"coalesce(foreign_investors_difference,0) + coalesce(trust_difference,0) AS inst "
+            f"SELECT company_code, date, total_difference AS inst "
             f"FROM daily_trading_details WHERE company_code IN ({ph}) AND date <= ? "
             f"ORDER BY company_code, date",
             [*codes, end],
@@ -96,7 +122,7 @@ def load_paths(codes: list[str], start: date, end: date) -> dict[str, pl.DataFra
         con.close()
 
     inst20 = (flows.sort(["company_code", "date"])
-              .with_columns(pl.col("inst").rolling_sum(20, min_periods=5)
+              .with_columns(pl.col("inst").rolling_sum(20, min_samples=5)  # 同引擎:20d 滾動和
                             .over("company_code").alias("inst20"))
               .select(["company_code", "date", "inst20"]))
 
@@ -113,7 +139,7 @@ def load_paths(codes: list[str], start: date, end: date) -> dict[str, pl.DataFra
     else:
         rev = rev.with_columns(pl.col("legal_avail").alias("avail"))
     rev = (rev.sort(["company_code", "year", "month"])
-           .with_columns(pl.col("monthly_revenue_yoy").rolling_mean(3, min_periods=2)
+           .with_columns(pl.col("monthly_revenue_yoy").rolling_mean(3, min_samples=2)
                          .over("company_code").alias("yoy3"))
            .select(["company_code", "avail", "yoy3"]).drop_nulls().sort("avail"))
 
@@ -149,23 +175,48 @@ def replay(path: pl.DataFrame, entry_day: date, rule: Callable[[DayState], str |
       起算,故手動成交價高於當日收盤時,峰值下限應為成交價,trailing 才不會比
       回測寬鬆。
     """
-    rows = (path.filter(pl.col("date") >= entry_day).sort("date")
-            .with_columns([  # 峰/谷:只從這筆部位的進場日起算
-                pl.col("closing_price").cum_max().alias("peak"),
-                pl.col("closing_price").cum_min().alias("trough"),
-            ]))
-    if peak_floor:
-        rows = rows.with_columns(
-            pl.max_horizontal(pl.col("peak"), pl.lit(float(peak_floor))).alias("peak"))
+    rows = path.filter(pl.col("date") >= entry_day).sort("date")
     if rows.is_empty():
         return None, None
+    # ── 總報酬正規化(2026-07-23 修 D-serenity-live money-path bug)──
+    # 出場門檻(trail/輸家/絕對/止盈)是在**還原價空間**設定並驗證的:回測 engine.py
+    # 的 mark/peak_close/entry_close 全程走還原 close。live 若拿**原始收盤**評門檻,
+    # 一遇除權息,原始價機械性跳空(實測鈊象 2024-07-24 −46%、系微 −8.8%…股東其實
+    # 已領到現金/股票股利、無經濟損失)就會假觸發 trailing/輸家止損,而回測(還原價)
+    # 不會——除息旺季 6-8 月正是抱夏季贏家的窗口(當前 6 檔持股就有 4 檔窗內除息)。
+    #
+    # 修法:把序列 normalize 成「以進場錨日原始收盤(base)為基準的總報酬序列」
+    #   tr[t] = base · adj[t]/adj[e]   (base = 錨日原始收盤,adj = 還原 close)
+    # 對 trailing(比值 tr[t]/peak = adj[t]/max(adj),base 消去)與輸家門
+    # (水位 tr[t] vs 成本 epx=base,⟺ adj[t] < adj[e])都與回測 adjusted 空間**逐位
+    # 等價**。還原價缺漏(左接無對應)的日子退回原始價,不惡化既有行為。
+    # peak/trough 只從**這筆部位的進場日**起算(每個 lot 進場日不同,不能在載入窗上算)。
+    base_raw = float(rows["closing_price"][0])
+    adj0 = rows["adj_close"][0] if "adj_close" in rows.columns else None
+    if adj0 is not None and float(adj0) > 0:
+        rows = rows.with_columns(
+            pl.when(pl.col("adj_close").is_not_null() & (pl.col("adj_close") > 0))
+            .then(pl.lit(base_raw) * pl.col("adj_close") / pl.lit(float(adj0)))
+            .otherwise(pl.col("closing_price"))  # 缺還原價 → 退回原始價
+            .alias("tr"))
+    else:  # 整段無還原價(理論上不該發生)→ 全退回原始價,行為同修法前
+        rows = rows.with_columns(pl.col("closing_price").alias("tr"))
+    rows = rows.with_columns([
+        pl.col("tr").cum_max().alias("peak"),
+        pl.col("tr").cum_min().alias("trough"),
+    ])
+    if peak_floor:  # 成交價下限(還原基準 = 錨日原始收盤,與 epx 同一尺度)
+        rows = rows.with_columns(
+            pl.max_horizontal(pl.col("peak"), pl.lit(float(peak_floor))).alias("peak"))
     fire: ExitFire | None = None
     last: DayState | None = None
     held = 0
     for r in rows.iter_rows(named=True):
         day = r["date"]
+        raw_px = float(r["closing_price"])
+        tr_px = float(r["tr"])
         st = DayState(
-            day=day, px=float(r["closing_price"]), peak=float(r["peak"]),
+            day=day, px=tr_px, raw_px=raw_px, peak=float(r["peak"]),
             trough=float(r["trough"]), days_held=held,
             inst20=float(r["inst20"]) if r.get("inst20") is not None else None,
             yoy3=float(r["yoy3"]) if r.get("yoy3") is not None else None,
@@ -175,8 +226,12 @@ def replay(path: pl.DataFrame, entry_day: date, rule: Callable[[DayState], str |
         if day > entry_day and fire is None:
             reason = rule(st)
             if reason:
-                fire = ExitFire(day=day, reason=reason, price=st.px,
-                                detail=f"當時收 {st.px:g}(峰 {st.peak:g}、持有 {st.days_held} 日)")
+                # 顯示原始收盤(對得上螢幕);還原價與原始價分岔(持有期除過權息)
+                # 時括號標出,讓「為何門檻用這個數」透明。
+                adj_note = f"、還原 {tr_px:g}" if abs(tr_px - raw_px) > 0.005 else ""
+                fire = ExitFire(day=day, reason=reason, price=raw_px,
+                                detail=f"當時收 {raw_px:g}{adj_note}"
+                                       f"(峰 {st.peak:g}、持有 {st.days_held} 日)")
         held += 1
     return fire, last
 

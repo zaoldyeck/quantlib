@@ -28,6 +28,18 @@ def path_of(closes: list[float], start: date = date(2026, 7, 1)) -> pl.DataFrame
                          "fresh_days": [None] * len(closes)})
 
 
+def path_adj(raw: list[float], adj: list[float],
+             start: date = date(2026, 7, 1)) -> pl.DataFrame:
+    """帶還原價欄的路徑(供總報酬正規化測試)。`adj` = 還原 close(只有比值有意義)。"""
+    n = len(raw)
+    days = [start + timedelta(days=i) for i in range(n)]
+    return pl.DataFrame({"date": days,
+                         "closing_price": [float(x) for x in raw],
+                         "adj_close": [float(x) for x in adj],
+                         "inst20": [None] * n, "yoy3": [None] * n,
+                         "fresh_days": [None] * n})
+
+
 def test_fired_then_recovered_still_counts():
     """核心:中途觸發、事後反彈 → 仍算觸發(快照評估會漏掉,這才是重放的意義)。"""
     # 錨 168:絕對停損 142.8。路徑 168 → 140(破)→ 170(反彈)
@@ -87,6 +99,74 @@ def test_no_fire_returns_today_state():
     p = path_of([100, 105, 110])
     fire, now = replay(p, date(2026, 7, 1), serenity_rule(100), peak_floor=100)
     assert fire is None and now.px == 110 and now.peak == 110
+
+
+# ── 總報酬正規化:除權息不得假觸發止損(2026-07-23 修 D-serenity-live)────────
+# 回測 engine.py 全程用還原 close 評門檻;live 拿原始收盤 → 除息機械跳空(股東其實
+# 已領到股利、無經濟損失)會假觸發 trail/輸家/絕對停損。修法把序列 normalize 成
+# 「以進場錨日原始收盤為基準的總報酬序列」。每個測試都附「原始價版本會假觸發」的
+# 對照(drop adj_close → 退回原始價),證明這正是被修掉的 bug。
+
+def test_ex_div_no_false_trailing():
+    """進場 100,第 2 天除息 40 → 原始 60(−40%)但總報酬持平(還原恆 100)。
+    S 的 trail 35% 不得被除息跳空假觸發。"""
+    raw, adj = [100, 100, 60], [100, 100, 100]
+    fire, now = replay(path_adj(raw, adj), date(2026, 7, 1), s_rule(cost=100), peak_floor=100)
+    assert fire is None, "除息跳空不是經濟損失,不得觸發 trail"
+    assert now.px == 100 and now.raw_px == 60, "px=還原、raw_px=原始收盤"
+    # 對照:同一原始路徑但無還原欄(退回原始價)→ 假觸發 trail(這就是 bug)
+    f2, _ = replay(path_adj(raw, adj).drop("adj_close"), date(2026, 7, 1),
+                   s_rule(cost=100), peak_floor=100)
+    assert f2 is not None and "移動停損" in f2.reason, "原始價版本假觸發 = 被修的 bug"
+
+
+def test_ex_div_no_false_loser_stop():
+    """進場 100,除息 18 → 原始 82(未破 trail),持有 ≥15 日;總報酬持平 →
+    輸家止損(水下且 ≥15 日)不得觸發。"""
+    n = 20
+    raw, adj = [100, 100] + [82] * (n - 2), [100] * n
+    fire, _ = replay(path_adj(raw, adj), date(2026, 7, 1), s_rule(cost=100), peak_floor=100)
+    assert fire is None, "除息後原始價看似水下,但總報酬持平,不得觸發輸家門"
+    f2, _ = replay(path_adj(raw, adj).drop("adj_close"), date(2026, 7, 1),
+                   s_rule(cost=100), peak_floor=100)
+    assert f2 is not None and "輸家" in f2.reason, "原始價版本第 16 天假觸發輸家止損"
+
+
+def test_serenity_abs_stop_not_triggered_by_ex_div():
+    """Serenity abs 15%:進場 100,除息 20 → 原始 80(破 abs 85 線),總報酬持平 →
+    不得觸發絕對停損。"""
+    raw, adj = [100, 100, 80], [100, 100, 100]
+    fire, _ = replay(path_adj(raw, adj), date(2026, 7, 1), serenity_rule(100), peak_floor=100)
+    assert fire is None, "除息跳空不得觸發 abs_stop"
+    f2, _ = replay(path_adj(raw, adj).drop("adj_close"), date(2026, 7, 1),
+                   serenity_rule(100), peak_floor=100)
+    assert f2 is not None and f2.reason == "abs_stop", "原始價版本假觸發 abs_stop"
+
+
+def test_real_total_return_loss_still_fires():
+    """真實下跌 −45%(無股利,還原與原始同步跌)→ trail 必須照觸發。
+    修法只中性化除權息,不得吞掉真實損失。"""
+    raw, adj = [100, 100, 55], [100, 100, 55]
+    fire, _ = replay(path_adj(raw, adj), date(2026, 7, 1), s_rule(cost=100), peak_floor=100)
+    assert fire is not None and "移動停損" in fire.reason, "真跌 −45% 必須觸發"
+    assert fire.price == 55, "顯示原始收盤(對得上螢幕)"
+
+
+def test_px_equals_raw_without_corporate_action():
+    """無公司行為時 px(還原)== raw_px(原始)——常見路徑零行為變化。"""
+    raw, adj = [100, 105, 110], [100, 105, 110]
+    _, now = replay(path_adj(raw, adj), date(2026, 7, 1), s_rule(cost=100))
+    assert now.px == now.raw_px == 110
+
+
+def test_partial_dividend_credits_only_the_dividend():
+    """部分還原:進場 100,除息 10 → 原始 90,真實再跌到還原 90(總報酬 −10%)。
+    tr 應為 90(只把股利記回,不含也不吞真實變動),trail 35% 不觸發、也不假抱。"""
+    # 除息日原始 90 = 純除息(還原持平 100);次日真跌 → 還原 90。
+    raw, adj = [100, 90, 81], [100, 100, 90]
+    _, now = replay(path_adj(raw, adj), date(2026, 7, 1), s_rule(cost=100), peak_floor=100)
+    assert abs(now.px - 90.0) < 1e-9, "tr = base·adj[t]/adj[e] = 100·90/100 = 90"
+    assert now.raw_px == 81
 
 
 # ── 報告層:逾期出場必須置頂且講清楚 ──────────────────────────────

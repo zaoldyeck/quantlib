@@ -58,7 +58,7 @@ MAX_NEW_PER_DAY = 3
 COOLDOWN_DAYS = 20  # 出場後冷卻(交易日),與 engine.py 回測常數同值鏡像
 # 六道門規則與參數集中於 exit_rules(tri 決策支援共用同一真相來源)
 from research.serenity.exit_rules import (  # noqa: E402
-    ABS_STOP, TAKE_PROFIT, TIME_DAYS, TIME_RET, TRAIL, evaluate_exit,
+    ABS_STOP, TAKE_PROFIT, TIME_DAYS, TIME_RET, TRAIL,  # 出場門檻常數(報告表用)
 )
 
 
@@ -370,26 +370,44 @@ def cmd_run(args: argparse.Namespace) -> None:
             f"- 🆕 收養持股(非強賣;錨=收養日收盤,時鐘重啟):{adopted_today} —— **今日判斷層必須完成 Serenity 檢核並補論點註記**"
         )
 
-    # 4) live book update: peaks + five exit rules + overrides
+    # 4) live book update:出場一律走 exit_replay **逐日重放**(還原價 + 路徑高水位),
+    # 與 tri/advisors、回測 engine 同一條唯一真源(引擎唯一真源鐵律)。一次根除本地
+    # 出場評估的三個地雷:① 原始收盤評門檻 → 除權息機械跳空在無經濟損失時假觸發
+    # trailing/絕對停損(D-serenity-live money-path bug);② 增量峰值(漏跑幾天就漏掉
+    # 期間高點 → 止損線偏低、該賣沒賣);③ 今日快照評估(漏掉「你沒跑那幾天已觸發」
+    # 的出場)。六道門 evaluate_exit 本身不變(serenity_rule 包的就是同一支),只是改
+    # 餵**還原(總報酬)價** + **價格路徑重算的高水位峰值**。
+    from research.trading.exit_replay import load_paths as _load_paths
+    from research.trading.exit_replay import replay as _replay
+    from research.trading.exit_replay import serenity_rule as _serenity_rule
     overrides = load_json(OVERRIDES, {"force_exit": {}})
     force_exit = set(overrides.get("force_exit", {}))
     exits: list[tuple[str, str]] = []
+    # entry_date 缺漏(理論上不該有,收養/建倉都會寫)→ 退 cutoff(replay 窗=單日 →
+    # 不會誤觸發,安全續抱),不讓一筆髒 state 炸掉整份 live 出場評估。
+    _entry_days = {c: (date.fromisoformat(p["entry_date"]) if p.get("entry_date") else cutoff)
+                   for c, p in positions.items()}
+    _paths = (_load_paths(sorted(_entry_days), min(_entry_days.values()), cutoff)
+              if _entry_days else {})
     for code, pos in positions.items():
         px = closes.get(code)
         if px is None:
             continue
         if pos.get("anchor") is None:
             pos["anchor"] = px
-        pos["peak"] = max(float(pos.get("peak") or px), px)
-        days_held = trading_days_between(cal, date.fromisoformat(pos["entry_date"]), cutoff)
-        anchor, peak = float(pos["anchor"]), float(pos["peak"])
+        anchor = float(pos["anchor"])
+        # 逐日重放:回傳「第一次觸發」與今日狀態;峰值由還原價路徑重算(取代增量 state)。
+        fire, now = (_replay(_paths[code], _entry_days[code],
+                             _serenity_rule(anchor), peak_floor=anchor)
+                     if code in _paths else (None, None))
+        if now is not None:
+            pos["peak"] = now.peak  # 還原價高水位(路徑重算,不再增量累積漏峰)
+        elif pos.get("peak") is None:
+            pos["peak"] = anchor
         if code in force_exit:
-            reason = "override:" + overrides["force_exit"][code]["reason"]
-        else:
-            reason = evaluate_exit(px=px, anchor=anchor, peak=peak, days_held=days_held,
-                                   inst20=inst20.get(code), yoy3=yoy3.get(code))
-        if reason:
-            exits.append((code, reason))
+            exits.append((code, "override:" + overrides["force_exit"][code]["reason"]))
+        elif fire is not None:
+            exits.append((code, fire.reason))
 
     exit_codes = {c for c, _ in exits}
     kept = {c: p for c, p in positions.items() if c not in exit_codes}
