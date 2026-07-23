@@ -86,10 +86,15 @@ def prep_cached(con, end: str | None = None):
     return panel, feat, elig
 
 
-def run_s_full(panel, feat, elig, start: str
+def run_s_full(panel, feat, elig, start: str, *,
+               _exit_spec: "ExitSpec | None" = None,
+               _port_spec: "PortSpec | None" = None
                ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """S 規格回測(STRATEGY.md §4-§6),回 (歸一化 NAV, 交易明細 trades)。
-    trades = TRADE_SCHEMA(進出場日/ret_net ROI/days_held/exit_reason;open=當下持有)。"""
+    trades = TRADE_SCHEMA(進出場日/ret_net ROI/days_held/exit_reason;open=當下持有)。
+
+    _exit_spec/_port_spec:研究用參數化出場/組合(**預設 None = canonical S 規格**,生產行為不變);
+    僅供 strat_lab 的結構/風控變體實驗傳入(如加絕對停損、改 slot 數),不改官方規格。"""
     pool = feat.filter(pl.col("rev_fresh_days") <= 7)
     df = (pool.join(elig.filter(pl.col("eligible")).select(["date", C]),
                     on=["date", C], how="semi")
@@ -111,9 +116,9 @@ def run_s_full(panel, feat, elig, start: str
     stale = (feat.filter(pl.col("rev_fresh_days") >= 26).select(["date", C])
              .filter(pl.col("date") >= pl.lit(start).str.to_date()))
     res = simulate(panel, entries, exit_flags=stale, exec_spec=ExecSpec(),
-                   port_spec=PortSpec(n_slots=5, max_new_per_day=2),
-                   exit_spec=ExitSpec(trailing_stop=0.35, time_stop=30,
-                                      loser_time_stop=15),
+                   port_spec=_port_spec or PortSpec(n_slots=5, max_new_per_day=2),
+                   exit_spec=_exit_spec or ExitSpec(trailing_stop=0.35, time_stop=30,
+                                                    loser_time_stop=15),
                    start=Date.fromisoformat(start))
     nav = (res.nav.select(["date", "nav"]).sort("date")
            .with_columns(pl.col("nav") / pl.col("nav").first()))
