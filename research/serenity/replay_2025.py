@@ -195,6 +195,11 @@ def load_price_features(con, universe: pd.DataFrame, start: date, end: date) -> 
                 (pl.col("close") / pl.col("close").shift(252).over("company_code") - 1.0).alias("ret_252d"),
                 pl.col("trade_value").rolling_mean(20).over("company_code").shift(1).alias("adv20"),
                 (pl.col("close") / pl.col("close").rolling_max(252).over("company_code") - 1.0).alias("drawdown_252"),
+                # 命名誠實(2026-07-23 稽核 D-technical):這是 **20 日均幅/收盤**,不是
+                # Wilder ATR——缺 True Range 的 |H−C_prev|/|L−C_prev| 跳空兩項、非 Wilder
+                # 平滑、期數 20 非 14,有隔夜跳空的股票會低估真實波動。僅非 champion 變體
+                # ev_v2_watr(weight_mode=inv_atr)用它做反波動加權;現役 ev_v3_wf=equal
+                # 完全不觸及。要真 ATR 應接 True Range + Wilder 平滑;此處作均幅代理故留。
                 (
                     (pl.col("high") - pl.col("low")).rolling_mean(20).over("company_code").shift(1)
                     / pl.col("close")

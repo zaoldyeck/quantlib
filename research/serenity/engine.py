@@ -392,7 +392,13 @@ class Position:
 
 
 def peg_target_mult(pe: float | None, growth: float | None) -> float:
-    """PEG=1 implied upside, clipped to [1.2, 3.0]; fallback 1.6."""
+    """PEG=1 implied upside = growth/pe,clipped to [1.2, 3.0];fallback 1.6。
+
+    命名誠實(2026-07-23 稽核 D-technical):此處 `growth` 餵入的是**營收 YoY 成長**(yoy_3m),
+    非教科書 PEG 的 EPS 盈餘成長——營收成長 ≠ EPS 成長,故這是啟發式目標倍數、非嚴格 PEG。
+    僅非 champion 變體 ev_v2_tpdyn/ev_v2_pegexit(tp_mode=peg_target/peg_exit)用;現役 ev_v3_wf
+    的 tp_mode=fixed(固定 tp 0.40)不觸及。要真 PEG 應改餵 EPS 成長率。
+    """
     if pe is None or growth is None:
         return 1.6
     if not (np.isfinite(pe) and np.isfinite(growth)) or pe <= 0 or growth <= 0:
