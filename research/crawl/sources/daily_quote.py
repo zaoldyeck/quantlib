@@ -116,9 +116,9 @@ def _parse_tpex(text: str, day: Date) -> pl.DataFrame | None:
 def fetch_day(market: str, day: Date) -> pl.DataFrame | None:
     """抓當日報價 → **先原樣封存原始檔到 data/** → 再 parse(原始檔封存鐵律)。"""
     if market == "twse":
-        text = http.fetch_text(_TWSE_URL.format(d=parse.twse_date(day)))
-        archive.save_raw("daily_quote", "twse", day, text)
-        return _parse_twse(text, day)
-    text = http.fetch_text(_TPEX_URL.format(d=parse.minguo_slash(day)))
-    archive.save_raw("daily_quote", "tpex", day, text)
-    return _parse_tpex(text, day)
+        raw = http.fetch_bytes(_TWSE_URL.format(d=parse.twse_date(day)))
+        archive.save_raw("daily_quote", "twse", day, raw)   # 原樣 bytes(位元保真)
+        return _parse_twse(raw.decode("Big5-HKSCS", errors="replace"), day)
+    raw = http.fetch_bytes(_TPEX_URL.format(d=parse.minguo_slash(day)))
+    archive.save_raw("daily_quote", "tpex", day, raw)
+    return _parse_tpex(raw.decode("Big5-HKSCS", errors="replace"), day)

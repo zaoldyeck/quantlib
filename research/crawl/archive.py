@@ -36,19 +36,24 @@ def raw_path(source: str, market: str, day: Date, ext: str = "csv") -> Path:
             / f"{day.year:04d}_{day.month}_{day.day}.{ext}")
 
 
-def save_raw(source: str, market: str, day: Date, content: bytes | str,
+def save_raw(source: str, market: str, day: Date, content: bytes,
              ext: str = "csv") -> Path:
     """把抓到的 raw **原子**落地(tmp → os.replace)。回傳落地路徑。
 
-    - content 是抓到的原始位元/文字,**不做任何清洗**(封存 = 原樣)。
-    - 原子換名:斷網/當機不留半檔。
-    - 目錄自動建立。
+    - **content 必須是伺服器原樣的位元組(bytes)**,不是已解碼的 str。封存的意義
+      是**位元保真**:發生意外時能用原始編碼(Big5-HKSCS 等)重新解析。若傳入已
+      解碼的 str 再 encode 成 UTF-8,存下來的就不是原始檔了(原編碼資訊遺失、
+      用原編碼讀回會炸)——故本函式**拒絕 str**,強制呼叫端傳原始 bytes。
+    - 不做任何清洗(封存 = 原樣);原子換名(斷網/當機不留半檔);目錄自動建立。
     """
+    if isinstance(content, str):
+        raise TypeError(
+            "save_raw 只收伺服器原樣 bytes,不收已解碼的 str——傳 http.fetch_bytes() "
+            "的結果,不要傳 fetch_text()(封存必須位元保真,見 docstring)")
     p = raw_path(source, market, day, ext)
     p.parent.mkdir(parents=True, exist_ok=True)
-    data = content.encode("utf-8") if isinstance(content, str) else content
     tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_bytes(data)
+    tmp.write_bytes(content)
     os.replace(tmp, p)
     return p
 

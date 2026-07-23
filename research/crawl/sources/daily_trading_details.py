@@ -82,6 +82,6 @@ def _parse(text: str, day: Date, market: str) -> pl.DataFrame | None:
 def fetch_day(market: str, day: Date) -> pl.DataFrame | None:
     d = parse.twse_date(day) if market == "twse" else parse.minguo_slash(day)
     url = (_TWSE_URL if market == "twse" else _TPEX_URL).format(d=d)
-    text = http.fetch_text(url)
-    archive.save_raw("daily_trading_details", market, day, text)   # 原始檔封存鐵律:先落地再 parse
-    return _parse(text, day, market)
+    raw = http.fetch_bytes(url)
+    archive.save_raw("daily_trading_details", market, day, raw)   # 原樣 bytes(位元保真:先落地再 parse)
+    return _parse(raw.decode("Big5-HKSCS", errors="replace"), day, market)
