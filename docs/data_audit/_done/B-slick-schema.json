@@ -1,0 +1,121 @@
+{
+  "unit": "B-slick-schema",
+  "dim": "B",
+  "artifact": "src/main/scala/db/table/*.scala 型別/單位/唯一索引",
+  "audited_at": "2026-07-22",
+  "evidence_script": "docs/data_audit/scripts/B-slick-schema/checks.sql",
+  "verdict": "BUG",
+  "summary": "Slick 表定義搬到 PostgreSQL 是逐欄精準的(23 張活表零漂移),錯的是欄位名稱在騙人。最嚴重的一個叫 cash_dividend 卻不是現金股利——它裝的是「除權息參考價要往下調多少」(= 前收盤 − 參考價),legacy 段 27,637 列有 99.97% 逐位符合這條公式;其中 2,245 筆「純除權」(公司只配股票、零現金)平均掛著 NT$2.722 的假現金股利,5,119 筆「除權息」被股票股利部分灌大(平均 6.830 vs 純除息 2.043)。還原股價那條路剛好沒被害到(數學上調整總額÷前收盤正是正確的總報酬因子,prices.py 誤打誤撞用對,實測 2015 年後 17,567/17,613 筆前收盤逐位相符),但拿這欄算配息收入/殖利率的一律是假數字;而且 2024-07 換資料源後這欄語意翻轉成真現金股利、除權列填 0,換源後的股票股利事件完全不還原。另外六件:三張明細財報表的 market 只有 'tw'(1,755 萬列)其餘表用 twse/tpex,跨表 join 靜靜回 0 列;長式 value 欄同時裝新台幣千元與元/股卻沒有單位欄(台積電 2024Q4 營業收入 2,894,307,699 千元 vs 每股盈餘 45.25 元同欄);合併與個體報表擠在同一表靠 type 區分,造成 53 萬個重複鍵而四個下游用四種去重法(serenity/daily.py 乾脆不去重),cache 的 type='consolidated' 硬過濾讓 2004 年 1,189 家只剩 4 家;法人買賣超 26 欄全宣告 Int 已真的溢位;所有基本面表都沒有公告日欄位,財報重編無處可放;七個 Slick 類是死碼,其中三個表名被 matview 佔用且語意相反,一個(NetChangeOfPrice)的欄位投影本身重複一欄漏一欄。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "ex_right_dividend.cash_dividend 不是現金股利,是「除權息調整總額」(前收盤 − 參考價,含股票股利部分)。2,245 筆按交易所自己的分類是「純除權」(現金股利必為 0)卻平均掛 NT$2.722;5,119 筆「權息」平均 6.830(純除息只有 2.043)。同一欄在 2024-07 換源後語意翻轉成真現金股利、除權列寫 0。schema 沒有配股率欄,也沒有欄位能區分這兩種語意。",
+      "evidence": "定義:src/main/scala/db/table/ExRightDividend.scala:31 `def cashDividend = column[Double](\"cash_dividend\")`。全庫證明(不需外部資料,用來源自己的 right_or_dividend 事件分類):`psql -h localhost -p 5432 -d quantlib -c \"SELECT right_or_dividend, count(*) FILTER (WHERE closing_price_before_ex_right_ex_dividend>0) legacy, count(*) FILTER (WHERE closing_price_before_ex_right_ex_dividend>0 AND abs(cash_dividend-(closing_price_before_ex_right_ex_dividend-ex_right_ex_dividend_reference_price))<=0.011) eq_pre_minus_ref, round(avg(cash_dividend) FILTER (WHERE closing_price_before_ex_right_ex_dividend>0)::numeric,3) avg FROM ex_right_dividend GROUP BY 1;\"` → 權息 5119/5118/6.830、權 2245/2237/2.722、息 20273/20273/2.043(合計 27,637 列中 27,628 列逐位等於 pre−ref,99.97%)。個案自證:山富 2743 2025-09-18「權息」pre=114 ref=86.15 cash_dividend=27.846154;台股參考價公式 ref=(pre−C)/(1+s),代入「配息 2.0 元、配股 30%」得 (114−2)/1.3=86.153846,而 114−86.153846=27.846154 逐位吻合 → 真實現金股利 2 元,DB 誇大 13.9 倍。語意翻轉的證據:`SELECT to_char(date,'YYYY-MM'), count(*), count(*) FILTER (WHERE closing_price_before_ex_right_ex_dividend>0) FROM ex_right_dividend WHERE date BETWEEN '2024-01-01' AND '2024-12-31' GROUP BY 1 ORDER BY 1;` → 2024-06 前 has_pre=n,2024-07 起 279/454、171/338;台積電 2330 近期各列 pre=ref=0 而 cash_dividend=6.00003573/5.00001118/4.50002042(真季配息 6.0/5.0/4.5)。第二個生產者明文分岔:research/crawl/sources/ex_right_dividend.py:8-9「除息日一列(cash_dividend=現金股利合計)、除權日一列(cash_dividend=0)」+ 第 85 行寫 0.0。影響推導:research/prices.py:290-293 的 factor=(pre_close−cash_dividend)/pre_close,代入 cash_dividend=pre−ref 得 ref/pre,而配現金 C 配股 s 的正確總報酬還原因子 =(pre−C)/pre × 1/(1+s) = ref/pre —— legacy 段誤打誤撞正確(另實測 2015 年後 17,613 筆 legacy 事件有 17,567 筆的 daily_quote 前一日收盤與交易所記的 pre 逐位相同,99.7%);2024-07 後除權列 cash=0 → 產不出因子 → C-ex_right_dividend 獨立量到 219 筆股票股利事件完全沒還原。誤用實例:research/experiments/chase_trailing_stop.py:160 `(px.closing_price + COALESCE(d.cash_dividend,0))/px.prev_close - 1.0` 把股票股利價值當現金加進 DRIP 報酬。",
+      "fix": "(1) ExRightDividend 加 stock_dividend_ratio(配股率,無量綱)與 announce_note 欄,cash_dividend 恢復成真正的現金股利(元/股);(2) research/prices.py 因子改 (pre−cash_dividend)/pre/(1+stock_dividend_ratio),legacy 段用 s=(pre−cash)/ref−1 反解回填;(3) 加匯入期不變式:right_or_dividend='權' ⟹ cash_dividend=0、='息' ⟹ stock_dividend_ratio=0(legacy 段會全紅,正是要抓的);(4) 兩個生產者(Scala reader 與 research/crawl/sources/ex_right_dividend.py)寫同一欄卻定義不同,與 C-operating_revenue 的「雙寫入者互相覆蓋」是同一缺陷類,要一起收斂。"
+    },
+    {
+      "severity": "BUG",
+      "what": "NetChangeOfPrice 的 * 投影重複 limitUpOverallMarket、完全遺漏 limitUpStocks(漲停股票數)。型別剛好都是 Int 所以編譯得過。目前是死碼,但一旦啟用 Slick 產生的 INSERT 會同時指定 limit_up_overall_market 兩次,PostgreSQL 直接報錯,而 limit_up_stocks 永遠是空的。",
+      "evidence": "src/main/scala/db/table/NetChangeOfPrice.scala:51 `def * = (id, date, upOverallMarket, upStocks, limitUpOverallMarket, limitUpOverallMarket, downOverallMarket, ...)`,第 5、6 個位置是同一個欄位;第 27 行宣告的 limitUpStocks(\"limit_up_stocks\")未出現在投影中。死碼確認:`grep -rn \"NetChangeOfPrice\" src/main/scala/ | grep -v db/table/` → 零命中;不在 src/main/scala/Task.scala:55-77 的 createIfNotExists 清單;`psql -h localhost -p 5432 -d quantlib -c \"\\\\dt\"` 無 net_change_of_price。",
+      "fix": "第 6 個位置改成 limitUpStocks;啟用前補一條「投影欄位集合 == 宣告欄位集合」的測試守護(Slick 不會幫你抓這類錯)。或直接連同其餘六個死碼類一併刪除(見 SUSPECT-7)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "DailyTradingDetails 的 26 個數量欄全宣告成 Int,但來源單位是股數,已經真的溢位過:00403A 2026-05-13 的三大法人買賣超真值 −2,725,272,226 超出 int32 下限,DB 存 0。這是 A-daily_trading_details 已回報事件的 schema 層根因;此處補同類型別掃描。",
+      "evidence": "型別:src/main/scala/db/table/DailyTradingDetails.scala:28-70 全部 column[Int]/column[Option[Int]];reader 的 Try(value.toInt).getOrElse(0) 在 TradingReader.scala:186 與 214。重現:`iconv -f BIG5 -t UTF-8 data/daily_trading_details/twse/2026/2026_5_13.csv | grep 00403A` → 三大法人買賣超股數 -2,725,272,226;`psql -h localhost -p 5432 -d quantlib -c \"SELECT dealers_hedge_difference, dealers_difference, total_difference FROM daily_trading_details WHERE market='twse' AND company_code='00403A' AND date='2026-05-13';\"` → total_difference = 0。這也是全庫 2015 年後唯二違反「合計 = 外資 + 投信 + 自營」的兩列。同類掃描(int32 上限 2,147,483,647):daily_trading_details 實測極值 1,199,902,009(餘裕僅 1.8×,已破過);margin_transactions 13,872,687(單位張,餘裕 155×);daily_quote.transaction 1,150,086;daily_quote.trade_volume 已宣告 Long 且實測 4,204,257,454(若當初宣告 Int 早就爆)。",
+      "fix": "DailyTradingDetails 全數量欄改 Long / bigint;解析失敗改成拋例外中止該檔匯入(getOrElse(0) 是最壞的失敗模式);加匯入期不變式 total_difference = foreign + trust + dealers。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "market 欄詞彙分裂:balance_sheet / income_statement_progressive / cash_flows_progressive 全庫只有 'tw'(共 17,555,058 列),其餘所有表用 'twse'/'tpex'。同名同型別 column[String](\"market\")、沒有 CHECK 也沒有 enum,任何跨這兩群表的 JOIN ON market 會靜靜回 0 列。目前每個消費者都自己寫特例繞開,靠的是作者記得,不是 schema 擋。",
+      "evidence": "`psql -h localhost -p 5432 -d quantlib -c \"SELECT 'balance_sheet' t, market, count(*) FROM balance_sheet GROUP BY 2 UNION ALL SELECT 'cash_flows_progressive', market, count(*) FROM cash_flows_progressive GROUP BY 2 UNION ALL SELECT 'concise_balance_sheet', market, count(*) FROM concise_balance_sheet GROUP BY 2;\"` → balance_sheet|tw|7205860、cash_flows_progressive|tw|6359600、income_statement_progressive|tw|3989598,而 concise_balance_sheet|twse|2126383 + tpex|1355327。既有繞道:research/strat_lab/raw_quarterly.py:88-91「cf has no market split — join by company_code only」與第 194 行的 join on [year,quarter,company_code];research/cache_tables.py:96 `WHERE market='tw'`;src/main/resources/sql/view/4_financial_index_ttm.sql 的 market='tw'(B-view-4 已確認不是筆誤)。",
+      "fix": "三張明細表補上真正的 twse/tpex(來源是逐公司查詢,市場別可由 company_code 對照補),或把該欄改名為 source 表明它不是市場別;無論哪種,加 CHECK (market IN (...)) 讓詞彙表變成 schema 的一部分而不是口耳相傳。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "五組長式 (title, value) 財報表的 value 欄沒有單位欄,同一欄同時裝新台幣千元與元/股。單位只存在於 title 的中文字裡,任何跨 title 的 SUM 或比率都靠寫的人自己記單位。",
+      "evidence": "型別:BalanceSheet.scala:26、IncomeStatement.scala:29/66、CashFlows.scala:26、ConciseBalanceSheet(BalanceSheet.scala:58)一律 column[Double](\"value\"),無 unit 欄。實測台積電 2024Q4 合併簡明損益表:`psql -h localhost -p 5432 -d quantlib -c \"SELECT title, value FROM concise_income_statement_progressive WHERE year=2024 AND quarter=4 AND company_code='2330' AND type='consolidated' AND title IN ('營業收入','基本每股盈餘（元）');\"` → 營業收入 2,894,307,699(新台幣千元)、基本每股盈餘（元）45.25(元/股),同一欄差 8 個數量級且量綱不同。已知受害者:src/main/resources/sql/view/4_financial_index_ttm.sql 的 fcf_per_share 分母用 total_capital_stock(股本金額,千元)而非股數,整整差 10 倍(B-view-4 / B-view-5 已記);materialized_view/2_balance_sheet_with_titles.sql:6-19 的 receivable CTE 一口氣 sum 了 28 個 title。",
+      "fix": "加 unit 欄(TWD_THOUSAND / TWD_PER_SHARE / RATIO),由 reader 依 title 對照表填入;所有 SUM(value) 的地方加 GROUP BY unit 或 WHERE unit = ...。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "合併報表與個體報表擠在同一張表、靠 type 欄區分,而且唯一索引把 type 包進去,所以同一個邏輯鍵可以合法有兩列(concise_balance_sheet 532,288 鍵、concise_income_statement_progressive 355,162 鍵、operating_revenue 27,365 鍵,全部落在 2005-2012)。四個下游用四種不同去重法,其中 research/serenity/daily.py 完全不去重。cache 的 type='consolidated' 硬過濾則讓 2006 年以前的基本面實質變成空的。",
+      "evidence": "唯一索引:ConciseBalanceSheet 在 BalanceSheet.scala:60、ConciseIncomeStatement 在 IncomeStatement.scala:68、OperatingRevenue.scala:48,三者都把 type 放進 unique index。重複鍵:`psql -h localhost -p 5432 -d quantlib -c \"SELECT count(*) FROM (SELECT market,year,quarter,company_code,title FROM concise_balance_sheet GROUP BY 1,2,3,4,5 HAVING count(DISTINCT type)>1) s;\"` → 532288(cis 355162、opr 用 (market,year,month,company_code) → 27365)。年份分布全部在 2005-2012。歷史截斷:`SELECT year, count(DISTINCT company_code) all_types, count(DISTINCT company_code) FILTER (WHERE type='consolidated') FROM concise_balance_sheet WHERE year BETWEEN 2004 AND 2007 GROUP BY 1 ORDER BY 1;` → 2004: 1189 vs 4、2005: 1212 vs 4、2006: 1247 vs 1106;對應 cache `SELECT year,count(DISTINCT company_code) FROM bs_concise_raw WHERE year<=2006 GROUP BY 1` → 2004:4、2005:4、2006:1106。四種去重法:research/cache_tables.py:86-91 用 WHERE type='consolidated';research/apex/data.py:221 用 ORDER BY CASE type WHEN 'consolidated' THEN 0 ELSE 1 END(正確);research/evergreen/make_tables.py:51-53 用 ORDER BY monthly_revenue DESC(挑數字大的,不是挑合併);research/serenity/daily.py:134-137 `SELECT company_code, year, month, monthly_revenue_yoy FROM operating_revenue WHERE company_code IN (...) ORDER BY company_code, year, month` 完全不去重,同月兩列都會進第 148 行的 usable[-3:],使「3 個月均值」變成 1.5 個月且順序不決定。現役窗期(2018+)無重複鍵,所以今天沒咬到,但那是窗期僥倖不是設計正確。",
+      "fix": "(1) serenity/daily.py 與 evergreen/make_tables.py 改用與 apex/data.py 一致的 type 優先序去重;(2) cache 建表改成「有合併取合併、只有個體才取個體」並保留 type 欄讓下游知道拿到哪一種,而不是直接丟掉 2006 年以前整段歷史;(3) 長期解:合併與個體拆成兩張表,或把 type 提升為 schema 層的 enum 並在所有 view / cache SQL 強制指定。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "所有基本面表都沒有公告日欄位:balance_sheet / income_statement_progressive / cash_flows_progressive / concise_* 的鍵是 (market, year, quarter, company_code, title),operating_revenue 是 (market, type, year, month, company_code),financial_analysis 是 (market, year, company_code)。後果一:PIT 只能用法定期限推估;後果二:一個鍵只放得下一個版本,財報重編無處可放。",
+      "evidence": "唯一索引見 BalanceSheet.scala:28、IncomeStatement.scala:31/68、CashFlows.scala:28、OperatingRevenue.scala:48、FinancialAnalysis.scala:65 —— 全部沒有任何日期欄位。PIT 代理實作:src/main/scala/strategy/PublicationLag.scala:33-39 用法定期限 5/15、8/14、11/14、次年 3/31 加 QuarterlyBufferDays=7;第 60-63 行月營收用次月 10 日 + 3 天。Python 側兩套不一致(v4.py 用期限+7 天、apex/assemble.py 用期限本身)已由 B-fscore-academic 記載。重編不可表達:同一 (year, quarter, code, title) 只有一列,目前靠 reader 的『已在庫就跳過』意外保留第一版(≈ PIT 正確),但那是副作用不是設計——一旦改成 upsert,歷史回測就會看到當時不知道的重編後數字。",
+      "fix": "加 announce_date(MOPS 各報表都有申報日)並納入唯一索引作為版本維度;消費端一律 WHERE announce_date <= 決策日 取最新一版。這比現行的『法定期限 + 緩衝』精準(公司常提前公告),也讓重編有地方放。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "非 Option 數值欄把「沒有」寫成 0:daily_quote.change 宣告成非 nullable,134,222 列 closing_price IS NULL(當天沒成交)卻 change = 0(100%),在庫裡長得跟「今天平盤」一模一樣。同一類已由 A-index 在 index.change / change(%) 上實證。目前 change 無消費者,是未爆彈而非已爆。",
+      "evidence": "型別:src/main/scala/db/table/DailyQuote.scala:42 `def change = column[Double](\"change\")`(非 Option),而同檔 32-38 行的 OHLC 四欄都是 Option[Double]。實測:`psql -h localhost -p 5432 -d quantlib -c \"SELECT count(*) FILTER (WHERE change=0 AND closing_price IS NULL), count(*) FILTER (WHERE closing_price IS NULL) FROM daily_quote;\"` → 134222 | 134222。同類高風險欄位盤點:ExRightDividend 全 8 個 Double、CapitalReduction 5 個 Double(僅 exRightReferencePrice 是 Option)、ForeignHoldingRatio 6 欄、SblBorrowing 6 欄、MarginTransactions 13 欄皆非 Option。未消費確認:research/cache_tables.py 的 daily_quote SELECT(第 32-36 行)不收 change。",
+      "fix": "凡是來源可能給空白 / '--' 的數值欄一律改 Option[T](PostgreSQL nullable);reader 的 Try(...).getOrElse(0) 改成 .toOption。這是 A-index 已回報缺陷的同一類,建議一次掃完上列六張表。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "tdcc_shareholding 把 tier 16(差異數)與 tier 17(合計)當成普通級距存在同一張表、同一個唯一索引下,schema 沒有任何旗標欄;把 17 個 tier 相加平均得 199.95%。任何人寫 SUM(num_shares) 或 SUM(pct_of_outstanding) 會直接雙倍計算。",
+      "evidence": "級距語意只寫在 doc comment:src/main/scala/db/table/TdccShareholding.scala:11-30(16 = 差異數、17 = 合計);唯一索引第 49 行 (dataDate, companyCode, holdingTier) 不區分彙總列。實測:`psql -h localhost -p 5432 -d quantlib -c \"WITH s AS (SELECT data_date, company_code, sum(pct_of_outstanding) FILTER (WHERE holding_tier BETWEEN 1 AND 17) pct_all FROM tdcc_shareholding GROUP BY 1,2) SELECT count(*), round(avg(pct_all)::numeric,2) FROM s;\"` → 47830 | 199.95。目前唯一消費者 research/db.py:142 只註冊 view、沒有聚合,所以尚未爆。",
+      "fix": "加 is_summary boolean(tier 16/17 為 true),或把合計與差異數搬到另一張表;現況下所有查詢必須寫 WHERE holding_tier BETWEEN 1 AND 15。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "七個 Slick 類是完全沒人用的死碼,其中三個的 tableName 已被 PostgreSQL 的物化視圖佔用,而且語意相反:matview 的 individual 指「單季差分」,Slick 類的 Individual 指「個體報表」。createIfNotExists 對這三個名字會靜默 no-op,連 Main init 都不會報錯。",
+      "evidence": "死碼確認:`grep -rn \"NetChangeOfPrice\\|MarketSummary\\|QuarterlyReport\\|CashFlowsIndividual\\|IncomeStatementIndividual\\|ConciseIncomeStatementIndividual\\|CompanyInformation\" src/main/scala/ | grep -v '^src/main/scala/db/table/'` → 零命中;七者皆不在 src/main/scala/Task.scala:31-53 的 TableQuery 宣告與 55-77 的建表清單。名稱佔用:`psql -h localhost -p 5432 -d quantlib -c \"\\\\dm\"` → cash_flows_individual、income_statement_individual、concise_income_statement_individual 三者都是 materialized view,由 src/main/resources/sql/materialized_view/3_、7_、5_*.sql 建立,內容是 `case when quarter=1 then value else value - lag(value) over (...)`(單季差分)。欄位不合:ConciseIncomeStatementIndividual(IncomeStatement.scala:49-71)有 9 欄含 type,而 matview concise_income_statement_individual 只有 8 欄且無 type —— 用 Slick 查它會在 runtime 炸。CompanyInformation.scala:11 是連 Table 都不是的空 class。",
+      "fix": "七個類全刪(死碼是時間債,不是資產)。若『個體報表』真的要做,重新命名成 *_standalone 以免與 matview 的『單季』語意相撞;同時把 matview 的 _individual 改名為 _quarterly 才是誠實的命名。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "schema 裡有兩個本益比欄位,daily_quote.price_earning_ratio 只有 TWSE 有值(TPEx 386 萬列 100% NULL)、不進 cache、零消費者;它其實可以當現成的交叉守門員抓出 stock_per_pbr 的整天汙染,但沒接。",
+      "evidence": "`psql -h localhost -p 5432 -d quantlib -c \"SELECT market, count(*) FILTER (WHERE price_earning_ratio IS NOT NULL), count(*) FROM daily_quote GROUP BY 1;\"` → tpex 0/3866376、twse 5257704/5257704。不一致量:`SELECT extract(year from q.date)::int, count(*) FILTER (WHERE q.price_earning_ratio IS NOT NULL AND p.price_to_earning_ratio IS NOT NULL AND abs(q.price_earning_ratio-p.price_to_earning_ratio)>0.02) FROM daily_quote q JOIN stock_per_pbr_dividend_yield p USING (market,date,company_code) WHERE q.date>='2024-01-01' GROUP BY 1;` → 2024:1、2025:709、2026:709。抽樣全落在 A-stock_per_pbr_dividend_yield 已定案的『整天存到別天資料』日期,例 2026-02-25 台積電 daily_quote 32.93 vs stock_per_pbr 17.11(後者是 2017-12-18 的舊值)。不進 cache 確認:research/cache_tables.py:32-36 的 daily_quote SELECT 不含 price_earning_ratio。",
+      "fix": "把 daily_quote.price_earning_ratio 接進匯入期驗證——兩來源在 TWSE 上偏離 > 2% 的日子直接紅燈。不需要新資料,只要把已經在庫的欄位用起來。"
+    },
+    {
+      "severity": "REAL",
+      "what": "三大法人恆等式在 2015 年以前大量不成立(自營商 506,397 列、合計 568,922 列),但那不是 schema 定義錯,是 reader 對舊版 CSV 欄序的錯位。A-daily_trading_details 已定案並給了修法;2015 年後兩市場皆 0 違反。",
+      "evidence": "`psql -h localhost -p 5432 -d quantlib -f docs/data_audit/scripts/B-slick-schema/checks.sql` 的 REAL-1 區塊:tpex 2007-2014 每年 14,426~75,632 列違反、twse 2012-2014 每年 55,174~84,570 列違反,2015 年起兩市場全部 0(twse 2026 的 1/2 列即 BUG-3 的 int32 溢位)。原始檔佐證:`iconv -f BIG5 -t UTF-8 data/daily_trading_details/twse/2013/2013_6_3.csv | head -2` 的表頭是「…自營商買賣超股數,自營商買進股數,自營商賣出股數,三大法人買賣超股數」(淨額在買進之前),而 DB 的 1101 台泥該日 dealers_total_buy=-611654(= 淨額)、dealers_total_sell=264000(= 買進)、dealers_difference=875654(= 賣出)—— 整組往後轉一格。schema 本身的欄位語意是對的。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "Slick ↔ PostgreSQL 逐欄 parity 完全一致,CLAUDE.md 擔心的『raw DDL 與 Slick 漂移』沒有發生。23 張活表的欄名、順序、型別、nullability、唯一索引全部相符,包括帶斜線/括號/貨幣符號的怪欄名。這一項查過了,別再查一次。",
+      "evidence": "`psql -h localhost -p 5432 -d quantlib -c \"SELECT table_name, ordinal_position, column_name, data_type, is_nullable FROM information_schema.columns WHERE table_schema='public' ORDER BY 1,2;\"` 與 25 個 db/table/*.scala 逐欄比對:0 處不符。怪欄名全部落地:\"liabilities/assets_ratio(%)\"、\"Long-term_funds_to_property&plant&equipment(%)\"、\"change(%)\"、\"trade_value(NT$)\"、\"monthly_revenue_compared_last_month(%))\"。唯一索引:`SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname='public' AND indexdef LIKE 'CREATE UNIQUE%' AND indexname NOT LIKE '%_pkey';` → 23 條全部與 Slick 的 def idx 欄位組相同(兩條名稱被 PostgreSQL 截到 63 字元:idx_ConciseBalanceSheet_..._ti、idx_ConciseIncomeStatement_...,欄位組本身無誤)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "欄位單位與符號約定用恆等式全庫驗過:融資/融券餘額零違反、外資持股比率零違反、借券的調整項符號是加號。這三項查過了,別再查一次。",
+      "evidence": "`SELECT count(*) FILTER (WHERE margin_balance_of_the_day <> margin_balance_of_previous_day + margin_purchase - margin_sales - cash_redemption) FROM margin_transactions;` → 0 / 8,341,265(同式對融券亦 0),連帶證明 margin_transactions 的單位(張)與欄位對應正確。`SELECT count(*) FILTER (WHERE outstanding_shares>0 AND abs(foreign_held_ratio - 100.0*foreign_held_shares/outstanding_shares) > 0.02) FROM foreign_holding_ratio;` → 0 / 8,225,920(可投資比率 8 列例外)。借券符號:`daily_balance = prev + sold - returned + adjustment` 38 例外 vs `- adjustment` 6,730 例外(共 4,691,508 列)→ 確認是加號,但 SblBorrowing.scala 的 doc comment 沒寫這條,建議補。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "ex_right_dividend 的唯一索引粒度正確——擔心的『同一天同一檔既除權又除息會被 (market,date,company_code) 砍掉一筆』不成立,交易所本來就把同日兩事件併成一列標記為「權息」。另外 double precision 對財報金額無精度損失,company_code 正規化乾淨,NOT NULL 日期欄無哨兵值。這四項查過了,別再查一次。",
+      "evidence": "事件分類:`SELECT right_or_dividend, count(*) FROM ex_right_dividend GROUP BY 1;` → 息 22,729 / 權息 5,120 / 權 2,304,共 30,153 列,零同日雙事件。精度:三張長式表最大 |value| = 110,608,426,000(concise_balance_sheet)、8,103,104,763、3,338,150,480,離 IEEE754 double 精確整數上限 2^53 = 9,007,199,254,740,992 差 5 個數量級。company_code:daily_quote / operating_revenue / concise_balance_sheet / cash_flows_progressive / margin_transactions 五張表皆 0 列 length<4、0 列 <> trim(company_code)。日期哨兵:treasury_stock_buyback 的 period_start/period_end 0/2,933 異常,insider_holding.declare_date 0/771 異常。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "src/main/scala/db/table/*.scala 全 25 檔 1,258 行逐行精讀(33 個類別宣告的欄位型別、Option 與否、唯一索引欄位組、doc comment 的單位聲明)",
+    "Slick ↔ PostgreSQL 逐欄 parity:information_schema.columns 全 public schema 傾印 vs 25 個 Scala 檔逐欄比對(欄名/順序/型別/nullability)",
+    "唯一索引落地比對:pg_indexes 的 23 條 CREATE UNIQUE INDEX vs 各表 def idx 的欄位組(含 63 字元截斷)",
+    "型別溢位掃描:daily_trading_details / margin_transactions / daily_quote(transaction, trade_volume, last_best_*_volume)/ tdcc_shareholding 的實測極值 vs int32 上限,並回到原始 CSV 確認 00403A 兩列的真值",
+    "欄位語意恆等式(全庫,非抽樣):三大法人 7 條(外資=不含自營+自營、自營=自行+避險、合計=外資+投信+自營、各家買賣超=買−賣)、融資與融券餘額各 1 條、借券餘額 2 條(±adjustment 對照)、外資持股比率與可投資比率各 1 條",
+    "ex_right_dividend 的 cash_dividend 定義:三類事件 × pre−ref 逐位比對(27,637 legacy 列)、2024 逐月 pre 覆蓋率(語意翻轉點)、台積電/晟德/山富個案、daily_quote 前收盤 vs 交易所 pre 的一致率(2015 年後 17,613 列)",
+    "prices.py 還原因子的數學推導與程式對照(research/prices.py:262-300、340-392),確認 legacy 段 factor = ref/pre 恰為正確的合併總報酬因子",
+    "合併/個體(type)重複鍵盤點:concise_balance_sheet / concise_income_statement_progressive / operating_revenue 的同鍵跨 type 計數與年份分布,以及 type='consolidated' 過濾造成的歷史截斷(PG vs DuckDB cache 逐年公司數)",
+    "type 去重的四個下游消費者逐行對照:research/cache_tables.py:86-91、research/apex/data.py:218-228、research/evergreen/make_tables.py:51-53、research/serenity/daily.py:130-150",
+    "market 詞彙掃描:9 張主表的 distinct market 值與列數,以及三個既有繞道(raw_quarterly.py:88-91/194、cache_tables.py:96、4_financial_index_ttm.sql)",
+    "value 欄的單位混用:台積電 2024Q4 全 title 傾印(千元 vs 元/股),以及 2_balance_sheet_with_titles.sql 的 28-title sum",
+    "PIT 能力盤點:六張基本面表的唯一索引皆無日期欄;src/main/scala/strategy/PublicationLag.scala 全檔(法定期限 + 緩衝的代理實作)",
+    "NULL vs 0 conflation:daily_quote.change 對 closing_price IS NULL 的 100% 命中,以及 daily_trading_details 逐年 NULL 分布(2015 年前後的格式世代)",
+    "死碼盤點:七個無 TableQuery / 不在 Task.createTables / PG 無對應表的 Slick 類,以及三個與 materialized view 撞名者的欄位差異(\\dm + matview SQL 全讀)",
+    "src/main/resources/sql/materialized_view/*.sql 全 7 檔精讀(distinct on ... order by type 的合併/個體隱式擇一、單季差分的 partition by 是否含 market)",
+    "tdcc_shareholding tier 16/17 的彙總語意:17 tier 相加的 pct 平均、tier17 vs tier1-15+16 的一致率、消費者盤點",
+    "兩個本益比欄位的覆蓋率與逐日不一致量(2024-2026),以及它們是否進 cache",
+    "既有稽核成果交叉比對,避免重複回報:A-daily_trading_details(欄位錯位 + int32)、A-index(change 非 nullable)、A-stock_per_pbr(整天汙染)、C-ex_right_dividend(219 筆股票股利未還原)、C-operating_revenue(雙寫入者)、B-view-3/4/5、B-fscore-academic"
+  ]
+}

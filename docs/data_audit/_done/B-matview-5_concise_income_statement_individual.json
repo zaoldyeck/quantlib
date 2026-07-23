@@ -1,0 +1,80 @@
+{
+  "unit": "B-matview-5_concise_income_statement_individual",
+  "verdict": "BUG",
+  "summary": "這張表在 2004-2007 年是壞的——它把「合併報表」和「個體報表」兩種不同口徑的累計數相減，龍邦 2514 的 2006Q4 單季營收被放大一萬倍；2013 年後的數字可以信（台積電 2024 逐季驗算完全正確）。現役 Python 交易系統不讀這張表，實盤沒中彈，但所有引用 Scala 時期 2004-2012 回測的結論地基是壞的。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "合併報表(consolidated)與個體報表(individual)被拿來互相相減：DISTINCT ON 靠 type 字母序恆取 consolidated，但 2013 IFRS 前台灣合併財報只有半年報與年報，導致同一公司季度序列在「個體→合併→個體→合併」之間跳動，第 21 行的 value - lag(value) 就跨口徑相減。影響科目=全部 122 個 title；嚴重窗口 2004-2007，低率尾巴延續到 2016。",
+      "evidence": "檔案：src/main/resources/sql/materialized_view/5_concise_income_statement_individual.sql:2-11（DISTINCT ON + order by ..., type）配 :19-22（差分）。\n\n(1) type 值域與覆蓋：\nSELECT year,quarter,type,count(DISTINCT company_code) FROM concise_income_statement_progressive WHERE year IN (2006,2007) GROUP BY 1,2,3;\n-- 2006 Q1 consolidated 21 / individual 1054；Q2 consolidated 1069 / individual 1205；Q3 consolidated 22 / individual 1079；Q4 consolidated 1101 / individual 1235\n\n(2) 跨口徑差分列比例（僅 title='營業收入'）：2006 年 2,783/3,260 = 85.4%；2007 年 2,951/3,541 = 83.3%。\n\n(3) 台積電 2330 現場：\nSELECT year,quarter,type,value FROM concise_income_statement_progressive WHERE company_code='2330' AND market='twse' AND title='營業收入' AND year IN (2006,2007);\n-- 2007 Q3 individual 222,659,120；2007 Q4 consolidated 322,630,596 / individual 313,647,644\nSELECT year,quarter,value FROM concise_income_statement_individual WHERE company_code='2330' AND market='twse' AND title='營業收入' AND year=2007;\n-- 2007Q4 = 99,971,476 （= 322,630,596 合併FY − 222,659,120 個體9M）\n實際值 vs 應有值：99,971,476 vs 90,988,524（純個體 313,647,644 − 222,659,120）→ 高估 +9.87%。\n\n(4) 全市場誤差分佈（對照純個體基準，可重跑 SQL 見 findings md）：\n2006Q2 中位絕對誤差 18.48% / p95 387%；2006Q4 30.68% / 743%；2007Q4 34.10% / 963%。每季 75-77% 的公司誤差 >0.5%。\n\n(5) 控股公司最毒案例（2006Q4 單季營收，千元）：\n2514 龍邦 view 61,648,584 vs 真實個體 5,620 → 放大 10,970 倍\n3701      view 56,488,428 vs 10,840 → 5,211 倍\n3702 大聯大 view 114,984,784 vs 313,166 → 367 倍\n9904 寶成  view 176,553,872 vs 3,283,168 → 54 倍\n\n(6) 截面混用：2006 年 47.5% 公司走合併、52.5% 走個體（2007 47.0%），跨股票排名等於拿合併數跟個體數比大小（大聯大個體 1.45B vs 合併 116B，差 80 倍）。\n\n(7) 爆炸半徑：research/cache_tables.py:84-87 明寫 WHERE market IN ('twse','tpex') AND type='consolidated'，故現役 Python 路徑（Serenity/apex/Evergreen）不受影響；中彈的是 PG matview → 6_concise_financial_statement_with_titles → financial_index_ttm/growth_analysis_ttm → Scala 凍結策略層。",
+      "fix": "根因是 order by ... type 的字母序隱性依賴（加第三個 type 值即無聲改變行為）。改成明確鎖 `where type = 'consolidated'`，且同一時間序列禁止換基；若要保留 2013 年前個體資料，須拆成 value_consolidated / value_individual 兩個並列欄位由消費端明確選一種，不得在序列內切換。另在 view 頂端註明「2013 年前合併財報僅半年報/年報」這條會計制度事實。"
+    },
+    {
+      "severity": "BUG",
+      "what": "缺一季時 lag 跳到不相鄰期別：第 19-22 行只判斷 quarter=1，沒有檢查前一筆是不是 (同年, 本季−1)。橫跨多季的差額被貼上「單季」標籤，產出看起來正常的錯數字。",
+      "evidence": "檔案：src/main/resources/sql/materialized_view/5_concise_income_statement_individual.sql:19-22。\n\nlag 落點分佈（title='營業收入'，非首筆的非-Q1 列中前一筆不相鄰者，共 3,212 筆）：\nQ2←去年Q4 1,447 筆（半年累計 − 去年全年累計 → 巨額負值）\nQ4←同年Q2 1,256 筆（H2 貼成 Q4，約 2 倍高估）\nQ4←去年Q4   231 筆\nQ3←同年Q1   217 筆（Q2+Q3 貼成 Q3）\nQ3←去年Q4    52 筆；其他 9 筆\n\n重跑 SQL：\nWITH d AS (SELECT DISTINCT ON (market,year,quarter,company_code,title) market,year,quarter,company_code,title,value,type FROM concise_income_statement_progressive WHERE title='營業收入' ORDER BY market,year,quarter,company_code,title,type),\n f AS (SELECT * FROM d WHERE market IN ('twse','tpex')),\n w AS (SELECT *, lag(value) OVER w pv, lag(year) OVER w py, lag(quarter) OVER w pq FROM f WINDOW w AS (PARTITION BY company_code,title ORDER BY year,quarter))\nSELECT quarter, py=year, pq, count(*) FROM w WHERE quarter<>1 AND pv IS NOT NULL AND NOT (py=year AND pq=quarter-1) GROUP BY 1,2,3 ORDER BY 4 DESC;\n\n輸出端指紋：concise_income_statement_individual 有 1,975 列單季營收為負，歸因缺季 1,464 列(74%)、type 換基 484 列(25%)、無法解釋 80 列(4%)。逐年：2006 196、2007 361、2008-2017 每年 88-163、2018 後個位數~40。\n\n（同型 bug 已於 docs/data_audit/findings/B-view-3_financial_index_quarterly.md BUG 3 以現金流量表記載；本單位以損益表獨立復現並補上 lag 落點分佈。）",
+      "fix": "改成 `case when quarter = 1 then value when lag(year) over w = year and lag(quarter) over w = quarter - 1 then value - lag(value) over w else null end`，缺季給 NULL。同類掃描：3_cash_flows_individual.sql:8-12、7_income_statement_individual.sql:8-11 完全同型；research/strat_lab/raw_quarterly.py:127-148,176-180 雖有年分區但仍是「位移一列」不是「位移一季」，缺季時同 bug，且那條是現役研究路徑。"
+    },
+    {
+      "severity": "BUG",
+      "what": "非加總型科目也被無差別差分：第 19-22 行對全部 122 個 title 一律做減法，包含本質上是水準值而非流量的「換算匯率」。EPS 亦被差分，且下游確實在用。",
+      "evidence": "檔案：src/main/resources/sql/materialized_view/5_concise_income_statement_individual.sql:19-22。\n\n換算匯率（實際值 vs 應有值）：\nSELECT p.year,p.quarter,p.company_code,p.value raw_fx,m.value matview_fx FROM concise_income_statement_progressive p JOIN concise_income_statement_individual m USING (market,year,quarter,company_code,title) WHERE p.title='換算匯率' AND p.market IN ('twse','tpex');\n-- 910069 2010Q4：原始 22.73 → matview -0.11（應為 22.73）\n-- 910069 2011Q2：原始 23.38 → matview  0.65（應為 23.38）\n-- 9102   2005Q2：原始 18.78 → matview -0.33（應為 18.78）\n影響 86 列（換算匯率 84 + 換算匯率參考依據 2），下游未消費，爆炸半徑小。\n\nEPS：下游 6_concise_financial_statement_with_titles.sql:81-88 的 eps CTE 直接消費差分後的「基本每股盈餘（元）」等。累計 EPS 差分是業界近似，但季間加權平均股數不同（台股股票股利頻繁）→ 非精確。破裂指紋：單季 EPS 與單季稅後淨利符號矛盾比例 2013 年前 896/61,258 = 1.46%、2013 年後 960/87,199 = 1.10%（部分屬正常，EPS 為母公司歸屬、淨利含非控制權益）。",
+      "fix": "建非加總型科目白名單：換算匯率 / 換算匯率參考依據不得差分（沿用累計值或整個排除）。EPS 差分保留但須在 view 檔頂端註明「單季 EPS 為累計差分近似，季間加權股數不同，非精確值」，讓下游知道它的精度等級。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "殘留前視偏誤：本 view 無任何申報日欄位，且來源表唯一索引為 (market,type,year,quarter,company_code,title)，重編(restatement)直接覆蓋原值、不保留版本 → 歷史季度存的是「最新重編版」而非「當時已公告版」。",
+      "evidence": "concise_income_statement_progressive schema（psql \\d）：欄位僅 id/market/type/year/quarter/company_code/company_name/title/value，無 filing_date/announce_date；唯一索引 idx_ConciseIncomeStatement_market_type_year_quarter_companyCode UNIQUE (market,type,year,quarter,company_code,title) → 再匯入即覆蓋，無版本史。\n本 view 輸出欄位同樣只有 (market,year,quarter,company_code,company_name,title,value)。\nPIT 由下游 src/main/scala/strategy/PublicationLag.scala:33-39 處理（Q1 5/15、Q2 8/14、Q3 11/14、Q4 次年 3/31，各 +7 天緩衝）→ 期別對齊本身不是本檔 bug，但重編覆蓋造成的前視無法在下游補救。\n（此為來源表結構限制，屬 C-is_progressive_raw 範疇，但原封傳導到本 view。）",
+      "fix": "若要根治須在來源表加 (filing_date, revision_seq) 並改 PIT 查詢為「取 filing_date <= 決策日的最新一筆」。短期至少在 view 頂端註明「本表為最新重編版，非 as-filed，重編頻繁的科目在 PIT 回測中有殘留前視」。"
+    },
+    {
+      "severity": "OK",
+      "what": "更正前一份稽核：B-fscore-academic.md:325 把本檔 :19-22 標為「BUG-5 沒有按年分區」——這是誤判。case when quarter = 1 then value 在 Q1 直接回傳累計值、完全不碰 lag，跨年邊界本來就正確。",
+      "evidence": "quarter 值域實測恰為 {1,2,3,4}（SELECT quarter,count(*) FROM concise_income_statement_progressive GROUP BY 1 → 1:741451 / 2:820656 / 3:747709 / 4:871438）。\n670,841 筆 Q1 列與來源累計值 100% 逐位相同：\nWITH d AS (SELECT DISTINCT ON (market,year,quarter,company_code,title) market,year,quarter,company_code,title,value FROM concise_income_statement_progressive WHERE market IN ('twse','tpex') ORDER BY market,year,quarter,company_code,title,type)\nSELECT count(*) q1_rows, count(*) FILTER (WHERE d.value=m.value) q1_identical FROM d JOIN concise_income_statement_individual m USING (market,year,quarter,company_code,title) WHERE d.quarter=1;\n-- 670841 | 670841",
+      "fix": "把 B-fscore-academic 的 BUG-5 標記為誤判並改指向真正的缺季 bug（本單位 BUG 2）——修法不同：加年分區沒用，要加「前一筆必須是 (同年, 本季−1)」的守衛。"
+    },
+    {
+      "severity": "OK",
+      "what": "缺 market 分區（:22 partition by company_code, title）雖與姊妹檔 7_income_statement_individual.sql:11（partition by market, company_code, title）不一致，但實測無害，且對轉板公司反而更正確。",
+      "evidence": "同一 company_code 在同一 (year,quarter) 同時出現在兩市場的筆數 = 0：\nWITH d AS (SELECT DISTINCT market,year,quarter,company_code FROM concise_income_statement_progressive WHERE market IN ('twse','tpex')) SELECT count(*) FROM (SELECT year,quarter,company_code FROM d GROUP BY 1,2,3 HAVING count(DISTINCT market)>1) t; -- 0\n曾跨市場（上櫃轉上市）公司 = 13 家；跨市場相鄰差分列 = 13 筆（2021:1、2023:10、2025:2）。\n轉板後仍是同一年度累計，接著減是對的；姊妹檔的 by-market 分區反而會在轉板季斷掉。",
+      "fix": "不是 bug，但屬未文件化的隱性設計。建議兩檔統一為「不分 market」並在註解寫明理由（累計數跨市場連續、無同季碰撞），避免下一個人反向『修正』成 by-market。"
+    },
+    {
+      "severity": "OK",
+      "what": "分母保護 / ±inf — 本 view 完全沒有除法，只有減法，不可能除以零或產生 ±inf。",
+      "evidence": "5_concise_income_statement_individual.sql 全 28 行只有 `value - lag(value)` 一處算術（:21-22），無 `/`、無 nullif 需求。分母保護是下游 financial_index_quarterly / financial_index_ttm 的責任（已於 B-view-3 / B-view-4 稽核）。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "鍵唯一性、丟列行為、market 值域、幣別單位、現代年份正確性 — 全部查過無誤。",
+      "evidence": "(1) 鍵唯一：SELECT count(*) FROM (SELECT market,year,quarter,company_code,title FROM concise_income_statement_individual GROUP BY 1,2,3,4,5 HAVING count(*)>1) t; -- 0\n(2) 丟列：matview 2,783,022 列 vs 來源去重 2,826,092 列，丟 43,070 列；實測 43,070 列全部是「非 Q1 且序列無前一筆」的頭列（無法差分，丟棄正確）。\n(3) market 值域：只有 twse(1,918,606) / tpex(1,262,648)，:24-25 的過濾實質 no-op，不會誤刪。\n(4) 單位：新台幣千元，差分後不變。2330 FY2024 合併營收 2,894,307,699 千元 = NT$2.894 兆，與公開數字相符。\n(5) 現代年份逐季驗算 2330 2024：Q1 592,644,201 / Q2 673,510,177 / Q3 759,692,143 / Q4 868,461,178，與累計數 592,644,201 / 1,266,154,378 / 2,025,846,521 / 2,894,307,699 逐位吻合 → 2013 年後資料可信。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "精讀 src/main/resources/sql/materialized_view/5_concise_income_statement_individual.sql 全 28 行，逐行寫出算式（DISTINCT ON 去重規則、Q1 直取 / Q2-Q4 差分、market 過濾、value is not null）",
+    "精讀姊妹檔 1_concise_balance_sheet_individual.sql、3_cash_flows_individual.sql、7_income_statement_individual.sql 做同類比對（發現 partition by 語意不一致）",
+    "精讀下游 6_concise_financial_statement_with_titles.sql 全 149 行，確認哪些 title 被消費（營業收入/營業成本/營業費用/營業利益/稅前淨利/本期淨利/EPS）",
+    "讀 concise_income_statement_progressive schema：無申報日欄位、唯一索引含 type（重編覆蓋、無版本史）",
+    "盤點 type 值域（consolidated 2,045,371 列 2004-2026 / individual 1,135,883 列 1989-2014）與逐年逐季覆蓋率，確認 2013 IFRS 前合併財報僅半年報/年報",
+    "盤點全部 122 個 title 及其筆數，找出非加總型科目（換算匯率、換算匯率參考依據、各式 EPS）",
+    "量化跨 type 差分列比例（逐年，title=營業收入）：2006 85.4%、2007 83.3%、2008-2016 每年 1-33 列",
+    "量化缺季 lag 落點分佈（Q2←去年Q4 1,447 / Q4←同年Q2 1,256 / Q4←去年Q4 231 / Q3←同年Q1 217 / Q3←去年Q4 52 / 其他 9）",
+    "量化跨市場相鄰差分列（13 筆）與同季雙市場碰撞（0 筆）、曾跨市場公司家數（13 家）",
+    "量化單季營收為負 1,975 列並逐項歸因（缺季 1,464 / type 換基 484 / 無法解釋 80）",
+    "對照純個體基準量化 2006-2007 逐季單季營收誤差分佈（中位 16.34%~34.10%、p95 387%~963%、>0.5% 誤差比例 75-77%）",
+    "手算對帳 2330 台積電 2006/2007（+9.87% 高估）與 2024（逐位正確）",
+    "手算對帳控股型 2514 龍邦（10,970×）、3701（5,211×）、3702 大聯大（367×）、9904 寶成（54×）、2375（34×）",
+    "量化每年截面上合併基準公司占比（2004 10.5% → 2006 47.5% → 2008 88.5% → 2015 100%），確認 2004-2012 截面混用兩種口徑",
+    "驗證跨年邊界：670,841 筆 Q1 列與來源累計值 100% 逐位相同 → 推翻 B-fscore-academic BUG-5「沒有按年分區」誤判",
+    "驗證 value is not null 丟掉的 43,070 列全部是可解釋的非-Q1 頭列",
+    "驗證 matview 鍵唯一性（0 重複）、market 值域（僅 twse/tpex）、幣別單位（2330 FY2024 = NT$2.894 兆）",
+    "驗證 EPS 差分破裂指紋（單季 EPS vs 單季淨利符號矛盾率 1.46% / 1.10%）",
+    "trace 消費者鏈：matview → 6_concise_financial_statement_with_titles.sql:34,41,46,50,61,73,82 → financial_index_ttm/growth_analysis_ttm → Scala 策略層（ValueRevertStrategy:66、MultiFactorStrategy:78、QualityFilter:31、DividendYieldStrategy:49、ValueMomentumStrategy:70、Signals:139,142,531,549）；refresh 掛在 FinancialReader.scala:161",
+    "確認現役 Python 路徑不受 BUG 1 影響：research/cache_tables.py:84-87 已鎖 type='consolidated'；research/strat_lab/raw_quarterly.py 直讀 progressive 不經本 view",
+    "讀 src/main/scala/strategy/PublicationLag.scala:33-39 確認 PIT 由下游負責（法定期限 +7 天緩衝）",
+    "交叉比對既有稽核 B-view-3_financial_index_quarterly.md、B-view-4_financial_index_ttm.md、B-fscore-academic.md，避免重複並更正其中一項誤判",
+    "排除台股已知真實邊界：金融業負營收（本 view 僅減法、非該情境）、營建業零營收、週六補行交易日、concise_* 無 market 欄（本表實際有 market 欄）"
+  ]
+}

@@ -1,0 +1,79 @@
+{
+  "id": "A-daily_quote",
+  "dim": "A",
+  "source": "daily_quote",
+  "reader": "TradingReader.readDailyQuote",
+  "table": "daily_quote",
+  "raw_files": 15151,
+  "unit": "A-daily_quote",
+  "verdict": "BUG",
+  "summary": "報價數字本身可以信,而且是全史核過的:另寫一份『用標頭中文名定位欄位』的獨立解析器把 15,151 個原始檔全部重讀,對 10,198 個 (market,date)、9,124,080 列、13 個數字欄比對列數/空值數/欄位加總,零差異;另抽 16 天逐格比對(含公司名稱)也零差異。不能信的只有兩個小洞:(1) 2017-04-17 的上櫃原始檔下載到一半就斷了,8923~9962 共 21 檔整天沒進庫,程式沒有任何完整性檢查、且『日期已在庫就跳過』的規則讓重抓後也不會重匯;(2) 程式對整列做 replace(\" \",\"\"),把公司名稱的內部空白也抹掉(元大MSCI A股 → 元大MSCIA股)。另外記兩件語意坑:上市的成交量含零股/盤後定價/鉅額、上櫃不含定價且 100% 整張(跨市場流動性門檻不是同一把尺);上櫃原始檔每天附的『發行股數』等三欄從未接進任何 schema。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "data/daily_quote/tpex/2017/2017_4_17.csv 是下載到一半就斷的檔案,導致 8923 時報~9962 有益共 21 檔上櫃股票在 2017-04-17 整天沒有報價。DB 該日 713 列,前後交易日 734/734。TradingReader.scala:133 的 filter(_.size >= 15) 把那條半截列靜靜丟掉,後面 20 檔根本沒下載到;程式沒有任何『檔案完不完整』的檢查。更麻煩的是 TradingReader.scala:92-94 以『(market, 檔名日期) 已在 DB』當跳過條件,原始檔就算重抓正確,重跑 Main read 也不會重新匯入。",
+      "evidence": "iconv -f BIG5-HKSCS -t UTF-8 data/daily_quote/tpex/2017/2017_4_17.csv | tail -1 → '\"8923\",\"時報\",\" ----\",\"--- \",\"----\",\"----\",\"----\",\"0\",\"0\",\"0\",\"17.05\",'(列在此中斷,且全檔沒有 TPEx 必有的『共N筆』結尾)。SQL:SELECT date,count(*) FROM daily_quote WHERE market='tpex' AND date BETWEEN '2017-04-14' AND '2017-04-18' GROUP BY 1 → 04-14:734、04-17:713、04-18:734。全史唯一性佐證三條:(a) 4,924 個有資料的 TPEx 檔中只有這 1 個缺『共N筆』,其餘 4,923 檔自報筆數與實際解析列數 0 個不符(docs/data_audit/scripts/A-daily_quote/trunc.py、scan3.py);(b) 每日 max(company_code):tpex 4,678 天都是 9962,只有 2017-04-17 是 8921;twse 5,519 天只有 9945→9955→9958 三段乾淨更迭;(c) 列數低於前後 5 日均值 98% 的只有 2 天,另一天 2010-07-13 自報『共1152筆』與實際相符。缺的 21 檔(對 2017-04-18 名單):8923 時報、8924 大田、8927 北基、8928 鉅明、8929 富堡、8930 青鋼、8931 大汽電、8932 宏大、8933 愛地雅、8934 衡平、8935 邦泰、8936 國統、8937 合騏、8938 明安、8941 關中、8942 森鉅、9949 琉園、9950 萬國通、9951 皇田、9960 邁達康、9962 有益。偵測腳本:docs/data_audit/scripts/A-daily_quote/dropcheck.py 對全史掃描,唯一命中就是這一列。",
+      "fix": "① 重抓 https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&o=csv&se=EW&d=106/04/17;② 先 DELETE FROM daily_quote WHERE market='tpex' AND date='2017-04-17'(PG 與 var/cache/cache.duckdb 兩邊)再重讀,否則 readDailyQuote 的 dataAlreadyInDB 會跳過;③ 根因守護:TPEx 落檔前驗『共N筆』存在且等於解析列數,不符即 [deferred] 刪檔重抓(TWSE 側改驗『備註區存在』或與前一交易日列數落差門檻);④ 這條守護應同時補進 research/crawl/sources/daily_quote.py,兩條寫入路徑都要擋。"
+    },
+    {
+      "severity": "BUG",
+      "what": "公司名稱的內部空白被抹掉:TradingReader.scala:112 與 :133 對整列做 .replace(\" \", \"\")(本意是清數字欄的空白),連 company_name 一起改。ETF 這類含英文字的名稱受害,例如原始檔『元大MSCI A股』在 DB 變成『元大MSCIA股』。數字欄不受影響,但 company_name 不再是原樣,任何拿名稱對外部清單(ETF 名單、公開資訊觀測站)的比對會失敗。",
+      "evidence": "SELECT market,company_code,company_name FROM daily_quote WHERE date='2026-07-17' AND company_code IN ('00739','00890B','00928') → twse|00739|元大MSCIA股、tpex|00890B|凱基ESGBBB債15+、tpex|00928|中信上櫃ESG30。原始檔實值(iconv -f BIG5-HKSCS data/daily_quote/twse/2026/2026_7_17.csv | grep 00739)為『元大MSCI A股』。量測:docs/data_audit/scripts/A-daily_quote/namecheck.py 抽 240 檔(兩市場各 120,隨機跨年)量到 100 個含內部空白的名稱;單看 2026-07-17 的 TWSE 檔就有 47 列(iconv … | grep -c '\",\"[^\"]* [^\"]*\",\"')。反面對照:全史掃描『公司名稱含逗號』= 0 筆,所以同一行的 .replace(\",\",\"\") 對名稱無實害。",
+      "fix": "把 cleanCell 只套在數值欄,名稱欄改成只做 trim(或完全不動)。修完需回填歷史:UPDATE 不可行(空白位置已遺失),必須從原始檔重讀 company_name。"
+    },
+    {
+      "severity": "BUG",
+      "what": "2009-12-12(週六)的 TWSE 原始檔內容其實是 2009-12-18 的資料——與 C-daily_quote 是同一件事,本單位用獨立解析器複現。A 維要補的是一條方法論結論:『檔名日期 vs 內容標頭日期』這種檢查抓不到它,因為 TWSE 對非交易日的請求會把你要的日期原樣印在標題上(該檔標題正是『098年12月12日』),15,151 檔的標頭日期比對全部通過、含這一檔。只有比『整日內容指紋』才抓得到。",
+      "evidence": "獨立解析後取內容指紋(排除檔名/日期):2009_12_12.csv 與 2009_12_18.csv 皆為 772 列且 md5 同為 07a629d7354ddd6ef94272e67a4b305b;相鄰的 2009_12_11.csv 為 765 列、指紋 f8e30267c8924c6765ab8dfe9d2e7191。全史檔名 vs 標頭日期比對:docs/data_audit/scripts/A-daily_quote/fullpass.py → 'filename-vs-content date mismatches: 0 []'。旁證:TPEx 同日原始檔為 95 bytes 的『共0筆』,margin_transactions / index 該日兩市場皆 0 列。",
+      "fix": "修法由 C-daily_quote 負責(刪 772 列 + 改回 0-byte sentinel + 內容指紋守護)。A 維補充:任何『下載後驗證』不可只驗標頭日期,必須加整日內容指紋去重(TWSE 會回聲請求日期)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "TPEx 版型判斷用 case _ 兜底,是 CLAUDE.md『Known Bug Patterns』第一條(TWSE CSV schema drift + case fall-through)的活體。TradingReader.scala:145-148 只寫 case 15 與 case _,而 case _ 的取值位置是寫死給 17 欄用的;filter(_.size >= 15) 又會照收任何 ≥15 欄的列。TPEx 已經在 2020-04-30 無聲從 15 欄加到 17 欄過一次,下次再變成 16 或 18 欄時,買賣價/量會整組錯位而且完全不出聲。目前未觸發(全史只有 15 與 17 兩種)。",
+      "evidence": "全史標頭欄數掃描(docs/data_audit/scripts/A-daily_quote/,依日期排序):15 欄 3,168 檔(2007-07-02 起)、17 欄 1,756 檔(2020-04-30 起,新增『最後買量(千股)』『最後賣量(千股)』;2024 起改名為『最後買量(張數)』),轉換點乾淨無交錯。TWSE 側 5,519 檔全部 17 欄(16 欄 + 結尾逗號),2004-02-11 起零漂移。對照組:Python 側 research/crawl/sources/daily_quote.py:65-72 的 _guard() 已經在做『標頭位置對不上就丟 SchemaDrift』的 fail-loud,Scala 側沒有。附帶:該 _TPEX_GUARD(第 40-41 行)寫的是 17 欄版型的位置(12:'最後賣價'),套到 15 欄舊檔會誤報,但它只抓當日資料,實務上不觸發。",
+      "fix": "TradingReader 改成 case 15 => … case 17 => … case n => throw new IllegalStateException(s\"TPEx daily_quote 未知欄數 $n\"),並在 header 就驗欄名位置(比照 Python 側 _guard)。同時把 filter(_.size >= 15) 改成等值判斷,避免半截列被靜靜吞掉(那正是第一條 BUG 的放大器)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "原始檔有、schema 從來沒接的三欄:TPEx 每日檔的『發行股數』『次日漲停價』『次日跌停價』。其中發行股數是現成的市值分母,每天每檔都有、回溯到 2007-07-02,總計約 3,866,376 個值被丟掉;現在要算市值只能繞道財報或 TDCC。TWSE 側無漏欄(16 欄全接)。",
+      "evidence": "TPEx 原始檔標頭(兩種版型皆有):…,最後賣價,發行股數 ,次日漲停價 ,次日跌停價。解析程式 TradingReader.scala:136 的 splitAt(2)._2.init 只丟掉最後一欄(次日跌停價),但 case 15/case _ 的取值都沒有用到發行股數(index 10 / 12)與次日漲停價。全庫確認無對應欄位:SELECT table_name,column_name FROM information_schema.columns WHERE column_name ILIKE '%shares%' OR '%outstanding%' OR '%issued%' → 只有 treasury_stock_buyback.planned_shares/executed_shares 與 tdcc_shareholding.num_shares,無每日發行股數。tpex daily_quote 總列數 3,866,376。",
+      "fix": "若要用:在 DailyQuote 表加 shares_outstanding(Slick 先改、再 ALTER TABLE 保持 parity,依 CLAUDE.md 的 Schema Contract),reader 對 case 15 取 transferValues(10)、case 17 取 transferValues(12),然後從 data/ 全量重讀 tpex(原始檔都在,可重生)。若不用:在文件明記這三欄刻意不接,避免下一個人重查。"
+    },
+    {
+      "severity": "REAL",
+      "what": "上市與上櫃的『成交量/成交金額』口徑不同,不是解析錯,但跨市場用同一個流動性門檻會偏誤:TWSE 的量含一般+零股+盤後定價+鉅額交易;TPEx 的『不含定價』且 100% 是整張(無零股)。上市那側的成交額會系統性偏高,套 Universe 的日均成交額 ≥ NT$50M 這類門檻時,兩個市場篩的不是同一件事。",
+      "evidence": "來源明文:TWSE 原始檔備註列『本統計資訊含一般、零股、盤後定價、鉅額交易,不含拍賣、標購。』(data/daily_quote/twse/2026/2026_7_17.csv 尾段);TPEx 原始檔第一行標題『上櫃股票每日收盤行情(不含定價)』。量化實測(成交量能被 1000 整除的比例 = 是否純整張):2019-07-17 twse 19.24% / tpex 100.00%;2021-07-16 twse 6.94% / tpex 100.00%;2026-07-17 twse 2.64% / tpex 100.00%(SQL 見 findings md 第七節)。上市比例逐年下降,對應 2020-10 盤中零股交易上路後零股占比升高。",
+      "fix": "資料不需修。建議在 docs 與 Universe 篩選處註記兩市場口徑差異;若要嚴謹比較,TWSE 側應改用不含零股/鉅額的來源,或對兩市場分別校準門檻。"
+    },
+    {
+      "severity": "REAL",
+      "what": "上櫃 closing_price = 0 共 119,680 列(全部落在 2007-07-02~2011-11-11、成交量皆為 0),是舊版 TPEx CSV 對『當日無成交』直接寫 0.00 的來源端寫法,不是解析錯;2011-11-14 起改用 '---'(解析成 NULL)。C-daily_quote 已完整記載,本單位確認來源端原文。另外 tpex 的 price_earning_ratio 全部 3,866,376 列為 NULL、last_best_bid/ask_volume 有 2,473,019 列為 NULL,都是因為來源檔沒有該欄。",
+      "evidence": "原始檔原文:data/daily_quote/tpex/2007/2007_7_2.csv → '\"4801\",\"碼斯特\",\"0.00\",\"--- \",\"0.00\",\"0.00\",\"0.00\",\"0\",\"0\",\"0\",\"0.00\",\"19.90\",\"46,347,952\",\"21.25\",\"18.55\"'。SQL:SELECT extract(year from date),count(*) FROM daily_quote WHERE market='tpex' AND closing_price=0 GROUP BY 1 → 2007:6701、2008:32427、2009:23300、2010:54590、2011:2662(2012 起 0)。護欄已存在:research/prices.py:129-130 的 AND closing_price > 0 AND opening_price > 0。NULL 統計:SELECT count(*) FILTER (WHERE price_earning_ratio IS NULL), count(*) FILTER (WHERE last_best_bid_volume IS NULL) FROM daily_quote WHERE market='tpex' → 3866376 / 2473019。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "解析正確性主結論:全史逐欄核對零差異(非抽樣)。用一份獨立解析器(欄位一律以標頭中文名定位,不用寫死 index)重讀 15,151 個原始檔,對每個 (market,date) 算列數 + 每欄 NULL 數 + 每欄加總,與 PostgreSQL 同式聚合比對:10,198 個 date-market pair、9,124,080 列、13 個數字欄,MISMATCH = 0,且沒有『只在原始檔』或『只在 DB』的日期。這一次同時否定了欄位錯位、單位倍率、正負號、哨兵值誤判四類假設。",
+      "evidence": "docs/data_audit/scripts/A-daily_quote/{indep,fullpass,aggcmp}.py 輸出:'compared date-market pairs: 10198 / only in raw: 0 / only in DB: 0 / MISMATCH counters: {}'。逐格比對(cmp.py,含 company_name 字串)16 個日期橫跨最早/中間/最新與兩市場,原始列數 = DB 列數且欄位不符 0:twse 2004-02-11(711)、2004-12-30(721)、2009-01-05(742)、2015-01-05(911)、2020-01-02(1114)、2020-03-19(1113)、2026-01-02(1332)、2026-07-17(1371);tpex 2007-07-02(826)、2012-01-02(606)、2015-01-05(684)、2020-04-29(885,舊版型最後一天)、2020-04-30(885,新版型第一天)、2024-01-02(911)、2026-01-02(987)、2026-07-17(1013)。獨立列數旁證:TWSE 全史資料列 5,257,704 = PG twse 列數;TPEx 3,866,376 = PG tpex 列數。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "單位與正負號全部驗過:成交金額/成交股數/收盤價三者內部一致(VWAP÷收盤 ≈ 1),最後買賣量兩個市場都是『張』不是『股』,change 的符號與實際漲跌一致、不符者全部對得上除權息或來源的『不比價(X)』標記,X/空白符號對應的漲跌價差沒有一筆不是 0。",
+      "evidence": "單位:SELECT market, extract(year from date), avg((trade_value/trade_volume)/closing_price) … → 43 個 market-year 全部落在 0.9998~1.0097。買賣量單位:能被 1000 整除的正值比例 twse 193/5,112,741、tpex 25/1,386,724,平均 170 vs 98(若為『股』應幾乎全部是 1000 的倍數)。符號:change vs (今收−昨收) 限連續日曆日 → twse 4,018,253/4,033,410 = 99.624%、tpex 2,807,073/2,817,500 = 99.630% 完全相符;不符者 88.72%(twse)/95.67%(tpex)直接 join 到 ex_right_dividend 同日同檔,剩餘抽樣 12 筆全是 change=0 但實際有跌的形態(1589 2025-10-22、3015 2026-06-16、00945B 2026-07-16 等),對應 TWSE 備註原文『+/-/X 表示漲/跌/不比價』。符號值域:全史 TWSE 漲跌(+/-) 只有 '-'(2,354,231)、' '(568,449)、'+'(2,289,442)、'X'(45,582) 四種,合計 5,257,704 = PG 列數;X 與空白對應的漲跌價差 != 0 者 0 筆(scan2.py)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "編碼、日期、漏列、重複四項全清:Big5-HKSCS 全史零解碼失敗、零格轉不了數字;15,151 檔的檔名日期與內容標頭日期(民國換西元)全部相符;QuantlibCSVReader 那條『含 \"\" 但不含 ,\"\" 就整列跳過』的危險規則全史 0 列命中;主鍵 (market,date,company_code) 重複 0 筆。TWSE 檔案在股票表之後只有 <17 欄的備註列,沒有其他區段被誤收——DB 內 company_code 全部數字開頭,6 碼者只有 00xxxx(ETF)/91xxxx(TDR)/01xxxx/02xxxx/28xxxx,沒有 7 開頭權證(印證 type=ALLBUT0999 不含權證)。",
+      "evidence": "fullpass.py 輸出:'filename-vs-content date mismatches: 0 []'、'UNPARSEABLE cells: {}'、'company names containing comma in raw: {}';scan_markers.py:'TWSE lines with unescaped-pair-quote dropped by QuantlibCSVReader: 0'、scan3.py:'lines dropped by quote rule: 0'。重複:SELECT count(*) FROM (SELECT market,date,company_code FROM daily_quote GROUP BY 1,2,3 HAVING count(*)>1) x → 0。代號分佈:SELECT length(company_code),count(*) FROM daily_quote WHERE market='twse' GROUP BY 1 → 4碼 4,753,444 / 5碼 218,213 / 6碼 286,047;6 碼前綴只有 00(173,735)、91(49,587)、01(31,809)、02(29,955)、28(961)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "DuckDB cache 與 PostgreSQL 在 daily_quote 上逐日逐欄相同(本單位獨立複核 C-daily_quote 的結論):10,198 個共同 (market,date) 上,列數與 8 個共有欄位的加總、NULL 數全部相等,零不符;唯一差異是 cache 多出 2026-07-20 一天(Python 直寫路徑寫入,PG 沒有、原始檔也沒有封存)。cache 只投影 11 欄,company_name / transaction / change / 買賣量 / 本益比 不在 cache 內,是刻意取捨。",
+      "evidence": "把 PG 的 per-(market,date) 聚合匯出成 CSV,再於 DuckDB 內對 var/cache/cache.duckdb 下同式聚合 JOIN 比對 → 'PG-vs-cache mismatching date-market pairs: 0';'only in cache: [(tpex, 2026-07-20), (twse, 2026-07-20)]';'only in pg: []'。cache 總列數 9,126,464 vs PG 9,124,080,差 2,384 = 2026-07-20 的 tpex 1,013 + twse 1,371。cache schema(DESCRIBE daily_quote)只有 market/date/company_code/opening/highest/lowest/closing_price/trade_volume/trade_value/last_best_bid_price/last_best_ask_price 共 11 欄。",
+      "fix": ""
+    }
+  ]
+}

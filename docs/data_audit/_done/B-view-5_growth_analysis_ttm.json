@@ -1,0 +1,152 @@
+{
+  "id": "B-view-5_growth_analysis_ttm",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/view/5_growth_analysis_ttm.sql",
+  "unit": "B-view-5_growth_analysis_ttm",
+  "verdict": "BUG",
+  "summary": "這張表的分數不能拿來選股。同一支查詢連跑四次會得到四個不同答案(2006-2012 金融股的重複列讓 window frame 隨執行計畫飄),2006-2012 全市場的排名分母被灌了兩到四成的幽靈列,f_score 在 2010 年以前被現金流缺料硬壓在 6 分封頂(通過率 11% → 49% 的跳變是資料補齊不是體質改善),另有五處算式本身寫錯:權益乘數的 5 年基準拿成資產週轉率(51.6% 判定相反)、營收成長門檻括號錯位多加 20 個百分點(22% 判定不同)、1.2 倍「進步」測試在負基期方向相反(5,826 格)、7 個 *_growth_rate 欄位符號與另外 15 個相反卻同名、lag(n) 是位移不是日曆對齊(14.9% 的「5 年前」不是 5 年前)。原始的營收/獲利數字是對的(台積電 2024 全年營收 2.89 兆、EPS 45.25 都對得上,累計制差分與跨年邊界正確),壞掉的是蓋在上面那一層分數與旗標。現役實盤(Serenity ev_v3_wf、apex strategy_s)與 DuckDB cache 都不碰它,但 copilot 的個股基本面 agent 與看空 agent 還在直接查它給使用者看。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "上游 concise_financial_statement_with_titles 對 55 家公司的 858 個 (company_code, year, quarter) 產生 2/4/8/64 倍重複列(共 11,040 筆幽靈列,佔 view 6.5%,全部落在 2006-2012),造成三重傷害:(a) 4_financial_index_ttm.sql 的 rows between 3 preceding and current row 走的是「前三列」不是「前三季」,TTM 完全錯;(b) 同檔 rank()/count(*) over (partition by year, quarter) 的分母被灌水兩到四成,使 2006-2012 全市場每一家(不只那 55 家)的 operating_performance / return_on_investment 百分位與 cbs 綜合分失真;(c) 重複列在 order by year, quarter 下形成 tie,window frame 落點隨執行計畫變動,整張 view 不可重現。根因是該 matview 十幾個科目 CTE 用 where title = 'A' or title = 'B' 抓別名,金融業同季同時存在多個別名(利息淨收益/收益/收入)而只有 net_operating_income 那個 CTE 加了 distinct on。",
+      "evidence": "規模:with d as (select company_code,year,quarter,count(*) c from concise_financial_statement_with_titles where market in ('twse','tpex') group by 1,2,3) select c, count(*), count(distinct company_code) from d group by 1 → 1倍:158,605 鍵/2,064 家;2倍:413 鍵/16 家;4倍:180 鍵/23 家;8倍:118 鍵/7 家;64倍:147 鍵/9 家。受害者全是大型金融股:金控 2880-2892、銀行 2801/2809/2812/2836/2838/2845/2849/2897、券商 6005/6015/6016/6020/6021/6023/6024/6026,另有 1718 中纖、2514 龍邦、1409 新纖、2905 三商、4707 磐亞、1712 興農、9902 台火。(a) 2881 富邦金 2012Q4:四個單季稅後淨利 6,863,610+4,095,146+11,848,315+6,175,728 = 28,982,799 千元;financial_index_ttm 同一鍵給出兩列 33,967,504(+17.2%)與 36,048,086(+24.4%)——把 Q3 算兩次、Q1 整個漏掉(可逐位驗算:33,967,504 = Q2b+Q3a+Q3b+Q4a)。(b) select year,quarter,count(*),count(distinct company_code) from financial_index_ttm group by 1,2 → 2009Q4 1,938 列 vs 1,423 家(+515,+36%);2011Q4 2,050 vs 1,535(+34%);2012Q4 2,145 vs 1,568(+37%);2013Q1 起幽靈列歸零。(c) 同一句連跑四次:select round(avg(f_score)::numeric,6), round(avg(drop_score)::numeric,6) from growth_analysis_ttm where year between 2009 and 2012 → f_score 4.014859 / 4.017601 / 4.013370 / 4.019022;drop_score 4.058354 / 4.062212 / 4.076699 / 4.077850。污染往前漏五年(lag(...,20) 從 2017 仍踩進 2012):year>=2019 連跑三次 drop_score = 6.70001972 / 6.70003944 / 6.70003944(Δ 恰為 1/50,710 = 1 列翻面)。重跑腳本:docs/data_audit/scripts/B-view-5_growth_analysis_ttm/verify.sql 的 [BUG1] 段。",
+      "fix": "治本在 materialized_view/6_concise_financial_statement_with_titles.sql:每個科目 CTE 都補 distinct on (market, year, quarter, company_code) 並明寫 order by 的科目優先序(照同檔 net_operating_income CTE 第 49-59 行既有寫法)。修完加防復發守護:select count(*) from (select company_code,year,quarter from concise_financial_statement_with_titles group by 1,2,3 having count(*)>1) t 必須為 0,並掛進 Main init 後的 sanity check。REFRESH MATERIALIZED VIEW 之後 view 4/5 自動修正,不需改 view 5 本身。"
+    },
+    {
+      "severity": "BUG",
+      "what": "權益乘數的 5 年比較拿錯欄位(複製貼上錯):5_growth_analysis_ttm.sql 行 112-113 的 equity_multiplier_decline_5y_overall 與行 329-330 的 equity_multiplier_increase_5y_overall,比較基準寫成 lag(total_assets_turnover, 20) 而不是 lag(equity_multiplier, 20)。權益乘數中位數 1.753、資產週轉率中位數 0.669,量綱根本不同,所以「權益乘數上升」幾乎恆真、「下降」幾乎恆偽 → drop_score 被系統性灌水、growth_score 被系統性扣分。",
+      "evidence": "SQL(verify.sql [BUG2] 段):with base as (select company_code,year,quarter,equity_multiplier, lag(equity_multiplier,20) over w em20, lag(total_assets_turnover,20) over w tat20 from financial_index_ttm window w as (partition by company_code order by year,quarter)) select ... → n_comparable 123,228;as-written decline 為真 7,198 vs 正確 61,944;as-written increase 為真 115,996(94.2%) vs 正確 68,603(55.7%);判定相反 63,567(51.6%)。量綱對照:median equity_multiplier 1.753、median total_assets_turnover 0.669。對分數的位移:drop_score 平均 +0.278、growth_score 平均 -0.321。對閘門的實際影響(2023 年,n=7,236):QualityFilter 的 drop_score >= 10 排掉 1,719 檔次,修正後只該排 1,468 → 251 檔次(14.6% 的排除)是誤殺。",
+      "fix": "行 113 的 lag(total_assets_turnover, 20) 改 lag(equity_multiplier, 20);行 330 同。改完重跑 verify.sql [BUG2] 段,disagree 應為 0。"
+    },
+    {
+      "severity": "BUG",
+      "what": "f_score 在 2010 年以前結構性封頂在 6 分。現金流量資料 2010 才有:2005-2009 的 ocf 100% NULL,行 4 的 case when ocf > 0 與行 5 的 case when ocf > profit 對 NULL 一律落到 else 0;total_capital_stock 在 2006-2008 也 100% NULL,行 18 的第 6 項同樣恆 0。結果是 f_score 的可達上限與通過率在 2009/2010 之間無聲跳變,那是資料補齊軌跡不是台股公司體質改善。任何跨該點的回測,其品質過濾的鬆緊度會突變;橫跨該點的截面排名不可比。",
+      "evidence": "select year, max(f_score), round(avg(f_score)::numeric,2), round(100.0*count(*) filter (where f_score>=5)/count(*),1) from growth_analysis_ttm where year between 2006 and 2013 group by 1 → 2006 max=6 avg=3.09 pass=19.6%;2007 max=6 avg=2.74 pass=14.8%;2008 max=6 avg=2.27 pass=9.1%;2009 max=6 avg=2.54 pass=11.0%;2010 max=9 avg=4.50 pass=49.3%;2011 max=9 avg=4.29 pass=43.4%;2012 max=9 avg=4.62 pass=52.4%;2013 max=9 avg=5.28 pass=68.2%。缺料軌跡:select year, 100.0*count(*) filter (where ocf is null)/count(*), 100.0*count(*) filter (where total_capital_stock is null)/count(*) from financial_index_ttm group by 1 → ocf NULL 率 2006-2009 皆 100.0%、2010 降到 8.7%、2019 起 ~0%;total_capital_stock NULL 率 2006-2008 皆 100.0%、2009 75.7%、2010 7.2%。全表 ocf NULL 61,467/170,503(36.0%)、total_capital_stock NULL 59,214(34.7%)。",
+      "fix": "把 case when ocf > 0 then 1 else 0 end 這類寫法改成三值:輸入為 NULL 時該項回 NULL,整個 f_score 用 NULL 傳遞(「不知道」不等於「0 分」);若要保留可加總的行為,至少多輸出一欄 f_score_components_available(0-9) 讓消費者能自行排除不完整的格子。同時在 CLAUDE.md 與兩支 agent 文件註明「f_score 於 2010 年前不可用」。"
+    },
+    {
+      "severity": "BUG",
+      "what": "revenue_growth_rate_increase_5y_overall(行 38-46)的括號位置錯,門檻無聲多加 20 個百分點。寫法是 (rev/lag(rev,4) - 1) > (1.2 * lag(rev,20) / lag(rev,24) - 1),SQL 運算優先序使右邊 = 1.2 × (1 + g_old) − 1 = 1.2 × g_old + 0.2。同檔其餘所有 _increase_5y_overall 的形態都是 x > 1.2 * lag(x, 20),對成長率的對應寫法應是 g_now > 1.2 * g_old。",
+      "evidence": "verify.sql [BUG3] 段:n(兩邊皆可算)=123,621;as-written 為真 31,393;intended(g_now > 1.2*g_old)為真 58,649;判定不同 27,256(22.0%)。數值示例:5 年前成長率 g_old = -0.10 時,intended 門檻 = -0.12,as-written 門檻 = 1.2*(-0.10)+0.2 = +0.08——從「衰退 12% 以內就算改善」變成「必須成長 8% 以上」。",
+      "fix": "改成 (total_operating_revenue/nullif(lag(total_operating_revenue,4) over (...),0) - 1) > 1.2 * (lag(total_operating_revenue,20) over (...)/nullif(lag(total_operating_revenue,24) over (...),0) - 1)。注意 g_old 為負時 1.2 倍反而放寬門檻,需一併套用下一條 BUG(負基期)的處理。"
+    },
+    {
+      "severity": "BUG",
+      "what": "1.2 倍的「比五年前進步 20%」測試在基期為負時方向相反,把惡化判成進步。受影響的是 profit_margin(行 66)、operating_margin(行 79)、roa(行 125-127)、eps(行 235-237)、fcf_per_share(行 249-251)五個 _increase_5y_overall。當 x20 < 0 時 1.2*x20 比 x20 更小,於是「x 比五年前更低但沒低過 1.2 倍」會通過,拿到 growth_score +1。",
+      "evidence": "verify.sql [BUG4] 段(條件:x20 < 0 且 x > 1.2*x20 且 x < x20,即確實變差卻通過):profit_margin 1,415 格、operating_margin 1,501 格、roa 1,588 格、eps 767 格、fcf_per_share 555 格,合計 5,826 格。可比母體 130,541 格。數值示例:利潤率從 -10% 惡化到 -11%,-0.11 > 1.2×(-0.10) = -0.12 為真 → 判為「五年進步 20%」。",
+      "fix": "把「相對改善」改寫成對絕對量的判斷,例如 x > x20 + 0.2 * abs(x20);或明確規定 x20 <= 0 時該旗標為 NULL(coalesce 後不計分),避免在負基期上做百分比比較。同一套改法要一次掃過五個 _increase_5y_overall 與 BUG 4 的營收版。"
+    },
+    {
+      "severity": "BUG",
+      "what": "7 個 *_growth_rate 欄位的正負號與另外 15 個相反,但名字看不出來。行 567-607 的 days_sales_of_inventory / days_sales_outstanding / equity_multiplier / total_non_current_liabilities / inventories_ratio / receivables_ratio / total_capital_stock 用 1 - x/lag(x)(值越大代表指標下降=越好),其餘 15 個用一般的 x/lag(x) - 1。任何「把所有 *_growth_rate 一起排名」的消費者會把這七個因子的方向做反;8_valuation.sql:55-92 正是一次吃下全部 36 個欄位。",
+      "evidence": "反例(verify.sql [BUG5] 段):1294 在 2024Q2 股本從 193,669 增到 252,388(+30.3%),1 - total_capital_stock/lag(total_capital_stock) = -0.3031925605027135 → 股本大增卻得到負的「成長率」。全表分布:total_capital_stock_growth_rate 為負 17,708 列、為正 5,181 列(股本通常增加,證實符號反了)。命名對照:同一個 select 裡 revenue_growth_rate 用 total_operating_revenue/lag(...)-1(行 557-559),equity_multiplier_growth_rate 卻用 1 - equity_multiplier/lag(...)(行 574-575)。",
+      "fix": "把七個反向欄位改名為 *_reduction_rate(語意自明),或統一成 x/lag(x) - 1 讓消費者自行決定方向。改名時必須同步掃 8_valuation.sql:55-92 與 9_valuation_1q.sql 的引用清單,以及 Main.scala:350-353 的因子註冊(目前只用到非反向那組,不受影響)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "lag(n) 是「往前 n 列」不是「往前 n 季」。所有 window 只寫 order by company_code, year, quarter,沒有任何日曆對齊檢查。缺季(公司下市/暫停申報)加上 BUG 1 的重複列,使一部分格子的「5 年前」「1 年前」根本不是那個期間,而 56 個 _5y_* 旗標與 22 個 *_growth_rate 全部建立在這些 lag 上。",
+      "evidence": "verify.sql [BUG7] 段:with base as (select lag(year,20) over w y20, lag(quarter,20) over w q20, lag(year,4) over w y4, lag(quarter,4) over w q4, year, quarter from financial_index_ttm window w as (partition by company_code order by year,quarter)) → lag(...,20) 可算 132,346 格,其中 14.87%(19,674 格)不滿足 year-y20=5 and quarter=q20;lag(...,4) 可算 162,331 格,其中 11.62%(18,856 格)不滿足 year-y4=1 and quarter=q4。同一根因也威脅上游的累計制差分:materialized_view/5 的 value - lag(value) 在缺 Q3 時,Q4 的「單季」會變成 Q3+Q4 兩季合計。",
+      "fix": "建連續季別鍵 qidx = year*4 + quarter,window 改用 range between 20 preceding and 20 preceding(PG 支援 RANGE 於數值 ORDER BY),或改成對 (company_code, qidx-20) 的 self-join,讓缺季直接產生 NULL 而不是錯期比較。上游 materialized_view/5 的差分同樣要驗 lag 的 (year,quarter) 是否為緊鄰前一季。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "growth_score 內含 f_score(行 492 開頭就是 f_score + coalesce(...)),但下游把兩者當成獨立因子量 IC 與相關係數。Main.scala:348-350 把 fScore / dropScore / growthScore 三個一起丟進 FactorResearch.individualICs + pairwiseCorrelations,量出來的相關會被誤讀成「兩個因子恰好相關」,實際上是一個包含另一個。",
+      "evidence": "select corr(f_score, growth_score), avg(growth_score - f_score) from growth_analysis_ttm → corr = 0.7529;avg(growth_score) = 7.591 之中有 avg(f_score) = 4.373(58%)來自 f_score 本身,扣掉後只剩 3.217。程式碼:src/main/scala/Main.scala:348-350 三行並列註冊;SQL 定義 5_growth_analysis_ttm.sql:492。",
+      "fix": "把 growth_score 拆成不含 f_score 的 growth_score_pure(28 個旗標)再另外輸出 f_score,或在因子註冊處只選其一。若保留現狀,至少在 view 的欄位註解與 CLAUDE.md 的表格說明中寫明「growth_score 已包含 f_score」,避免下一個人重複計入。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "growth_score 與 drop_score 不是鏡像,相減沒有意義;而且四個一組的營收欄位名不副實。門檻不對稱:growth 側 9 個成分要求「比五年前好 20%」,另 5 個(equity_multiplier / DSI / DSO / inventories_ratio / receivables_ratio 的下降)只要求「有進步」;drop 側 14 個全部只要求「有退步」。命名不一致:revenue_growth_rate_increase_5y_overall(行 38-46)比的是成長率,同名的 revenue_growth_rate_decline_5y_overall(行 263-264)比的是營收金額,revenue_growth_rate_increase_5y_continuous(行 47-65)比的也是金額——四個裡只有一個真的在比成長率。",
+      "evidence": "觸發率不對稱(verify.sql [SUSPECT2] 段):roa_increase_5y_overall(需 +20%)觸發 30.3% vs roa_decline_5y_overall(只需下跌)觸發 38.8%;days_sales_of_inventory 兩側都沒有 1.2 倍,decline 11.9% vs increase 21.9%。定義不對稱直接讀原始碼:行 38-46(成長率比較)vs 行 263-264(total_operating_revenue < lag(total_operating_revenue, 20),金額比較)。",
+      "fix": "決定一個一致的語意:要嘛兩側都用「相對改善/惡化 20%」,要嘛兩側都用「任何方向變動」;營收四欄統一為成長率或統一為金額,並讓欄位名如實反映(比金額的就叫 revenue_level_decline_5y)。改動前先在 ledger 預註冊,因為這會改變 growth_score / drop_score 的分佈。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "f_score 的定義偏離 Piotroski(2000),不是算錯而是換了定義,但欄位名與所有文件都叫它 Piotroski F-Score。(a) 五個 Δ 項(行 6-37 的長期負債、流動比、股本、ROA、毛利率、資產週轉)全用 lag(1) = 上一季,論文全部是年度比較;TTM 的 QoQ 差分有 3/4 期間重疊,訊號幅度只有年度版的約 1/4,而第 4/5/6 項比的又是資產負債表時點值,QoQ 會直接吃到除息與季底調節的季節性。(b) 行 7-11 的第 4 項用長期負債「金額」而非論文的「長期負債/平均總資產」比率:資產與負債同比例成長的健康公司被扣分、縮表的衰退公司反而得分。算術本身沒錯。",
+      "evidence": "(a) verify.sql [SUSPECT3] 段:同一組資料分別用 lag(1) 與 lag(4) 重算九項,n=170,503,分數不同 67.8%,跨過 f_score>=5 門檻 19.9%。(b) 讀原始碼 5_growth_analysis_ttm.sql:6-11(total_non_current_liabilities < lag(total_non_current_liabilities))對照 Piotroski, J. (2000) 的 ΔLEVER 定義。算術複核:2330 2024Q4 view 給 f_score=7,逐項手算 roa 0.1918>0(1)、ocf 1,826,177,068>0(1)、ocf>profit 1,172,431,759(1)、長期負債 1,103,837,171 < 前季 1,063,336,786 為偽(0)、current_ratio 2.4423 < 前季 2.5675 為偽(0)、股本 259,327,332 <= 259,327,332(1)、roa 0.1918>0.1779(1)、gross_margin 0.5612>0.5445(1)、turnover 0.47539>0.46864(1) = 7 ✓。相關記載:B-fscore-academic 已對同一項記錄過(該單位從兩套實作對比的角度),此處為 PG view 側的獨立量測。",
+      "fix": "五個 Δ 項改用 lag(4);第 4 項改成 total_non_current_liabilities/((total_assets + lag(total_assets,4))/2) 的年度差分。若不打算改定義,就把欄位改名為 quality_score_qoq 之類,並移除所有文件裡的「Piotroski」字樣(CLAUDE.md:555、QualityFilter.scala:20、twstock-fundamental-analyst.md:14),避免下一個人拿論文的門檻(>=8 為強)套在一個不同的分數上。順帶修 QualityFilter.scala:20 註解寫「8 binary factors」但 view 加總 9 項。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "除以零的未爆彈:上游 4_financial_index_ttm.sql:91-92 的 inventories / total_assets 與 receivable / total_assets 沒有包 nullif,同一支 SQL 其他二十幾處除法都有。目前僥倖沒炸,是因為現存 7 列 total_assets = 0 的格子其 inventories / receivable 恰好都是 NULL(PG 的 NULL/0 回 NULL 不報錯)。只要日後任何一列同時有存貨數字與零總資產,select * from growth_analysis_ttm 整句會直接 ERROR: division by zero,view 與所有下游(valuation / valuation_1q / cbs_ttm_5y_over75 / QualityFilter)一起掛掉。",
+      "evidence": "PG 行為確認:select 1.0::float8 / 0.0::float8 → ERROR: division by zero;select null::float8 / 0::float8 → NULL(不報錯)。現存零分母:select c.market,c.company_code,c.year,c.quarter,c.total_assets,b.inventories,b.receivable from concise_financial_statement_with_titles c left join balance_sheet_with_titles b on b.market='tw' and b.year=c.year and b.quarter=c.quarter and b.company_code=c.company_code where c.total_assets = 0 → 7 列(twse 910801 2008Q2、tpex 1258 2012Q4、twse 3990 2011Q4、twse 910708 2010Q2、twse 1718 2006Q2 ×2、twse 910801 2008Q4),inventories 與 receivable 全為 NULL。程式碼位置:4_financial_index_ttm.sql:91-92(對照同檔行 15/21/22/23/25/26 等皆有 nullif)。",
+      "fix": "4_financial_index_ttm.sql:91-92 改成 inventories / nullif(total_assets, 0) 與 receivable / nullif(total_assets, 0)。順手全檔掃一次還有沒有裸除法(grep -n '/ *total_' 之類)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "view 本身沒有公告日欄位,PIT 全靠消費者自律,而消費者漏了兩處。(a) QualityFilter.scala:31-37 的 WHERE 只寫 (year < Y or (year = Y and quarter <= Q)) 就 toSet,沒有收斂到最新一季 → 只要「歷史上任何一季」符合 drop_score < 10 and f_score >= 5 就通過,而行 23-24 的註解卻寫 Uses the latest growth_analysis_ttm quarterly snapshot available on D。(b) .claude/agents/twstock-fundamental-analyst.md:14 與 twstock-bear-researcher.md:13 直接叫 agent 查這張 view,沒有任何 PIT 或資料年代的約束說明。相對地,PublicationLag.scala 本身是對的(Q1→5/22、Q2→8/21、Q3→11/21、Q4→次年 4/7,含 7 天緩衝),QualityFilter.scala:26 也確實呼叫了它。",
+      "evidence": "程式碼:src/main/scala/strategy/QualityFilter.scala:29-38 的 sql 只有 ORDER BY company_code, year DESC, quarter DESC 而沒有 DISTINCT ON,行 39 註解 Each company may match several rows across quarters; distinct collapses to one 明白承認會取到多列卻只做 Set 去重(去重的是 company_code,不是收斂到最新一季)。註解與實作矛盾:行 23-24 vs 行 31-37。行 20 另有「8 binary factors」但 view 行 3-37 加總 9 項。B-fscore-academic 已將同型缺陷歸類為「歷史上曾經 >= N」,並指出 Scala 與 Python 各一處(同一缺陷類)。",
+      "fix": "QualityFilter 的查詢改成 SELECT DISTINCT ON (company_code) company_code, drop_score, f_score FROM growth_analysis_ttm WHERE ... ORDER BY company_code, year DESC, quarter DESC,再於外層過濾分數;同時修行 20 與行 23-24 的註解。兩支 agent 文件加註「本 view 2006-2012 不可信、2010 前 f_score 封頂 6 分」,或直接改指向 research/strat_lab/raw_quarterly.py 的 first-principles 版本。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "下游 8_valuation.sql:102 與 9_valuation_1q.sql:104 的 eps_growth_rate_10y 用 over (partition by company_code order by year, quarter desc rows between 39 preceding and current row) —— year 遞增但 quarter 遞減的混向排序,同檔上下兩行的 _3y / _5y 都用 order by year, quarter。這 40 列的集合不是「最近十年」,而是被年界打散的一組。屬下游 view,但 growth_analysis_ttm 是它唯一的輸入。",
+      "evidence": "grep -n 'quarter desc' src/main/resources/sql/view/8_valuation.sql src/main/resources/sql/view/9_valuation_1q.sql → 8_valuation.sql:102、9_valuation_1q.sql:104 各一處;同檔 8_valuation.sql:96-101 的 eps_growth_rate_3y / _5y 用的是 order by year, quarter(正向)。該值進 dcf_parameters(8_valuation.sql:109 起)參與估值計算。",
+      "fix": "把 quarter desc 改回 quarter。屬 B-view-8 的範圍,此處僅記錄以免遺漏。"
+    },
+    {
+      "severity": "REAL",
+      "what": "累計制差分本身是對的,跨年邊界也對——這一項查過沒問題,別再查一次。台股損益表是當年累計數,materialized_view/5_concise_income_statement_individual.sql:18-22 用 case when quarter = 1 then value else value - lag(value) over (partition by company_code, title order by year, quarter) end:Q1 直接取累計值(等於單季)正確,新年度 Q1 不會去減去年 Q4。TTM 的 rows between 3 preceding and current row 在沒有重複列的公司身上也正確。",
+      "evidence": "原始累計數:select year,quarter,value from concise_income_statement_progressive where company_code='2330' and year=2024 and title='營業收入' → 592,644,201 / 1,266,154,378 / 2,025,846,521 / 2,894,307,699(遞增,確為累計)。差分後單季:select year,quarter,total_operating_revenue,eps from concise_financial_statement_with_titles where company_code='2330' and year=2024 → 592,644,201 / 673,510,177 / 759,692,143 / 868,461,178 千元,eps 8.70/9.55/12.55/14.45。TTM:select ... from financial_index_ttm where company_code='2330' and year=2024 → 2024Q4 ttm_revenue = 2,894,307,699 千元(= 台積電 2024 全年 2.89 兆)、ttm_eps = 45.25(= 台積電 2024 官方 EPS)。殘留風險已另立 BUG 7:公司缺 Q3 時 Q4 的 lag 會抓到 Q2 累計數,使該「單季」變成 Q3+Q4 合計。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "幣別與單位一致,無混用:三張來源表的 value 一律新台幣千元,eps 為元/股,所有比率無量綱,所有 5 年比較都是同欄位對同欄位(唯一例外是 BUG 2 那一處)。附帶記一個命名坑(非錯誤):fcf_per_share(4_financial_index_ttm.sql:95-99)的分母是 total_capital_stock,那是股本「金額」(千元)不是股數,所以它其實是「每千元股本的自由現金流」,約等於真 FCF/股 的 1/10(面額 10 元)。因為只拿來跟自己比大小,fcf_per_share_increase/decline_* 旗標與 fcf_per_share_growth_rate 不受影響,但它與 eps(真的元/股)並列在同一張表會誤導。",
+      "evidence": "單位驗證同上(2330 TTM 營收 2,894,307,699 千元 = 2.89 兆元,量級正確)。fcf_per_share 定義:4_financial_index_ttm.sql:95-99 = (sum(ocf) over 4Q + sum(capital_expense) over 4Q) / nullif(total_capital_stock, 0)。total_capital_stock 來自 concise_balance_sheet_individual 的股本科目(千元);2330 2024Q4 total_capital_stock = 259,327,332(千元)= 259.3 億元,對應約 259.3 億股 × 面額 10 元,確認分母是金額。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "旗標與加總的算術正確,coalesce(bool::INT, 0) 也沒有把分數污染成 NULL。這一項複核過,不是問題來源——問題全在定義與上游資料,不在這層的四則運算。",
+      "evidence": "手算複核 2330 2024Q4。EPS TTM 序列(now→5y ago)45.25 / 32.34 / 39.20 / 23.01 / 19.97 / 13.32:eps_increase_5y_continuous 應為 f(32.34 < 39.20,鏈斷)、eps_increase_5y_overall 應為 t(45.25 > 1.2×13.32 = 15.98)、eps_decline_5y_continuous 應為 f;view 輸出 f / t / f,三個全中。f_score 逐項手算 = 7,view 輸出 7(詳見 SUSPECT『f_score 定義偏離』一條的逐項算式)。觀測域:f_score 0-9、growth_score 0-30、drop_score 0-20,無越界。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "分母保護到位,沒有 ±inf / NaN。22 個 *_growth_rate 的分母全部包了 nullif(..., 0)。極端值仍在(基期極小時成長率爆量),但那是性質問題不是溢位。",
+      "evidence": "select count(*) filter (where roa_growth_rate in ('Infinity','-Infinity','NaN')) from growth_analysis_ttm → 0。極端值統計:|revenue_growth_rate| > 100 有 74-75 列(數字隨執行飄動,見 BUG 1 的不可重現)、stddev(revenue_growth_rate) = 29.38;|roa_growth_rate| > 100 有 212 列、|eps_growth_rate| > 100 有 232 列、|profit_growth_rate| > 100 有 240 列。原始碼:5_growth_analysis_ttm.sql:551-607 每一處除法皆有 nullif。",
+      "fix": "若要拿這些成長率當因子,需在消費端加 winsorize 或改用對數/排名轉換;view 層不必改。"
+    },
+    {
+      "severity": "OK",
+      "what": "不在現役實盤資金路徑上,爆炸半徑有限——但 copilot agent 仍在用,那是使用者會直接看到的判斷。研究側早已明文棄用本 view。",
+      "evidence": "棄用證據:research/cache_tables.py:39 註解 REMOVED: growth_analysis_ttm (was a PG VIEW with hand-written F-Score derivation we couldn't fully verify);research/db.py:107 NOTE: growth_analysis_ttm view removed ... we don't trust;research/strat_lab/raw_quarterly.py:9 We DELIBERATELY do NOT use。實測 cache:var/cache/cache.duckdb 的 24 張表(bs_concise_raw / cf_progressive_raw / daily_quote / ... / treasury_stock_buyback)裡沒有它。現役 Serenity ev_v3_wf 與 apex strategy_s 皆不引用。仍在用的消費者(grep -rn growth_analysis_ttm):Scala strategy 套件(已凍結,QualityFilter.scala:31、MultiFactorStrategy.scala:78、ValueRevertStrategy.scala:66、ValueMomentumStrategy.scala:70、DividendYieldStrategy.scala:49、Signals.scala:139)、PG 下游 view(8_valuation.sql:93、9_valuation_1q.sql:95、6_cbs_ttm_5y_over75.sql:63-71)、Main.scala:347-353 的因子 IC 掃描,以及 .claude/agents/twstock-fundamental-analyst.md:14 與 twstock-bear-researcher.md:13。",
+      "fix": "最乾淨的解是把本 view 標成 deprecated,兩支 agent 文件改指向 research/strat_lab/raw_quarterly.py 的 first-principles 版本,避免長期維護兩套定義不同的「F-Score」。"
+    },
+    {
+      "severity": "OK",
+      "what": "效能備註(非正確性):view 含約 100 個 window function 且 WHERE 推不進去,全表掃 5.5 秒,只查一支股票也要 3.3 秒(每次重算全部 170,503 列)。任何 join 它的分析查詢會直接失控。",
+      "evidence": "time psql -c \"select count(*) from growth_analysis_ttm\" → 5.500s;time psql -c \"select count(*) from growth_analysis_ttm where company_code='2330'\" → 3.302s(回 132 列)。本次稽核有一支 join growth_analysis_ttm × financial_index_ttm 的查詢跑超過 3,600 秒被 timeout 砍掉,改成先限縮年份才在 3 秒內完成。",
+      "fix": "若要保留給 agent 互動使用,改成 materialized view + (company_code, year, quarter) 索引;修完 BUG 1 的 fan-out 之後,matview 才有唯一鍵可建 unique index。"
+    }
+  ],
+  "checked": [
+    "精讀 src/main/resources/sql/view/5_growth_analysis_ttm.sql 全文 685 行,逐欄記下 f_score 九項、56 個 5 年旗標、growth_score/drop_score 加總式、22 個 *_growth_rate 的分子分母與期間",
+    "精讀上游 src/main/resources/sql/view/4_financial_index_ttm.sql(206 行)與 materialized_view/6_concise_financial_statement_with_titles.sql、5_concise_income_statement_individual.sql",
+    "累計制(YTD)差分正確性:查 concise_income_statement_progressive 的 2330 2024 四季累計值,對照差分後單季與 TTM;以台積電 2024 官方全年營收 2.89 兆、EPS 45.25 做外部錨點",
+    "TTM 視窗語意:驗 rows between 3 preceding and current row 在有/無重複列時的行為;以 2881 富邦金 2012Q4 逐季加總手算 28,982,799 對比 view 的 33,967,504 / 36,048,086",
+    "重複列偵測:對 concise_financial_statement_with_titles 與 financial_index_ttm 做 group by (company_code, year, quarter) having count(*)>1,盤點 858 個鍵 / 55 家公司 / 11,040 幽靈列 / 2/4/8/64 倍分布",
+    "百分位排名分母污染:比對 financial_index_ttm 每季 count(*) vs count(distinct company_code),2008-2013 逐季",
+    "可重現性:同一支聚合查詢連跑 4 次(2009-2012)與 3 次(2013+、2019+),確認 f_score / drop_score / growth_score 均值飄動",
+    "PIT / 前視偏誤:讀 strategy/PublicationLag.scala 全文與 QualityFilter.scala 全文,確認 view 無 filing date 欄位、消費者側的法定期限 + 7 天緩衝正確、但 QualityFilter 的 WHERE 未收斂到最新一季",
+    "分母保護:全表掃 Infinity / -Infinity / NaN(0 筆);盤點 4_financial_index_ttm.sql 每一處除法是否有 nullif,找出行 91-92 兩處裸除法;實測 PG 的 float8 除零與 NULL 除零行為;查現存 total_assets = 0 的 7 列",
+    "比率定義對照學理:ROE/ROA 用期末還是平均權益(roa 用 (期末+去年同期)/2、roic 用期末且分母為 total_assets - total_current_liabilities 且含閒置現金)、gross_margin 分母為 TTM 總營業收入、DSO/DSI 用平均餘額 × 365 / TTM 分母",
+    "Piotroski F-Score 九項逐條對照論文定義,標出第 4 項用金額非比率、五個 Δ 項用 lag(1) 非 lag(4);以 lag(1) vs lag(4) 重算全表量化差異(67.8% 分數不同 / 19.9% 閘門翻面)",
+    "f_score 算術手算複核:2330 2024Q4 逐項 1+1+1+0+0+1+1+1+1 = 7,與 view 一致",
+    "_continuous / _overall 旗標手算複核:2330 2024Q4 的 eps 三個旗標與 view 逐一比對",
+    "equity_multiplier 錯欄位:量化 123,228 格中 63,567 判定相反、量綱中位數對照、對 drop_score < 10 閘門的 2023 年影響(1,719 → 1,468)",
+    "revenue_growth_rate_increase_5y_overall 的 SQL 運算優先序推導與 as-written vs intended 全表對比(27,256 / 123,621 不同)",
+    "1.2 倍測試在負基期的方向:對 profit_margin / operating_margin / roa / eps / fcf_per_share 五個指標各自計數(合計 5,826 格假通過)",
+    "*_growth_rate 符號一致性:盤點 22 個欄位中 7 個用 1 - x/lag(x);以 1294 2024Q2 股本 +30.3% 得到 -0.303 為反例;全表正負分布 17,708 / 5,181",
+    "lag 日曆對齊:比對 lag(year,20)/lag(quarter,20) 與 lag(year,4)/lag(quarter,4) 是否等於 5 年前 / 1 年前(14.87% / 11.62% 不符)",
+    "缺料造成的結構性斷點:ocf 與 total_capital_stock 的逐年 NULL 率、f_score 逐年 max/avg/通過率,定位 2009/2010 的跳變",
+    "score 之間的機械相關:corr(f_score, growth_score) = 0.753、avg(growth_score - f_score) = 3.217;讀 Main.scala:347-353 確認三者被當獨立因子註冊",
+    "消費者盤點:grep 全庫 growth_analysis_ttm(Scala strategy 六處、PG 下游 view 三支、Main.scala 因子掃描、兩支 agent 文件、cache_tables.py / db.py / raw_quarterly.py 的棄用註解)",
+    "cache 一致性:實測 var/cache/cache.duckdb 的 24 張表清單,確認本 view 不在其中,現役 Serenity / apex 路徑不受影響",
+    "下游 8_valuation.sql / 9_valuation_1q.sql 的欄位消費清單與 order by year, quarter desc 混向排序",
+    "效能實測:全表 count 5.5s、單股 count 3.3s;一支 join 查詢逾 3,600 秒逾時",
+    "台股真實邊界排除:確認本單位的發現不是『金融業月營收為負』『營建業月營收為 0』『週六補行交易日』『concise_* 無 market 欄』這類已知真實現象——受害公司雖然集中在金融業,但根因是科目別名 fan-out(同一數字被複製 64 次),不是金融業財報本身的特性",
+    "對照既有稽核單位 docs/data_audit/_done/B-fscore-academic.json,標出重複項(equity_multiplier 錯欄位、lag(1) vs lag(4)、QualityFilter 未收斂最新一季、industry 前視、cash_ratio 命名)與本單位新增項(fan-out 與不可重現、營收門檻括號、負基期方向、7 欄符號相反、PG 側 2010 斷點量測、除零未爆彈、growth_score 內含 f_score)"
+  ]
+}

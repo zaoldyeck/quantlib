@@ -1,0 +1,76 @@
+{
+  "id": "C-daily_quote",
+  "dim": "C",
+  "table": "daily_quote",
+  "unit": "C-daily_quote",
+  "verdict": "BUG",
+  "summary": "報價數字本身可以信——cache 與 PostgreSQL 全史 912 萬列、11 欄逐位相同,異常值掃描全清;不能信的是「哪幾天有開市」:5 個真交易日的報價整天不見(其中 4 天還在原始檔留下假的休市 sentinel,導致交易日曆把它們當假日、永遠不會自動補回),另有 1 天(2009-12-12)是憑空多出來的幽靈日,772 列與 2009-12-18 逐欄完全相同。順帶查到 69 筆「除權」事件在庫裡整列是 0,被 cache 與 prices.py 的 cash_dividend>0 過濾掉,使調整後價格出現中位 -3.94%、最深 -23.76% 的幽靈崩跌。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "5 個真的有開市的交易日,daily_quote 一列都沒有:twse 2021-08-18、2025-08-15、2026-04-29、2026-05-28,tpex 2023-06-08。其中 4 天在原始檔留下 0-byte sentinel,而 research/data_calendar.py::is_trading_day 就是讀 sentinel 當休市日曆,於是這 4 天被永久標記成假日、research/crawl/update.py::_missing_days 永遠不會補抓,回測靜默少掉這幾天。",
+      "evidence": "交叉表佐證(cache 同日列數):twse 2021-08-18 daily_trading_details=1086 / margin_transactions=1075 / stock_per_pbr=951 / sbl_borrowing=1080 / market_index=175;twse 2025-08-15 = 1228/1219/1046/-/272;twse 2026-04-29 = 1314/1264/1071/-/267;twse 2026-05-28 = 908/1271/1077/-/0;tpex 2023-06-08 stock_per_pbr=808 / margin=775 / foreign_holding_ratio=815 / sbl=804 / market_index=63。獨立鐵證:SELECT date,close,change FROM market_index WHERE market='twse' AND name='發行量加權股價指數' AND date IN (DATE '2021-08-18',DATE '2025-08-15',DATE '2026-04-29') → 16826.27/+164.91、24334.48/+96.38、39303.50/-218.23。sentinel:ls -la data/daily_quote/twse/2021/2021_8_18.csv(0 bytes, Aug 24 2021)、2025/2025_8_15.csv(0, Aug 21 2025)、2026/2026_4_29.csv(0, Apr 30 15:40)、2026/2026_5_28.csv(0, Jun 11 13:03);tpex 2023/2023_6_8.csv 為 96 bytes 的「共0筆」回應。程式碼:research/data_calendar.py:44-57(is_trading_day 讀 0-byte sentinel)、research/crawl/update.py:30-41(_missing_days 只補 is_trading_day 為真者)、research/crawl/update.py:44-49(_write_sentinel)。實測 is_trading_day 對這 4 天全回 False。",
+      "fix": "先刪假 sentinel 再補抓(順序不能反):rm data/daily_quote/twse/{2021/2021_8_18,2025/2025_8_15,2026/2026_4_29,2026/2026_5_28}.csv;TWSE 端點 https://www.twse.com.tw/rwd/zh/afterTrading/MI_INDEX?response=csv&type=ALLBUT0999&date=YYYYMMDD;TPEx 2023-06-08 端點 https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&o=csv&se=EW&d=112/06/08;2026-05-28 的 market_index 一併補。根因守護:寫 sentinel 前必須有正向休市證據——同日 daily_trading_details / margin_transactions / market_index 任一有資料就禁止寫 sentinel,改判 [deferred] 重抓;另加測試鎖死「daily_quote 的日期集合 ⊇ 其他日頻表在同區間的日期集合」。"
+    },
+    {
+      "severity": "BUG",
+      "what": "twse 2009-12-12(星期六)是幽靈交易日:772 列與 2009-12-18 逐欄完全相同(TWSE 對非交易日的請求把要求的日期原樣印在標題上,卻送回另一天的內容)。當年漲跌幅上限 ±7%,這使 9912 偉聯出現 7.35→9.18(+24.9%)→7.40(-19.4%)的不可能波形,任何逐日淨值回測在 2009 年 12 月都吃到一次假暴漲暴跌。",
+      "evidence": "全表 10,198 個 (market,date) 做「排除 date 欄的整日內容指紋」比對,唯一撞號:twse 2009-12-12 ≡ 2009-12-18,n=772,逐檔比對 772/772 完全相同(OHLC+量+值)。原始檔:data/daily_quote/twse/2009/2009_12_12.csv 標題「098年12月12日」、2009_12_18.csv 標題「098年12月18日」,但兩檔的發行量加權股價指數都是 \"7,753.63\",\"+\",\"11.46\",\"0.15\",9912 那一列都是 1,029,259 股 / 9,383,333 元 / 8.99 9.18 8.80 9.18。三條獨立佐證該日未開市:(a) 其他 6 張日頻表 2009-12-12 全 0 列、TPEx 為「共0筆」;(b) 2009-12-14 指數漲跌 +24.06 以 7,795.07(12-11 收盤)為基準,跳過 12-12;(c) 週末場次連續性檢定中,唯獨此日 med|N/P|(0.0100) 小於 med|S/P|(0.0224) 與 med|N/S|(0.0229)。反面負結果:其餘 23 個 TWSE 週末場次與 19 個 TPEx 週末場次全部通過連續性檢定,是真的補行交易日。",
+      "fix": "刪除 daily_quote 中 market='twse' AND date='2009-12-12' 的 772 列(PG 與 cache 兩邊),並把 data/daily_quote/twse/2009/2009_12_12.csv 改為 0-byte sentinel。守護:落檔/入庫前比對整日內容指紋,若與庫內任何既有日期完全相同即拒收(全史只此一例,守護成本極低)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "69 筆 right_or_dividend='權'(純配股)的除權事件在 PG 的 ex_right_dividend 裡三個數值欄(closing_price_before / reference_price / cash_dividend)全是 0,被 research/cache_tables.py 與 research/prices.py 的 cash_dividend > 0 一起濾掉,導致調整後價格面板在這些除權日出現幽靈崩跌(adj_factor 保持 1.0)。58 筆量得到的事件中位 -3.94%、最深 -23.76%,2018 年後佔 63 筆。屬 ex_right_dividend / prices.py 單位,但由本表的價格跳動掃描反推出來。",
+      "evidence": "psql -c \"SELECT right_or_dividend, count(*), sum((cash_dividend=0)::int) FROM ex_right_dividend GROUP BY 1\" → 權 2304 筆中 69 筆 cash_dividend=0(且 59 筆 pre/ref 亦為 0);息 22729 筆、權息 5120 筆的 cash_dividend 全部 > 0。實測 research/prices.py::fetch_adjusted_panel(codes=['2327','2597','2364','2020'], 2024-08-01..2024-09-05):2327 2024-08-15 adj_factor=1.0 adj_ret=-16.51%、2597 2024-08-14 adj_factor=1.0 adj_ret=-23.76%、2364 2024-08-29 -15.66%、2020 2024-07-30 -18.63%。程式碼:research/cache_tables.py:42(WHERE cash_dividend > 0)、research/prices.py:141-144(同一過濾)。名單含 2881 富邦金 -7.03%、2885 元大金 -2.45%/-3.01%、2883 開發金 -1.93%、5274 信驊 -11.40%、6472 保瑞 -15.60%、6446 藥華藥 -7.43%。對照(說明「權息」是對的):6712 2024-05-29 pre=202、ref=178.18、cash_dividend=23.818182 = pre-ref,故 (pre-cash)/pre 恰等於官方還原因子。",
+      "fix": "重新解析那 69 筆(FinancialReader.readExRightDividend);修好前 prices.py 應對「該股該日有 ex_right_dividend 事件但算不出因子」fail-loud,而非靜默套 adj_factor=1.0。cache 的 ex_right_dividend 過濾條件應改為「有可用還原因子」而非「cash_dividend > 0」。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "daily_quote 現在有兩條寫入路徑,cache 領先 PG 一天(2026-07-20 只在 cache),而該日的原始 CSV 沒有被封存。Python 直寫路徑(research/crawl/)只寫 cache.duckdb,不經 PG、不落 data/ 原始檔(只在休市時寫 sentinel),使 research/paths.py 宣告為「不可重生的事實地基」的 RAW 封存自 2026-07-20 起出現斷點,A 維(原始檔逐欄核對 DB)對這些日子無從驗證;而 research/cache_tables.py:22-23 是 os.remove 後全砍重建,跑一次 Step 2 就會把 cache 的 2026-07-20 抹掉。",
+      "evidence": "cache 總列數 9,126,464 vs PG 9,124,080,差 2,384 = tpex 1,013 + twse 1,371 = 2026-07-20 整日;PG 全部 7 張日頻表 max(date) 皆為 2026-07-17。ls data/daily_quote/twse/2026/ 無 2026_7_20.csv(7_17.csv 之後只有 7_18、7_19 的 0-byte sentinel)。程式碼:research/crawl/update.py:52-67(_refresh_daily 只 sink.upsert_day,不落原始檔)、research/crawl/sink.py:35-59、research/cache_tables.py:22-23(os.remove + 從 PG 全砍重建)。註:此路徑有 parity 守護 research/crawl/tests/test_parity.py(對照日 2026-07-17 逐位比對),解析本身可信。",
+      "fix": "Python 直寫路徑落檔時一併把抓到的 CSV 寫入 data/<source>/<market>/<year>/,維持 RAW 封存不斷線;或明確改寫 research/paths.py 的 RAW 契約說明,聲明 2026-07-20 起 daily_quote 的原始封存改由 cache 承擔(並接受 A 維無法驗證)。cache_tables.py 對這 3 張 Python 直寫的表應改成 merge 而非砍掉重建。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 內部表間日期錯位 3 天:Python 爬蟲覆蓋的 3 張表(daily_quote / daily_trading_details / stock_per_pbr)到 2026-07-20,只能靠 Scala + 全量重建的 4 張表(market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio)只到 2026-07-17,而齊備日是 2026-07-21——7 張表沒有一張到齊。這正是 CLAUDE.md 記載 2026-07-15 事故的形態(表間日期錯位 → 策略閘門 fail-closed 靜靜砍光候選)。",
+      "evidence": "PYTHONPATH=... uv run --project research python -c \"from research.data_calendar import stale_tables, latest_complete_trading_day; print(latest_complete_trading_day()); print(stale_tables())\" → 2026-07-21;{'daily_quote': 2026-07-20, 'market_index': 2026-07-17, 'daily_trading_details': 2026-07-20, 'stock_per_pbr': 2026-07-20, 'margin_transactions': 2026-07-17, 'sbl_borrowing': 2026-07-17, 'foreign_holding_ratio': 2026-07-17}。research/crawl/update.py:27 DAILY_SOURCES 只有 3 個模組,其餘 4 表無 Python 路徑。",
+      "fix": "把 market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio 也納入 Python 直寫路徑(DAILY_SOURCES),或在每日 loop 明確要求先跑 Scala Main update;在此之前 ensure_fresh_cache 的擋門不可放寬。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "TPEx daily_quote 起點 2007-07-02,比同市場其他表晚半年:tpex stock_per_pbr 與 margin_transactions 都從 2007-01-02 開始,那 119 個交易日有本益比與融資券資料卻沒有報價。原始檔從來沒抓過(不是抓了失敗)。",
+      "evidence": "SELECT min(date) FROM daily_quote WHERE market='tpex' → 2007-07-02;SELECT count(DISTINCT date) FROM stock_per_pbr WHERE market='tpex' AND date < DATE '2007-07-02' → 119(2007-01-02..2007-06-29),margin_transactions 同為 119。ls data/daily_quote/tpex/2007/ 最早檔為 2007_7_2.csv,全年共 183 檔。TWSE 側起點 2004-02-11 無此問題。",
+      "fix": "先確認 TPEx stk_wn1430_result.php 是否仍供應民國 96 年上半年(d=96/01/02);若供應則補抓 119 天,若不供應則在文件明記 TPEx 報價的可用起點為 2007-07-02,禁止把 2007 上半年的 TPEx 樣本納入任何回測。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 的 daily_quote 全史逐欄一致(非抽樣,是全體):10,198 個共同 (market,date) 上,雙邊 count 與兩種雜湊三個數字全部相等,共 9,124,080 列零差異;唯一差異是 cache 多出 2026-07-20 一天。schema 型別零降級(double precision→DOUBLE、bigint→BIGINT、date→DATE、varchar→VARCHAR)。",
+      "evidence": "DuckDB ATTACH pg + ATTACH cache,雙邊 SELECT market,date,count(*),sum(hash(11欄)::HUGEINT),bit_xor(hash(11欄)) GROUP BY 1,2 後 JOIN 比對 → 「共同 (market,date):count / hash 不符」= 0 筆;「只在 cache」= tpex 2026-07-20 (1013 列)、twse 2026-07-20 (1371 列);「只在 PG」= 無。抽樣佐證:3 日期 × 5 檔(2012-06-15 / 2019-11-07 / 2026-07-17 × 2330,2317,1101,3008,6488)共 14 列,pandas DataFrame.equals = True。cache 投影 PG 18 欄中的 11 欄(research/cache_tables.py:32-37),未帶入 id / company_name / transaction / change / last_best_bid_volume / last_best_ask_volume / price_earning_ratio,為刻意取捨且已註解。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "異常值掃描全清:912.6 萬列中,重複主鍵 0、負價格 0、high<low 0、close/open 出界 0、負量負值 0、量=0 但值>0 0、量>0 但收盤=0 0、未來日期 0、交叉報價(買價>賣價)0、代號格式異常 0、market 非 twse/tpex 0。",
+      "evidence": "見 findings/C-daily_quote.md 第七節表格;逐項 SQL 已列出,對 var/cache/cache.duckdb 的 daily_quote 全表執行。註:cache 無 PK/unique 約束(CREATE TABLE AS 不帶),PG 有 idx_DailyQuote_market_date_companyCode UNIQUE;目前實測重複 0 筆,唯一性靠 research/crawl/sink.py:61-63 的「刪整日 + 插」自律維持。",
+      "fix": "(可選)在 cache 建表後補 CREATE UNIQUE INDEX ON daily_quote(market,date,company_code),讓唯一性由資料庫而非寫入端自律保證。"
+    },
+    {
+      "severity": "REAL",
+      "what": "closing_price = 0 共 119,680 列,看起來像壞值,其實是舊 TPEx CSV 的「當日無成交」寫法:100% 在 tpex、100% 落在 2007-07-02~2011-11-11、100% 成交量為 0;2011-11-14 起 TPEx 改用 '---'(解析成 NULL),兩種寫法交接乾淨無重疊。closing_price IS NULL 共 134,254 列(1.47%,四個 OHLC 一起為 NULL,TWSE 的 '--'),其中 10,845 列成交量 > 0,是只有零股/定價交易而無盤中成交的個股(成交金額÷股數落在買賣價之間,內部一致)。",
+      "evidence": "SELECT market, trade_volume=0, count(*), min(date), max(date) FROM daily_quote WHERE closing_price=0 GROUP BY 1,2 → 僅一組:tpex / true / 119680 / 2007-07-02 / 2011-11-11;closing_price=0 AND trade_volume>0 → 0 筆。NULL 收盤按市場:twse 64,783(2004-02-11~2026-07-20)、tpex 69,471(2011-11-14~2026-07-20)。量>0 且收盤 NULL 的樣本:00681R 2026-07-20 量 95 / 值 2020(隱含 21.26,買 21.41 賣 21.47)、1213 2026-07-17 量 2 / 值 14。解析對應:research/crawl/sources/daily_quote.py:42-59(_twse_num 把 '--' 轉 None;_tpex_num 把 '---'/'----' 轉 None、除權息字樣轉 0)。",
+      "fix": "資料本身不需修,但任何用 closing_price 算報酬的程式必須排除 closing_price<=0(research/prices.py:129 已有 AND closing_price > 0,合格);新程式一律沿用此護欄。"
+    },
+    {
+      "severity": "REAL",
+      "what": "跨日 >±15% 的收盤跳動共 83,954 筆(扣除除權息/減資/停牌復牌後),其中 83,555 筆(99.5%)落在 5-6 碼代號——權證無百分比漲跌限制、國外成分 ETF 不受漲跌幅限制、槓桿 ETF 分割前後停牌。4 碼標的只剩 399 筆(佔全表 0.0044%),再扣掉上市前 5 日無漲跌幅限制者只剩 47 筆,2015 年後只剩 8 筆,且該 8 筆已全部歸因(5 筆為上述全零除權事件,3 筆為 0061/0080/0081 國外成分 ETF)。高價股 5274 信驊(最高 19,275)與 6515 穎崴(最高 10,795)逐日序列連續,非小數點位移。",
+      "evidence": "掃描條件:連續交易日(gap<=7 天)、closing_price>0 且 trade_volume>0、排除同區間有 ex_right_dividend 或 capital_reduction 事件者。分類:regexp_matches(company_code,'^[0-9]{4}$') → 399 筆;其餘 83,555 筆。2015 年後 4 碼、gap=1、非上市前 5 日者共 8 筆:2597 2024-08-14、2364 2025-08-28、2020 2024-07-30、2327 2024-08-15、2364 2024-08-29(以上皆全零除權事件)、0081 2015-04-10 及 2015-04-15、0061 2024-10-08(國外成分 ETF)。5274 序列:2026-03-05..03-20 收盤 9520,9705,9250,9430,10055,10495,10495,10295,11320,12345,12050,11750。另:2007 下半年 TPEx 有 33 筆查無對應除權息,因為 ex_right_dividend 的 tpex 資料從 2008-01-10 才開始(SELECT market,min(date) FROM ex_right_dividend GROUP BY 1 → twse 2003-05-05 / tpex 2008-01-10)。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "TWSE 有 24 個週末場次、TPEx 有 19 個,除 2009-12-12(已判為幽靈日)外全部是真的補行交易日;TPEx 的 2,269 個「共0筆」空檔日、TWSE 的 2,676 個 0-byte sentinel 除已列出的 2 天外全部對應真休市。",
+      "evidence": "連續性檢定:對每個週末場次 S 取前一交易日 P 與次一交易日 N,計算各股 |ln(close 比值)| 中位數。23 個 TWSE 週末場次 med|S/P| 落在 0.0047~0.0249、med|N/S| 落在 0.0058~0.0365;TPEx 19 個同樣通過。TPEx 空檔檔案內容實測:iconv -f BIG5 data/daily_quote/tpex/2008/2008_2_4.csv → 「上櫃股票每日收盤行情(不含定價)/ 資料日期:97/02/04 / 共0筆」。TPEx 2,269 個空檔中只有 2 天 TWSE 當日有交易:2009-12-12(幽靈日)與 2023-06-08(已列為缺漏 BUG)。",
+      "fix": ""
+    }
+  ]
+}

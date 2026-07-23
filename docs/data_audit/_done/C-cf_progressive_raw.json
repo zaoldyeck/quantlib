@@ -1,0 +1,86 @@
+{
+  "id": "C-cf_progressive_raw",
+  "dim": "C",
+  "table": "cf_progressive_raw",
+  "unit": "C-cf_progressive_raw",
+  "verdict": "BUG",
+  "summary": "搬運零瑕疵,最新一季幾乎是空的。DuckDB cache 與 PostgreSQL 逐季逐列完全相同(66 季、6,359,600 列、含整列內容 BIT_XOR 雜湊全對),抽樣 812 列逐欄一字不差——cache 這一段可以完全信任。不能信的是「最近一季有沒有資料」:2026Q1 只有 544 家公司,比 2025Q4 少 1,719 家,其中 1,410 家在 2026 上半年天天交易、成交值合計約 NT$75 兆,連台積電 2330、聯發科 2454、鴻海 2317 都不在裡面。根因是季報 bulk zip 在 2026-05-10(申報期限 5/15 之前)被抓了一次,而爬蟲把「資料夾存在」當成「這季抓完了」,從此永不重抓;同一病灶在 2025Q2(缺整個金融業+KY 股,122 家在交易)、2023Q2(119 家)、2024Q1(13 家)都發作過。更麻煩的是缺一季不會留空:現金流量表是年度累計數,下游用「本季累計−上季累計」還原單季,少了 Q2 就把 Q3 灌成 Q2+Q3——1590 亞德客-KY 2025Q3 的單季營業現金流因此是兩季合計 3,663,877,cfo_ttm 橫跨五季、高估 43%;2025 年共 127 家在交易的公司(NT$6.57 兆成交值)中招,而數字看起來完全合理。這種錯比空值危險,且直接流進 Piotroski F-Score 的第 2、4 項。",
+  "checked": [
+    "schema 對照:PG cash_flows_progressive 7 欄 vs cache 6 欄(僅少 id 自增代理鍵),varchar→VARCHAR / integer→INTEGER / double precision→DOUBLE 全對應,無型別降級",
+    "全表筆數:cache 6,359,600 = PG 套用 WHERE market='tw' 後 6,359,600 = PG 全表 6,359,600(market 只有 'tw' 一值,過濾為 no-op)",
+    "逐季 checksum:66 個 (year,quarter) 的 COUNT / COUNT(DISTINCT company_code) / COUNT(DISTINCT title) / SUM(value) / MIN / MAX / BIT_XOR(HASH(整列串接)) 七項全數相同,零季不符、無單邊季度",
+    "抽樣逐欄:亂數 seed 20260722 抽 2022Q3(2701/1905/1593/6198/8271)、2011Q4(4154/6197/2856/4120/9937)、2011Q2(3052/2313/3068/5521/8064),共 812 列 6 欄 pandas DataFrame.equals 全 True",
+    "NULL / NaN / Inf:六個欄位皆 0 筆",
+    "重複鍵:(year,quarter,company_code,title) 0 筆重複",
+    "parity:research/db.py:190-192 的 pg-attach view 與 research/cache_tables.py:92-94 的建表 SQL 逐字相同",
+    "季序列連續性:2009Q4→2026Q1 連續 66 季一季不缺;起點 2009Q4 = FinancialStatementsSetting.scala:7,20 的 firstDate;2026Q2 未出現屬正確(8/14 期限未到)",
+    "逐季覆蓋:每季 distinct company_code 曲線,對照前一年同季找斷崖",
+    "缺口歸因:對 2026Q1/2025Q2/2023Q2/2024Q1/2025Q4/2025Q3/2025Q1 逐一交叉 daily_quote 交易日數與成交值,分辨「興櫃/未上市(無交易)」與「可交易卻缺料」",
+    "公司內部空洞:首末季之間缺季的逐季家數,再交叉當年交易日 ≥150 判定是否影響選股池",
+    "半年報型態:逐年「只有 Q2+Q4」的公司家數與其交易日數",
+    "原始檔對照:66 個 data/financial_statements/<Y>_<Q>/ 的檔數與主要 mtime,建立「下載日 vs 完整度」對照表",
+    "行業別模板統計:檔名 tifrs-fr1-mX-<basi|bd|fh|ins|ci|mim>-<cr|ir|er>-<code>-<YYYYQq>.html 的逐季分佈,量化金融業缺料",
+    "爬蟲機制:src/main/scala/Task.scala:120-187 pullFinancialStatements 的 existFiles(第 138 行 case _ => Seq((year,quarter,\"\")))與第 182 行 filterNot(existFiles),以及 150-157 的月份閘門",
+    "reader 機制:FinancialReader.readFinancialStatements 的 dataAlreadyInDB 粒度與三表各自的 xxxDataAlreadyInDB 守門(判定重抓是否為 union 語意)",
+    "CFO 科目別名覆蓋率:CF_TITLES 兩個別名逐季公司覆蓋率(66 季)、含 '營業活動' 的所有科目名清單",
+    "會計恆等式(2013+):期初+本期增減=期末、營業+投資+籌資+匯率=本期增減,各 10 萬筆",
+    "會計恆等式(pre-IFRS 2009-2012):用 pre-2013 科目名重跑,並把殘差逐案回溯到原始 HTML",
+    "科目字典漂移:pre-2013 vs post-2013 的 (year,title) 組合數與 singleton 比例",
+    "異常值:期末現金為負、value 極值、零值比例、company_code 格式(4/5/6 位與 0000A1 型)、year/quarter 定義域、未來期間",
+    "單位尺度:逐年中位數期末現金與中位數 |CFO|,檢查 元/仟元 是否混用",
+    "跨表對齊:cf_progressive_raw vs is_progressive_raw 逐季公司集合(2018+),含 cf_only / is_only 及其可交易家數",
+    "join 安全性:is_progressive_raw 中同一季同一 company_code 出現在兩個市場的筆數(cf 無 market 分割)",
+    "下游影響:research/raw_quarterly.parquet 的 cfo_q/cfo_ttm 逐筆重算驗證,以及被 lag-diff 灌水的列數 × 可交易家數 × 成交值",
+    "消費者盤點:grep raw_quarterly / cfo_ttm / f_score 的引用檔案(含 research/serenity/engine.py 現役策略引擎)"
+  ],
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "2026Q1 幾乎整季不見:只有 544 家公司,比 2025Q4 少 1,719 家,其中 1,410 家在 2026-01-01~06-30 有 ≥80 個交易日、成交值合計約 NT$75 兆,含 2330 台積電(NT$9.99 兆)、2454 聯發科(NT$3.72 兆)、2327 國巨、3481 群創、2317 鴻海。估計缺約 7.3 萬列(1,410 家 × 每家每季平均 52 個科目)。今天是 2026-07-22,Q1 申報期限 5/15 早已過,資料早該齊備。",
+      "evidence": "① 逐季家數:2025Q1 1,968 / 2025Q2 2,366 / 2025Q3 2,008 / 2025Q4 2,262 / **2026Q1 544**。② 原始檔:data/financial_statements/2026_1/ 只有 544 個檔,全部 mtime = 2026-05-10(早於 5/15 期限);對照 2025_1 有 1,968 檔 mtime 2025-06-15、2024_1 有 1,886 檔 mtime 2024-05-16。全 66 季的「下載日 vs 完整度」規律極乾淨:下載日晚於申報期限者一律完整,落在期限前者一律殘缺。③ 行業別模板:2026_1 只有 ci 538 / bd 4 / basi 2,fh 與 ins 掛零(正常季為 basi 45 / bd 110 / fh 15 / ins 24 / ci 2,382)。④ 根因程式碼 src/main/scala/Task.scala:138 `case _ => Seq((year, quarter, \"\"))` + :182 `val tuples = yearToQuarterToCompany.filterNot(existFiles)`——2019 年起改用整季 bulk zip,existFiles 只記 (year,quarter,\"\"),只要 data/financial_statements/<Y>_<Q>/ 資料夾存在就永不重抓,不管裡面 1 個檔還是 2,600 個檔;而 :150-157 的月份閘門 `case m if m < 5 => (1 to 4)` 表示 5/1 就允許抓當年 Q1,一律早於 5/15 期限。⑤ 重現:`uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/gaps.py`(輸出 missing_vs_2025Q4=1719 / missing_and_traded=1410 / traded_value_e8=749965.0)。",
+      "fix": "補抓 2026Q1:端點 https://mopsov.twse.com.tw/server-java/FileDownLoad?step=9&filePath=/home/html/nas/ifrs/2026/&fileName=tifrs-2026Q1.zip(樣板見 application.conf:98 bulkInstanceDocuments + FinancialStatementsSetting.scala:32)。必須先刪掉 data/financial_statements/2026_1/ 或改掉存在性判斷,否則 Task.scala:182 直接跳過。重抓後 refresh materialized view cash_flows_individual,再跑 research/cache_tables.py。根因守護:把「資料夾存在=抓完了」換成用資料本身判斷(該季公司家數低於前一年同季 90% 就重抓,或連續兩次下載家數相同才封存);不要再塞一個猜出來的天數常數——月份閘門本身就是猜出來且猜早了。另加回歸測試:同一 (year,quarter) 的公司集合只能單調成長,且任一季可交易公司覆蓋率不得低於前一年同季 X%(X 由歷史齊備季實測)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "同一病灶反覆發作,歷史上已污染 2023Q2、2024Q1、2025Q2:整批金融業(金控/銀行/證券/保險)與 KY 股缺料,因為它們的申報期限比一般公司晚,而爬蟲在期限前就抓了唯一一次。受害家數(對照前一年同季且該期間仍在交易):2023Q2 缺 256 家其中 119 家在交易(NT$2.98 兆成交值)、2024Q1 缺 24 家其中 13 家在交易(NT$1.70 兆)、2025Q2 缺 242 家其中 122 家在交易(NT$3.17 兆)。",
+      "evidence": "① 行業別模板逐季統計(檔名 tifrs-fr1-mX-<行業>-<cr|ir>-<code>-<YYYYQq>.html 的第 4 段):正常季 2019_2 = basi 43 / bd 120 / fh 16 / ins 21 / ci 2,186;2024_2 = 45/110/15/24/2,382;2025_4 = 45/100/14/23/2,104。殘缺季 2023_2 = **4/21/0/2**/2,210;2025_2 = **7/32/1/5**/2,327。② 下載日:2023_2 mtime 2023-08-20、2025_2 mtime 2025-08-21,兩者都落在金融業/KY 股 8/31 期限之前;2024_1 mtime 2024-05-16(剛過 5/15,仍有 13 家在交易的公司尚未申報)。③ 2025Q2 缺料名單(按 2025H2 成交值排序):6781 AES-KY 3,256.7 億、2887 台新金 2,633.6、2881 富邦金 2,389.7、4991 環宇-KY 2,339.2、2891 中信金 2,116.6、2882 國泰金 1,919.6、4971 IET-KY、2885 元大金、4977 眾達-KY、2886 兆豐金、6415 矽力-KY、2890 永豐金、5871 中租-KY、4763 材料-KY、1590 亞德客-KY、2892 第一金、2883 開發金、2880 華南金、2801 彰銀、3673 TPK-KY。④ 這是缺陷類的第二個樣本:C-is_progressive_raw 已在另一支爬蟲 Task.pullQuarterlyFiles 抓到同型病灶(檔案存在就跳過 + 閘門早於申報期限),兩套資料源受害季高度重疊(2023Q2 / 2025Q2 / 2026Q1)。",
+      "fix": "補抓清單(端點同上,只換年季):tifrs-2025Q2.zip、tifrs-2023Q2.zip、tifrs-2024Q1.zip;順手可補 2021Q4 / 2022Q4 / 2025Q4(家數偏低但受害者全是非交易公司)。重抓在本表是安全的:FinancialReader.readFinancialStatements 的 filterNot(dataAlreadyInDB) 以 (market,year,quarter,companyCode) 為粒度,三張表各有 xxxDataAlreadyInDB 守門,只 INSERT 新公司、不刪既有列,天然 union 語意——不會像 is_progressive 那樣抹掉已下市公司。根因守護同上一條。"
+    },
+    {
+      "severity": "BUG",
+      "what": "缺一季不是留下空值,而是把下一季算成兩季合計。現金流量表是年度累計數,research/strat_lab/raw_quarterly.py:176-182 用「本季累計 − 上季累計」還原單季,shift(1) 只在 (company_code, year) 內按 quarter 取上一列、**沒有檢查 quarter 是否真的差 1**;整季不見時上一列就變成再上一季。受害規模:2023 年 664 列(120 家在交易,NT$5.65 兆成交值)、2024 年 615 列(13 家,NT$2.59 兆)、2025 年 339 列(127 家,NT$6.57 兆)。這個灌水值直接進 Piotroski F-Score 的 F2(CFO>0,:245)與 F4(CFO>NI,:249),以及 cfo_ni_ratio_ttm(:216)。",
+      "evidence": "① 逐位驗證 1590 亞德客-KY:cache 中累計營業現金流 2025Q1 YTD 1,313,878、2025Q3 YTD 4,977,755、2025Q4 YTD 7,666,588,**2025Q2 整列不存在**;research/raw_quarterly.parquet 的 cfo_q 2025Q3 = 3,663,877 = 4,977,755 − 1,313,878,即 Q2+Q3 兩季合計卻掛在 Q3 名下(對照 2024 年單季 1,453,907 / 3,074,671 / 2,840,844 / 3,309,034,3.66M 看起來完全正常)。② cfo_ttm 同步失真:2025Q4 cfo_ttm = 3,309,034(2024Q4)+ 1,313,878 + 3,663,877 + 2,688,833 = 10,975,622,實際橫跨 2024Q4~2025Q4 五個季度;真值即 2025Q4 的 YTD 7,666,588,**高估 43%**。③ 同型受害(2025Q3,前一個存在的季是 Q1):2881 富邦金、2882 國泰金、2891 中信金、2887 台新金、6781 AES-KY、4991 環宇-KY、2885 元大金、2890 永豐金、4763 材料-KY、6415 矽力-KY 等 127 家。④ 2019-2022 的 236~560 列全部落在興櫃/未上市公司(當年交易日 ≥150 者為 0),不影響選股池。⑤ 重現:`uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/downstream.py`。⑥ 消費者:research/raw_quarterly.parquet 被 research/serenity/engine.py(現役策略引擎)、research/apex/data.py、research/strat_lab/v4.py 等 20+ 支引用。",
+      "fix": "上兩條補抓做完後這條自動消失大半,但仍應在 raw_quarterly.py:176-182 加連續性防呆:還原單季前先確認 quarter 與 shift 出來的 quarter 恰好差 1,不連續就輸出 null;cfo_ttm 的 rolling_sum(window_size=4) 同樣要確認視窗真的橫跨 4 個連續季(目前 over(company_code) 完全不看季序)。同一支檔案的 rev_q / ni_q / op_income_q / gross_pf_q / cogs_q 用同一個 shift 寫法(:127-147),必須一起修——同一機制的產物。拿到誠實的空值遠好過一個看起來合理的兩季合計。"
+    },
+    {
+      "severity": "OK",
+      "what": "DuckDB cache 與 PostgreSQL 完全一致,沒有任何漏欄、漏列、型別降級或內容漂移;季序列 2009Q4→2026Q1 連續 66 季一季不缺。",
+      "evidence": "schema:PG cash_flows_progressive 7 欄(id, market, year, quarter, company_code, title, value),cache 取其中 6 欄——只少 id(自增代理鍵),character varying→VARCHAR、integer→INTEGER、double precision→DOUBLE 逐一對應。筆數:cache 6,359,600 = PG 套用 WHERE market='tw' 後 6,359,600 = PG 全表 6,359,600(market 欄只有 'tw' 一個值,由 FinancialReader 硬寫,所以 cache_tables.py:94 的 market 過濾是 no-op)。逐季 checksum:66 個 (year,quarter) 上比對 COUNT(*)、COUNT(DISTINCT company_code)、COUNT(DISTINCT title)、SUM(value)、MIN(value)、MAX(value) 以及 BIT_XOR(HASH(market||'|'||company_code||'|'||title||'|'||CAST(value AS VARCHAR))),七項全部零筆不符、無單邊季度。抽樣:亂數 seed 20260722 抽 2022Q3(2701/1905/1593/6198/8271)269 列、2011Q4(4154/6197/2856/4120/9937)289 列、2011Q2(3052/2313/3068/5521/8064)254 列,共 812 列 6 欄 pandas DataFrame.equals 全 True。完整性:六欄 NULL 皆 0、value 無 NaN 無 Inf、(year,quarter,company_code,title) 無重複、quarter 只有 1-4、無未來期間。research/db.py:190-192 的 pg-attach view 與 research/cache_tables.py:92-94 的建表 SQL 逐字相同,parity 成立。起點 2009Q4 = FinancialStatementsSetting.scala:7,20 的 firstDate = LocalDate.of(2009,4,1),不是漏抓;2026Q2 未出現屬正確(申報期限 8/14 未到)。本表為季頻,不涉及休市日曆 / sentinel。join 安全性:is_progressive_raw 中「同一季同一 company_code 出現在兩個市場」= 0 筆(全期間 13 個 code 曾跨市場,但從不同季),所以 raw_quarterly.py:193-195 不帶 market 的 join 不會扇出。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "CFO 科目別名 100% 命中,沒有 is_progressive_raw 那種漏字問題;會計恆等式 2013 年起零筆不符。",
+      "evidence": "raw_quarterly.py:72-74 的 CF_TITLES[\"cfo\"] = [\"營業活動之淨現金流入（流出）\", \"營業活動之淨現金流入(流出)\"]——半形版覆蓋 2009Q4~2012Q4(18,049 筆 / 1,563 家),全形版覆蓋 2013Q1~2026Q1(98,314 筆 / 2,859 家),66 季逐季公司覆蓋率全部 100.0%,唯一例外是 2019Q2 的 000027(興櫃、只有 3 個科目、daily_quote 查無交易)。恆等式(2013+):期初+本期增減=期末,100,867 個公司季 0 筆不符;營業+投資+籌資+匯率影響=本期增減,0 筆不符(每年 27~191 筆缺項是銀行保險用不同科目名,非錯值)。恆等式(2009-2012,改用 pre-IFRS 科目名):A 式 18,049 筆中僅 4 筆不符;B 式每年 345~436 筆不符,逐案回溯確認是檢查式漏項而非資料錯——2492 於 2011Q4 的殘差 7,779,167 剛好等於原始檔 data/financial_statements/2011_4/2492.html 裡「合併個體變動淨影響數 −7,779,167」這一行,pre-IFRS 現金流量表有這類額外調節列,四項式湊不齊是正常的。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "2019 年起 Q2/Q4 比 Q1/Q3 多約 600 家公司,以及每季 553~720 家公司出現「季空洞」,看起來像大規模漏抓——實際上是興櫃/未上市的公開發行公司只編半年報與年報,而且它們根本不在交易池裡。",
+      "evidence": "2019 年改用 bulk zip 後把所有公開發行公司都收進來(2018Q4 1,702 家 → 2019Q4 2,348 家)。逐年「只有 Q2+Q4」的公司:2019 549 家 / 2020 556 / 2021 235 / 2022 461 / 2023 502 / 2024 610 / 2025 177,交叉 daily_quote 當年交易日 ≥150 者除 2024 年 12 家外**全部為 0**。公司內部空洞(首末季之間缺季)2019+ 每季 553~720 家,交叉後可交易者為 **0**;2013-2018 每年 33~84 家中可交易者 6~11 家、2024Q1 720 家中 13 家、2025Q1 627 家中 2 家——後三者即上面 BUG 條列的受害者。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "期末現金為負(8 筆)是來源真值,不是解析錯誤;pre-2013 科目名爆量(每季 800~1,368 個)是 IFRS 前現金流量表科目未標準化,不是解析垃圾;單位沒有 元/仟元 混用。",
+      "evidence": "① 負期末現金:全表 116,362 個公司季中僅 8 筆、3 家公司(1328 / 1456 / 5403)。逐案查原始檔 data/financial_statements/2013_4/1456.html 原文即為「期末現金及約當現金餘額 −18,343」,並在下一列拆解為「資產負債表帳列之現金及約當現金 11,822」+「其他符合國際會計準則第七號現金及約當現金定義之項目 −30,165」,11,822 + (−30,165) = −18,343,來源就是這樣寫的。1328 在 daily_quote 完全沒有交易紀錄(不在任何選股池),其檔案為 tifrs-fr1-m2-ci-ir-1328-2024Q4.html(個體報表)。② 科目字典:pre-2013 共 5,509 個 (year,title) 組合,其中 3,516 個只出現在 1 家公司;post-2013 為 4,150 個組合、僅 191 個 singleton。核心列(期末現金、營業/投資/融資活動之淨現金流入、本期現金及約當現金淨增減數、期初現金、匯率影響數)每季都有約 1,538 家齊備。③ 單位尺度:逐年中位數期末現金 468,831 → 920,331 仟元、中位數 |CFO| 115,711~328,868 仟元,2013 年 IFRS 換版前後平滑。極值 3.34e9 仟元(2891 中信金 2011-2012 取得/處分備供出售金融資產)、2330 台積電 2025Q4 期末現金 2.768e9 仟元(NT$2.77 兆)皆為合理量級;零值佔 9.19%(現金流量表大量科目本來就是 0)。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cash_flows_progressive 沒有「合併/個體」標記,但表裡混有個體(非合併)報表,而它的姊妹表 is_progressive_raw / bs_concise_raw 在 cache 端寫死 type='consolidated'。每季約 333~447 家公司只有個體報表,其中 2024Q2 有 163 家在交易——包含 5269 祥碩(2024 年成交值 NT$5,113 億)、3374 精材、8028 昇陽半導體、2455 全新、6789 采鈺。這多半不是錯(沒有子公司的公司本來就只編個體財報,那就是它唯一的正式財報),但資料裡沒有留下任何「這一列是哪種基礎」的標記,消費者無從判斷,拿它跟合併基礎的淨利做 F4「CFO > NI」比較時是在比不同基礎的數字。",
+      "evidence": "檔名第 5 段 cr/ir/er 即合併/個體/其他:2024_2 = cr 2,126 / ir 425 / er 29,2024_4 = 2,166 / 447 / 29,2025_2 = 1,994 / 375 / 7;每一季「只有 ir」的公司數等於該季 ir 檔數(即沒有公司同時有 cr 與 ir)。2024Q2 的 425 家 ir-only 中,163 家在 2024 年有 daily_quote 交易紀錄。5269 祥碩 2024Q1~2025Q1 都是 tifrs-fr1-m1-ci-ir-5269-*.html,2025Q2 起變成 -cr-,符合「開始有子公司才編合併」的現實,證明 ir 就是這些公司唯一的正式財報。選檔邏輯 FinancialReader.readFinancialStatements 用 .sortBy(_._1).distinctBy(_._2)(type 字典序 cr < er < ir),同時有兩種時會取 cr——結論正確但是靠字母順序碰巧正確,不是寫明的意圖。另:TWSE 彙總報表把 5269 這種單體公司放進 type='consolidated' 那一份(is_progressive_raw 中 5269 的 2024 四季都在),所以兩表公司集合對得上(2018 年起 is_only_traded ≈ 0),但兩邊對「合併」的定義其實不同。",
+      "fix": "在 reader 端把檔名的 cr/ir/er 落成一個 report_basis 欄位(Slick Table 加欄 → ALTER TABLE → cache_tables.py 帶出),讓消費者能自己決定要不要用個體報表;同時把 sortBy 的偏好寫成具名常數(例如 BASIS_PREFERENCE = Seq(\"cr\",\"er\",\"ir\"))而不是靠字典序。在還沒加欄之前,至少把這個限制寫進 research/cache_tables.py 的註解與 CLAUDE.md 的資料契約:「cf_progressive_raw 每季約 350~450 家(含約 160 家在交易)是個體基礎,與 is/bs 的 type='consolidated' 不同基礎」。"
+    }
+  ]
+}

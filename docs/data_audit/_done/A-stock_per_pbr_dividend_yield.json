@@ -1,0 +1,84 @@
+{
+  "id": "A-stock_per_pbr_dividend_yield",
+  "dim": "A",
+  "source": "stock_per_pbr_dividend_yield",
+  "reader": "TradingReader.readStockPER_PBR_DividendYield",
+  "table": "stock_per_pbr",
+  "raw_files": 14762,
+  "unit": "A-stock_per_pbr_dividend_yield",
+  "verdict": "BUG",
+  "summary": "本益比、股價淨值比、殖利率的數字本身可以信,而且是全史核過的:另寫一支用中文標頭定位欄位的獨立解析器把 14,762 個原始檔全部重讀,7,738,937 列 × 4 欄(公司名稱/PE/PB/殖利率)與 PostgreSQL 逐格比對,42 個 (market,year) 分組零差異、缺列 0、多列 0;cache 與 PG 共同鍵零差異;殖利率單位與 PIT 也用『殖利率×收盤=實際現金股利』全庫驗過(2010 起中位數比值 1.000)。不能信的是日期與有無:(1) 19 個 TWSE 日期存的是別天的資料共 16,447 列,其中 2025-08-12 與 2026-02-25 這兩個近期交易日整天存的是 2017-12-18 的舊估值(台積電淨值比 4.11 vs 應為 9.55~10.20),另有 7 天是未來資料寫進過去的前視;(2) 13 個真交易日整天沒有估值(11 個 TWSE 的 2-byte 空回應被當成休市、2 個 TPEx 檔根本沒下載)。還有一顆未爆彈:解析程式現行的欄數對照表與實際欄數(6/8/9)不符,只要重匯一次歷史,2005-09~2024-06 約 387 萬列的股價淨值比會整批變 NULL 或錯位,目前只被『日期已在庫就跳過』擋住。另記兩件事:TPEx 2007-2010 原始檔的『股利年度/每股股利』是抓取當下(民國 108)的值共 508,178 列,但那兩欄從未匯入,殖利率本身乾淨;『財報年/季』這個 PIT 錨從未接進 schema。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "19 個 TWSE 日期存的是別天的資料,共 16,447 列。TWSE bwibbu_d 端點在某些請求下會回一份固定的 2017-12-18 快照(標題就印『106年12月18日』),爬蟲照收、reader 用檔名當日期寫庫。10 個是真交易日整天被污染(2008-03-03、2008-03-06、2008-12-04、2012-08-07、2013-05-13、2014-12-16、2016-10-06、2018-12-13、2025-08-12、2026-02-25),其中 7 個是未來資料寫進過去的前視;另 9 個(2009-08-02 日、2011-07-10 日、2012-03-31 六、2012-10-21 日、2012-11-11 日、2012-11-25 日、2014-10-12 日、2017-04-03 清明連假、2026-04-12 日)根本不是交易日,是憑空多出的假交易日。",
+      "evidence": "檔名 vs 內容日期全檔比對(docs/data_audit/scripts/A-stock_per_pbr_dividend_yield/03_filename_vs_content_date.py)命中 19 檔;內容指紋去重同時把它們歸成 7 組(例:2008-03-03/2009-08-02/2011-07-10/2012-03-31/2012-08-07/2013-05-13/2016-10-06/2017-04-03/2018-12-13 與真正的 2017-12-18 同一份 payload)。原始檔佐證:head -2 data/stock_per_pbr_dividend_yield/twse/2026/2026_2_25.csv → '\"106年12月18日 個股日本益比、殖利率及股價淨值比\"' 後接 9 欄新版標頭。DB 實值:psql -c \"SELECT date,price_to_earning_ratio,price_book_ratio,dividend_yield FROM stock_per_pbr_dividend_yield WHERE market='twse' AND company_code='2330' AND date IN ('2026-02-24','2026-02-25','2026-02-26','2017-12-18')\" → 02-24: 32.11/10.20/1.12;02-25: 17.11/4.11/3.08(= 2017-12-18 的 17.11/4.11/3.08);02-26: 30.12/9.55/1.10。收盤價對照 daily_quote:2026-02-25 為 2015 元、2017-12-18 為 227 元。列數:SELECT count(*) … WHERE market='twse' AND date IN (那 19 天) → 16,447。非交易日確認:那 9 天 daily_quote 列數皆為 0。",
+      "fix": "① 刪掉這 19 天的 16,447 列(PG 與 var/cache/cache.duckdb 兩邊),10 個真交易日重抓、9 個非交易日改寫 0-byte sentinel;② 守護要兩道 —— (a) 落檔前比對標題民國日期是否等於請求日期(這 19 檔全部會被攔下),(b) 整日內容指紋去重(TWSE 有時會把請求日期原樣回聲,只驗標題會漏,daily_quote 的 2009-12-12 就是這樣躲過的);③ 兩道守護要同時補進 Scala 爬蟲與 research/crawl 的 Python 路徑。"
+    },
+    {
+      "severity": "BUG",
+      "what": "reader 現行的 TWSE 欄數對照表與實際欄數不符,是一顆未爆彈。TradingReader.scala:734-738 的 `case 6 => (v(2), v(5), v(3))` / `case 7` / `case _ => (v(5), v(6), v(3))` 假設 TWSE 三個世代的欄數是 6/7/8,實際是 6/8/9(每列結尾都有逗號,scala-csv 會多切一個空欄)。後果:(a) 2005-09~2017-04(6 欄)股價淨值比取到空字串 → 全部 NULL,應取 v(4);(b) 2017-04~2024-06(8 欄)落進 case _,本益比取到股價淨值比、股價淨值比取到『105/4』變 NULL、殖利率取到股利年度變 105.0;(c) 只有 2024-07 起(9 欄)是對的;(d) case 7 永不觸發,是死碼。目前 DB 正確是因為 TradingReader.scala:706 以『(market,檔名) 已在資料庫就跳過』去重,舊日期永遠不重讀 —— 任何一次刪表重匯或刪某日重讀就會炸掉約 387 萬列。程式碼 726-733 行的註解三行描述全部與實測不符,正是這個錯誤的來源。commit b14f115(2026-04-23)修好第三世代的同時弄壞了前兩世代。",
+      "evidence": "用專案實際依賴的 scala-csv_2.13-1.3.6 直接量(docs/data_audit/scripts/A-stock_per_pbr_dividend_yield/06_ParseProbe.java,classpath 取自 ~/Library/Caches/Coursier/.../scala-csv_2.13/1.3.6):era1 '\"1101\",\"台泥\",\"16.92\",\"5.91\",\"1.07\",\\r\\n' → size=6 [(4)='1.07' (5)=''];era2 '…\"4.12\",\"105\",\"20.47\",\"1.22\",\"105/4\",\\r\\n' → size=8 [(4)='20.47' (5)='1.22' (6)='105/4' (7)=''];era3 → size=9 [(5)='30.23' (6)='1.09' (7)='113/1' (8)='']。套回現行程式:2012-03-01 台泥會得到 pb=NULL(DB 現值 1.47);2017-05-02 台泥會得到 pe=1.22 / pb=NULL / dy=105.0(DB 現值 20.47 / 1.22 / 4.12)。反向佐證(舊版程式為何是對的):git log -L 700,761 顯示 b14f115 之前是 `case 6 => (v(2), v(4), v(3))` 與 `case _ => (v(4), v(5), v(2))`,恰好對應 6 欄與 8 欄的真實位置。影響列數:SELECT market,count(*) … WHERE market='twse' AND date < '2024-07-01' → 3,873,... 列(6 欄段 2,206,948 + 8 欄段 1,669,335 = 3,876,283)。",
+      "fix": "改成用中文標頭欄名定位(『本益比』『股價淨值比』『殖利率』),不要用欄數猜版型;若維持欄數分派,正確對照是 case 6 => (v(2), v(4), v(3))、case 8 => (v(4), v(5), v(2))、case 9 => (v(5), v(6), v(3)),其餘欄數一律 throw(移除 case _ 兜底與死碼 case 7),並改掉 726-733 行與事實不符的註解。加回歸測試:三個世代各一列原始文字斷言解析結果(先紅後綠)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "13 個真交易日整天沒有估值資料。TWSE 11 天(2008-08-26、2009-12-12、2014-05-07、2016-09-09、2016-11-01、2016-12-21、2017-02-13、2017-02-24、2020-02-06、2025-08-05、2026-04-01)的原始檔是 2 bytes 的空回應(\\r\\n),被當成休市永久留檔、不會重試;TPEx 2 天(2010-11-22、2016-08-31)檔案根本不存在。這些日子 daily_quote 都有數百至千餘檔報價,確定是交易日。缺估值會讓任何以 stock_per_pbr 當閘門的策略在該日 fail-closed 把候選砍光(與 2026-07-15 Evergreen『濾後候選 0』同一機制)。",
+      "evidence": "SQL:WITH q AS (SELECT DISTINCT market,date FROM daily_quote), s AS (SELECT DISTINCT market,date FROM stock_per_pbr_dividend_yield) SELECT q.market,q.date FROM q LEFT JOIN s USING (market,date) WHERE s.date IS NULL AND ((q.market='twse' AND q.date>=DATE '2005-09-02') OR (q.market='tpex' AND q.date>=DATE '2007-01-02')) → 13 列(另有 390 個 twse 日期落在資料源起始日 2005-09-02 之前,屬正常)。檔案狀態:stat -f%z data/stock_per_pbr_dividend_yield/twse/2026/2026_4_1.csv → 2(其餘 10 個 TWSE 日期同為 2 bytes);data/stock_per_pbr_dividend_yield/tpex/2010/2010_11_22.csv 與 tpex/2016/2016_8_31.csv 不存在。全庫另有 2,465 個 2-byte 檔與 29 個 0-byte 檔,絕大多數是真休市日。",
+      "fix": "① 2-byte 空回應不得當成休市(休市 sentinel 規則是 0-byte,見 docs/data_ops/twse_publish_times.md);落檔前用 research/data_calendar.py::is_trading_day 判斷,是交易日卻拿到空回應就 [deferred] 刪檔重抓;② 補抓這 13 天;③ 因為去重是看『日期是否已在庫』,補抓後這些日期本來就不在庫,可直接重跑 Main read stock_per_pbr。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "原始檔有、schema 從來沒接的欄位:『財報年/季』(TWSE 2017-04 起約 219 萬列、TPEx 2025-01 起約 32 萬列)、『股利年度』(TWSE 2017-04 起、TPEx 全期)、『每股股利』(TPEx 全期)、『收盤價』(TWSE 2024-07 起)。其中財報年/季最可惜 —— 它是估值數字的 PIT 錨,告訴你這個本益比/淨值比是用哪一季財報算的;沒有它就無法判斷估值落後現實幾個月,做 point-in-time 對齊只能用猜的。收盤價與 daily_quote 重複,可不接。",
+      "evidence": "標頭實測:TWSE 2024-07 起為『證券代號,證券名稱,收盤價,殖利率(%),股利年度,本益比,股價淨值比,財報年/季』;TPEx 2025-01 起為『股票代號,公司名稱,本益比,每股股利(註),股利年度,殖利率(%),股價淨值比,財報年/季』。落地表只有 7 欄(psql \\d stock_per_pbr_dividend_yield:market/date/company_code/company_name/price_to_earning_ratio/price_book_ratio/dividend_yield),reader 的 tuple 也只映這幾欄(TradingReader.scala:750-751、755)。列數:twse date>='2017-04-12' 有 2,190,412 列帶財報年/季。",
+      "fix": "在 StockPER_PBR_DividendYield Slick 表加 fiscal_period(varchar,允許 NULL,舊世代沒有),依 CLAUDE.md Schema Contract 先改 Slick 再 ALTER TABLE 保持 parity,然後從 data/ 全量重讀(原始檔都在,可重生)—— 但務必先修好 BUG 2 的欄位對照,否則重讀會把 2005-2024 一起弄壞。若決定不接,請在文件明記『刻意不接』,免得下一個人重查。"
+    },
+    {
+      "severity": "REAL",
+      "what": "TPEx 2007-01 ~ 2010-12 原始檔的『股利年度』寫的是抓取當下的民國 108(2019),比檔案日期晚 9~12 年,共 508,178 列(佔該期間 92%)。乍看是重大前視污染,實測後確認:污染只在『股利年度』與『每股股利』這兩個從未被匯入的欄位上,存進資料庫的殖利率是當時真實可知的值。",
+      "evidence": "全檔掃描(04_divyear_lookahead_scan.py):tpex 2007-01~2010-12 每個月都有大量 future div-year,2011-01 起完全歸零(乾淨斷點);twse 側的 6,335 筆 future 全部落在 BUG 1 那 19 個錯日期上。逐列反證:2007-08-15 檔案的 '\"9951\",\"皇田\",\"12.75\",\"3.50000000\",\"108\",\"4.50\",\"3.11\"' —— 每股股利欄寫 3.50(2019 年股利),但 殖利率 4.50% × 當日收盤 55.6 = 2.502,正是當時真實的 2.5 元配息;同檔 '\"1333\",\"恩得利\",\"63.61\",\"0.00000000\",\"108\",\"12.84\",\"1.39\"' 每股股利欄為 0 而殖利率 12.84%,兩欄完全不相干。全庫 PIT 驗證(05_yield_pit_validation.py):implied_dps = dividend_yield/100 × 當日收盤,對 ex_right_dividend 最近一次(400 天內)現金股利,2010 年起 twse 與 tpex 每一年中位數比值皆為 1.000;2009 年以前 0.74~0.89 是因為當年普遍發股票股利、ex_right_dividend.cash_dividend 存的是含權益調整值(台積電 2006-06-20 記 4.7691、實際現金股利 2.5),方向是低估,與前視相反。",
+      "fix": "無需修 DB。但若日後要把 TPEx 的『每股股利/股利年度』接進 schema,2007-2010 那段必須標記為不可用(或直接不匯入該期間),否則會引入 9~12 年的前視。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "來源端的極端值原封照抄:殖利率 > 30% 的有 twse 3,552 列、tpex 4,965 列(>15% 則是 41,530 / 38,283 列),最極端是全銓 8913 在 2018-10~11 的 763.76%;股價淨值比 > 100 的 twse 789 / tpex 1,520 列;本益比 > 5000 的 twse 490 / tpex 718 列。解析本身沒問題,是來源語意特殊(減資/清算性分配、淨值極小的生技股)。任何用殖利率或淨值比排序的策略若不設上限,這些股會長期霸榜。",
+      "evidence": "psql -c \"SELECT market,count(*) FILTER (WHERE dividend_yield>30), count(*) FILTER (WHERE dividend_yield>15), count(*) FROM stock_per_pbr_dividend_yield GROUP BY 1\" → tpex 4965/38283/3341577、twse 3552/41530/4397360。原始列:grep '\"8913\"' data/stock_per_pbr_dividend_yield/tpex/2018/2018_11_9.csv → '\"8913\",\"全銓\",\"248.33\",\"113.80000000\",\"106\",\"763.76\",\"1.21\"';daily_quote 該日收盤 14.90 → 113.80/14.90 = 763.8%,與來源自報一致。",
+      "fix": "不改資料。在下游因子計算加 winsorize 或硬上限(例:殖利率 > 20% 視為特殊事件另行處理),並在資料字典註記此欄含減資/清算性分配。"
+    },
+    {
+      "severity": "OK",
+      "what": "全庫逐格比對:14,762 個原始檔用獨立解析器(以中文標頭定位欄位,不呼叫受測程式)重讀成 7,740,350 列,依 reader 的 distinctBy 語意去重後 7,738,937 列,與 PostgreSQL 完全相同。company_name / price_to_earning_ratio / price_book_ratio / dividend_yield 四欄在 42 個 (market, year) 分組上零差異;缺日期 0、多日期 0、缺列 0、多列 0。三個 TWSE 世代與兩個 TPEx 世代的欄位對照全部正確落地(沒有欄位錯位)。",
+      "evidence": "docs/data_audit/scripts/A-stock_per_pbr_dividend_yield/01_parse_all_raw.py + 02_compare_raw_vs_pg.py:輸出 'raw rows: 7740350 / db rows: 7738937 / raw dedup rows: 7738937',dates-in-raw-not-db = []、dates-in-db-not-raw = []、rows-in-raw-missing-db = []、rows-in-db-missing-raw = []、bad count: 0;逐年表 42 列的 pe_bad/pb_bad/dy_bad/nm_bad 全為 0。跨檢也做了單點抽查:twse 2005-09-02 / 2012-03-01 / 2017-05-02 / 2024-07-01 / 2026-07-15 的 1101~1103 逐格與原始檔一致。"
+    },
+    {
+      "severity": "OK",
+      "what": "單位、正負號、編碼、NULL 來源、重複列、cache 一致性全部驗過。殖利率是百分比(4.50 = 4.5%);本益比/股價淨值比是倍數;本益比無負值(來源虧損印 '-' 或 'N/A');Big5-HKSCS 解碼正確且本資料集沒有含內部空白的公司名稱,所以 reader 的 replace(\" \",\"\") 在此無害;NULL 只來自 '-'(TWSE)與 'N/A'(TPEx)兩種 token;1,413 組檔內重複 (market,date,code) 的三個數值完全相同,distinctBy 去掉的是完全重複列、無資訊損失;DuckDB cache 與 PG 在共同鍵上零值差異。",
+      "evidence": "單位/PIT:05_yield_pit_validation.py 全庫 5,567,993 個觀測,2010 起中位數比值 1.000。正負號:SELECT count(*) FILTER (WHERE price_to_earning_ratio<0) → 0/0;non-numeric token 抽 88 檔掃描只出現 'N/A'(tpex 本益比 12,118、殖利率 111、淨值比 67)與 '-'(twse 本益比 11,631、淨值比 32)。公司名稱內部空白:抽 88 檔用 regex '^\"[0-9][0-9A-Z]*\",\"([^\"]*[^\\s\"][ 　]+[^\\s\"][^\"]*)\"' 掃描 → 0 命中(TPEx 2025+ 只有尾端補空白)。檔內重複:1,413 組全部 dpe=dpb=ddy=1。cache↔PG:共同鍵上值不同的列數 = 0。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "附帶觀察,交給別的稽核單位:(1) var/cache/cache.duckdb 比 PG 新 —— cache 多出 2026-07-20 的 1,968 列(tpex 889 + twse 1,079),PG 最新只到 2026-07-17,代表 Python 直寫 DuckDB 的爬蟲跑在 Scala/PG 前面,兩條寫入路徑需要有人負責收斂;(2) daily_quote 缺 5 個平日 —— 2021-08-18、2023-06-08(tpex)、2025-08-15、2026-04-29、2026-05-28 這幾天 stock_per_pbr 有 800~1,077 檔資料而 daily_quote 一列都沒有;(3) TPEx daily_quote 從 2007-07-02 才開始,但 stock_per_pbr 從 2007-01-02 就有,2007 上半年的 TPEx 估值沒有價格可對照。",
+      "evidence": "cache vs PG 列數:cache tpex 3,342,466 / twse 4,398,439;PG tpex 3,341,577 / twse 4,397,360;差集全部落在 2026-07-20。daily_quote 缺日:WITH q AS (SELECT DISTINCT market,date FROM daily_quote), s AS (SELECT DISTINCT market,date FROM stock_per_pbr_dividend_yield) SELECT s.market,s.date,to_char(s.date,'Dy'),(SELECT count(*) …) FROM s LEFT JOIN q USING (market,date) WHERE q.date IS NULL AND s.date>='2007-07-02' → 14 列,扣掉 BUG 1 的 9 個非交易日剩這 5 個平日。TPEx daily_quote 起始:SELECT min(date) FROM daily_quote WHERE market='tpex' → 2007-07-02。",
+      "fix": "(1) 與 (2) 分別歸 C 維 cache 一致性單位與 A-daily_quote 單位處理,本單位只登記。"
+    }
+  ],
+  "checked": [
+    "src/main/scala/reader/TradingReader.scala:700-761(readStockPER_PBR_DividendYield 全文)",
+    "src/main/scala/util/QuantlibCSVReader.scala(`=` 剝除、`\"\"` 行跳過、行終止字元語意)",
+    "src/main/scala/setting/StockPER_PBR_DividendYieldSetting.scala(TWSE 2005-09-02 起、TPEx 2007-01-02 起)",
+    "src/main/scala/db/table/StockPER_PBR_DividendYield.scala(7 欄 + unique(market,date,company_code))",
+    "git log -L 700,761:TradingReader.scala(b14f115 / bf5c7d9 / 54520b8 三次改動的前後對照)",
+    "14,762 個原始檔全量獨立重解析(跨 2005~2026 全年份、twse+tpex 雙市場),7,740,350 列",
+    "與 PostgreSQL 全表逐列逐欄比對(42 個 market×year 分組,4 個欄位)",
+    "用專案實際依賴 scala-csv_2.13-1.3.6 實測三個 TWSE 世代的真實欄數(6/8/9)",
+    "檔名日期 vs 檔案內容民國日期全檔比對(14,762 檔)",
+    "每日內容指紋去重(找出跨日期共用同一份 payload 的檔案)",
+    "股利年度 PIT 掃描(全檔,找未來年度)",
+    "殖利率 PIT 驗證:殖利率×收盤 vs ex_right_dividend 實際現金股利(5,567,993 個觀測)",
+    "覆蓋度:daily_quote 有而 stock_per_pbr 無的交易日、反向的幽靈交易日",
+    "極端值與 NULL 來源(non-numeric token 全掃)",
+    "公司名稱內部空白(replace(\" \",\"\") 缺陷類是否在此成立)",
+    "檔內重複 (market,date,code) 與 distinctBy 的資訊損失",
+    "DuckDB cache(var/cache/cache.duckdb 的 stock_per_pbr)與 PG 逐欄比對"
+  ]
+}

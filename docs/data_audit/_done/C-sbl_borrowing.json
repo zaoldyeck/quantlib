@@ -1,0 +1,110 @@
+{
+  "id": "C-sbl_borrowing",
+  "dim": "C",
+  "table": "sbl_borrowing",
+  "unit": "C-sbl_borrowing",
+  "verdict": "BUG",
+  "summary": "cache 抄 PostgreSQL 抄得一字不差(469 萬列、5,116 個市場×日指紋三重比對零差異),所以「cache 有沒有走樣」可以放心;不能信的是被抄的那份東西。26 天的檔案裝的是別天的資料(2.6 萬列,全在 TWSE),最誇張的是 2017-06-30 這個真交易日存的是 2022-05-23 的餘額——五年後的答案寫進 2017 年;其中 16 天根本不是交易日(週末、春節、元旦)卻整天有一千多檔資料。另外 32 個市場×交易日整天沒抓到(估計 3.3 萬列),26 天被 0-byte 空檔永久蓋住、6 天是 daily_quote 假休市檔造成的連鎖,兩類都已用交易所第一手回應證實資料其實存在(4 個測試日 4 個都抓得到)。而且完全沒有守護擋得住這一類問題——repo 那支「檔名日期 vs 內容日期」的檢查器第 49 行寫死只掃 data/index,借券表從來沒被掃過。其餘 462 萬列可信:抽樣 15/15 逐欄相同、對原始 CSV 核對過欄位沒錯位(存的是借券區塊不是融券)、看起來離譜的東西(七成列餘額>限額、6.6% 全零、38 列加減對不起來)全都是真的。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 的 sbl_borrowing 全史逐欄一致(非抽樣,是全體):4,691,508 列兩邊相等;5,116 個 (market,date) 分組上『列數 + sum(hash(9 欄)::HUGEINT) + bit_xor(hash(9 欄))』三個指紋全部相等,mismatch=0、only_cache=0、only_pg=0;22 個年×市場格逐格相等。schema 零降級(PG varchar/date/bigint → cache VARCHAR/DATE/BIGINT);research/cache_tables.py:53 的投影 SQL 與 research/db.py:145-148 的 pg-attach view 投影正規化後逐字元相同(程式化比對回 True),兩種存取模式無漂移。PG 11 欄投影成 cache 9 欄,丟掉的 id 與 company_name 在 research/ 全文搜尋零消費者。欄位對位對原始檔核對過:存的是原始 CSV 第 8~13 欄的『借券賣出』區塊,不是第 2~7 欄的『融券』。",
+      "evidence": "docs/data_audit/scripts/C-sbl_borrowing/01_parity.py(DuckDB 同時 ATTACH pg READ_ONLY + var/cache/cache.duckdb READ_ONLY)。輸出:pg_rows=4691508 / cache_rows=4691508;『不符的年×市場格數: 0』(共 22 格);全史指紋 days_total=5116 only_cache=0 only_pg=0 mismatch=0;dup_keys=0。抽樣(05_sample_and_anomaly.py 第 ① 段,pandas DataFrame.equals):twse 2016-04-06 × {0050,1101,2317,2330,2412} → True;tpex 2019-11-07 × {3105,4966,5483,6488,8069} → True;twse 2026-07-17 × {2317,2330,2412,2454,3008} → True。欄位對位:iconv -f BIG5-HKSCS -t UTF-8 data/sbl_borrowing/twse/2016/2016_4_6.csv | grep 0050 → \"2,884,000\",\"40,000\",\"16,000\",\"0\",\"2,908,000\",\"284,625,000\"(融券)後接 \"36,467,000\",\"0\",\"0\",\"0\",\"36,467,000\",\"3,249,198\"(借券);cache 該列 prev=36467000 sold=0 ret=0 adj=0 bal=36467000 limit=3249198,完全對上借券區塊。值域:prev/bal 0~1,297,614,402、sold 0~146,861,000、ret 0~439,507,000、adj -20,700,000~40,000,000、limit 0~1,215,971,828,全為 BIGINT,無 int32 溢位風險。",
+      "fix": ""
+    },
+    {
+      "severity": "BUG",
+      "what": "26 個 TWSE 原始檔裝的是別天的資料,共 26,354 列,而且已經進了 PG 和 cache。(a) 10 個真交易日內容是別天的(10,175 列),9 個是把未來寫進過去:2016-04-08 存 2016-10-18(+193 天)、2016-12-20 存 2017-01-18(+29)、2017-05-15 存 2017-11-17(+186)、2017-06-30 存 2022-05-23(+1788)、2017-07-04 存 2017-12-18(+167)、2017-12-14 存 2017-12-18(+4)、2018-09-06 存 2019-08-06(+334)、2018-10-08 存 2018-10-12(+4)、2018-12-12 存 2022-03-31(+1205),另 2018-01-12 存 2017-12-12(-31,過期)。(b) 16 個非交易日卻有整天資料(16,179 列):2016-08-07、2016-10-29、2017-01-02、2017-08-06、2017-09-23、2018-01-06、2018-02-19、2018-04-28、2018-10-07、2018-10-13、2021-02-12、2021-05-16、2021-11-13、2022-02-01、2022-06-05、2022-06-19。根因:TradingReader.readSblBorrowing 的日期只從檔名解析,從不核對檔案自己寫的日期。",
+      "evidence": "兩條互相獨立的證據收斂到同一組 26 天。原始檔側(docs/data_audit/scripts/C-sbl_borrowing/03_content_date_verify.py,全量掃 6,266 檔):26 檔的內容自報日期 ≠ 檔名日期,且『內容日期撞號』20 組——2017-12-18 那天的資料同時掛在 2016-10-29 / 2017-07-04 / 2017-09-23 / 2017-12-14 / 2017-12-18 / 2021-05-16 六個檔名下。cache 側(04_dup_day_fingerprint.py,完全不看原始檔):整日內容指紋 sum(hash(code||六個數字)) 撞號 36 對,收斂成 20 個群集,與原始檔側完全相同;只看 (code, daily_balance) 的版本同樣 36 對。旁證(不依賴任何日期欄):全史只有 2 天『借券檔數 > 同日 daily_quote 檔數』——twse 2017-06-30(1096 vs 1008)與 2018-12-12(1092 vs 1073)——正是內容來自 2022 年的那兩天。連續性旁證:twse 的 prev_day_balance <> lag(daily_balance) 斷裂率全史 1.971%,剔除這 26 天與其後一日後降到 0.478%(tpex 基準 0.078%),即這 26 天解釋掉約 76% 的斷裂。原始檔標題實測:head -1 data/sbl_borrowing/twse/2016/2016_8_7.csv → 「106年06月22日 信用額度總量管制餘額表」;2016_10_29.csv → 「106年12月18日」;2017_6_30.csv → 「111年05月23日」(=2022-05-23);2018_2_19.csv → 「107年07月18日」。壞檔 mtime 全在 2026-04-25(那次歷史回補)。端點現在沒問題:curl TWT93U?date=20160807(週日)→ 1,616 bytes 且標題正確寫「105年08月07日」;date=20170630 → 108,636 bytes 標題「106年06月30日」——重抓就會正確。程式碼:src/main/scala/reader/TradingReader.scala:833-835(val fileNamePattern(y,m,d) = marketFile.file.name; val date = LocalDate.of(y.toInt,m.toInt,d.toInt));守護缺口:research/audits/04_cross_verify.py:49 寫死 root = Path(\"data/index\")。已排除真正的週六補行交易日(2016-01-30、2016-06-04、2016-09-10、2017-02-18、2017-06-03、2017-09-30、2018-03-31、2018-12-22 這 8 天 daily_quote 與 margin_transactions 都有資料)。",
+      "fix": "順序不能反——先刪 DB 列再刪檔再重抓,否則 Detail.getDatesOfExistFiles 仍會跳過。DELETE FROM sbl_borrowing WHERE market='twse' AND date IN ('2016-04-08','2016-08-07','2016-10-29','2016-12-20','2017-01-02','2017-05-15','2017-06-30','2017-07-04','2017-08-06','2017-09-23','2017-12-14','2018-01-06','2018-01-12','2018-02-19','2018-04-28','2018-09-06','2018-10-07','2018-10-08','2018-10-13','2018-12-12','2021-02-12','2021-05-16','2021-11-13','2022-02-01','2022-06-05','2022-06-19');並刪掉對應的 data/sbl_borrowing/twse/<year>/<Y>_<M>_<D>.csv。16 個非交易日刪完不必重抓(交易所會回空表,爬蟲會正確寫 0-byte sentinel);10 個真交易日用 https://www.twse.com.tw/exchangeReport/TWT93U?response=csv&date=YYYYMMDD 重抓。補完跑 sbt \"runMain Main read sbl\" + uv run python research/cache_tables.py。防復發三道:(1) TradingReader.readSblBorrowing 讀完檔案後核對內容日期(TWSE 民國標題 / TPEx JSON date 欄)與檔名日期,不符即拋錯——與 daily_quote 2026-05-30 事故的修法一致(docs/data/data_quality_incidents.md);(2) research/audits/04_cross_verify.py:49 從寫死 data/index 改成掃所有日頻 data/<source>/<market>/<year>/ 目錄(現在跑應紅 26 筆,修完歸零);(3) cache 建好後斷言『整日 sum(hash(code||daily_balance)) 撞號對數 = 0』(現在跑紅 36 對)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "32 個 (market, date) 在真交易日整天沒有資料,估計缺 32,690 列,而且都不會自己補回來。(a) 26 天被 0-byte 空檔永久蓋住(twse 25 天:2016-03-23、2016-10-05、2016-11-21、2016-12-16、2016-12-19、2017-05-17、2017-05-31、2017-08-25、2017-09-25、2017-09-26、2017-09-29、2017-11-23、2017-11-28、2017-11-29、2018-01-16、2018-06-27、2018-07-27、2020-09-30、2020-12-03、2021-11-01、2022-04-25、2023-07-06、2023-07-20、2023-10-06、2025-11-21;tpex 1 天:2016-05-17),估計 26,247 列。(b) 6 個是 daily_quote 假休市檔造成的連鎖:twse 與 tpex 的 2025-08-15、2026-04-29、2026-05-28,借券原始檔根本不存在(連請求都沒送出),估計 6,443 列。",
+      "evidence": "三法收斂(docs/data_audit/scripts/C-sbl_borrowing/02_gaps.py + 06_actionables.py)。方法 A 證人投票:這 26 天在 daily_quote / daily_trading_details / stock_per_pbr / margin_transactions / foreign_holding_ratio 五張表全部有資料(證人 5/5);2025-08-15 / 2026-04-29 / 2026-05-28 有 3~4 個證人(daily_quote 本身缺,見 C-daily_quote)。方法 B 純日曆:research.data_calendar.is_trading_day(讀 daily_quote 0-byte sentinel,颱風假才判得出來)判為交易日而 sbl 無列 → twse 25 天 + tpex 1 天。方法 C 原始檔形態:26 天是 0-byte(mtime 全在 2026-04-25~26 那次歷史回補),6 天是檔案根本不存在。第一手覆核(現在去抓,不是推測):curl 'https://www.twse.com.tw/exchangeReport/TWT93U?response=csv&date=20231006' → 129,081 bytes 標題「112年10月06日」;date=20251121 → 144,725 bytes「114年11月21日」;date=20160323 → 103,592 bytes「105年03月23日」;date=20250815 → 141,953 bytes「114年08月15日」;date=20260429 → 147,039 bytes「115年04月29日」;curl 'https://www.tpex.org.tw/www/zh-tw/margin/sbl?date=105/05/17' → 62,162 bytes totalCount=625。全部有資料,4/4 命中。永不回頭的機制:0-byte 那 26 天,src/main/scala/setting/Detail.scala:132-169 的 getDatesOfExistFiles 只要檔案存在就算已抓過,src/main/scala/Task.scala:463 的 filterNot(coveredBoth(...)) 於是永久跳過;連鎖那 6 天,src/main/scala/Task.scala:464 的 .filter(d => tradingDays.contains(d)) 用的 loadTwseTradingDays()(Task.scala:415-439)= PG daily_quote 的 twse 日期 ∪ 本地 twse 報價檔(>1024B 且內容日期符合檔名),而這三天 data/daily_quote/twse/<year>/*.csv 是 0-byte、PG 也無列 → 交易日曆判定沒開市 → 借券連請求都不送。缺漏列數以前一交易日列數估:26 天 26,247 列 + 6 天 6,443 列 = 32,690 列。同一顆 bug 的第二個受害者:C-foreign_holding_ratio 已記錄同樣三天(加 2021-08-18)因同一原因缺漏。",
+      "fix": "(1) 26 天:先 rm 掉 0-byte 空檔(data/sbl_borrowing/twse/<year>/… 25 個 + data/sbl_borrowing/tpex/2016/2016_5_17.csv),再跑 sbt \"runMain Main pull sbl --since 2016-03-23\" 與 sbt \"runMain Main read sbl\";端點 TWSE https://www.twse.com.tw/exchangeReport/TWT93U?response=csv&date=YYYYMMDD、TPEx https://www.tpex.org.tw/www/zh-tw/margin/sbl?date=105/05/17(民國 y/MM/dd)。(2) 6 天連鎖必須先修 daily_quote:清掉 data/daily_quote/twse/{2025/2025_8_15,2026/2026_4_29,2026/2026_5_28}.csv 這三個假休市檔並重抓,loadTwseTradingDays() 認回這三天後借券才會被請求。(3) 防復發:Crawler 落檔前判『空回應且該日 margin_transactions 有資料』→ 一律刪檔標 [deferred] 不得寫 sentinel;getDatesOfExistFiles 把 0-byte 檔另外標記為『交易所說無資料』而非『已抓過』並定期複驗;加測試鎖死『sbl_borrowing 的 (market,date) 集合 ⊇ margin_transactions 同市場同區間的 (market,date) 集合』(現在跑會紅 32 個,修完應歸零)。最後跑 uv run python research/cache_tables.py 重建 cache。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 落後齊備日兩個交易日,而且是表間錯位的形態:sbl_borrowing 兩市場都只到 2026-07-17,但同一份 cache 的 daily_quote / daily_trading_details / stock_per_pbr 已經有 2026-07-20,齊備日是 2026-07-21。這正是 CLAUDE.md 記載 2026-07-15 事故的形態(表間日期錯位 → 策略閘門查無資料 fail-closed 靜靜砍光候選)。與 C-margin_transactions 同源,不是本表獨有。",
+      "evidence": "PYTHONPATH=<repo> uv run --project research python -c \"from research.data_calendar import stale_tables, latest_complete_trading_day; print(latest_complete_trading_day()); print(stale_tables())\" → 2026-07-21;{'daily_quote': 2026-07-20, 'market_index': 2026-07-17, 'daily_trading_details': 2026-07-20, 'stock_per_pbr': 2026-07-20, 'margin_transactions': 2026-07-17, 'sbl_borrowing': 2026-07-17, 'foreign_holding_ratio': 2026-07-17}。原始檔:data/sbl_borrowing/{twse,tpex}/2026/ 最新有資料的是 2026_7_17.csv(150,771 / 99,724 bytes,mtime Jul 19 21:59),無 2026_7_20/21。cache.duckdb mtime = Jul 21 08:16。",
+      "fix": "跑一次完整更新把兩邊拉平:sbt \"runMain Main update\" 後 uv run python research/cache_tables.py。長期解與 C-daily_quote / C-margin_transactions 同一條——把 market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio 納入 research/crawl/update.py 的 DAILY_SOURCES(需先寫對應的 Python 爬蟲並附 parity 測試),或在每日 loop 明確要求先跑 Scala Main update;在此之前 ensure_fresh_cache 的擋門不可放寬。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 的 sbl_borrowing 沒有唯一索引(只有非唯一的 idx_sbl_code_date on (company_code, date)),而 PG 側有 UNIQUE 的 idx_SblBorrowing_market_date_code (market, date, company_code)。目前實測重複主鍵 0 筆,唯一性完全靠『cache_tables.py 每次砍掉重建』這條自律維持;一旦未來替 sbl 加上增量寫入路徑,就沒有任何東西擋得住重複列。",
+      "evidence": "duckdb_indexes() 對 cache:idx_sbl_code_date,is_unique=False,CREATE INDEX idx_sbl_code_date ON sbl_borrowing(company_code, date)(research/cache_tables.py:121);psql \\d sbl_borrowing → \"idx_SblBorrowing_market_date_code\" UNIQUE, btree (market, date, company_code)。實測 SELECT count(*) FROM (SELECT market,date,company_code FROM sbl_borrowing GROUP BY 1,2,3 HAVING count(*)>1) → 0。",
+      "fix": "cache 建表後補 CREATE UNIQUE INDEX ON sbl_borrowing(market, date, company_code)(與 PG 對齊);成本極低(建表當下即驗證),收益是把唯一性從自律變成不變式。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "9 支消費端腳本讀 sbl_borrowing,沒有任何一支加 market 條件,而且全部用『位置位移』(shift(N) / row_number LIMIT N)而非依交易日曆的日期位移——所以幽靈日與跨市場重複列會直接把窗口算歪。現役策略 research/serenity/engine.py:997 的 sbl_chg_20d 用 shift(20):以 2330 為例,最後一個幽靈列在 2022-06-19,決策日 ≤ 2022-07-15 的 20 列回看窗仍跨過它;2022-07-16 之後乾淨,所以今天的實盤決策不受影響,但 2016~2022 的回測、Evergreen 月中標記、apex 籌碼軸全部吃到。",
+      "evidence": "消費端盤點(grep -rln sbl_borrowing research/ --include=*.py,扣掉 db.py / data_calendar.py / cache_tables.py 三支基礎設施):research/serenity/engine.py:987-997(shift(20))、research/evergreen/ev48_chip_axes.py:37-44(shift(5))、research/evergreen/ev18_make_packs.py:87-95(row_number() OVER (ORDER BY date DESC) LIMIT 20 取自 SELECT DISTINCT date FROM sbl_borrowing)、research/evergreen/make_tables_chips.py:56-63(20 日窗 first/last)、research/apex/data.py:195-198(_daily_table,無 market 條件)+ research/apex/experiments/f10_chip_axes.py:25-31(shift(5))、research/strat_lab/iter_52_ownership_flow_alpha.py:100-111、research/futures/strategies.py:174-182(SUM(...) GROUP BY date 全市場加總,跨兩市場)、research/experiments/sprint_a_signal_prototype.py:84-117(LAG over date)。邊界量測:cache 查 2330 twse 2022-06-01 起的有資料日序列,2022-06-05(週日)與 2022-06-19(週日)確實在序列裡;2022-06-19 之後第 20 個有資料日 = 2022-07-15。",
+      "fix": "修好 BUG 1、BUG 2 並重建 cache 之後,幽靈列消失,shift(N) 才等於 N 個交易日。在那之前的暫行規則:(a) 所有 sbl 查詢加 WHERE market='twse'/'tpex' 或先按 (date, company_code) dedupe(13 個轉市日會雙算);(b) 位置位移改成依交易日曆對齊的日期位移;(c) 上表 26 天的 daily_balance 一律當 NULL。"
+    },
+    {
+      "severity": "REAL",
+      "what": "38 列『當日餘額 ≠ 前日餘額 + 當日賣出 − 當日還券 + 當日調整』看起來像解析錯,查證後是交易所原始檔就這樣印:形態完全一致——前日餘額 > 0、賣出/還券/調整全 0、當日餘額卻是 0。占全表 0.0008%,分佈在 2016~2026 各年。",
+      "evidence": "逐格對原始檔:iconv -f BIG5-HKSCS -t UTF-8 data/sbl_borrowing/twse/2016/2016_4_6.csv | grep 3584 → \"3584\",\"介面\",\"296,000\",\"0\",\"114,000\",\"0\",\"182,000\",\"35,167,042\",\"1,000\",\"0\",\"0\",\"0\",\"0\",\"218,454\",\"X \" —— 借券區塊前日餘額 1,000、賣出/還券/調整全 0、當日餘額 0,備註欄 X(停止融券);cache 同列一致。全表統計(05_sample_and_anomaly.py 第 ② 段):n_total=4,691,508、n_viol=38;逐年 tpex 2016=6、twse 2016=9、2017=2、2019=1、2020=2、2021=6、2022=6、2024=3、2025=1、2026=2。",
+      "fix": "不改資料。消費端規則:這 38 個 (股票, 日) 的餘額變動在時序上是斷的,做借券餘額變化率的因子應填 NULL,不要當成『一天內全部還清』。"
+    },
+    {
+      "severity": "REAL",
+      "what": "70.22%(3,294,215 列)『當日餘額 > 次一營業日限額』看起來物理不可能,其實是正常語義:最後一欄是「次一營業日可借券賣出限額」——隔天還能再借多少的增量額度,不是餘額上限。另有 355 列『限額 0 但仍有餘額』同理(額度用完或暫停,先前借的還在)。這一條記下來是為了避免有人拿它當異常門檻。",
+      "evidence": "原始檔 0050 那一列自證:data/sbl_borrowing/twse/2016/2016_4_6.csv 的 0050 → 當日餘額 36,467,000、次一營業日可限額 3,249,198(欄名在原始檔第 3 列標頭寫得很清楚:「當日餘額」「次一營業日可限額」)。全表:SELECT count(*) FILTER (daily_balance > next_day_limit) → 3,294,215 / 4,691,508 = 70.22%;next_day_limit=0 且 daily_balance>0 → 355 列。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "42 組『同一天同一檔股票在兩個市場都有列』裡,13 組是真的:上櫃轉上市前一交易日,上市所會先把該股列進借券報表,兩邊數字完全相同。清單:2020-12-22/1597、2021-01-18/6438、2021-03-23/6426、2021-05-12/3092、2022-01-18/1752、2022-03-07/5306、2022-09-20/3652、2023-10-30/8476、2023-12-18/6472、2023-12-21/4736、2024-01-24/6446、2025-07-18/6589、2026-07-15/5236。另外 29 組落在 BUG 1 的 7 個錯日上,是 BUG 1 的衍生,修好就會消失。",
+      "evidence": "cache 查證:這 13 組兩市場的 daily_balance 與 next_day_limit 完全相同,且該日 daily_quote 只有 tpex 有報價、twse 沒有。轉市時點覆核:6589 台康生技 daily_quote tpex 末日 2025-07-18 / twse 首日 2025-07-21(sbl twse 首日 2025-07-18);5236 daily_quote tpex 末日 2026-07-15 / twse 首日 2026-07-16(sbl twse 首日 2026-07-15);1597 daily_quote tpex 末日 2020-12-22 / twse 首日 2020-12-23。29 組與 13 組的切分見 docs/data_audit/scripts/C-sbl_borrowing/06_actionables.py 第 C 段(on_bad_day True=29 / False=13)。",
+      "fix": "不改資料。消費端必須加 market 條件或先按 (date, company_code) dedupe——現有 9 支腳本一支都沒加,這 13 個股票日會被算成兩筆。"
+    },
+    {
+      "severity": "REAL",
+      "what": "309,495 列(6.60%)六個數字全是 0——在借券標的名單上但當天沒有任何借券活動也沒有額度。不是缺值,不必補。",
+      "evidence": "05_sample_and_anomaly.py 第 ② 段:n_all_zero=309,495 / n_rows=4,691,508。另 2,883 列 daily_adjustment 為負也是合法(調整數本來就可正可負),其餘五個數值欄負值 0 列。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "其餘異常值掃描全清:NULL 0、market 非 twse/tpex 0、company_code 非『數字開頭 + 英數』0、日期在未來 0、prev/sold/ret/bal/limit 負值 0、重複主鍵 0、單日列數 < 前後 21 日滾動中位數 70% 的日子 0 天(本表沒有週六補行交易日列數腰斬的現象)。借券檔數恆少於同日 daily_quote(tpex 少 73~129 檔、twse 平均少 58.2 檔),與『非全部股票都是借券標的』相符;唯二『借券比報價多』的兩天正是 BUG 1 的 2017-06-30 與 2018-12-12。",
+      "evidence": "docs/data_audit/scripts/C-sbl_borrowing/05_sample_and_anomaly.py 第 ② 段(逐項 SQL 已列在腳本內)。值域極端前 5 名全是 twse 2887 台新新光金 2025-06~07 的 1,297,614,402 股(合併案),數量級合理。覆蓋率:tpex min_diff=-129 max_diff=-73 avg=-109.1(2,561 天,n_sbl_more=0);twse min=-94 max=+88 avg=-58.2(2,537 天,n_sbl_more=2)。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "這張表沒有任何自動守護。research/audits/04_cross_verify.py(專門查『檔名日期 vs 內容日期』的那一支)第 49 行寫死 root = Path(\"data/index\"),十年來從未掃過借券表——BUG 1 的 26 個錯日檔案就是這樣躲過去的。research/audits/03_full_data_audit.py 完全沒有 sbl 相關檢查,research/tests/ 與 src/test/ 也搜不到 sbl_borrowing。",
+      "evidence": "grep -n 'root = Path' research/audits/04_cross_verify.py → 49: root = Path(\"data/index\");grep -rn 'sbl' research/audits/*.py → 零命中;grep -rln 'sbl_borrowing' research/tests/ src/test/ → 零命中。",
+      "fix": "把 04_cross_verify.py 從寫死單一目錄改成掃所有日頻 data/<source>/<market>/<year>/(TWSE CSV 抓民國標題、TPEx JSON 抓 date 欄),納入每日/每次 crawl 後執行;現在跑應紅 26 筆,修完歸零(先紅後綠)。另在 cache_tables.py 收尾加兩條斷言:整日餘額指紋撞號=0、sbl 的 (market,date) ⊇ margin_transactions 的 (market,date)。"
+    }
+  ],
+  "checked": [
+    "schema 對照:PG information_schema.columns(11 欄型別)vs DuckDB DESCRIBE(9 欄);確認 varchar→VARCHAR、date→DATE、bigint→BIGINT 零降級",
+    "research/cache_tables.py:53 的投影 SQL 與 research/db.py:145-148 的 pg-attach view 逐字元程式化比對 → 完全相同",
+    "cache vs PG 全史指紋比對(非抽樣):5,116 個 (market,date) × count + sum(hash(9 欄)::HUGEINT) + bit_xor(hash(9 欄))",
+    "逐年逐市場列數比對 2016~2026 × twse/tpex(22 格,全等)",
+    "抽樣逐欄比對 3 日期 × 5 檔:twse 2016-04-06、tpex 2019-11-07、twse 2026-07-17(pandas DataFrame.equals 全 True)",
+    "欄位對位對原始 CSV 逐格核對(0050 2016-04-06):確認存的是第 8~13 欄的借券賣出區塊,不是第 2~7 欄的融券區塊",
+    "cache 索引與唯一性:duckdb_indexes() vs psql \\d;重複 (market,date,company_code) 實測 0 筆",
+    "被丟掉的 PG 欄位(id、company_name)是否有消費者:research/ 全文搜尋零命中",
+    "原始檔全量掃描 6,266 檔:檔名日期 vs 內容自報日期(TWSE Big5 民國標題 / TPEx JSON date 欄)+ 內容日期撞號",
+    "cache 端獨立複驗(不看原始檔):整日內容指紋撞號,全欄版 36 對、只看 (code, daily_balance) 版同樣 36 對,收斂成 20 群集,與原始檔側完全一致",
+    "覆蓋缺口第一法(證人投票):5 張日頻表(daily_quote / daily_trading_details / stock_per_pbr / margin_transactions / foreign_holding_ratio)× 證人數分級,並逐一檢視 1-witness 的 22 天確認全是別張表的幽靈日而非 sbl 缺漏",
+    "覆蓋缺口第二法(純日曆):research.data_calendar.is_trading_day(讀 daily_quote 0-byte sentinel,颱風假才判得出來)→ twse 25 天 + tpex 1 天",
+    "覆蓋缺口第三法(原始檔形態):0-byte sentinel 1,150 個逐一分類(週末/國定假日 vs 真交易日)、檔案不存在 6 個",
+    "第一手覆核交易所:TWT93U 探測 7 次(20231006 / 20251121 / 20160323 / 20250815 / 20260429 / 20170630 / 20160807)+ TPEx margin/sbl 探測 1 次(105/05/17)——4/4 缺漏日證實有資料,週日 20160807 證實端點會正確回空表",
+    "幽靈日:isodow>=6 或同市場 daily_quote 該日 0 列,並逐日查 margin_transactions 作第二證人,以區分『sbl 幽靈』與『daily_quote 自己的缺漏』(tpex 2023-06-08、twse 2021-08-18 屬後者)",
+    "週六補行交易日辨識:2016-01-30、2016-06-04、2016-09-10、2017-02-18、2017-06-03、2017-09-30、2018-03-31、2018-12-22 這 8 天 daily_quote + margin 皆有資料,已排除誤判",
+    "prev_day_balance 連續性:全史 twse 1.971% / tpex 0.078% 斷裂率;剔除 26 個錯日與其後一日後 twse 降到 0.478%(錯日解釋掉約 76%)",
+    "恆等式 daily_balance = prev + sold − returned + adjustment:全表 38 列違反,逐列列出並對原始檔覆核",
+    "異常值掃描:NULL、六欄分別的負值、未來日期、market 值域、company_code 字元集、重複主鍵、全零列、限額關係(bal>limit、limit=0 但 bal>0)、單日列數滾動中位數 70% 門檻、值域極端前 5",
+    "跨市場重複 (date, company_code) 42 組:逐組對照 daily_quote 的轉市時點,切成 29 組(BUG 1 衍生)+ 13 組(真轉市日)",
+    "爬蟲永不回頭的機制:src/main/scala/setting/Detail.scala:132-169(getDatesOfExistFiles)、src/main/scala/Task.scala:454-468(pullSbl)、Task.scala:415-439(loadTwseTradingDays / loadLocalTwseDailyQuoteTradingDays)、src/main/scala/Crawler.scala:662-690(sentinel 決策)、setting/SblBorrowingSetting.scala(validate)",
+    "讀檔日期來源:src/main/scala/reader/TradingReader.scala:833-835 只從檔名解析日期,不核對內容",
+    "既有守護盤點:research/audits/04_cross_verify.py:49 寫死 data/index、research/audits/03_full_data_audit.py 無 sbl 檢查、research/tests/ 與 src/test/ 無 sbl 測試",
+    "消費端盤點:9 支腳本(serenity/engine.py、evergreen/{ev18_make_packs,ev48_chip_axes,make_tables_chips}.py、apex/{data.py,experiments/f10_chip_axes.py}、strat_lab/iter_52_ownership_flow_alpha.py、futures/strategies.py、experiments/sprint_a_signal_prototype.py)× 用到哪些欄 × 是否加 market 條件 × 位置位移 vs 日期位移;並量測 Serenity shift(20) 的汙染邊界(2330 → 決策日 ≤ 2022-07-15)",
+    "cache 新鮮度與表間錯位:research.data_calendar.latest_complete_trading_day() / stale_tables() 實測 + 原始檔 mtime 追到最後一次 Scala 爬蟲(2026-07-19 21:59)",
+    "排除已知真實現象:金融業負營收 / 營建業零營收 / concise_* 無 market 欄皆與本表無關;週六補行交易日在本表不造成列數腰斬(已量測);2026-07-18/19 為週末、2026-07-20/21 為尚未爬取(非永久缺口)"
+  ]
+}

@@ -11,9 +11,15 @@ export const meta = {
 // 每個單位寫一個獨立檔(docs/data_audit/_done/<id>.json),沒有共享檔案競爭。
 // 中斷後重跑本 workflow:已完成的單位不會再派 agent(省 token),
 // workflow 自身的 journal 再提供第二層快取。
-const DIM = (args && args.dim) || 'A'
-const UNITS = (args && args.units) || []
-const BATCH = (args && args.batch) || 2
+// args 有時會以 JSON 字串抵達(視呼叫端而定)→ 兩種形態都吃,否則會靜默跑 0 個單位
+const A = typeof args === 'string' ? JSON.parse(args) : (args || {})
+const DIM = A.dim || 'A'
+const UNITS = A.units || []
+const BATCH = A.batch || 2
+// 已完成的單位由呼叫端在 args.done 傳入(workflow 沙箱讀不到磁碟);據此跳過,
+// 避免重跑燒 token —— 第一層續跑防護。workflow 自身的 journal 是第二層。
+const DONE = new Set(A.done || [])
+if (!UNITS.length) throw new Error(`args.units 為空(收到 ${typeof args});稽核不能空跑`)
 
 const FINDING = {
   type: 'object',
@@ -158,8 +164,8 @@ const PROMPT = {
 }
 
 // ─── 執行:小批次併發,避免一次燒太兇 ───────────────────────────────
-const todo = UNITS.filter(u => u.dim === DIM)
-log(`維度 ${DIM}:待稽核 ${todo.length} 個單位,每批 ${BATCH} 個`)
+const todo = UNITS.filter(u => u.dim === DIM && !DONE.has(u.id))
+log(`維度 ${DIM}:待稽核 ${todo.length} 個單位(已完成 ${DONE.size} 個略過),每批 ${BATCH} 個`)
 
 phase('Audit')
 const results = []

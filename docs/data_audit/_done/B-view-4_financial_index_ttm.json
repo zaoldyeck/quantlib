@@ -1,0 +1,186 @@
+{
+  "unit": "B-view-4_financial_index_ttm",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/view/4_financial_index_ttm.sql",
+  "audited_at": "2026-07-22",
+  "verdict": "BUG",
+  "summary": "原始財務數字是對的,蓋在上面那一層比率與評分不能拿來選股。台積電 2024 年營收 2.894 兆、EPS 45.25、毛利率 56.1%、營益率 45.7%、淨利率 40.5%、稅後淨利 1.1724 兆全部與官方對得上,ROIC/ROA/權益乘數手算逐位相符。但只要離開「連續四季都有資料且無重複列」的理想狀況,它就靜靜給錯數字而不是 NULL:資產週轉率全表用 lag(5)=15 個月前當去年同期(同支 SQL 的 ROA 就寫對成 lag(4));ROIC 算不出來的 5,370 列被 ASC NULLS LAST 排到最後而拿到平均 94.5 分(有值的只有 48.5),這兩項佔 cbs 權重一半;應收帳款毛額與淨額被同時加總,502 家、6,969 個公司季(2018 後 4,242 個)平均高估 25.7%;「最近四季」其實是「最近四列」,富邦金 2024 全年稅後淨利表上 1,369.9 億 vs 官方 1,508.6 億、2023 年 279.0 億 vs 官方 650.4 億;2006-2012 有 23.27% 幽靈列使同一支查詢跑四次得四個答案(平均 ROIC 在 0.0616~0.0646 飄)。另有存貨缺料被 coalesce 成 0 讓速動比率退化成流動比率(2009 年前 100% 相等)、2009 年前 cash_flow 分項恆為 5 分使 cbs 跨期不可比。定義層另有 roic 其實是「用淨利算的 ROCE」、fcf_per_share 分母是股本不是股數(差 10 倍,同表 eps 卻是正確元/股)、產業別取最新一筆套全史(前視,且違反 industry_taxonomy_pit 鐵律)、20 幾個計分門檻無出處。現役實盤(Serenity ev_v3_wf、apex strategy_s)與 Python 研究線都不碰它(不在 DuckDB cache,raw_quarterly.py 明文拒用),但 Scala 策略層(Signals/MagicFormulaPiot/Main 的 cbs 因子)、growth_analysis_ttm 與 copilot 的個股基本面/多空 agent 還在用。",
+  "findings": [
+    {
+      "id": "BUG-1",
+      "severity": "BUG",
+      "what": "total_assets_turnover 的「去年同期總資產」寫成 lag(total_assets, 5) = 15 個月前;同一支 SQL 的 roa 用的是正確的 lag(total_assets, 4)。全表 100% 的列受影響,成長中的公司分母偏小 → 週轉率被系統性高估。",
+      "evidence": "src/main/resources/sql/view/4_financial_index_ttm.sql:69 vs :18。2330 逐季手算對照(checks.sql 第 [1] 節):2022Q1 lag4 落在 2021Q1 得 0.4966、lag5 落在 2020Q4 得 0.5082,view 值 = 0.5082(逐位符合 lag5);2022Q4 正確 0.5210 vs view 0.5457(+4.7%);2023Q3 正確 0.4269 vs view 0.4398(+3.0%)。",
+      "fix": "lag(total_assets, 5) → lag(total_assets, 4);更根本的做法是把 (year, quarter) 折成 year*4+quarter 連續序號後用 range 日曆對齊,不要靠列位移(見 BUG-4)。"
+    },
+    {
+      "id": "BUG-2",
+      "severity": "BUG",
+      "what": "算不出 ROIC / ROA 的公司拿到最高的品質分。PostgreSQL 的 ORDER BY 預設 ASC NULLS LAST,rank() 把 NULL 排到最後,而分數 = 排名 ÷ 當季家數 × 100 → 缺料 = 滿分。這兩項合計佔 cbs 權重 50%。",
+      "evidence": "4_financial_index_ttm.sql:113-114(rank)與 :121-122(rank/count*100)。實測:roic 有值的 165,133 列平均 operating_performance = 48.5,roic 為 NULL 的 5,370 列平均 = 94.5(最大 100、最小 16.7);roa 為 NULL 的 8,381 列 return_on_investment 平均 81.7 vs 有值的 47.9。2018 年後仍有 1,226 / 1,249 列。checks.sql 第 [2] 節。",
+      "fix": "order by roic nulls first / order by roa nulls first(讓缺料排最前 = 最低分),或在 rank 前排除 NULL 並讓該列 cbs 直接為 NULL(較誠實)。"
+    },
+    {
+      "id": "BUG-3",
+      "severity": "BUG",
+      "what": "應收帳款被加兩次。上游 receivable CTE 把 28 個標題全部 sum,而 MOPS 完整報表同時揭露同一筆的「毛額」與「淨額」兩行,兩行都被加進去。連帶把 days_sales_outstanding 推過計分門檻、receivables_ratio 灌水。",
+      "evidence": "src/main/resources/sql/materialized_view/2_balance_sheet_with_titles.sql:6-17。1108 幸福 2019Q1 原始 balance_sheet 同時有『應收帳款』305,255 與『應收帳款淨額』305,255、『應收帳款－關係人』10,860 與『－關係人淨額』10,860 → 正確合計 740,911,balance_sheet_with_titles.receivable = 1,057,026(高估 42.7%)。精確盤點(毛額科目存在且其淨額同值):全史 6,969 個公司季 / 502 家公司,2018 年後 4,242 個,平均佔申報值 25.7%、最高 50%。連帶 days_sales_outstanding 1108 2019Q1 = 91.8 天(正確約 64 天),跨過 :159-160 的 90 天門檻使 cash_flow 少拿 4 分(16→12,cash_flow 佔 cbs 30%);receivables_ratio = 0.1408 vs 正確約 0.0987。checks.sql 第 [3] 節。",
+      "fix": "receivable CTE 改成同一科目「淨額優先、無淨額才取毛額(毛額 + 備抵)」的 COALESCE 階層,毛額組/淨額組/合計組互斥,不要無腦 sum 全部標題。"
+    },
+    {
+      "id": "BUG-4",
+      "severity": "BUG",
+      "what": "「最近四季」其實是「最近四列」。全檔 20 餘處 rows between 3 preceding and current row 是列位移,沒有任何「這四列是否為連續四季」的檢查;上游累計制差分也只判 quarter = 1,不判前一列是否為前一季。缺季時輸出的是看起來合理的錯數字,而不是 NULL。",
+      "evidence": "4_financial_index_ttm.sql 行 14/17/19/28 等 20 餘處;上游 materialized_view/5_concise_income_statement_individual.sql:18-22。2881 富邦金(2023 缺 Q2、2024 缺 Q1/Q3,concise_income_statement_progressive 確認整季無列):2023Q4 view TTM 稅後淨利 279.0 億 vs 官方全年 650.4 億(-57.1%);2024Q4 view 1,369.9 億 vs 官方 1,508.6 億(-9.2%),view ttm_eps 9.64 vs 實際 10.77;2024Q2 那一列 H1 累計 812.6 億被差分成 162.2 億(Q1 列不存在,lag 抓到去年 Q4 累計 = 把去年整年扣掉)。規模:2018 年後 2,045 / 57,496 列(3.6%)視窗不是連續四季;缺 Q1 的公司年 5,327 個(2018 後 458 個,含 2880 華南金 / 2881 富邦金 / 2882 國泰金)。checks.sql 第 [4] 節。",
+      "fix": "把 (year, quarter) 折成 year*4+quarter 連續序號,改用 range between 3 preceding and current row,並加守門「視窗內剛好 4 列」,不足即 NULL;差分那一層同樣要驗前一列 = 前一季,否則回 NULL。"
+    },
+    {
+      "id": "BUG-5",
+      "severity": "BUG",
+      "what": "2006-2012 年同一支查詢跑四次得到四個答案。上游 concise_financial_statement_with_titles 的 858 個鍵有 2/4/8/64 倍重複列(11,040 幽靈列),使「往前數三列」依執行計畫送進來的實體順序而變;同時 count(*) over (partition by year, quarter) 這個百分位分母也被灌水兩到四成。",
+      "evidence": "financial_index_ttm 分期幽靈列比例:2006-2012 = 23.27%(47,446 列 vs 36,406 個相異代號),2013+ = 0.00%,2006 前 = 0.00%。select avg(cbs), avg(roic) from financial_index_ttm where year=2010 連跑四次:cbs 47.411744 / 47.413899 / 47.413855 / 47.412813,roic 0.064594 / 0.063282 / 0.062599 / 0.061552(平均 ROIC 飄約 5%);同一支查 2019 連跑兩次完全一致(51.618531 / 0.033456)。根因:materialized_view/6_concise_financial_statement_with_titles.sql 的 total_operating_revenue(:35-40)、operating_expenses(:41-43)、eps(:76-82)、total_assets(:2-7)、total_equity(:20-25)只用 OR 列舉同義標題卻沒有 distinct on;證券商 6020 2012Q2 同時申報『收入』與『營業收入淨額』、『營業費用』與『費用』、『每股盈餘』與『每股稅後盈餘(元)』→ 笛卡兒成 64 列。checks.sql 第 [5] 節。",
+      "fix": "每個 CTE 補 distinct on (year, quarter, company_code) + 明確標題優先序(照 net_operating_income / profit 已有的寫法);修完同時修好姊妹 view growth_analysis_ttm 的同源 BUG。"
+    },
+    {
+      "id": "BUG-6",
+      "severity": "BUG",
+      "what": "存貨與預付款缺料被 coalesce 成 0,速動比率退化成流動比率並拿到滿分。「不知道存貨」被當成「沒有存貨」。",
+      "evidence": "4_financial_index_ttm.sql:24-25 的 (total_current_assets - coalesce(inventories,0) - coalesce(prepaid_expenses,0)) / total_current_liabilities;inventories 來自 balance_sheet_with_titles,而 balance_sheet 這張表 2009 年才有資料(min(year)=2009)。實測:2009 年前 51,088 列裡 51,088 列(100%)quick_ratio 與 current_ratio 完全相等,該期 liquidity 平均 72.4;2009 年後只有 9,269/116,063(8.0%)相等。:130-133 因此直接給 60 分(滿分)。checks.sql 第 [6] 節。",
+      "fix": "拿掉 coalesce(或加 and inventories is not null 守門),存貨為 NULL 時 quick_ratio 就該是 NULL。"
+    },
+    {
+      "id": "BUG-7",
+      "severity": "BUG",
+      "what": "2009 年以前 cash_flow 分項恆為 5 分,cbs 跨期完全不可比——「2010 年的 cbs 比 2020 年低」是資料補齊程度的差別,不是體質差別。",
+      "evidence": "balance_sheet 與 cash_flows_progressive 皆自 2009 年起才有資料。分期 NULL 率:2009 年前 51,840 列的 ocf / cash_ratio / days_sales_outstanding / fcf_per_share 全部 100% NULL;2009-2012 為 29.0% / 22.5% / 43.3% / 30.3%;2013 年後 1.2% / 0.8% / 3.8% / 3.1%。:136-162 三個 case 對 NULL 分別落到 0 / 0 / 5 → 該期 cash_flow 平均實測恰為 5.0(2009-2012 為 34.6,2013 後 50.7)。cash_flow 佔 cbs 權重 30% → 舊年份 cbs 天生低約 13.7 分。checks.sql 第 [7] 節。",
+      "fix": "資料不足的期間 cbs 應為 NULL,或在 view 檔頂端明確標註有效起始年為 2009(2013 更保險),下游一律以該年起算。"
+    },
+    {
+      "id": "SUSPECT-8",
+      "severity": "SUSPECT",
+      "what": "roic 不是 ROIC,是「用淨利算的 ROCE」:分子是含業外與一次性的稅後淨利(學理要 NOPAT),分母是含全部閒置現金的運用資本(學理要扣現金與非營業資產);而且分子是四季流量、分母是單一時點存量,同支 SQL 的 roa 就有做期初期末平均。",
+      "evidence": "4_financial_index_ttm.sql:13-15 = sum(profit) over (rows 3 preceding) / nullif(total_assets - total_current_liabilities, 0);對照 :16-21 的 roa 分母 (total_assets + lag(total_assets,4))/2。CLAUDE.md:556 與 .claude/agents/twstock-fundamental-analyst.md:13 都稱它 ROIC,下游 agent 會照 ROIC 語意講給使用者聽。",
+      "fix": "改名 roce_on_net_income;或改成正規定義 NOPAT /(權益 + 付息負債 − 現金),分母改期初期末平均與 roa 一致。"
+    },
+    {
+      "id": "SUSPECT-9",
+      "severity": "SUSPECT",
+      "what": "ROIC 分母為負時方向反轉,獲利公司被排到最差。行 15 只包 nullif(...,0),沒擋負值。",
+      "evidence": "4_financial_index_ttm.sql:15。total_assets − total_current_liabilities < 0 且 TTM profit > 0 的列有 121 筆(2018 年後 0 筆)→ roic 為負 → operating_performance 落在最低百分位。checks.sql 第 [9] 節。",
+      "fix": "分母 ≤ 0 時回 NULL(nullif(greatest(total_assets - total_current_liabilities, 0), 0) 或 case)。"
+    },
+    {
+      "id": "SUSPECT-10",
+      "severity": "SUSPECT",
+      "what": "fcf_per_share 不是「每股」,是每股的 1/10——分母是股本(新台幣千元)不是股數;同一張表的 eps 卻是正確的元/股。一張表裡兩個「每股」欄位單位差 10 倍。而且對非 10 元面額的公司不是常數縮放,橫斷面排序也被扭曲。",
+      "evidence": "4_financial_index_ttm.sql:95-99 分母為 total_capital_stock。2330 2024Q4 實測:TTM ocf 1,826.2 十億千元、股本推得 25,933 百萬股,view fcf_per_share = 3.355,真實每股自由現金流約 33.55 元(差剛好 10 倍,面額 10 元);同列 eps = 45.25 正確。消費者 src/main/scala/strategy/Signals.scala:565 的 fcf_per_share / closing_price 使台積電 FCF 殖利率算成 0.34%(實際 3.36%)。以 EPS 反推面額(2018 後 40,027 樣本):36,201 個(90.4%)面額 10 元、520 個 5 元、46 個 1 元 → 1.4% 非 10 元面額的公司被扭曲 2~10 倍。MagicFormulaPiotStrategy.scala:72 只用 fcf_per_share > 0 判正負,不受影響。checks.sql 第 [10] 節。",
+      "fix": "分母改成股數(股本 ÷ 面額 × 1000),或用 profit / eps 反推加權平均股數;最低限度改名 fcf_to_capital_stock。"
+    },
+    {
+      "id": "SUSPECT-11",
+      "severity": "SUSPECT",
+      "what": "產業別取「最新一筆」套用到全部歷史 = 前視偏誤,而且用了 CLAUDE.md 明令禁用的來源 operating_revenue.industry。影響 capital_structure(同業內權益乘數百分位,佔 cbs 10%)。",
+      "evidence": "4_financial_index_ttm.sql:2-6 的 select distinct on (company_code) ... from operating_revenue order by company_code, year desc, month desc。operating_revenue 裡 2,502 個代號有 1,339 個(53.5%)出現過一個以上的 industry 值;另有 456 列 industry 為 NULL 被歸成同一個桶一起排名(:116-118)。CLAUDE.md:『產業別一律用 industry_taxonomy_pit(2026-07-10 鐵律)…禁止直接用 operating_revenue.industry(舊檔含 legacy 名稱且無 PIT 語義)』。checks.sql 第 [11] 節。",
+      "fix": "改 join industry_taxonomy_pit,以 asof(effective_date ≤ 該季底)取分類。"
+    },
+    {
+      "id": "SUSPECT-12",
+      "severity": "SUSPECT",
+      "what": "cbs 的 20 幾個計分門檻與 5 個權重全是沒有出處的魔術數字(違反全域天條 §2.2);而且 5 個成分裡 2 個是相對百分位、3 個是絕對門檻分,尺度混用使 cbs 跨期不可比。",
+      "evidence": "4_financial_index_ttm.sql:125-162 的流動比 2.5/1/0、速動比 1.5/1/0.5/0、現金比 0.25/0.2/0.15/0.1/0.05、應收天數 15/30/60/90/150/180,配分 40/60/50/20/30;:172-176 的權重 0.25/0.25/0.10/0.10/0.30。repo 全庫查無任何量測或回測支撐這些值。cbs 已被 src/main/scala/Main.scala:357 註冊為因子送進 FactorResearch:(\"cbs\", strategy.Signals.financialIndexField(\"cbs\"), true)。尺度混用的後果見 BUG-7(絕對門檻分隨資料補齊程度變動,百分位分均值恆為 50)。",
+      "fix": "要嘛把每個門檻的來源量測補上並落 repo,要嘛拆掉 case 全改成百分位讓 5 個成分同尺度;在有證據前不要讓 cbs 進因子池。"
+    },
+    {
+      "id": "SUSPECT-13",
+      "severity": "SUSPECT",
+      "what": "cash_flow_adequacy_ratio 的五年視窗有 22.8% 的列湊不滿 20 季就當成「五年」;資本支出的 value < 0 過濾又丟掉 7.9% 的季別再 coalesce 成 0 → 分母偏小 → 允當比率偏高。",
+      "evidence": "4_financial_index_ttm.sql:30-41 用 rows between 19 preceding and current row。159,463 個公司季裡 36,385 個(22.8%)前面不足 19 列。materialized_view/4_cash_flows_with_titles.sql:16-19 的 capital_expense CTE 加了 and value < 0,單季差分後 ≥ 0 的有 9,039 / 114,467(7.9%)被丟掉,再被 :32-34 的 coalesce(...,0) 當成 0。checks.sql 第 [13] 節。",
+      "fix": "視窗不足 20 季回 NULL;資本支出改用絕對值累計而不是丟掉正值。"
+    },
+    {
+      "id": "SUSPECT-14",
+      "severity": "SUSPECT",
+      "what": "行 91-92 兩處裸除法是未爆彈,目前僥倖沒炸。這是全檔僅有的兩處沒包 nullif 的除法。",
+      "evidence": "4_financial_index_ttm.sql:91 inventories / total_assets 與 :92 receivable / total_assets。現存 total_assets = 0 的列有 7 筆,但那 7 筆的 inventories / receivable 都是 NULL,而 PG 對 NULL::float8 / 0 回 NULL 不報錯(實測 select null::float8/0 → NULL;select 1::float8/0 → ERROR: division by zero)。只要補進一家 total_assets = 0 且有存貨的公司,整個 view 會 ERROR。checks.sql 第 [19] 節。(姊妹單位 B-view-5 亦標了同一處;此處補上「為何目前沒炸」的第一手驗證。)",
+      "fix": "補 nullif(total_assets, 0)。"
+    },
+    {
+      "id": "REAL-15",
+      "severity": "REAL",
+      "what": "金融股沒有毛利率、營業利益率會 > 1 — 這是定義落差不是解析錯,但代表 operating_margin / gross_margin 不能跨產業排名。",
+      "evidence": "2024Q4 實測:2881 富邦金 gross_margin NULL / operating_margin 1.116 / profit_margin 0.966;2891 中信金 0.908;2882 國泰金 0.590;對照 2330 台積電 0.561 / 0.457 / 0.405。上游 materialized_view/6_concise_financial_statement_with_titles.sql:35-40 把金融業的「營業收入」對到『利息淨收益』,但『營業利益』含手續費 / 投資 / 保險等全部收入 → 分子大於分母。2018 年後另有 57 筆 gross_margin > 1、209 筆 < -1(營收極小或為負的分母)。checks.sql 第 [14] 節。",
+      "fix": "數字不需要修。但 src/main/scala/Main.scala:359-360 把 gross_margin / operating_margin 當全市場因子掃 IC,對金融股無意義;下游橫斷面排名時要排除金融保險業,或改用產業內百分位。"
+    },
+    {
+      "id": "OK-16",
+      "severity": "OK",
+      "what": "現代(2013+)密集資料的四則運算完全正確,有外部錨可證——累計制差分與跨年邊界在資料連續時是對的。這一項查過了,別再查一次。",
+      "evidence": "台積電 2330 2024Q4 view vs 官方公告:TTM 營收 2,894 十億千元 = 2.894 兆(官方 2.894 兆)、TTM eps 45.25(官方 45.25)、TTM 稅後淨利 1.1724 兆(官方 1.1733 兆)、gross_margin 0.561(56.1%)、operating_margin 0.457(45.7%)、profit_margin 0.405(40.5%)、TTM ocf 1.8262 兆(官方 1.826 兆)。roic / roa / equity_multiplier 以 concise_financial_statement_with_titles 手算重現,與 view 逐位相符(0.2160 / 0.1918 / 1.548)。checks.sql 第 [15] 節。",
+      "fix": ""
+    },
+    {
+      "id": "OK-17",
+      "severity": "OK",
+      "what": "join 條件 market = 'tw' 是對的,不是筆誤——乍看與主表的 twse/tpex 不合,實際能 join 到。",
+      "evidence": "4_financial_index_ttm.sql:101、105。實測 balance_sheet_with_titles 全表 116,455 列 market 只有 'tw';cash_flows_with_titles 113,488 列同樣只有 'tw'(來源 balance_sheet / cash_flows_progressive 是完整財報,reader/FinancialReader.scala:readFinancialStatements 一律寫死 \"tw\")。主表 concise_financial_statement_with_titles 為 twse 101,404 + tpex 69,099。checks.sql 第 [16] 節。",
+      "fix": ""
+    },
+    {
+      "id": "OK-18",
+      "severity": "OK",
+      "what": "net_operating_income 在現代沒有被「繼續營業單位稅前淨利」污染,operating_margin 是真的營業利益率。這一項查過了。",
+      "evidence": "materialized_view/6_concise_financial_statement_with_titles.sql:44-52 同時列舉『營業利益』與『繼續營業單位稅前淨利(淨損)』,靠 distinct on ... order by title 決勝。實測兩者都存在且值不同的 35,321 個公司季,100% 選到營業利益、0% 選到稅前;只有 2,355 個「只有稅前」的季會退而求其次,且沒有一個落在 2018 年後。checks.sql 第 [17] 節。",
+      "fix": ""
+    },
+    {
+      "id": "OK-19",
+      "severity": "OK",
+      "what": "跨市場不會重複計算 —— window 的 partition by 只寫 company_code 沒有 market,乍看危險,實際安全。這一項查過了。",
+      "evidence": "同一 company_code 在同一 (year, quarter) 同時出現在 twse 與 tpex 的情形有 0 筆;13 個代號跨過市場(上櫃轉上市),partition 不含 market 反而讓時序連續下去,是對的。checks.sql 第 [18] 節。",
+      "fix": ""
+    },
+    {
+      "id": "OK-20",
+      "severity": "OK",
+      "what": "「稅後 vs 稅前淨利」的混用只到 2005 年,不進回測窗;2006 年起 profit / roic / roa / profit_margin 語意一致。",
+      "evidence": "profit CTE(materialized_view/6_concise_financial_statement_with_titles.sql:64-73)把『稅前純益』也列進候選。實測:沒有任何一個公司季同時有稅前與稅後候選(0 筆);32,735 個公司季只有稅前,最晚年份 = 2005(1989-2005 的舊制簡明報表)。checks.sql 第 [21] 節。",
+      "fix": ""
+    },
+    {
+      "id": "OK-21",
+      "severity": "OK",
+      "what": "PIT 由消費者側正確處理,view 本身沒有前視(產業別那一處除外,見 SUSPECT-11)。這一項查過了。",
+      "evidence": "view 無公告日欄位。src/main/scala/strategy/Signals.scala:144-158 的 latestQuarterField 用 PublicationLag.asOfQuarter 取「法定截止日 + 7 天緩衝已過」的最新一季,再 DISTINCT ON (company_code) ORDER BY year DESC, quarter DESC 收斂到最新一筆。PublicationLag.scala:32-37 的 Q1 5/15、Q2 8/14、Q3 11/14、Q4 次年 3/31 與證交法一致。",
+      "fix": ""
+    },
+    {
+      "id": "OK-22",
+      "severity": "OK",
+      "what": "爆炸半徑有限:不在現役實盤與 Python 研究路徑上,但 copilot agent 仍在用——那是使用者會直接看到的個股判斷。",
+      "evidence": "financial_index_ttm 不在 DuckDB cache(實測 research/paths.py::CACHE_DB 的 24 張表無此表);research/strat_lab/raw_quarterly.py:8-12 明文『We DELIBERATELY do NOT use … financial_index_ttm (VIEW)』;research/db.py:42/107 亦已移除同類 view;Serenity ev_v3_wf 與 apex strategy_s 都不碰。仍在用的:src/main/scala/strategy/Signals.scala:142 / :531 / :548-565、strategy/MagicFormulaPiotStrategy.scala:72、src/main/scala/Main.scala:357-360(cbs / gross_margin / operating_margin 當因子)、src/main/resources/sql/view/5_growth_analysis_ttm.sql:477、以及 .claude/agents/twstock-fundamental-analyst.md:13、twstock-bull-researcher.md:13、twstock-bear-researcher.md:13。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "精讀 src/main/resources/sql/view/4_financial_index_ttm.sql 全文 206 行,逐欄記下 19 個比率欄位的分子/分母/期間/單位 + 5 個評分成分 + cbs 加權式(結果整理成 findings md 的公式表)",
+    "精讀上游全部四支 matview:6_concise_financial_statement_with_titles.sql、5_concise_income_statement_individual.sql、1_concise_balance_sheet_individual.sql、2_balance_sheet_with_titles.sql、3_cash_flows_individual.sql、4_cash_flows_with_titles.sql",
+    "TTM / 累計制:確認台股損益表為 YTD 累計,差分在 5_concise_income_statement_individual.sql:18-22(quarter=1 取原值,否則減 lag);以台積電 2024 四季逐季驗證跨年邊界正確;以富邦金 2881 缺季案例證明差分與視窗在缺季時失效",
+    "外部錨點對照:台積電 2024 全年營收 2.894 兆、EPS 45.25、稅後淨利 1.1733 兆、毛利率 56.1%、營益率 45.7%、淨利率 40.5%、營業現金流 1.826 兆;富邦金 2023 全年 650.4 億、2024 全年 1,508.6 億 / EPS 10.77",
+    "lag 位移 vs 日曆對齊:對 2330 逐季列出 lag(4) 與 lag(5) 各落在哪一季,證明 total_assets_turnover 的 view 值逐位符合 lag(5);全表統計缺季列數(2018 後 2,045/57,496)與缺 Q1 公司年(5,327 個)",
+    "分母保護:逐處盤點 20 餘個除法是否包 nullif,找出 :91-92 兩處裸除法;實測 PG 的 NULL::float8/0 回 NULL、1::float8/0 才 ERROR;查現存 total_assets = 0 的 7 列其 inventories/receivable 皆為 NULL;查負運用資本(total_assets − total_current_liabilities < 0)且獲利的 121 列",
+    "NULL 排序語意:實測 PG rank() over (order by roic) 的 ASC NULLS LAST 讓 NULL 拿最高百分位(roic NULL 的 5,370 列平均 94.5 vs 有值 48.5;roa NULL 8,381 列 81.7 vs 47.9)",
+    "重複列 / 可重現性:對 concise_financial_statement_with_titles 做 group by (market,year,quarter,company_code) having count(*)>1 → 858 鍵 / 11,040 幽靈列;分期算 financial_index_ttm 的幽靈列比例(2006-2012 = 23.27%,其餘 0%);同一支 avg(cbs)/avg(roic) 查詢對 2010 連跑四次得四個答案、對 2019 連跑兩次一致;追到根因是上游 CTE 缺 distinct on(以 6020 2012Q2 的『收入』+『營業收入淨額』等同義標題證實)",
+    "應收款重複計算:讀 2_balance_sheet_with_titles.sql 的 receivable CTE 28 個標題清單,以 1108 2019Q1 原始列逐筆手算(正確 740,911 vs view 1,057,026);用毛額/淨額配對精確盤點全史 6,969 個公司季 / 502 家 / 2018 後 4,242 個,平均高估 25.7%",
+    "缺料 → 樂觀值:實測 2009 年前 51,088 列的 quick_ratio 與 current_ratio 100% 相等(coalesce(inventories,0) 所致);分期算 ocf / cash_ratio / DSO / fcf_per_share 的 NULL 率與 cash_flow 分數(2009 前恆為 5.0)",
+    "比率定義對照學理:ROIC 分子用淨利非 NOPAT、分母為含現金的運用資本且用期末非平均;ROA 用期末與去年同期平均(正確);gross_margin 分母為 TTM 總營業收入;DSO / DSI 用平均餘額 × 365 ÷ TTM 分母;cash_flow_ratio / adequacy / reinvestment 對照台灣證交所的現金流量三比定義",
+    "合併 vs 個體:concise_balance_sheet / concise_income_statement_progressive 有 type 欄(consolidated 2,142,171 / individual 1,339,539),matview 的 distinct on ... order by type 優先取 consolidated;balance_sheet(完整財報)無 type 欄,由 FinancialReader.readFinancialStatements 的 sortBy(_._1).distinctBy(_._2) 隱含選一份;以 2317/2330 2023Q4 存貨對照確認 balance_sheet 存的是合併數",
+    "產業別:查 operating_revenue 有 1,339/2,502 個代號出現過一個以上 industry 值;對照 CLAUDE.md 的 industry_taxonomy_pit 鐵律;查 financial_index_ttm 有 456 列 industry 為 NULL",
+    "fcf_per_share 單位:以 2330 2024Q4 的 TTM ocf / 股本 / view 值 / eps 四者交叉推導出差 10 倍;用 profit/eps 反推面額分布(2018 後 40,027 樣本:90.4% 面額 10 元、520 個 5 元、46 個 1 元)確認非常數縮放",
+    "金融業定義落差:2881/2882/2891 對照 1101/2330/2412 的三個 margin;查 2018 年後 gross_margin > 1(57 筆)與 < -1(209 筆)",
+    "跨市場安全性:查同一 company_code 同期跨兩市場(0 筆)與跨市場遷移代號(13 個)",
+    "PIT:讀 strategy/PublicationLag.scala 全文與 Signals.scala:144-158 latestQuarterField,確認法定截止日 + 7 天緩衝與 DISTINCT ON 收斂皆正確",
+    "消費者盤點:grep 全庫 financial_index_ttm(Scala / Python / SQL / md / conf),讀 Signals.scala:134-158 / :531 / :540-565、MagicFormulaPiotStrategy.scala:72、Main.scala:354-360、5_growth_analysis_ttm.sql:477;實測 DuckDB cache 24 張表無此表;讀 research/strat_lab/raw_quarterly.py:1-25 與 research/db.py:42/107 的明文拒用註記",
+    "與姊妹單位 B-view-5_growth_analysis_ttm 的結論比對,避免重覆並補上它未涵蓋的部分(lag(5) 基期、NULL 拿滿分、應收重複計算、缺季 TTM、quick_ratio 退化、cbs 魔術數字、fcf 單位的第一手推導)",
+    "全部查詢落檔為可重跑腳本 docs/data_audit/scripts/B-view-4_financial_index_ttm/checks.sql,已端到端跑過一次確認每一節都重現"
+  ]
+}

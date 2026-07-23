@@ -1,0 +1,83 @@
+{
+  "id": "A-margin_transactions",
+  "dim": "A",
+  "source": "margin_transactions",
+  "reader": "TradingReader.readMarginTransactions",
+  "table": "margin_transactions",
+  "raw_files": 16468,
+  "unit": "A-margin_transactions",
+  "verdict": "BUG",
+  "summary": "融資餘額、融券餘額這兩個實際被策略用的數字全史可信:另寫一套獨立解析器把 16,468 個原始檔全部重讀,對 11,081 個 (market,date)、8,341,265 列、14 個欄位逐格比對,14 欄中 12 欄零差異、列數雙向零缺零多;單位(張)另用『檔頭彙總 == 個股加總』對帳過,欄位對應另用『前日餘額+買進-賣出-現償=今日餘額』恆等式在 138,369 列上零不符驗過。不能信的有五塊:(1) 上櫃 2007-06-01~2008-09-26 的 short_quota 整欄是錯的欄位(裝的是資券相抵,同期 offsetting 全 0),證據是該期間 48.5% 的列出現『券餘額 > 券限額』且交易所自印的券使用率式子命中率掉到 0;(2) 這張表已經不能從原始檔重建——今天的程式重跑會靜靜少 466,788 列(上櫃 2011-01-03~2014-10-30 代號右補空白,被未正規化的列過濾條件擋掉),現有資料是舊版程式留下的;(3) 同株病:上櫃 2007-01-02~2007-03-30 的 12,944 個非零資券相抵重跑會變 0;(4) 10 天的資料是別天的複製品共 6,068 列,其中 twse 2011-03-26 裝的是六年後 2017-12-18 的數字、twse 2003-09-12 裝的是 09-18、tpex 7 個颱風休市日有幽靈資料;(5) 10 個真交易日整天沒資料約 8,015 列,且『日期已在庫就跳過』的去重規則讓它永遠不會自己補。另記兩件語意坑:上櫃 2007-04~05 的資券相抵在來源檔就被清成 0(16,669 列,真值未知);TWSE 註記(12.3% 非空)與 TPEx 備註(28.0% 非空)含停資停券與處置代碼,連同 TPEx 屬證金/使用率四欄全部沒接進 schema。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "上櫃 2007-06-01~2008-09-26(331 個交易日、135,679 列)的 short_quota 整欄裝錯東西:那 16 個月的原始檔標頭照樣印著『券限額』,但資料列根本沒印這一欄,第 17 格塞的是『資券相抵』。TradingReader.scala:687-688 照寫死索引取 values(17)→short_quota、values(18)→offsetting,於是 short_quota 變成資券相抵(月均值從 35,000 掉到 54~231)、offsetting 全部是 0。真正的券限額在那段期間等於資限額(= margin_quota),原始檔沒有另外印,所以是不可從現有檔案還原的資訊。",
+      "evidence": "三條互相獨立的證據。(1) 交易所自印的一致性式子『券使用率(%) = 券餘額/券限額×100』:docs/data_audit/scripts/A-margin_transactions/04_tpex_tail_eras.py 輸出顯示 2007_5_31 之前 idx9 與 idx17 命中率都是 100%,2007_6_1 起 idx17 命中率變 0(2007_6_1: idx9 hit=289 / idx17 hit=0;2008_9_26: 256 / 0),2008_9_30 起 idx17 恢復命中。(2) 物理不可能:psql -f docs/data_audit/scripts/A-margin_transactions/06_contamination.sql 第 (4) 段 → tpex eraB 2007-06..2008-09-29 有 65,821 / 135,679 列(48.5%)『short_balance_of_the_day > short_quota』;對照 eraA 0/38,718、2009+ 6,713/2,735,985(0.25%)、twse 8,065/5,403,352(0.15%)。(3) 逐格實例:data/margin_transactions/tpex/2007/2007_6_5.csv 的 5346 力晶,券餘額=17,052、券使用率=0.98%、資限額=1,735,028(17,052/1,735,028×100=0.98 ✓),而 idx17=104;DB 該列 short_quota=104、short_balance_of_the_day=17,052。第 (5) 段逐月表把斷層畫得更清楚:avg_sq 2007-05=36,375 → 2007-06=205 → … → 2008-09=713 → 2008-10=14,054 → 2009-01=35,285;同期 avg_off 從 156(2007-03)掉到 0.00 再回到 104(2008-12)。汙染已原封傳進 DuckDB cache(research/cache_tables.py:47 是純投影,實測 cache 與 PG 同值 short_quota=104)。",
+      "fix": "TPEx 尾三欄改成依版型分支(而不是寫死索引):date < 2007-06-01 用 短額=values(17)、相抵=values(19);2007-06-01 ≤ date < 2008-09-30 用 短額=values(9)〔等於資限額,註解標明來源是使用率反推〕、相抵=values(17);date ≥ 2008-09-30 維持現況。改完必須全量重匯 tpex 2007-2008 並用『券餘額 ≤ 券限額』與『券使用率 ≈ 券餘額/券限額×100』兩條落檔期守護驗過(先紅後綠:拿現況資料跑守護必須紅)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "margin_transactions 已經無法從原始檔重建:今天的程式重跑一次會靜靜少掉 466,788 列(上櫃 2011-01-03~2014-10-30,共 948 個交易日)。根因是 TradingReader.scala:679 的列過濾 row.head.matches(\"[0-9][0-9A-Z]*\") 作用在『還沒清空白的原始 head』上(清空白的 .map(_.replace(\" \",\"\")) 在 filter 之後才做),而 TPEx 那 3 年 10 個月把代號印成右補空白的 \"1336  \",matches 失敗、整列被丟掉且完全不出聲。DB 目前這段區間有 468,289 列且值全對,那是更早版本的程式匯進去的產物;現行去重條件『(market, 檔名) 已在 DB 就跳過』讓這件事永遠不會被發現,代價是這張表成了不可重生的手工品——任何一次 DELETE 重匯或換機重建就永久少 46 萬列。",
+      "evidence": "直接跑真正的 Scala 解析器(tototoshi scala-csv 1.3.6 + QuantlibCSVReader 的兩條特規),不是推論:javac/java 執行 docs/data_audit/scripts/A-margin_transactions/ScalaParserProbe.java 得到 FILT tpex/2010/2010_10_1.csv size20_rows=442 reader_accepts=441(正常)、tpex/2011/2011_10_11.csv 443→2、tpex/2013/2013_3_15.csv 488→2、tpex/2014/2014_10_30.csv 572→1、tpex/2014/2014_10_31.csv 572→571(空白版型結束於 10-30)。原始列長相:data/margin_transactions/tpex/2011/2011_10_11.csv 第 4 行 '\"1336  \",\"台翰\",\"3,905\",…'。全量統計:docs/data_audit/scripts/A-margin_transactions/03_recon.py 逐檔算『n_data_rows - scala_ok』,合計 466,788 列 / 948 天,區間 2011-01-03 ~ 2014-10-30,其他年份為 0。同一支腳本也證明 DB 這段區間的值是對的(逐欄零差異)。",
+      "fix": "列過濾改成先正規化再比對:先 row.map(_.trim)(或直接對已清空白的 values 做 matches)再判斷;同時把 row.size == 20 || row.size >= 22 改成明確 case 20 => … case n => throw(>= 22 全史零命中,是死條件)。改完做一次『DELETE tpex 2011-01-01~2014-12-31 後重匯』並比對必須逐列還原 468,289 列,才算修好。防復發守護:匯入後檢查『解析列數 == 檔案裡宣告的共N筆』(TPEx 檔尾有),不符即 fail-loud。"
+    },
+    {
+      "severity": "BUG",
+      "what": "同一株病的第二個樣本:上櫃 2007-01-02~2007-03-30(57 天、12,944 列)的『資券相抵』重跑會被寫成 0。那五個月的原始檔尾三欄是 idx17=券限額、idx18=(空)、idx19=資券相抵,與標頭宣告的順序相反;reader 讀 values(18) 拿到空字串,再經 if (values(18).nonEmpty …) 判斷後寫 0。DB 目前的值是對的(舊版程式留下的),也就是說『DB 正確但程式已經產不出這個正確值』——與上一條同性質、同風險。",
+      "evidence": "ScalaParserProbe.java 對 data/margin_transactions/tpex/2007/2007_1_10.csv 的 5346 逐格印出 …17:[1,723,424] 18:[] 19:[451],而 psql -c \"select offsetting_of_margin_purchases_and_short_sales from margin_transactions where market='tpex' and date='2007-01-10' and company_code='5346'\" → 451。全量統計:03_recon.py 的 d_offsetting 欄合計 12,944 列 / 57 天,區間 2007-01-02 ~ 2007-03-30,其他日期為 0(其中 2007-04-02 之後對不上是因為來源檔本身把值清成 0,見 SUSPECT)。",
+      "fix": "併入上一條的 TPEx 版型分支修法(date < 2007-06-01 用 values(19) 當資券相抵)。修完同樣要 DELETE + 重匯驗證能逐列還原這 12,944 個非零值。"
+    },
+    {
+      "severity": "BUG",
+      "what": "10 天的資料整天是別天的複製品,共 6,068 列。twse 2011-03-26(週六,1,000 列)裝的是 2017-12-18 的資料——六年份的前視;twse 2003-09-12(632 列)裝的是 2003-09-18 的資料;tpex 2008-08-29(408 列,是真交易日)整天是 2008-08-28 的複本,該日真資料遺失;tpex 2012-08-02、2014-07-23、2015-07-10、2015-09-29、2016-07-08、2016-09-27、2016-09-28 共 7 天(4,028 列)是颱風休市日卻有幽靈資料(全市場零報價,TWSE 側正確地沒有這些日期)。根因是 TradingReader.scala:661-666 用檔名當日期、檔案內容裡的民國日期從頭到尾沒被讀過,crawler 也沒有落檔前的日期或指紋驗證;交易所對休市日的請求會回最近一次公告並把請求日期原樣印在標題上。",
+      "evidence": "內容指紋去重(psql -f docs/data_audit/scripts/A-margin_transactions/06_contamination.sql 第 (1) 段,逐日 md5(code:買進:融資餘額:融券餘額))命中 9 對:tpex (2008-08-28, 2008-08-29)、(2012-08-01, 2012-08-02)、(2014-07-22, 2014-07-23)、(2015-07-09, 2015-07-10)、(2015-09-25, 2015-09-29)、(2016-07-07, 2016-07-08)、(2016-09-27, 2016-09-28)、twse (2003-09-12, 2003-09-18)、(2011-03-26, 2017-12-18)。檔名 vs 內容日期:iconv -f BIG5-HKSCS -t UTF-8 data/margin_transactions/twse/2011/2011_3_26.csv | head -1 → '\"106年12月18日 信用交易統計\"';twse/2003/2003_9_12.csv → '\"092年09月18日 信用交易統計\"'(全 16,468 檔掃描僅 3 檔不符,第三檔 twse/2003/2003_5_11.csv 是 818 bytes 無資料列,無害)。幽靈日對照:06_contamination.sql 第 (2) 段用 daily_quote 當日曆 → 那 7 個上櫃日期與 twse 2011-03-26 在兩市場 daily_quote 都是 0 列;且 2016-09-27/28 的個股流量欄合計 146,085 非零(休市日不可能有成交)。注意 TPEx 那 7 天的標頭日期是對的,單靠『標頭 vs 檔名』抓不到,只有整日內容指紋抓得到。",
+      "fix": "① reader 改成 parse 檔案內容的民國日期,與檔名不符即 [deferred] 刪檔重抓;② 另加整日內容指紋去重守護(TPEx 休市日標頭日期是對的,只有指紋抓得到);③ 補資料:對 twse 2003-09-12、2011-03-26 與 tpex 2008-08-29、2012-08-02、2014-07-23、2015-07-10、2015-09-29、2016-07-08、2016-09-27、2016-09-28 在 PG 與 var/cache/cache.duckdb 兩邊 DELETE 後重抓;後 7 天是休市日,重抓後應落 0-byte sentinel 而不是留資料。"
+    },
+    {
+      "severity": "BUG",
+      "what": "10 個真交易日整天沒有任何融資融券資料(約 8,015 列),而且設計上永遠不會自己補。twse:2004-08-20、2007-09-06、2008-11-28、2010-08-03、2011-03-28、2011-06-23、2013-08-30、2014-05-23、2018-11-01(9 天,原始檔都是 4 bytes 的空回應,不是 0-byte sentinel);tpex:2023-06-09(994 bytes、內容『共0筆』)。readMarginTransactions:652-656 的去重條件是『(market, 檔名) 已在 DB 就跳過』,這些日期壓根沒進 DB,所以每次 Main read margin 都會重讀那些空檔再匯 0 列——只有重抓原始檔才有救,而 crawler 沒有『這是不是空回應』的判斷,也不會重試。",
+      "evidence": "psql -f docs/data_audit/scripts/A-margin_transactions/06_contamination.sql 第 (3) 段(daily_quote 有該日、margin_transactions 沒有)→ 11 列,其中 twse 2009-12-12 是 daily_quote 自己的已知汙染日(C-daily_quote 已記錄該日裝的是 2009-12-18),margin 沒有那天才是對的,真正的缺日是 10 天。檔案大小:stat -f%z data/margin_transactions/twse/2004/2004_8_20.csv → 4(其餘 8 個 twse 缺日同為 4 bytes);tpex/2023/2023_6_9.csv → 994,內容第 4 行是『合計(張),,\"\",…』後接『共0筆』。缺漏量級以前一交易日列數估:twse 652/655/695/742/1000/772/844/856/1024、tpex 775,合計約 8,015 列。旁證:margin 餘額鏈檢定(前日餘額 vs 前一交易日今日餘額)在每個缺日的次一交易日都跳到 80~97% 不符(2004-08-23 89.9%、2007-09-07 90.8%、2008-12-01 89.4%、2010-08-04 90.7%、2011-03-29 96.4%、2011-06-24 91.2%、2013-09-02 90.0%、2014-05-26 88.9%、2018-11-02 81.7%、tpex 2023-06-12 73.8%;平常基線 2~15%)。",
+      "fix": "① crawler 落檔前驗完整性:TWSE 驗『檔頭的融資/融券(交易單位)彙總 == 個股列加總』,TPEx 驗『合計(張)列 == 個股列加總』且『共N筆 == 解析列數』;4-byte 或『共0筆』一律當失敗,留 [deferred] 重抓,不要當沒事。② 重抓上列 10 天並重匯。③ 補一條例行體檢:margin 的交易日集合必須是 daily_quote 交易日集合的超集,缺一天就告警。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "上櫃 2007-04-02~2007-05-31(16,669 列)的『資券相抵』在來源檔裡就已經是 0,DB 忠實地存了 0,但真值未知。這不是 reader 的錯,是來源端資料遺失;風險在於用的人會把 0 當成真值。",
+      "evidence": "06_contamination.sql 第 (5) 段逐月表:tpex avg_off 2007-01=167.16、2007-02=108.24、2007-03=156.19,2007-04=0.00、2007-05=0.00,之後進入 era B 也是 0.00,直到 2008-12=104.20 才回來。原始檔實值:data/margin_transactions/tpex/2007/2007_5_31.csv 的 5346 力晶尾三欄為 …,\"1,735,028\",\"\",\"0\"(idx19=0);同一檔全部 277 列的 idx19 皆為 0。市場層級的資券相抵不可能連續兩個月恰為零。",
+      "fix": "不改程式。文件與消費端註記:margin_transactions.offsetting_of_margin_purchases_and_short_sales 在 tpex 2007-04-02~2008-09-26 一律不可用(前段來源為 0、後段被寫進 short_quota),查詢時當 NULL 處理。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "原始檔有、schema 從來沒接的欄位:TWSE 的『註記』(idx15)與 TPEx 的『備註』(idx19),以及 TPEx 的『資屬證金』(idx7)、『券屬證金』(idx15)、『資使用率%』(idx8)、『券使用率%』(idx16)。註記/備註裝的是 O(停止融資)、X(停止融券)、@(融資分配)、%(融券分配)、!(停止買賣),TPEx 另有處置代碼 A(股價波動過度劇烈)/B(股權過度集中)/C(成交量過度異常)與融資成數調整數字——這是現成的處置股/停券訊號,現在完全拿不到。使用率兩欄雖可由餘額/限額推出,但它正是本次抓出 BUG#1 的定位錨,接進來就多一組可自動驗算的守護。",
+      "evidence": "跨年抽樣(每年 4 檔):twse 66,702 列中 8,228 列(12.34%)註記非空,前幾名為 OX 5,995、X 1,862、@ 317、OX! 34、O 10、! 9、% 1;tpex 36,079 列中 10,096 列(27.98%)備註非空,前幾名為 OX 2,836、X 2,097、'11     C' 2,004、'11OX   C' 602、'11    BC' 311、@ 266。符號定義印在每個原始檔的檔尾說明區(iconv -f BIG5-HKSCS -t UTF-8 data/margin_transactions/twse/2015/2015_1_5.csv | tail -8)。schema 側確認:src/main/scala/db/table/MarginTransactions.scala 只有 17 個欄位,無 note/備註/屬證金/使用率。",
+      "fix": "依 CLAUDE.md 的 Schema Contract:先改 Slick MarginTransactions 加 note(twse 註記 / tpex 備註,varchar)與 tpex 的 margin_from_securities_finance / short_from_securities_finance,再 ALTER TABLE 對齊,然後從 data/ 全量重讀(原始檔都在,可重生)。若決定不接,就在本文件與 CLAUDE.md 明記『刻意不接』,避免下一個人重查。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "TradingReader.scala:685 的 Try(values(9).toInt).getOrElse(values(8).toInt) 是一條沒有註解的保命索。它確實救了一天:tpex 2008-01-25 交易所把 idx8/idx9 對調(印成 …\"1,030\",\"20,756\",\"32.16\"…),values(9)=\"32.16\" 解析失敗 → 退回 values(8)=\"20756\",DB 的 margin_quota 因此是對的(400 列)。問題是它沒說明存在理由,而 fallback 目標欄位平常是『資使用率(%)』——下次若 values(9) 因別的原因失敗(例如印成 --),就會把一個百分比截斷成整數寫進限額,一樣不出聲。TWSE 那側完全沒有對應保護(values(7).toInt 直接拋例外),行為不一致但至少 fail-loud。",
+      "evidence": "原始列:iconv -f BIG5-HKSCS -t UTF-8 data/margin_transactions/tpex/2008/2008_1_25.csv | sed -n '4p' → '\"1333\",\"恩得利\",\"6,685\",\"84\",\"89\",\"5\",\"6,675\",\"1,030\",\"20,756\",\"32.16\",…'(標頭宣告 idx8=資使用率(%)、idx9=資限額,當天對調)。DB 該日 margin_quota=20756(正確)。全史唯一性:03_recon.py 的 d_margin_quota 欄只有 2008-01-25 一天非零(400 列),代表 fallback 全史只觸發過這一次;那 400 列的差異是本次獨立解析器用 idx9 取值造成的,DB 才是對的。",
+      "fix": "改成明確偵測:若 values(9) 非整數且 values(8) 是整數,就走『兩欄互換』分支並記一筆 warning,同時把『2008-01-25 交易所把 idx8/idx9 對調』這個第一手來源寫進註解。"
+    }
+  ],
+  "checked": [
+    "TradingReader.readMarginTransactions(TradingReader.scala:650-698)逐行讀完:欄位索引映射、row.size 過濾、StockCode 正規表達式、Big5-HKSCS 編碼、檔名 → LocalDate、(market,檔名) 去重、Try fallback",
+    "util/QuantlibCSVReader.scala 全檔:第 21 行『含 \"\" 但無 ,\"\" 就跳過整列』與第 23 行 replace(\"=\",\"\") 兩條特規,並在獨立解析器中原樣複製",
+    "setting/MarginTransactionsSetting.scala(twse 起 2001-01-02、tpex 起 2007-01-02)與 db/table/MarginTransactions.scala(17 欄、(market,date,company_code) unique index)",
+    "標頭欄序漂移:16,468 檔全掃 → twse 2 個簽章(2024-10 起僅改名,欄序不變)、tpex 1 個簽章(01_header_scan.py)",
+    "欄位對應(不看標頭):融資與融券的餘額恆等式,twse 88,577 列 / tpex 49,792 列 × 2 條,零不符(02_identity.py)",
+    "全量逐欄比對:16,468 檔 vs PG 8,341,265 列 × 14 欄,12 欄零差異、only_raw=only_db=0、badlen=0(03_recon.py)",
+    "單位:TWSE 檔頭『融資/融券(交易單位)』五個彙總數 vs 個股列加總逐格相等(2001/2007/2020/2024/2026);TPEx 檔尾『合計(張)』列 vs 個股加總逐格相等(2007/2009/2015/2020/2026)→ 兩市場都是張,非股非千元",
+    "正負號 / 方向:TWSE 融券『買進』對到 short_covering、『賣出』對到 short_sale,由 前券餘額+券賣-券買-券償=券餘額 反向驗證",
+    "編碼:Big5-HKSCS 解碼後 company_name 與 DB 全史零差異;含英數的 ETF 名稱(元大台灣50)無走樣",
+    "民國/西元 + 檔名日期 vs 內容日期:16,468 檔全掃,3 檔不符(2 檔有資料 → BUG#4,1 檔無資料列)",
+    "整日內容指紋去重(md5 over code:買進:融資餘額:融券餘額):9 對重複 → 汙染日全數定位",
+    "交易日曆對帳:margin 日期集合 vs daily_quote 日期集合雙向比對 → 幽靈日 8 天、缺日 10 天(+1 天是 daily_quote 自己的已知汙染)",
+    "限額不變式:short_balance_of_the_day > short_quota 的比例分era統計(era A 0%、era B 48.5%、2009+ 0.25%、twse 0.15%)",
+    "TPEx 尾三欄斷代:券使用率 = 券餘額/券限額×100 的命中率逐日掃描,定出 2007-06-01 與 2008-09-30 兩個切換點(04_tpex_tail_eras.py)",
+    "真 Scala 解析器實跑:tototoshi scala-csv 1.3.6 + QuantlibCSVReader 兩條特規,逐格印出 era A/B/C 與 =\"0050\" 前綴、代號補空白的行為(ScalaParserProbe.java)",
+    "重複列:任一檔內是否有重複代號 → 全 16,468 檔 0 件",
+    "漏欄盤點:TWSE 註記、TPEx 備註/資屬證金/券屬證金/資使用率/券使用率 六欄未接;非空比例抽樣量測",
+    "cache 一致性:research/cache_tables.py:47 為純投影(無運算),抽測 DuckDB 與 PG 同值 → BUG#1/#4 原封傳到 research 端",
+    "消費端影響盤點:research/apex/data.py:180、research/db.py:138 會拉 short_quota;research/evergreen/ev48_chip_axes.py、research/strat_lab/iter_52_ownership_flow_alpha.py、research/evergreen/make_tables_chips.py 只用 margin_balance/short_balance(這兩欄全史正確)",
+    "排除已知真實現象:TWSE 週六補班日、concise_* 無 market 欄、金融業負營收等清單皆與本表無關;TWSE 檔頭彙總與個股加總在 2015-01-05 的 3,399 張落差屬檔內自述差異(彙總區未入庫),不影響 reader 解析"
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "id": "C-daily_trading_details",
+  "dim": "C",
+  "table": "daily_trading_details",
+  "unit": "C-daily_trading_details",
+  "verdict": "BUG",
+  "summary": "cache 跟 PostgreSQL 一模一樣(全史 8,214 天、586.9 萬列、4 欄逐位相同,只有 cache 多出一天),但「資料齊不齊」有問題:7 個真交易日整天缺漏且兩條補抓路徑都永遠跳過(爬蟲把交易所回的空回應存成檔案,系統看到檔案就當這天做完了),7 天全落在 2023 年後、正好在現役 Serenity 策略的驗證窗與實盤期;cache 唯一領先 PG 的那天(2026-07-20)由 Python 直寫、沒有原始檔可核,而同一支解析器在 53 個有原始檔可核的 TWSE 交易日少寫了 370 列;另外 cache 忠實複製了 PG 的兩類錯(pre-2015 自營商欄位錯位 111 萬列零負值、23 天存的是別天的資料),用 cache 端獨立的內容指紋全部重現。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "7 個真的有開市的交易日,daily_trading_details 在 PG 與 cache 都一列都沒有:twse 2023-08-30、2025-12-22、2026-02-23、2026-03-18、2026-03-31,tpex 2023-06-08、2023-06-09。原始檔留下的是交易所的空回應(TWSE 2 bytes 的 CRLF、TPEx 只有表頭的 512 bytes),而 Detail.getDatesOfExistFiles 只要「檔案存在且開頭不是 <html>」就把該日算進 existFiles,Task.pullDailyFiles 的 filterNot(existFiles) 於是永久跳過;Python 路徑的 _missing_days 從 max(date)+1 起只前進不回頭,歷史的洞也看不到。7 天全部落在 2023 年之後,現役 Serenity 事件引擎的 train 窗(2022-07~2025-07)與實盤期都在裡面,engine.py:971-981 的 total_difference 20 日 rolling sum(inst_neg 出場閘門的輸入)會因此涵蓋 21 個交易日的歷史。",
+      "evidence": "兩個互相獨立的方法收斂到同一組 7 天。方法 A(資料庫側,docs/data_audit/scripts/C-daily_trading_details/02_gaps.py):在 dtd 起訖區間內找「6 張證人表有資料、dtd 無列」者,這 7 天各有 5~6 個證人——twse 2023-08-30 = daily_quote 1201 / foreign_holding_ratio 1173 / margin_transactions 1120 / market_index 249 / sbl_borrowing 1125 / stock_per_pbr 980;twse 2025-12-22 = 1329/1308/1241/267/1244/1062;twse 2026-02-23 = 1344/1323/1251/267/1256/1068;twse 2026-03-18 = 1344/1322/1252/267/1259/1068;twse 2026-03-31 = 1348/1326/1255/267/1262/1070;tpex 2023-06-08 = fhr 815 / margin 775 / index 63 / sbl 804 / pbr 808(該日 daily_quote 亦缺,是 C-daily_quote 已列的 BUG);tpex 2023-06-09 = daily_quote 907 / fhr 814 / index 63 / sbl 803 / pbr 808。方法 B(原始檔側,05_empty_on_trading_day.py):全 4,008 個空檔中,同時滿足 is_trading_day=True 且 DB 無列者恰好 7 個,清單與方法 A 完全相同。research.data_calendar.is_trading_day 對 7 天全部回 True。原始檔實測:xxd data/daily_trading_details/twse/2023/2023_8_30.csv → 0d0a(2 bytes);iconv -f BIG5-HKSCS data/daily_trading_details/tpex/2023/2023_6_8.csv → 只有一行表頭無資料列。程式碼:src/main/scala/Crawler.scala:620-684(空 body 原樣落檔,只有 <html> 才刪檔重試)、src/main/scala/setting/Detail.scala:132-169、src/main/scala/Task.scala:576(filterNot(existFiles))、research/crawl/update.py:30-41(_missing_days 只從 max(date)+1 前進)。",
+      "fix": "順序不能反——先刪空檔再補抓,否則 filterNot(existFiles) 仍會跳過:rm data/daily_trading_details/twse/2023/2023_8_30.csv data/daily_trading_details/twse/2025/2025_12_22.csv data/daily_trading_details/twse/2026/2026_2_23.csv data/daily_trading_details/twse/2026/2026_3_18.csv data/daily_trading_details/twse/2026/2026_3_31.csv data/daily_trading_details/tpex/2023/2023_6_8.csv data/daily_trading_details/tpex/2023/2023_6_9.csv。端點:TWSE https://www.twse.com.tw/rwd/zh/fund/T86?response=csv&selectType=ALLBUT0999&date=YYYYMMDD;TPEx https://www.tpex.org.tw/web/stock/3insti/daily_trade/3itrade_hedge_result.php?l=zh-tw&o=csv&se=EW&t=D&d=112/06/08 與 112/06/09(民國年)。補完跑 sbt \"runMain Main read daily_trading_details\" + uv run python research/cache_tables.py。根因守護三道:(1) Crawler 落檔前判「空回應 × is_trading_day=True」→ 一律 deferSameDayNoData 刪檔重抓,不得留檔;(2) getDatesOfExistFiles 把 ≤2 bytes 且非 0-byte sentinel 的檔案視為未下載;(3) 加測試鎖死「daily_trading_details 的 (market,date) 集合 ⊇ daily_quote 同市場同區間的 (market,date) 集合」,並讓 _missing_days 改成掃全區間的洞而不是只從 max(date)+1 前進。"
+    },
+    {
+      "severity": "BUG",
+      "what": "cache 唯一領先 PG 的那一天(2026-07-20,twse 1,337 + tpex 926 列)由 Python 直寫路徑寫入、不落原始檔,無法用 A 維方法核對;而同一支解析器 research/crawl/sources/daily_trading_details.py 因為 `if len(r) < need: continue`(twse need=19)會把 TWSE 現行檔案裡合法的 17 欄資料列整列丟掉——在 4,132 個有原始檔可核的日子裡,53 天(全是 twse)列數少於 cache,累計少寫 370 列,其中 2026 年就佔 13 天。也就是說 cache 最新那天可能少了十幾檔股票的法人買賣超,而且沒有原始檔可以查證。",
+      "evidence": "01_parity.py:cache 總列 5,871,268 vs PG 5,869,005,差 2,263 = 2026-07-20 一天(twse 1,337 + tpex 926);PG 全表 max(date)=2026-07-17。04_python_writer_drop.py(已排除 31 個內容重放日):可比對 4,132 天,53 天列數不符,累計少寫 370 列,年份分布 2018:3 / 2020:4 / 2021:6 / 2022:1 / 2023:1 / 2024:11 / 2025:14 / 2026:13,單日最多少 54 列(twse 2025-09-07)。最近可核例:twse 2026-07-08 python=1,322 vs cache=1,336,少 14 列;對照組 twse 2026-07-17 / 2026-07-16 與 tpex 2026-07-17 三天解析器與 cache 逐檔完全相同(dropped=[] extra=[]),證明是資料相依的短列才觸發。程式碼:research/crawl/sources/daily_trading_details.py:69;Scala reader 的 case 17 分支(src/main/scala/reader/TradingReader.scala:195-200)才是正確語義。2026 年 twse 約 127 個交易日中 13 天中招 ≈ 每 10 天 1 次。",
+      "fix": "解析器改成依列寬分派(17 與 20 欄都支援,語意對齊 Scala reader 的 case 17 / case _);research/crawl/tests/test_parity.py 補一條「17 欄列不得被丟棄」的先紅後綠測試(用 data/daily_trading_details/twse/2026/2026_7_8.csv 當固定樣本,期望 1,336 列)。另外 Python 直寫路徑應把抓到的 CSV 一併寫進 data/<source>/<market>/<year>/,維持 RAW 封存不斷線,否則 cache-only 的日子永遠無法被 A 維驗證。"
+    },
+    {
+      "severity": "BUG",
+      "what": "cache 忠實複製了 PG 的兩類錯,用 cache 端獨立方法全部重現:(a) 2015 年以前自營商欄位整組錯位——twse ≤2014-11-28 的 509,410 列與 tpex ≤2014-11-28 的 602,188 列,dealers_difference 合計 1,111,598 列(cache 的 18.9%)零負值,買賣超七年只有正數;(b) 23 個日期存的是別天的資料——內容指紋撞號 8 組、涉及 31 個日期。cache 與 PG 一致,但是一致地錯。",
+      "evidence": "03_sample_and_anomaly.py 正負號分布:twse 13欄世代 n=509,410 neg=0 min=0 max=131,642,000;tpex 12/16欄世代 n=602,188 neg=0 min=0 max=42,737,000;對照 2014-12-01 之後 twse neg=1,059,778 min=-1,946,343,918、tpex neg=505,423 min=-198,943,272。第二個指紋:恆等式 total = 外資+投信+自營 在 cache 破裂 568,922 列,分布為 twse pre-2015 283,506 + tpex pre-2015 285,414 + post-2015 僅 2 列,斷點乾淨落在 2014-11-28/12-01 世代交界。內容指紋(對每個 (market,date) 取 count + 四欄 HUGEINT 加總)撞號 8 組:908 列 13 天(2017-12-18 / 2023-06-14 / 2023-10-06 / 2024-06-22 / 2025-01-29 / 2025-02-08 / 2025-08-16 / 2025-11-12 / 2026-02-05 / 2026-04-18 / 2026-04-30 / 2026-05-28 / 2026-05-30)、1260 列 6 天、1213/1219/1262/1238/1207/1231 各 2 天,共 31 個日期、23 個是複本。根因與修法見 docs/data_audit/_done/A-daily_trading_details.json(TradingReader.scala:190-194 case 13 與 :223 case 12)。",
+      "fix": "根因修在 A 維(TradingReader case 13 / case 12 的欄位對應、去重改成內容雜湊比對);cache 側必須在 PG 修好後重跑 research/cache_tables.py 才會跟著修正。在修好之前,任何用 dealers_difference 或三欄相加的回測都不得納入 2014-12-01 以前的樣本——目前的消費者是 research/apex/data.py:171、research/strat_lab/iter_32_first_principles.py:216-218、research/futures/strategies.py:159-162、research/analyses/iter95_strategy_spec_report.py:326-329。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 四個數值欄型別是 INTEGER(int32,繼承自 PG 的 integer),兩端都是活的地雷:讀端在 cache 上直接算 foreign+trust+dealers 會丟 OutOfRangeException(全表有 1 列會觸發);寫端 Python 解析器宣告 pl.Int64,值超過 int32 時 DuckDB 轉型會丟 ConversionException,使每日 07:20 的 cache 更新整支中止、當日 live 決策沒有新資料。",
+      "evidence": "讀端實測:對 var/cache/cache.duckdb 執行 SELECT ... WHERE total_difference <> foreign_investors_difference + trust_difference + dealers_difference → _duckdb.OutOfRangeException: Overflow in addition of INT32 (-778928308 + -1946343918);肇事列 twse 2026-05-13 00403A(foreign=-778,928,308 / dealers=-1,946,343,918)。寫端實測(獨立小樣本,不動 cache):建 INTEGER 欄位表後 INSERT 一個 pl.Int64 的 -2,725,272,226 → ConversionException: Type INT64 with value -2725272226 can't be cast because the value is out of range for the destination type INT32。程式碼:research/cache_tables.py:45(投影自 PG integer)、research/crawl/sources/daily_trading_details.py:29-31(_SCHEMA 宣告 pl.Int64)、research/crawl/sink.py:52-55(INSERT ... SELECT,無型別防護)。受影響的讀端消費者:research/strat_lab/iter_32_first_principles.py:216-218、research/futures/strategies.py:159-162。",
+      "fix": "PG 端把 daily_trading_details 的 22 個數值欄改成 bigint(A 維已列同一修法),cache_tables.py 重建後 cache 自然變 BIGINT;在那之前 cache_tables.py:45 可先加 ::BIGINT 投影,讓 cache 端先脫離 int32。加防復發測試:對 cache 全表跑一次三欄相加不得丟例外。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "表間日期錯位仍在:Python 直寫覆蓋的 3 張表(daily_quote / daily_trading_details / stock_per_pbr)到 2026-07-20,只有 Scala 路徑的 4 張表(market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio)停在 2026-07-17,齊備日是 2026-07-21——7 張表沒有一張到齊。這正是 CLAUDE.md 記載 2026-07-15 事故的形態(表間錯位 → 策略閘門查無資料 fail-closed 靜靜砍光候選)。與 C-daily_quote 是同一件事,此處只記錄本表也在其中。",
+      "evidence": "PYTHONPATH=<repo> uv run --project research python -c \"from research.data_calendar import stale_tables, latest_complete_trading_day; print(latest_complete_trading_day()); print(stale_tables())\" → 2026-07-21;{'daily_quote': 2026-07-20, 'market_index': 2026-07-17, 'daily_trading_details': 2026-07-20, 'stock_per_pbr': 2026-07-20, 'margin_transactions': 2026-07-17, 'sbl_borrowing': 2026-07-17, 'foreign_holding_ratio': 2026-07-17}。research/crawl/update.py:27 的 DAILY_SOURCES 只有 3 個模組。cache 檔 mtime 2026-07-21 08:16。",
+      "fix": "把 market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio 也納入 DAILY_SOURCES,或在每日 loop 明確要求先跑 Scala Main update;在此之前 ensure_fresh_cache 的擋門不可放寬。詳見 docs/data_audit/findings/C-daily_quote.md。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 的 daily_trading_details 全史逐欄一致(非抽樣,是全體):8,214 個共同 (market,date) 上,雙邊 count 與兩種雜湊三個數字全部相等,共 5,869,005 列零差異;逐年列數(2007~2026 × twse/tpex)每一格都相同。唯一差異是 cache 多出 2026-07-20 一天。schema 型別零降級(varchar→VARCHAR、date→DATE、integer→INTEGER);research/db.py 的 pg-attach view 與 cache_tables.py 的 SELECT 逐字同構,兩種存取模式無漂移。",
+      "evidence": "docs/data_audit/scripts/C-daily_trading_details/01_parity.py:DuckDB ATTACH pg + ATTACH cache,雙邊 SELECT market,date,count(*),sum(hash(4欄)::HUGEINT),bit_xor(hash(4欄)) GROUP BY 1,2 後 JOIN → 「共同 (market,date):count / hash 不符」= 0 天;「只在 cache」= tpex 2026-07-20 (926 列)、twse 2026-07-20 (1,337 列);「只在 PG」= 無。抽樣佐證(3 日期 × 5 檔,pandas DataFrame.equals):twse 2013-06-14 × 2330/2317/1101/3008/2412 → True;tpex 2019-11-07 × 6488/3105/5483/8069/4966 → True;twse 2026-07-17 × 2330/2317/1101/3008/6488 → True(4 列,6488 為上櫃)。schema:psql \\d daily_trading_details 26 欄 vs DESCRIBE daily_trading_details 7 欄,cache 投影 market/date/company_code + 4 個 difference 欄並把 securities_investment_trust_companies_difference 改名 trust_difference(research/cache_tables.py:45);research/db.py:126-130 定義相同。被丟掉的 18 個毛額/拆分欄位在 research/ 與 docs/ 全文搜尋(dealers_hedge|dealers_proprietary|*_total_buy|foreign_dealers)零命中,無消費者受影響。",
+      "fix": "(可選)cache 建表後補 CREATE UNIQUE INDEX ON daily_trading_details(market,date,company_code) —— PG 有 idx_DailyTradingDetails_market_date_companyCode UNIQUE,cache 只有非唯一的 idx_dtd_code_date,目前重複 0 筆但唯一性靠 research/crawl/sink.py 的「刪整日 + 插」自律維持。"
+    },
+    {
+      "severity": "OK",
+      "what": "異常值掃描全清:5,871,268 列中,重複主鍵 0、date 在未來 0、market 非 twse/tpex 0、company_code 非英數 0、任一數值欄 NULL 0、絕對值觸 int32 上界(>2.1e9)0。恆等式破裂 568,922 列與四欄全零 124,496 列已全部歸因(前者為 pre-2015 欄位錯位 + 2 列 int32 溢位,後者為正常的無法人進出)。",
+      "evidence": "docs/data_audit/scripts/C-daily_trading_details/03_sample_and_anomaly.py 對 var/cache/cache.duckdb 全表執行,逐項 SQL 已列在腳本內。恆等式檢查必須先 ::BIGINT 轉型才跑得完(見 SUSPECT 條)。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "三個看起來像缺漏、查證後是真實現象:(a) 四欄全為 0 共 124,496 列(2.12%),集中在上櫃小型股,就是「那天沒有法人買賣這檔」;(b) 單日列數只有中位數一半的 14 天全部是週六補行交易日,補行日法人參與度本來就低;(c) 2025-04-07 關稅崩盤日 tpex 只有 618 列(中位 843),全市場跌停鎖死使法人成交檔數腰斬,隔日 2025-04-08 就回到 871 列。",
+      "evidence": "(a) SELECT market, year(date), count(*) WHERE 四欄皆 0 GROUP BY → tpex 2021 12,085 列最多,全部落在小型股;dtd 只列有法人進出的股票,列數天生少於 daily_quote。(b) 低列數日逐一查週幾:2012-02-04 / 2012-03-03 / 2012-12-22 / 2013-02-23 / 2013-09-14 / 2014-12-27 / 2016-01-30 / 2016-06-04 / 2016-09-10 / 2017-02-18 / 2017-06-03 / 2017-09-30 / 2018-03-31 / 2018-12-22 全為 Saturday;以 2016-06-04 為例 daily_quote twse 951 檔、937 檔有成交,dtd 只有 413 列。(c) 2025-04-07 tpex daily_quote 957 檔 / 948 檔有成交 / dtd 618 列;2025-04-08 同樣 957 / 950 / dtd 871 列。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "145 個「只有 1 個證人表有資料、dtd 沒有」的疑似缺口,全部不是缺口——is_trading_day 對 145 天全回 False(50 個週六 + 51 個週日 + 44 個平日假期),是那些證人表在非交易日有幽靈列,dtd 沒有資料才是對的。另外 TWSE 起點 2012-05-02 不是缺漏而是交易所的資料界線,官方明文「本資訊自民國101年5月2日起提供」;daily_quote twse 從 2004-02-11 起有 2,047 個交易日永遠拿不到三大法人資料。",
+      "evidence": "145 天逐日跑 research.data_calendar.is_trading_day → 全部 False;證人分布 tpex foreign_holding_ratio 111 天、twse sbl_borrowing 16、tpex margin_transactions 7、twse stock_per_pbr 6、twse market_index 3、twse foreign_holding_ratio 2。起點:WebFetch https://www.twse.com.tw/zh/trading/foreign/t86.html → 頁面明文「本資訊自民國101年5月2日起提供」;程式對得上 src/main/scala/setting/DailyTradingDetailsSetting.scala:6 的 TwseDetail(LocalDate.of(2012, 5, 2), ...)。02_gaps.py 輸出:twse dtd 起點之前 daily_quote 已有 2,047 個交易日(first_witness 2004-02-11)。TPEx 起點 2007-04-23(同檔第 22 行)比 tpex daily_quote 的 2007-07-02 更早,不構成缺口。",
+      "fix": "在策略文件明記「法人籌碼因子的 TWSE 可用起點為 2012-05-02」,任何用 daily_trading_details 的回測不得把 2012-05-02 以前的 TWSE 樣本算進去;那 145 天的幽靈列屬 foreign_holding_ratio / sbl_borrowing / margin_transactions / stock_per_pbr / market_index 各自的稽核單位。"
+    }
+  ],
+  "checked": [
+    "research/cache_tables.py:45(dtd 投影 SQL)與 research/db.py:126-130(pg-attach 平行 view)逐字對照,確認無漂移",
+    "psql \\d daily_trading_details(26 欄型別 + UNIQUE 索引) vs DuckDB DESCRIBE(7 欄型別) + duckdb_indexes()",
+    "cache vs PG 全史指紋比對:8,214 個 (market,date) × count + sum(hash(4欄)::HUGEINT) + bit_xor(hash(4欄))(非抽樣)",
+    "逐年列數比對 2007~2026 × twse/tpex(34 個年市場格,全等)",
+    "抽樣逐欄比對 3 日期 × 5 檔:twse 2013-06-14、tpex 2019-11-07、twse 2026-07-17(pandas DataFrame.equals)",
+    "覆蓋缺口:6 張證人表(daily_quote / stock_per_pbr / margin_transactions / market_index / sbl_borrowing / foreign_holding_ratio)投票 + research.data_calendar.is_trading_day 交叉判定",
+    "覆蓋缺口第二法(獨立):全 4,008 個空原始檔 × is_trading_day × DB 列數,結果與證人法完全收斂",
+    "反向掃描:dtd 有資料但 daily_quote 當日 0 列者(幽靈日候選)共 69 個 (market,date),全部歸因為 tpex 2007 上半年報價未抓 + C-daily_quote 已列的 4 個缺漏日 + A 維已列的內容重放日",
+    "內容指紋撞號掃描(cache 端獨立複驗整日資料被複製到別天):8 組、31 個日期",
+    "異常值掃描:重複主鍵、未來日期、market 值域、company_code 字元集、NULL、三大法人恆等式、int32 邊界、四欄全零",
+    "單日列數異常低掃描(前後 21 日滾動中位數的 80% 門檻)+ 逐日查星期幾與同日 daily_quote 成交檔數",
+    "research/crawl/sources/daily_trading_details.py 對全 4,132 個可比對日重解析,與 cache 列數比對(量化 Python 直寫路徑的漏列)",
+    "int32 溢位:讀端(DuckDB 三欄相加丟 OutOfRangeException)與寫端(pl.Int64 → INTEGER 丟 ConversionException)各自實測",
+    "補抓路徑根因:src/main/scala/Crawler.scala:620-684、src/main/scala/setting/Detail.scala:132-169、src/main/scala/Task.scala:569-579、research/crawl/update.py:30-41、research/crawl/sink.py:35-63",
+    "資料界線第一手來源:https://www.twse.com.tw/zh/trading/foreign/t86.html「本資訊自民國101年5月2日起提供」",
+    "下游消費者盤點(哪些欄位真的被用到):research/serenity/{engine,daily,validate,discovery_funnel,replay_2025,style_replay_2025,valuation_replay_2025}.py、research/apex/data.py:170-171、research/strat_lab/iter_32_first_principles.py:216-218、research/futures/strategies.py:159-162、research/evergreen/{ev18_make_packs,make_tables_chips}.py、research/analyses/iter95_strategy_spec_report.py:326-329、research/crawl/slim_cache.py:30、research/data_calendar.py:33-41",
+    "被丟掉的 18 欄是否有人要:research/ 與 docs/ 全文搜尋 dealers_hedge|dealers_proprietary|*_total_buy|foreign_dealers → 零命中",
+    "cache 新鮮度:research.data_calendar.latest_complete_trading_day() 與 stale_tables() 實測"
+  ]
+}

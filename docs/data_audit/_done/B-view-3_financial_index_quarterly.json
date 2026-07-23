@@ -1,0 +1,133 @@
+{
+  "id": "B-view-3_financial_index_quarterly",
+  "dim": "B",
+  "artifact": "src/main/resources/sql/view/3_financial_index_quarterly.sql",
+  "unit": "B-view-3_financial_index_quarterly",
+  "verdict": "BUG",
+  "rows": 170503,
+  "coverage": "1989Q1-2026Q1, twse+tpex",
+  "consumers": [],
+  "summary": "這張表的分數不能拿來選股。2006-2012 段連決定性都沒有——同一支查詢連跑四次,cbs 總分給出四個不同答案(2,095,836.89/2,095,869.73/2,095,853.39/2,095,844.95),因為上游把 40 家金融證券股的同一季複製成 2/4/8/64 份,那七年 11,040/47,446=23.3% 是幽靈列,排名分母與 TTM 視窗全被污染。另有六處算式或語意錯:缺 ROIC 的公司因為 PostgreSQL 預設 NULLS LAST 反而拿 96.7 分(邦睿生技 6955 2023Q4 零財務資料卻拿 cbs 86.56);單季化只檢查『是不是 Q1』不檢查『上一筆是不是上一季』,中租-KY 5871 因為 2023Q2 缺漏而把兩季合計當單季(DSO 從鄰季 2632 天掉到 1282 天),全庫 8.7% 的 OCF、3.5% 的營收單季數是這樣算的;1995-2005 有 96.6% 的列 profit 與 ebit 逐位相同(『稅前純益』被列進稅後淨利同義詞),台積電 2003 四季相加 510 億是稅前不是稅後;負權益公司資本結構拿滿分 100(科風 3043 2018Q1 權益乘數 -245);產業別取最新一筆回貼全歷史(彩晶 6116 的 2005 年標成 2026-06 的光電業),違反 CLAUDE.md:323 鐵律;TTM 視窗是『列』不是『季』,6,143 列只有 1-3 季卻照樣輸出比率。原始財報數字本身是對的(台積電 2024 四季營收、四季 OCF 相加 1.83 兆、Q4 三個利潤率 59.00/49.02/43.12% 全部與公告一致),壞的是蓋在上面的排名與評分。本 view 目前零消費者(Python 明文棄用、Scala 只用 ttm 版、PG 無相依),但 BUG 1/3/4 的病灶在同一張 concise_financial_statement_with_titles 上,4_financial_index_ttm.sql 讀同一張表而 Scala 策略層還在用它;BUG 3 的同類缺陷也存在於現役的 research/strat_lab/raw_quarterly.py。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "2006-2012 段的查詢結果不具決定性,而且該期間 23.3% 是幽靈列。上游 materialized_view/6_concise_financial_statement_with_titles.sql 只有 net_operating_income 與 profit 兩個 CTE 加了 distinct on,其餘 total_assets/total_current_assets/total_operating_revenue/total_operating_costs/total_equity/eps/ebit/operating_expenses 都沒有,而它們的 title 同義詞清單彼此不互斥,公司報表同時出現『資產合計』與『資產總計』時該 CTE 回 2 列,多個 CTE join 成 2^n 笛卡兒積。在本 view 造成四重傷害:(a) rows between N preceding 視窗對同分列無 tie-break → 非決定性;(b) 同一格有多個並存答案;(c) 行 84 的 count(*) over (partition by year, quarter) 是排名分母,被灌了兩成多的水;(d) 行 22-42 的 4 列/20 列 TTM 視窗可能整個裝同一季的複本。",
+      "evidence": "重現非決定性(連跑四次,cbs 與 roa 每次不同):SELECT round(sum(cash_flow_ratio)::numeric,6), round(sum(cbs)::numeric,6), round(sum(roa)::numeric,8) FROM financial_index_quarterly WHERE year BETWEEN 2006 AND 2012; → run1 4567.608907|2095836.892489|363.23017959、run2 …|2095869.730101|362.94538079、run3 …|2095853.386060|362.84628680、run4 …|2095844.947168|360.90005704。範圍:WITH d AS (SELECT company_code,year,quarter,count(*) n FROM financial_index_quarterly GROUP BY 1,2,3 HAVING count(*)>1) SELECT count(*),sum(n)-count(*),min(year),max(year),count(DISTINCT company_code) FROM d; → 858 組、11,040 幽靈列、2006-2012、40 家公司;複本數分佈 2份413組/4份180組/8份118組/64份147組。該期間總列數 47,446 → 幽靈佔 23.3%。單格實例:SELECT year,quarter,count(*),count(DISTINCT roa),min(roa),max(roa),min(cbs),max(cbs) FROM financial_index_quarterly WHERE company_code='2855' AND year=2011 GROUP BY 1,2; → 每季 64 列、4 個相異 roa,2011Q4 roa 0.00713~0.00859、cbs 50.32~58.06。來源確認只在 cfswt:SELECT count(*) FROM concise_financial_statement_with_titles WHERE company_code='2855' AND year=2011 AND quarter=4 → 64,而 balance_sheet_with_titles / cash_flows_with_titles / industry CTE 各 1 列。機制:同條件下 assets-like / equity-like / revenue-like / profit-like / eps-like 五個 title 清單各命中 2 個 title。受影響代號:1409,1712,1718,2514,2801,2809,2812,2832,2836,2838,2845,2849,2855,2880,2881,2882,2883,2884,2885,2886,2887,2888,2889,2890,2891,2892,2897,2905,4707,5820,5880,6005,6015,6016,6020,6021,6023,6024,6026,9902。",
+      "fix": "根因在 materialized_view/6_concise_financial_statement_with_titles.sql:每個 title CTE 都加 distinct on (year, quarter, company_code),並用明確的 title 優先序(CASE WHEN title='資產合計' THEN 1 …)決定取哪一個,不要靠 order by title 的中文字典序。修完加守護測試:SELECT count(*) FROM (SELECT company_code,year,quarter FROM concise_financial_statement_with_titles GROUP BY 1,2,3 HAVING count(*)>1) x 必須為 0。與 B-view-5_growth_analysis_ttm 是同一根因,同修一次即可。"
+    },
+    {
+      "severity": "BUG",
+      "what": "缺財務資料的公司反而拿到接近滿分。行 80-81 的 rank() over (partition by year, quarter order by roic) 用 PostgreSQL 預設的 ASC NULLS LAST,NULL 排最後 → 名次數字最大 → 行 88 的 roic_rank/count_by_year*100 ≈ 100 = 最高分。roa/return_on_investment 同理。方向還不一致:行 83 的 capital_structure 用 order by equity_multiplier desc,DESC 預設 NULLS FIRST → NULL 拿最低分。同一支 SQL 裡缺資料在 A 分項是滿分、在 B 分項是零分。更糟的是 cbs 一列都不是 NULL,缺料被無聲換成了看起來很有信心的分數。",
+      "evidence": "SELECT CASE WHEN roic IS NULL THEN 'roic NULL' ELSE 'roic ok' END g, count(*), avg(operating_performance), min(operating_performance) FROM financial_index_quarterly WHERE year BETWEEN 2015 AND 2024 GROUP BY 1; → roic NULL n=1671 avg=96.72 min=90.93 / roic ok n=67264 avg=48.83 min=0.05。roa 同測:roa NULL n=510 avg(return_on_investment)=96.41 / roa ok n=68425 avg=49.67。equity_multiplier NULL n=170 → capital_structure 0.50~12.50(avg 8.21),方向相反。具體受害者(SELECT company_code,company_name,year,quarter,operating_performance,return_on_investment,cbs FROM financial_index_quarterly WHERE year=2023 AND roic IS NULL ORDER BY cbs DESC):6955 邦睿生技-創 2023Q4 roic/roa 皆 NULL → 90.93/92.41 → cbs 86.56;6739 竹陞科技 2023Q4 → cbs 86.40;6961 旅天下 2023Q4 → 84.74;6785 昱展新藥 2023Q3 → 98.02/99.72 → 84.62。cbs 全庫無 NULL:SELECT count(*) FILTER (WHERE cbs IS NULL), min(cbs), max(cbs) FROM financial_index_quarterly → 0, 3.6329, 99.3437。",
+      "fix": "排名要把 NULL 排除:分母改 count(roic) over (partition by year, quarter),並讓 roic IS NULL 的列該分項直接給 NULL(不要參與 rank);capital_structure 同樣處理。最後讓 cbs 在任一分項為 NULL 時整格為 NULL,而不是拿預設值頂替。"
+    },
+    {
+      "severity": "BUG",
+      "what": "單季化(累計制差分)在公司少報一季時,把『兩季合計』當成『一季』輸出。materialized_view/5_concise_income_statement_individual.sql:18-22 與 3_cash_flows_individual.sql:8-12 的寫法是 case when quarter = 1 then value else value - lag(value) over (partition by company_code, title order by year, quarter) end——只檢查『是不是 Q1』,沒有檢查『上一筆是不是上一季』。季度缺漏時 lag 跳到更早期別,差出來的數字橫跨多季卻被貼上單季標籤,而且完全不出聲(不是 NULL,是一個看起來正常的錯數字)。",
+      "evidence": "全庫量測:WITH x AS (SELECT market,company_code,title,year,quarter,lag(year) OVER w ly,lag(quarter) OVER w lq FROM cash_flows_progressive WHERE title IN ('營業活動之淨現金流入（流出）','營業活動之淨現金流入(流出)') WINDOW w AS (PARTITION BY market,company_code,title ORDER BY year,quarter)) SELECT count(*), count(*) FILTER (WHERE ly IS NULL), count(*) FILTER (WHERE ly IS NOT NULL AND NOT (ly=year AND lq=quarter-1)) FROM x WHERE quarter<>1; → OCF 89,556 非-Q1 列中 7,822 靜默錯誤 (8.7%);同法對 '營業收入' → 92,675 中 3,212 (3.5%);全 title 現金流 896,602/4,989,633 (18.0%)、損益 164,097/2,155,251 (7.6%)。案例 A(中租-KY 5871,2023Q2 整季在來源表缺漏):SELECT year,quarter,value FROM concise_income_statement_progressive WHERE company_code='5871' AND year=2023 AND type='consolidated' AND title='營業收入' → 只有 Q1 23,140,368 / Q3 72,461,883 / Q4 97,525,510;結果 SELECT year,quarter,total_operating_revenue,profit,days_sales_outstanding FROM financial_index_quarterly WHERE company_code='5871' AND year=2023 → Q1 23,140,368|7,210,323|DSO 2632.0、Q3 49,321,515|12,945,806|DSO 1282.3、Q4 25,063,627|5,888,575|DSO 2611.0——Q3 是 Q2+Q3 兩季合計,DSO 正好對半(分母灌兩倍)。案例 B(龍邦 2514 2016Q4 的 lag 落到 2012Q4):742,271 - 100,391,654 = -99,649,383 千元單季營收。下游指紋:2013 年後 concise_financial_statement_with_titles 有 774 列單季營收為負、739 列單季營業成本為負;本 view 有 344 列 gross_margin > 1(數學上不可能,例 1453 大將 2021Q3 營收 114 千元、gm 44.17)。",
+      "fix": "單季化改成 case when quarter = 1 then value when lag(year) over w = year and lag(quarter) over w = quarter - 1 then value - lag(value) over w else null end,缺季一律 NULL。同類掃描:現役 Python 路徑 research/strat_lab/raw_quarterly.py:127-146, 176-179 的 shift(1).over(['company_code','year'], order_by='quarter') 雖然不跨年,但一樣是位移一列不是位移一季,缺季時有完全相同的 bug,要一起修。"
+    },
+    {
+      "severity": "BUG",
+      "what": "2005 年以前 profit 欄位裝的其實是稅前淨利。materialized_view/6_concise_financial_statement_with_titles.sql 的 profit CTE 把 '稅前純益' 放進了『本期稅後淨利』的同義詞清單,而同檔的 ebit CTE 也用同一個 title,結果舊期兩欄一模一樣。另有 27,158 列(2005-2014)用 '合併總損益'(舊制,可能含少數股權)。影響:profit_margin / roic / roa 在 2005/2006 有一個純屬口徑切換的假斷層,跨這個切點的長期比較會把『稅前變稅後』讀成獲利惡化。",
+      "evidence": "SELECT count(*), count(*) FILTER (WHERE profit = ebit) FROM concise_financial_statement_with_titles WHERE year BETWEEN 1995 AND 2005; → 30,040 列中 29,026 列 (96.6%) profit 與 ebit 逐位相同。title 分佈:WITH p AS (SELECT DISTINCT ON (year,quarter,company_code) year,title FROM concise_income_statement_individual WHERE title IN ('本期稅後淨利（淨損）','本期淨利（淨損）','合併總損益','本期損益','本期淨利(淨損)','稅前純益') ORDER BY year,quarter,company_code,title) SELECT title,count(*),min(year),max(year) FROM p GROUP BY 1 ORDER BY 2 DESC; → 本期淨利（淨損）87,360 (2004-2026)、稅前純益 32,735 (1989-2005)、合併總損益 27,158 (2005-2014)、本期淨利(淨損) 8,577、本期稅後淨利（淨損）1,241、本期損益 83。對照台積電:SELECT year,quarter,profit,ebit FROM concise_financial_statement_with_titles WHERE company_code='2330' AND year=2003 → 四季 profit=ebit,相加 4,180,270+12,572,175+16,707,765+17,568,065 = 51,028,275 千元(≈510 億,等於當年稅前),而 2003 年台積電稅後淨利約 473 億;該年 profit_margin 30.4% 其實是稅前淨利率。對照 2013 年同支股票 profit 39,535,543 vs ebit 45,747,914(已正確分離)。",
+      "fix": "從 profit 同義詞清單移除 '稅前純益';舊期若真的只有稅前數就給 NULL,不要用另一個概念頂替。另需確認 '合併總損益' 是否含少數股權,若含則不應直接當母公司淨利。"
+    },
+    {
+      "severity": "BUG",
+      "what": "資不抵債(股東權益為負)的公司拿到資本結構滿分。行 17 equity_multiplier = total_assets / total_equity,權益為負時倍數為負;行 83 用 order by equity_multiplier desc,負值排在最後 → 名次最大 → 行 90 的 equity_multiplier_rank/count_by_year_industry*100 = 100。槓桿最危險的公司被評為資本結構最健康。",
+      "evidence": "SELECT CASE WHEN equity_multiplier IS NULL THEN 'NULL' WHEN equity_multiplier < 0 THEN 'NEGATIVE' ELSE 'ok' END g, count(*), min(capital_structure), max(capital_structure) FROM financial_index_quarterly WHERE year BETWEEN 2015 AND 2024 GROUP BY 1; → NEGATIVE n=8 全部 capital_structure=100.00;ok n=68,757 範圍 0.48~100;NULL n=170 範圍 0.50~12.50。實例(SELECT company_code,company_name,year,quarter,equity_multiplier,capital_structure FROM financial_index_quarterly WHERE equity_multiplier<0 ORDER BY year DESC):3043 科風 2018Q1 EM=-245.35→100、3085 新零售 2020Q2 EM=-48.97→100、6287 元隆 2025Q1 EM=-48.52→100、6497 亞獅康-KY 2019Q4 EM=-38.70→100。",
+      "fix": "排名前先擋:case when total_equity <= 0 then null end(或直接判 0 分),不要讓負值繞過大小比較。"
+    },
+    {
+      "severity": "BUG",
+      "what": "產業別取『最新一筆』回貼全部歷史,構成前視偏誤,且違反本專案明文鐵律。行 2-6 的 industry CTE 用 select distinct on (company_code) … order by company_code, year desc, month desc,取最近一個月的產業名貼到該公司 1989 年至今的每一季。行 83 的 capital_structure 是 partition by year, quarter, industry 的產業內排名,整個分項建立在決策當下不可能知道的分類上。另有 458 列 industry IS NULL,自成一個『NULL 產業』分組一起排名。",
+      "evidence": "SELECT DISTINCT industry FROM financial_index_quarterly WHERE company_code='6116'; → 只有『光電業』一個值,而 SELECT company_code,year,quarter,industry FROM financial_index_quarterly WHERE company_code='6116' AND year IN (2005,2015,2025) 顯示 2005/2015/2025 全部被標成同一個 2026-06 的分類(來源:SELECT DISTINCT ON (company_code) company_code,year,month,industry FROM operating_revenue WHERE company_code='6116' AND market IN ('twse','tpex') ORDER BY company_code,year DESC,month DESC → 2026|6|光電業)。規模:WITH x AS (SELECT company_code,count(DISTINCT industry) n FROM operating_revenue WHERE market IN ('twse','tpex') GROUP BY 1) SELECT count(*) FILTER (WHERE n>1), count(*) FROM x; → 1,339 / 2,502 = 53.5% 的代號歷史上出現過一個以上的產業名。NULL:SELECT count(*) FILTER (WHERE industry IS NULL) FROM financial_index_quarterly → 458。專案鐵律:CLAUDE.md:323『產業別一律用 industry_taxonomy_pit(2026-07-10 鐵律)……禁止直接用 operating_revenue.industry(舊檔含 legacy 名稱且無 PIT 語義)』。",
+      "fix": "改用 industry_taxonomy_pit 的 asof 查法(effective_date <= 該季末,取最新一筆),並把 industry IS NULL 的列排除在產業內排名之外。"
+    },
+    {
+      "severity": "BUG",
+      "what": "TTM 與滾動視窗算的是『列』不是『季』。行 23/26/28/31/34/38/40 的 rows between 3(或 19) preceding and current row 都是列位移,三種失效:(a) 公司序列開頭不足 4 季時照樣輸出 cash_flow_ratio,只有 1 季的 OCF 被當 TTM(低估 75%),而 cash_flow_ratio > 1 是行 112 的評分條件;(b) 缺季時視窗跨越更長期間,20 季的 cash_flow_adequacy_ratio 實際可能橫跨 25 季以上;lag() 型的 roa 平均資產、DSO 平均應收、DSI 平均存貨也全部配錯期;(c) 搭配 BUG 1 的複本,視窗可能整個裝同一季。",
+      "evidence": "(a) WITH x AS (SELECT count(ocf) OVER (PARTITION BY company_code ORDER BY year,quarter ROWS BETWEEN 3 PRECEDING AND CURRENT ROW) n, cash_flow_ratio FROM financial_index_quarterly) SELECT n,count(*),count(*) FILTER (WHERE cash_flow_ratio IS NOT NULL) FROM x GROUP BY 1 ORDER BY 1; → n=1: 2,063 列中 2,036 列仍輸出比率;n=2: 2,022→1,995;n=3: 2,147→2,112;n=4: 102,804→100,543。共 6,143 列的『TTM』其實只有 1-3 季。(b) WITH x AS (SELECT company_code,year,quarter,lag(year) OVER w ly,lag(quarter) OVER w lq FROM financial_index_quarterly WINDOW w AS (PARTITION BY company_code ORDER BY year,quarter)) SELECT count(*), count(*) FILTER (WHERE NOT ((ly=year AND lq=quarter-1) OR (quarter=1 AND ly=year-1 AND lq=4))) FROM x WHERE ly IS NOT NULL; → 168,439 列中 17,099 列 (10.2%) 與前一列不相鄰。",
+      "fix": "視窗改用季別序號的 RANGE(例如新增 yq = year*4 + quarter 後用 RANGE BETWEEN 3 PRECEDING AND CURRENT ROW),並加完整性守衛 count(ocf) over (同視窗) = 4(20 季版本則 = 20),不足就給 NULL。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "產業分桶太小時 capital_structure 百分位退化成常數。行 90 的 equity_multiplier_rank / count_by_year_industry * 100,桶內只有 1 家時必定是 1/1*100 = 100,獨家公司自動拿資本結構滿分。",
+      "evidence": "WITH x AS (SELECT year,quarter,industry,count(*) n FROM financial_index_quarterly GROUP BY 1,2,3) SELECT n,count(*) FROM x WHERE n<=3 GROUP BY 1 ORDER BY 1; → 1 家 193 桶、2 家 135 桶、3 家 108 桶。",
+      "fix": "桶內家數低於門檻(門檻本身要量測,不可拍腦袋)時該分項給 NULL,或退回全市場百分位。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "roic / roa 是『單季』不是年化,而且 roic 的分子分母學理上不匹配。行 13 分子是單季流量 profit、分母是期末時點 (total_assets - total_current_liabilities),數字約為年度值的 1/4;任何人拿它當年度 ROIC 設門檻(如 roic > 0.15)會全軍覆沒。學理第二層:分母是『債 + 權益』的投入資本,分子卻是已扣利息與稅的淨利(股東報酬),應為 NOPAT = 營業利益 x (1 - 稅率),高槓桿公司會被系統性低估。roa(行 14-16)用淨利 / 平均資產是可接受的基本定義,但同樣是單季。",
+      "evidence": "手算驗證 2330 2024Q4:374,468,888 / (6,691,938,000 - 1,264,524,964) = 0.06900,view 輸出 0.0690 一致;roa 374,468,888 / ((6,691,938,000+6,165,658,176)/2) = 0.05825,view 輸出 0.0582 一致。全市場季頻證據:SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY roic), percentile_cont(0.99) WITHIN GROUP (ORDER BY roic) FROM financial_index_quarterly WHERE year>=2015 → 中位數 0.0139、P99 0.1252。台積電真實年化 ROIC 約 27%,view 給 6.9%(約 1/4)。備註:因為所有公司在同一個 (year,quarter) 內期間長度相同,橫斷面排名(operating_performance / return_on_investment)不受此影響。",
+      "fix": "分子改 TTM(視窗已有現成寫法)或明確乘 4 並在欄名標注 _annualized;roic 分子改 NOPAT。若只當橫斷面排名用,則在文件明記『這是季頻,不可當年度值』。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "fcf_par_share 名不符實,與真正的每股自由現金流差整整 10 倍,而且是單季。行 66 分母 total_capital_stock 是股本『金額』(千元)不是股數;台股面額 10 元,股數 = 股本 / 10,所以這個欄位 = 每股 FCF / 10。任何把它當『元/股』設門檻的地方會差一個數量級。",
+      "evidence": "2330 2024Q4:(620,205,283 + (-361,948,162)) / 259,327,332 = 0.99587,view 輸出 0.9959 一致。真實值:FCF 258,257,121 千元 x 1000 元 / (259,327,332 千元 x 1000 / 10 元 = 25,932,733,200 股) ≈ NT$9.96/股。另有 69,303 列 fcf_par_share 為 NULL(101,200/170,503 非空),因為 capital_expense 缺料時 ocf + NULL = NULL。姊妹坑:4_financial_index_ttm.sql:95-99 的 fcf_per_share 同樣以 total_capital_stock 為分母(已由 B-view-5_growth_analysis_ttm 記錄)。",
+      "fix": "改名為 fcf_per_par_dollar,或乘 10 後正名為 fcf_per_share;分子同時改 TTM。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cash_ratio 換了分母但分級門檻沒有重新量測,五段門檻是無出處的魔術數字。教科書現金比率 = 現金及約當現金 / 流動負債;行 21 用的是 cash / total_assets。行 103-108 的 0.25 / 0.2 / 0.15 / 0.1 / 0.05 五段(給 50/40/30/20/10 分)沿用『對流動負債』的直覺,占 cash_flow 分項的一半、cbs 權重 0.3,卻拿不出量測出處。",
+      "evidence": "行 21:cash / nullif(total_assets, 0) as cash_ratio;行 102-110 的 case 分級。分項配分:cash_ratio 最高 50 + 三現金流條件最高 20 + DSO 最高 30 = 100,再乘 cbs 權重 0.3。全檔沒有任何註解說明這五個數字的來源。",
+      "fix": "要嘛把分母改回流動負債以對齊教科書門檻,要嘛用台股樣本重新量測分位並把出處寫進註解;拿不出證據就刪掉這個分項,讓其他有依據的分項接手。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "operating_margin 混進了『稅前淨利』。materialized_view/6 的 net_operating_income CTE 同時收 '營業利益（損失）'(營業利益)與 '繼續營業單位稅前損益 / 稅前淨利'(含業外的稅前利益),是兩個不同科目,被 distinct on 用中文字典序挑一個。被選中稅前類 title 的列,其 operating_margin(行 58)其實是稅前利益率。而且靠字典序決定語意,換個 collation 結果會變。",
+      "evidence": "WITH p AS (SELECT DISTINCT ON (year,quarter,company_code) year,title FROM concise_income_statement_individual WHERE title IN ('繼續營業單位稅前淨利（淨損）','營業利益（損失）','營業利益','繼續營業單位稅前損益','繼續營業單位稅前淨利(淨損)','繼續營業單位稅前合併淨利(淨損)','營業淨利(淨損)','營業利益(損失)') ORDER BY year,quarter,company_code,title) SELECT title,count(*),min(year),max(year) FROM p GROUP BY 1 ORDER BY 2 DESC; → 營業利益（損失）86,485、營業淨利(淨損) 34,472、營業利益 33,433,以及稅前類:繼續營業單位稅前損益 940 + 繼續營業單位稅前淨利（淨損）738 + 繼續營業單位稅前合併淨利(淨損) 570 + 繼續營業單位稅前淨利(淨損) 107 = 2,355 列。",
+      "fix": "把稅前類 title 從 net_operating_income 移到 ebit;distinct on 的取捨改用明確的 CASE 優先序,不靠字典序。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "2013 年以前合併報表與個體(母公司)報表混用,而且輸出沒有任何標記。concise_balance_sheet_individual / concise_income_statement_individual 用 distinct on (…) order by …, type,type 字母序 consolidated < individual,所以有合併就取合併、只有個體才 fallback 到個體。IFRS 自 2013 起以合併為主,所以 2013 前約兩成的格子是個體口徑。跨 2013 的時序比較混了兩種報表範圍(個體不含子公司)。",
+      "evidence": "WITH pick AS (SELECT DISTINCT ON (market,year,quarter,company_code,title) year,type FROM concise_balance_sheet ORDER BY market,year,quarter,company_code,title,type) SELECT year,type,count(*) FROM pick WHERE year BETWEEN 2010 AND 2016 GROUP BY 1,2 ORDER BY 1,2; → 2010 consolidated 106,560 / individual 27,622 (20.6%);2011 111,505/28,444;2012 115,863/29,114;2013 99,181/722;2014 107,565/474;2015-2016 全部 consolidated。來源表原始比例:SELECT type,count(*) FROM concise_balance_sheet GROUP BY 1 → consolidated 2,142,171 / individual 1,339,539。",
+      "fix": "輸出加一個 statement_type 欄位(consolidated / individual),讓消費者自己決定要不要混用;或在 view 層直接只取 consolidated 並讓 2013 前缺料的格子為 NULL。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "除零未爆彈:inventories_ratio(行 63)與 receivables_ratio(行 64)是全檔唯二沒有包 nullif(分母, 0) 的除法,其餘十幾處都有。PostgreSQL 的 float8 除以 0 會直接 raise ERROR 而不是回 Infinity,所以只要來源補進資料,整支 view 會查詢失敗。",
+      "evidence": "SELECT 1.0::float8 / 0.0::float8; → ERROR: division by zero。SELECT count(*) FROM concise_financial_statement_with_titles WHERE total_assets = 0; → 7 列(1718 2006Q2 x2、910801 2008Q4、910801 2008Q2、3990 2011Q4、910708 2010Q2、1258 2012Q4)。目前僥倖沒炸:SELECT count(inventories_ratio), count(receivables_ratio) FROM financial_index_quarterly 成功回 110,643,因為這 7 格的 inventories / receivable 恰好都是 NULL(NULL/0 回 NULL 不 raise)。姊妹坑:4_financial_index_ttm.sql:91-92 同樣未包(已由 B-view-5_growth_analysis_ttm 記錄)。",
+      "fix": "行 63-64 補 nullif(total_assets, 0)。"
+    },
+    {
+      "severity": "REAL",
+      "what": "累計制單季化在資料完整時是正確的,跨年邊界也對——這一項查過沒問題,別再查一次。台股損益表與現金流量表是當年累計數,case when quarter=1 then value else value - lag(value) 的結構正確;壞的只有 BUG 3 的『缺季』路徑,不是差分本身。",
+      "evidence": "台積電 2330 2024 累計 vs view 單季:Q1 592,644,201→592,644,201;Q2 1,266,154,378→673,510,177;Q3 2,025,846,521→759,692,143;Q4 2,894,307,699→868,461,178,與公告單季 5,926/6,735/7,597/8,685 億元一致。EPS 累計 8.70/18.25/30.80/45.25 → 單季 8.70/9.55/12.55/14.45(公告 8.70/9.56/12.54/14.45,差異僅差分捨入)。現金流:四季 OCF 436,311,108+377,668,210+391,992,467+620,205,283 = 1,826,177,068 千元 = 公告全年 1.83 兆。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "三個利潤率算式與公告完全對得上,DSO/DSI 的 91.25 天口徑也正確(不是季節性偏誤)。一度懷疑『累計制營收 + 固定 91.25 天 → Q4 的 DSO 只有 Q1 的 1/4』,查證後上游已單季化,91.25 = 365/4 與單季營收/成本匹配。",
+      "evidence": "2330 2024Q4:gross_margin (868,461,178-356,083,027)/868,461,178 = 0.5900(公告 59.0%);operating_margin 425,712,913/868,461,178 = 0.4902(公告 49.0%);profit_margin 374,468,888/868,461,178 = 0.4312(公告 43.1%)。DSO 手算 ((272,087,959+250,048,429)/2)*91.25/868,461,178 = 27.43,view 輸出 27.4(台積電實際收現天數約 27 天);DSI 74.4 天(實際約 80 天)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "現金流量允當比率與現金再投資比率的定義推導正確,cash_dividends_paid 只有 13.7% 覆蓋率也是正常的(不是缺料)。允當比率 = 最近 20 季 OCF / (資本支出 + 存貨增加 + 現金股利),與教科書一致;三個分母項在來源都是負值,所以行 27 的 -(a+b+c) 是對的。再投資比率的分母 total_assets - total_current_liabilities 恰好等於『固定資產 + 長期投資 + 其他資產 + 營運資金』(= (總資產-流動資產) + (流動資產-流動負債)),推導無誤。",
+      "evidence": "2330 2024Q4 cash_flow_ratio 手算 1,826,177,068/1,264,524,964 = 1.4441,view 輸出 1.444;cash_flow_adequacy_ratio 1.097(台積電 5 年 OCF/資本支出+股利的合理量級)。股利覆蓋率:SELECT count(*), count(cash_dividends_paid) FROM cash_flows_with_titles → 113,488 / 15,585 (13.7%),這是單季化的必然結果——年配息公司 Q1/Q2 累計為 0、Q3 = -D、Q4 = -D-(-D) = 0 再被 value<0 濾掉,一年只留 1 列。實測 1301 台塑:cash_flows_progressive 累計 2022 (-2,860/-3,276/-52,203,024/-52,172,634) → cash_flows_individual (-2,860/-416/-52,199,748/+30,390),三年的年度配息 -52,199,748 / -26,736,696 / -6,333,176 都完整保留。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "評分尺度與加權正確,無 ±Infinity / NaN;market='tw' 的 join 條件不是打錯字;matview 不是舊的。三項查過都沒問題。",
+      "evidence": "權重 0.25+0.25+0.1+0.1+0.3 = 1.0,五個分項皆 0-100,SELECT min(cbs),max(cbs),count(*) FILTER (WHERE cbs='NaN'::float8) FROM financial_index_quarterly → 3.6329 / 99.3437 / 0;roic 與 equity_multiplier 的 Infinity 計數皆 0。join 條件:行 68/72 的 market='tw' 看似與 cfswt.market('twse'/'tpex')衝突,但實測 SELECT market,count(*) FROM balance_sheet_with_titles GROUP BY 1 → tw 116,455(唯一值);cash_flows_with_titles → tw 113,488;base table balance_sheet → tw 7,205,860;cash_flows_progressive → tw 6,359,600。新鮮度:concise_financial_statement_with_titles / balance_sheet_with_titles / cash_flows_with_titles / 各 base table / 本 view 的 max(year*10+quarter) 全部 = 20261 (2026Q1)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "PIT 是設計而非缺陷:view 只帶 (year, quarter) 不帶公告日,公告落後由消費端處理。本 view 目前零消費者,所以這是『未來若要用必須自帶 lag』的備註,不是 bug。",
+      "evidence": "消費端範例:src/main/scala/strategy/Signals.scala:145-158 的 latestQuarterField 用 PublicationLag.asOfQuarter(asOf) 換算可用季別再查(WHERE year < Y OR (year = Y AND quarter <= Q))。本 view 輸出欄位清單(行 133-172)確認無任何日期欄。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "爆炸半徑:本 view 目前零消費者,但 BUG 1/3/4/SUSPECT 13 的病灶在同一條 matview 鏈上,會外溢到還有人用的 financial_index_ttm,以及現役 Python 路徑。",
+      "evidence": "零消費者三條證據:(a) PG 相依查詢 SELECT … FROM pg_depend d JOIN pg_rewrite r … WHERE source_table.relname='financial_index_quarterly' AND dependent_view.relname<>'financial_index_quarterly' → 0 列;(b) research/cache_tables.py:78 註解『REMOVED: financial_index_quarterly (was a PG VIEW with margin derivation we couldn't fully verify)』;(c) research/strat_lab/raw_quarterly.py:10『We DELIBERATELY do NOT use … financial_index_quarterly』。外溢:src/main/resources/sql/view/4_financial_index_ttm.sql:100 讀同一張 concise_financial_statement_with_titles,而該 view 被 src/main/scala/strategy/Signals.scala:142, 531, 549 使用;BUG 3 的同類缺陷在 research/strat_lab/raw_quarterly.py:127-146, 176-179。",
+      "fix": "最省的收斂做法:DROP 掉這張沒人用又算錯的 view(留著只會等下一個人誤用),集中修好上游 materialized_view/6 的 BUG 1/3/4,因為 financial_index_ttm 還在吃它。"
+    }
+  ]
+}

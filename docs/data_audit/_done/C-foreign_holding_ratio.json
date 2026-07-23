@@ -1,0 +1,89 @@
+{
+  "id": "C-foreign_holding_ratio",
+  "dim": "C",
+  "table": "foreign_holding_ratio",
+  "unit": "C-foreign_holding_ratio",
+  "verdict": "BUG",
+  "summary": "cache 和 PostgreSQL 之間零不一致——822 萬列、六個數值欄逐位相同,雙向 EXCEPT 連一筆獨有鍵都沒有,抽樣 30/30 也全同。不能信的是兩塊:(1) 上櫃 2010 年整年 31.9 萬列(全表 3.88%)其實是 2026-04-24 那天的快照被複製 361 份,裡面有 412 檔在 2010 年還沒上櫃(最晚一檔 2026-04-22 才掛牌)= 嚴重前視,而且 361 個日期裡 111 個根本不是交易日;(2) 4 個真開市日兩市場全缺(2021-08-18、2025-08-15、2026-04-29、2026-05-28),因為爬蟲的交易日曆讀 daily_quote,而那 4 天 daily_quote 留了假休市檔。其餘 790 萬列可信:恆等式『持股比率=持有股數/發行股數』822 萬列零例外(欄位沒錯位),極端值全部回原始檔驗證為交易所自己的數字。錯誤全在 cache 上游,cache 只是忠實複製 PG。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "TPEx 2010 年整年 319,124 列(全表 3.88%、tpex 2010 覆蓋率 100%)不是 2010 年的資料,而是 2026-04-24 的快照被複製到 361 個日期。後果:(a) 前視——884 檔裡 412 檔在 2010 年 TPEx 沒有任何報價,首見報價年份散佈 2011~2026,最晚一檔 2026-04-22 才掛牌;(b) 幽靈日——361 個日期裡 111 個不是交易日(週六日與國定假日都有『資料』);(c) 整年數值完全不動,任何以它算的變動量恆為 0,並在 2011-01-03 產生一次假跳動。",
+      "evidence": "原始檔:data/foreign_holding_ratio/tpex/2010/ 共 362 檔,360 檔 md5 相同(f276c09ce9e2b2b611a57a264774cb78)、2010_1_4.csv 不同、2010_9_30.csv 為 0-byte;JSON tables[0].date 欄 360 檔寫『115/04/24』(=2026-04-24)、2010_1_4.csv 寫『115/05/12』;mtime 2026-04-25~26。DB 對證(docs/data_audit/scripts/C-foreign_holding_ratio/08_tpex2010_impact.py):2010-06-15 與 2026-04-24 的 884 檔在 outstanding_shares/foreign_held_shares/foreign_held_ratio 三欄逐檔相同 884/884;5347 世界先進 2010-01-04 = 2010-06-15 = 2010-12-31 = 2026-04-24 = (1,867,392,355 / 451,459,224 / 24.17),2011-01-04 才變成真值 (1,645,408,553 / 128,526,304 / 7.81)。04_stale_repeat_scan.py:tpex 4,157 組相鄰日對中 360 組『逐檔三欄完全相同』,全部落在 2010,2011 之後 0 組(twse 全史 0 組,p50 只有 0.13)。05_filename_vs_content_date.py 全史掃描:twse 5,310 檔錯位 0、tpex 2011+ 3,797 檔錯位 0,錯位 361 檔全部在 2010。09_missing_trading_days.py 共識日曆(七來源至少 2 個有資料):tpex 2010 的 361 個日期中 111 個不在日曆內。程式碼根因:TPEx insti/qfii 端點(src/main/resources/application.conf:236)對沒有資料的日期回當下最新快照;Crawler.scala:423 以請求日存檔;reader/TradingReader.scala:899-901 `val fileNamePattern(y,m,d) = marketFile.file.name; val date = LocalDate.of(...)` 只讀檔名、從不讀 JSON 的 date 欄;同函式 894 行 `filterNot(m => dataAlreadyInDB.contains((m.market, m.file.name)))` 使已進 DB 的日期永不重讀(鐵證:2010_1_4.csv 磁碟上已是 2026-05-12 的新快照,DB 裡仍是 2026-04-24 的舊值)。設定錯誤:setting/ForeignHoldingRatioSetting.scala:41 宣告 tpex firstDate=2010-01-04、application.conf:230 註解寫『TPEx insti/qfii ... (UTF-8, 2010+)』,但實證真資料起點是 2011-01-03(2011_1_3.csv 的 date 欄=100/01/03、561 檔、與檔名相符)。消費端:research/strat_lab/iter_52_ownership_flow_alpha.py:87 無 market 篩選且 START=2005-01-03(research/strat_lab/iter_40_research_campaign.py:57)→ 直接吃進;research/futures/strategies.py:183-193 的市場合計無 market 也無日期篩選,實測 2010-12-31 全市場比率 0.2299 vs 只算上市 0.2473(被拉低 1.7pp)、2010-12-25 週六竟有值 0.1092(只有假 tpex 884 列)、2010-12-31→2011-01-03 假跳動 +0.30pp,並經 340-341/403-405 行的 foreign_holding_chg5 / chg_std63 / chg_z 傳到 463 行以 0.10 權重進訊號。",
+      "fix": "(1) 刪資料:DELETE FROM foreign_holding_ratio WHERE market='tpex' AND date < DATE '2011-01-03';並刪掉 data/foreign_holding_ratio/tpex/2010/ 整個目錄(否則 Reader 下次又把它讀回來)。TPEx 這段歷史端點根本沒有,不必補抓。(2) 改設定:ForeignHoldingRatioSetting.scala:41 的 tpex firstDate 改成 2011-01-03,application.conf:230 註解同步改『2011+』。(3) 防復發守護(重點,與 C-stock_per_pbr 同型):readForeignHoldingRatio 加『內容日期必須等於檔名日期』的 fail-loud 閘門——tpex 解析 tables[0].date 的民國日期、twse 解析 Big5 標題『115年07月17日』;先用 data/foreign_holding_ratio/tpex/2010/2010_6_15.csv 驗紅再驗綠。(4) 把『檔名日期 vs 內容日期』掃描接進每日 loop 健康檢查(這是本 repo 第二次踩同一個坑,第一次是 stock_per_pbr)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "4 個真的有開市的交易日,twse 與 tpex 兩市場都整天 0 列,而且原始檔連下載都沒下載過:2021-08-18(三)、2025-08-15(五)、2026-04-29(三)、2026-05-28(四)。根因是連鎖傷害——爬蟲的交易日曆讀 daily_quote(twse),而那 4 天 daily_quote 留了 0-byte 假休市檔,於是外資持股連請求都不會送出,tpex 也被同一把 twse 尺子擋掉。同一機制會讓所有走 tradingDays 篩選的日頻表(sbl / index / margin)一起缺這幾天。",
+      "evidence": "09_missing_trading_days.py 以七來源共識日曆(daily_quote twse/tpex、market_index、margin_transactions、daily_trading_details、stock_per_pbr、taifex_futures_daily,至少 2 個有資料才算交易日)比對:twse 與 tpex 各只有 5 天缺,其中 4 天是這幾日、第 5 天是尚未爬的 2026-07-20。獨立佐證(不靠 daily_quote/twse):2021-08-18 tpex 報價 902 / 指數 237 / 融資 1,833 / 三大法人 1,812 / 本益比 1,738 / 台指期 1,735;2025-08-15 = 967/346/2,044/2,073/1,898/2,341;2026-04-29 = 1,005/341/2,160/2,212/1,954/2,287;2026-05-28 = 1,008/—/2,171/1,842/1,964/(超出台指期範圍)。原始檔:data/foreign_holding_ratio/{twse,tpex}/{2021/2021_8_18,2025/2025_8_15,2026/2026_4_29,2026/2026_5_28}.csv 全部 MISSING。程式碼:Task.scala:470-483 pullForeignHoldingRatio 第 481 行 `.filter(d => tradingDays.contains(d))`;Task.scala:415-423 loadTwseTradingDays() = `SELECT DISTINCT date FROM daily_quote WHERE market='twse'` ∪ 本機 twse 報價檔(>1024 bytes)。假 sentinel 來源見 docs/data_audit/_done/C-daily_quote.json 的 BUG 1(同 4 天)。",
+      "fix": "順序不能反:先照 C-daily_quote 的修法刪掉 data/daily_quote/twse/{2021/2021_8_18,2025/2025_8_15,2026/2026_4_29,2026/2026_5_28}.csv 的假 sentinel 並重抓 MI_INDEX,讓 loadTwseTradingDays() 認得這 4 天;再跑 sbt \"runMain Main pull foreign_holding_ratio --since 2021-08-18\"(twse https://www.twse.com.tw/rwd/zh/fund/MI_QFIIS?response=csv&selectType=ALLBUT0999&date=YYYYMMDD;tpex https://www.tpex.org.tw/www/zh-tw/insti/qfii?date=民國年/MM/DD)、sbt \"runMain Main read foreign_holding_ratio\"、uv run python research/cache_tables.py。結構性修法:交易日曆不該只認 daily_quote 一個來源,改成多來源共識(見 09_missing_trading_days.py 的 cal view),否則任一表的洞會傳染給全部日頻表。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "2014 年起的春節休市日 QFIIS 公告可能被系統性漏抓。2005~2013 年每年春節休市的前 2 天 twse 都有一份公告(共 18 天、每天 700~995 列,且內容確實有變動),2014 年起一天都沒有。可能是 TWSE 改政策,也可能是 BUG 2 的同一把尺子把它們擋在門外——那 18 天的檔案是交易日曆篩選加進來之前抓的。",
+      "evidence": "09_missing_trading_days.py:twse『本表有、共識日曆判為非交易日』18 天,全部是 2005-02-04/05、2006-01-26/27、2007-02-15/16、2008-02-04/05、2009-01-22/23、2010-02-11/12、2011-01-31/02-01、2012-01-19/20、2013-02-07/08,2014 年之後為 0。這 18 天原始檔存在且標題日期正確(如 data/foreign_holding_ratio/twse/2013/2013_2_7.csv 標題『102年02月07日』),而 taifex_futures_daily 在 2013-02-07/08 完全無資料 → 確實休市。程式碼:Task.scala:481 的 tradingDays 篩選會讓這類日期不再被請求。",
+      "fix": "對 2014-2026 每年春節休市首 2 日各打一次 MI_QFIIS(response=csv&selectType=ALLBUT0999&date=YYYYMMDD),看回的是空、是前一交易日快照、還是真有當日公告;確認有公告就把 pullForeignHoldingRatio 的日期母體從『twse 交易日』放寬成『交易日 + 春節休市首 2 日』,並在 Reader 端靠內容日期閘門(BUG 1 的 fix 3)防止抓到舊快照。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "本表落後齊備日 2 個交易日,且與 Python 直寫路徑的表錯位 3 天:latest_complete_trading_day() = 2026-07-21,foreign_holding_ratio 最新只到 2026-07-17,而 daily_quote / daily_trading_details / stock_per_pbr 已到 2026-07-20。這是營運狀態不是資料錯誤,但正是 CLAUDE.md 記載 2026-07-15 事故的形態(表間日期錯位 → 策略閘門 fail-closed 靜靜砍光候選)。",
+      "evidence": "uv run --project research python -c \"from research.data_calendar import latest_complete_trading_day, stale_tables; print(latest_complete_trading_day(), stale_tables())\" → 2026-07-21;stale_tables() = {daily_quote: 2026-07-20, market_index: 2026-07-17, daily_trading_details: 2026-07-20, stock_per_pbr: 2026-07-20, margin_transactions: 2026-07-17, sbl_borrowing: 2026-07-17, foreign_holding_ratio: 2026-07-17}。research/crawl/update.py:27 `DAILY_SOURCES = [daily_quote, daily_trading_details, stock_per_pbr]` 證明本表不在 Python 直寫路徑(這也是本表 cache↔PG 完美 parity 的結構原因)。",
+      "fix": "跑 sbt \"runMain Main update\" + uv run python research/cache_tables.py 補到 2026-07-21;長期把 market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio 也納入 Python 直寫路徑,或在每日 loop 強制先跑 Scala 端(與 C-daily_quote 的同一條建議)。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 逐欄完全一致——不是抽樣,是全表 8,225,920 列零差異;雙向 EXCEPT 找獨有鍵 cache_only 0 / pg_only 0;逐年 x market 39 組筆數全同、逐日差異 0 天。指定的隨機抽樣(每 market 3 日 x 5 檔)30/30 逐欄相同。",
+      "evidence": "docs/data_audit/scripts/C-foreign_holding_ratio/02_value_parity.py(DuckDB ATTACH postgres READ_ONLY,28.2 秒):joined_rows 8,225,920,outstanding_shares / foreign_remaining_shares / foreign_held_shares / foreign_remaining_ratio / foreign_held_ratio / foreign_limit_ratio 六欄的 IS DISTINCT FROM 計數皆為 0;cache_only 0、pg_only 0。01_counts.py:整表 cache 8,225,920 = PG 8,225,920;逐年 x market 全 39 組 diff=0;逐日差異日 0 天。07_sample_parity.py(seed 20260722):twse 2023-02-21/2018-03-19/2007-03-26、tpex 2015-06-24/2011-01-04/2018-09-27 各 5 檔,六欄逐一比對 30/30 SAME。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "schema 對照無型別降級。PG 11 欄、cache 同步 9 欄,丟掉的是 id(代理鍵)與 company_name;pg-attach 模式的對照 view 欄位與順序和 cache 表完全一致,parity 沒破。",
+      "evidence": "psql \\d foreign_holding_ratio → id bigint / market varchar / date date / company_code varchar / company_name varchar / outstanding_shares bigint / foreign_remaining_shares bigint / foreign_held_shares bigint / foreign_remaining_ratio double precision / foreign_held_ratio double precision / foreign_limit_ratio double precision(唯一索引 idx_ForeignHoldingRatio_market_date_code (market,date,company_code))。DuckDB DESCRIBE foreign_holding_ratio → market VARCHAR / date DATE / company_code VARCHAR / outstanding_shares BIGINT / foreign_remaining_shares BIGINT / foreign_held_shares BIGINT / foreign_remaining_ratio DOUBLE / foreign_held_ratio DOUBLE / foreign_limit_ratio DOUBLE(01_counts.py 同時 DESCRIBE 兩側)。同步 SQL:research/cache_tables.py:55;pg-attach 對照 view:research/db.py:149-153(欄位與順序逐字相同);cache 索引 idx_fhr_code_date 於 cache_tables.py:122 建立。Slick 真源:src/main/scala/db/table/ForeignHoldingRatio.scala:15-40。",
+      "fix": "若日後研究端需要公司名,把 company_name 加進 cache_tables.py:55 的 SELECT 與 db.py:149 的 view 即可(PG 已有)。"
+    },
+    {
+      "severity": "OK",
+      "what": "欄位沒有錯位:恆等式『持股比率 = 持有股數 ÷ 發行股數 × 100』在 8,225,919 列(排除 1 列發行股數為 0)零例外,twse(Big5 CSV,11~13 欄兩種格式)與 tpex(JSON,比率帶 % 字串)兩條解析路徑都通過。其他基本異常掃描全清:NULL 0、負股數 0、負比率 0、法令上限越界 0、未來日期 0、重複鍵 0、代號格式異常 0。",
+      "evidence": "06_value_anomaly.py:恆等式 E 檢查(容差 0.01pp)tpex bad_E=0 / 3,134,703 列、twse bad_E=0 / 5,091,216 列;基本掃描 n=8,225,920,n_nulls 0、held_neg 0、remain_neg 0、limit_oob 0、future_date 0、dup_keys 0、odd_codes 0(regexp '^[0-9]{4}[0-9A-Z]{0,2}$')。解析程式:reader/TradingReader.scala:909-944,twse 走 v(3)/v(4)/v(5)/v(6)/v(7)/v(8)、tpex 走 vals(3)~vals(8),cleanCell(第 40-41 行)剝掉逗號與 %;2005 舊格式(11 欄,無陸資上限)與 2010+ 新格式(13 欄)在 v(8) 都是法令上限,取值一致。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "TPEx 的 0-byte 空檔不是漏抓:315 個 sentinel 除了 2010-09-30(落在假資料年內、整年都要刪)之外,全部落在非交易日(週六日與國定假日,集中在 2011-2013 的回補期)。twse 側 5,310 個原始檔零空檔;僅 2 檔有標題但無資料列(2009-12-12 週六補行交易日、2026-05-30 週六),交易所回的就是只有標題的空報表,DB 因此 0 列,無汙染。",
+      "evidence": "find data/foreign_holding_ratio/tpex -name '*.csv' -size -1 | 逐年統計 = {2010:1, 2011:118, 2012:116, 2013:79, 2026:1};09_missing_trading_days.py 對 2011-01-03 之後的共識交易日比對,tpex 缺漏只有 BUG 2 的 4 天 + 2026-07-20。原始檔與 DB 對帳(scripts 內嵌腳本):twse 5,310 檔全部非空、DB 5,308 個日期,差的 2 天正是 2009-12-12(2,298 bytes,標題『98年12月12日』+ 說明列,無資料列)與 2026-05-30(2,498 bytes,標題『115年05月30日』,同型);tpex 非空檔 4,158 = DB 4,158 個日期,雙向零差。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "看起來離譜的極端值全部是交易所原始檔就這樣寫的,不是解析錯誤:持股比率 >100% 共 134 列(ETF 與 KY 公司的登記發行股數落後實際單位數)、發行股數 0 且全列為零 1 列、尚可投資比率 100.19 1 列、法令上限 0% 共 5,962 列(9928 中視全史,廣電三法禁外資)、尚可投資股數 0 但上限 100% 共 69,078 列(交易所自己填 0)、單日持股率跳動 >20pp 共 557 筆(ETF 單位數變動與新掛牌首日)。",
+      "evidence": "逐筆回原始檔驗證:tpex 2013_11_28.csv → ['1','8406','F-金可','90,451,000','0','98,194,065','0%','108.56%','100%','已達上限'];twse 2010_10_21.csv → =\"0081\",\"恒香港\",\"HK2833027330\",\"50,000\",\"0\",\"62,600\",\"25.20\",\"125.20\",...;tpex 2018_10_23.csv → ['765','6594','展匯科','0','0','0','0%','0%','100%','已達上限'];twse 2011_5_26.csv → \"3519\",\"綠能\",...,\"224,097,171\",\"224,536,171\",\"0\",\"100.19\",\"0.00\",\"100.00\";twse 2026_7_17.csv → \"9928\",\"中視\",...,\"70,724,583\",\"0\",\"0\",\"0.00\",\"0.00\",\"0.00\";twse 2014_9_3.csv → \"2408\",\"南亞科\",...,\"23,961,008,099\",\"0\",\"1,424,544,623\",\"0.00\",\"5.94\",\"100.00\"(對照同日 2330 的 B 欄有正常值 7,949,999,531,證明不是解析漏掉)。計數來自 06_value_anomaly.py。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "twse 有 18 天落在非交易日卻有資料,這是真的:2005~2013 每年春節休市的前 2 日,TWSE 仍公告外資持股統計(T+2 交割讓持股在休市期間續動)。不是幽靈日、不是舊快照複製。消費端做 as-of 取值時會拿到這幾天的數字,語義正確(它就是當時最新的持股快照)。",
+      "evidence": "09_missing_trading_days.py 列出 18 天(2005-02-04/05 … 2013-02-07/08)。休市佐證:taifex_futures_daily 在 2013-02-04/05/06 有 1,206/1,199/1,198 筆、2013-02-07/08 完全無資料、2013-02-18 才恢復 1,212 筆——TAIFEX 是獨立爬蟲與獨立日曆。資料為真的佐證:04_stale_repeat_scan.py 顯示 twse 全史沒有任何一組相鄰日『逐檔完全相同』;逐日比對 2013-02-07 vs 02-06 有 24/865 檔的持有股數變動、02-08 vs 02-07 有 4/865 檔變動;2005-02-04 vs 02-03 有 21/993 檔變動。原始檔標題日期與檔名一致(05_filename_vs_content_date.py twse 錯位 0)。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema 對照:psql \\d foreign_holding_ratio(11 欄)vs DuckDB DESCRIBE foreign_holding_ratio(9 欄)逐欄型別,加 research/cache_tables.py:55 的 SELECT 清單、research/db.py:149-153 的 pg-attach 對照 view、src/main/scala/db/table/ForeignHoldingRatio.scala 的 Slick 真源(01_counts.py)",
+    "整表與逐年/逐日筆數:cache 8,225,920 vs PG 8,225,920;逐 (market,year) 39 組、逐 (market,date) 9,466 組全比對(01_counts.py)",
+    "全表逐鍵逐欄值比對(非抽樣):8,225,920 個共用鍵的六個數值欄 IS DISTINCT FROM 計數 + 雙向 EXCEPT 找獨有鍵(02_value_parity.py,28.2s)",
+    "指定隨機抽樣:seed 20260722,每 market 3 日 x 5 檔共 30 組,六欄逐一比對(07_sample_parity.py)",
+    "日期覆蓋缺口:對同市場 daily_quote 母體、對 research/data_calendar.py::is_trading_day(0-byte sentinel 休市日曆)、對七來源共識交易日曆(daily_quote twse/tpex + market_index + margin_transactions + daily_trading_details + stock_per_pbr + taifex_futures_daily,至少 2 個有資料)三路交叉(03_coverage_gaps.py、09_missing_trading_days.py)",
+    "相鄰交易日『逐檔內容完全相同』全史掃描,抓舊快照複製(04_stale_repeat_scan.py:twse 5,307 組 0 命中、tpex 4,157 組 360 命中全在 2010)",
+    "全史原始檔檔名日期 vs 內容日期:twse 5,310 檔解析 Big5 標題民國日期、tpex 4,158 檔解析 JSON tables[0].date(05_filename_vs_content_date.py)",
+    "tpex 2010 汙染量化:md5 去重(360/1/1)、與 2026-04-24 快照逐檔三欄比對、884 檔在 2010 年有無報價、首見報價年份分佈、幽靈日計數、5347 逐日直觀樣本(08_tpex2010_impact.py)",
+    "數值欄異常掃描:NULL、發行股數 <=0、負股數、比率越界、持有>發行、未來日期、重複鍵、代號格式、法令上限取值分佈、持股率分位數、相鄰交易日跳動 >20pp(06_value_anomaly.py)",
+    "兩條恆等式:E = C/A*100(容差 0.01pp,8,225,919 列零例外)與 B = A*F/100 - C(容差 1 股,75,737 列不成立,全部回原始檔證實為交易所自填 0)",
+    "極端值回原始檔驗證:tpex 8406(2013-11-28)/6594(2018-10-23);twse 0081(2010-10-21)/3519(2011-05-26)/9928(2026-07-17)/2408(2014-09-03)/2475(2010-08-24),對照 2330 同日正常值",
+    "原始檔 vs DB 對帳:twse 5,310 檔 / 5,308 DB 日期(差 2 天為只有標題的空報表 2009-12-12、2026-05-30)、tpex 非空 4,158 檔 = 4,158 DB 日期,雙向零差;tpex 0-byte sentinel 315 檔逐年分佈與星期別",
+    "缺漏日的獨立佐證(不靠 daily_quote/twse):tpex 報價 / market_index / margin_transactions / daily_trading_details / stock_per_pbr / taifex_futures_daily 六表在 2021-08-18、2025-08-15、2026-04-29、2026-05-28 的筆數",
+    "齊備度:research/data_calendar.py::latest_complete_trading_day() 與 stale_tables() 實跑;research/crawl/update.py:27 DAILY_SOURCES 確認本表不在 Python 直寫路徑",
+    "程式碼(codebase-memory-mcp + 精讀):src/main/scala/reader/TradingReader.scala::readForeignHoldingRatio(886-954)與 cleanCell(40-41)、src/main/scala/Task.scala::pullForeignHoldingRatio(470-483)與 loadTwseTradingDays(415-432)、src/main/scala/Crawler.scala:423、src/main/scala/setting/ForeignHoldingRatioSetting.scala、src/main/resources/application.conf:230-240、src/main/scala/db/table/ForeignHoldingRatio.scala、research/cache_tables.py、research/db.py、research/data_calendar.py",
+    "消費端盤點:research/strat_lab/iter_52_ownership_flow_alpha.py:87(無 market 篩選、START=2005-01-03)、research/futures/strategies.py:183-193/340-341/403-405/463(市場合計無 market 無日期篩選,實測 2010 汙染量)、research/apex/data.py:185、research/serenity/engine.py:1000、research/evergreen/ev48_chip_axes.py:46 與 ev18_make_packs.py:96 與 make_tables_chips.py:67、research/apex/experiments/f10_chip_axes.py:33 與 r09_finlab_harvest.py:33",
+    "與其他稽核單位交叉:docs/data_audit/_done/C-daily_quote.json(同 4 天假 sentinel,本單位證明它會沿 loadTwseTradingDays 傳染到全部日頻表)、C-stock_per_pbr.json(同型『端點回別日快照 + Reader 只讀檔名』缺陷類)"
+  ]
+}

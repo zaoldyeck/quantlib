@@ -1,0 +1,86 @@
+{
+  "unit": "A-daily_trading_details",
+  "dim": "A",
+  "source": "daily_trading_details",
+  "reader": "TradingReader.readDailyTradingDetails",
+  "table": "daily_trading_details",
+  "raw_files": 12218,
+  "verdict": "BUG",
+  "summary": "外資與投信全時期可信;自營商三欄在 2015 年以前整組錯位(57 萬列,連負號都沒了),另有 23 個日期存的是別天的資料(24,566 列)。2015 年以後的解析本身零錯誤。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "TWSE 13 欄世代(2012-05-02..2014-11-28)自營商三欄整組往後轉一格:dealers_total_buy 存到淨額、dealers_total_sell 存到買進、dealers_difference 存到賣出。期間 509,410 列中 285,552 列的值被改掉,dealers_difference 因此七年零負值。",
+      "evidence": "src/main/scala/reader/TradingReader.scala:190-194 用 transferValues(6)(7)(8) 依序寫 buy/sell/difference,但原始檔第 8~11 欄是「自營商買賣超、買進、賣出、三大法人」(表頭實測:data/daily_trading_details/twse/2012/2012_5_2.csv)。同檔的 case 17 分支(第 195-200 行)寫法正確,可資對照。重現:`iconv -f BIG5-HKSCS -t UTF-8 data/daily_trading_details/twse/2012/2012_5_2.csv | grep '^\"0050\"'` → 買賣超 -198,000 / 買進 4,343,000 / 賣出 4,541,000;`psql -h localhost -p 5432 -d quantlib -c \"SELECT dealers_total_buy, dealers_total_sell, dealers_difference FROM daily_trading_details WHERE market='twse' AND date='2012-05-02' AND company_code='0050';\"` → -198000 | 4343000 | 4541000。全域證據:`SELECT min(dealers_difference), count(*) FILTER (WHERE dealers_difference<0), count(*) FROM daily_trading_details WHERE market='twse' AND date BETWEEN '2012-05-02' AND '2014-11-28';` → 0 | 0 | 509410(2014-12-01 之後 min=-1946343918、負值 1,059,352 列)。",
+      "fix": "case 13 改成 transferValues(7) :: transferValues(8) :: transferValues(6) :: transferValues(9)(照 case 17 的寫法);刪除 market='twse' AND date<='2014-11-28' 的列後重跑 Main read daily_trading_details,再重建 cache。並加匯入期不變式:difference = total_buy - total_sell 逐列檢查。"
+    },
+    {
+      "severity": "BUG",
+      "what": "TPEx 12 欄世代(2007-04-23..2014-11-28)dealers_difference 抄成「自營商買股數」,真正的「自營淨買股數」從未存進資料庫。期間 602,188 列中 285,414 列的淨額是錯的,同樣零負值。",
+      "evidence": "src/main/scala/reader/TradingReader.scala:223 寫 `transferValues(6) :: transferValues(7) :: transferValues(6) :: transferValues(9)`,第三個位置重複用了 (6)(買進),應為 (8)(淨買)。重現:`iconv -f BIG5-HKSCS -t UTF-8 data/daily_trading_details/tpex/2007/2007_4_23.csv | grep '\"1785'` → 自營商買 24,000 / 賣 70,000 / 淨買 -46,000;`psql ... \"SELECT dealers_total_buy, dealers_total_sell, dealers_difference FROM daily_trading_details WHERE market='tpex' AND date='2007-04-23' AND company_code='1785';\"` → 24000 | 70000 | 24000。全域:`SELECT min(dealers_difference), count(*) FILTER (WHERE dealers_difference<0) FROM daily_trading_details WHERE market='tpex' AND date<='2014-11-28';` → 0 | 0(共 602,188 列)。",
+      "fix": "case 12 第三個位置改成 transferValues(8);刪除 market='tpex' AND date<='2014-11-28' 的列後重讀,重建 cache。"
+    },
+    {
+      "severity": "BUG",
+      "what": "23 個日期存的是別天的資料,共 24,566 列。其中 5 個是真交易日(2023-06-14、2023-10-06、2025-11-12、2026-02-05、2026-04-30),其 908 列逐欄等於 2017-12-18;另 18 個是週六/週日/春節等非交易日,daily_quote 完全沒有這些日子卻憑空多出 908~1,262 列。另有 4 天(2024-06-30、2025-08-09、2025-12-14、2026-04-18)的原始檔已成 0 位元組 sentinel,資料庫列已無法從原始檔重現。",
+      "evidence": "指紋查法:`psql -h localhost -p 5432 -d quantlib -c \"WITH agg AS (SELECT market,date,count(*) n,sum(foreign_investors_difference::bigint) f,sum(securities_investment_trust_companies_difference::bigint) t,sum(dealers_difference::bigint) d,sum(total_difference::bigint) tot FROM daily_trading_details GROUP BY market,date) SELECT market,n,count(*) ndays,array_agg(date ORDER BY date) FROM agg GROUP BY market,n,f,t,d,tot HAVING count(*)>1 ORDER BY 3 DESC;\"` → 8 組,最大一組 n=908 共 13 個日期。逐列確認:`SELECT count(*) FROM daily_trading_details a JOIN daily_trading_details b USING (company_code) WHERE a.market='twse' AND a.date='2017-12-18' AND b.market='twse' AND b.date='2026-04-30' AND (a.total_difference<>b.total_difference OR a.foreign_investors_difference<>b.foreign_investors_difference);` → 0 列不同 / 共 908 個代號。非交易日確認:daily_quote 在那 18 天列數為 0。原始檔漏餡的只有 2 個(twse/2023/2023_10_6.csv 標題「106年12月18日」、twse/2024/2024_6_22.csv 標題「113年06月12日」),其餘 21 天 TWSE 把請求日期原樣印在標題,故檔名 vs 內容日期檢查無效。",
+      "fix": "刪掉這 23 天的列並重抓;validate 增加(a)資料日必須存在於 daily_quote、(b)當日四欄總和不得與任何其他日期相同(指紋防重放)兩道閘門;休市日一律寫 0 位元組 sentinel 而非保留內容。"
+    },
+    {
+      "severity": "BUG",
+      "what": "超過 int32(21.47 億)的股數會靜默變成 0。全庫掃到 5 個這種原始值,全在 00403A 主動統一升級 50,造成 2026-05-12 的 dealers_difference / dealers_hedge_total_sell / dealers_hedge_difference / dealers_total_sell / total_difference 與 2026-05-13 的 total_difference 全變 0。",
+      "evidence": "TradingReader.scala:186 與 214 都用 Try(value.toInt).getOrElse(0);db/table/DailyTradingDetails.scala 全欄宣告 column[Int](PostgreSQL integer)。重現:`iconv -f BIG5-HKSCS -t UTF-8 data/daily_trading_details/twse/2026/2026_5_12.csv | grep 00403A` → 自營商買賣超 -2,433,644,567、避險賣出 2,482,291,567、避險買賣超 -2,433,646,567、三大法人 -2,761,612,524;`psql ... \"SELECT dealers_difference, dealers_hedge_total_sell, dealers_hedge_difference, total_difference FROM daily_trading_details WHERE market='twse' AND date='2026-05-12' AND company_code='00403A';\"` → 0 | 0 | 0 | 0。這 2 列也是 2015 年後唯二違反「合計 = 外資 + 投信 + 自營」的列。",
+      "fix": "欄位型別改 Long / bigint;解析失敗改成拋例外中止該檔匯入(靜默歸零是最壞的失敗模式);加匯入期不變式 total_difference = foreign + trust + dealers。"
+    },
+    {
+      "severity": "BUG",
+      "what": "TPEx 事後修正的投信數字永遠回填不進來:2024 上半年 80 個交易日、170 列的投信買/賣/買賣超與三大法人合計停在修正前的版本。",
+      "evidence": "TradingReader.scala:162-166 的去重是「(market,date) 已在資料庫就整天跳過」,原始檔重新下載後不會覆蓋。重現:`iconv -f BIG5-HKSCS -t UTF-8 data/daily_trading_details/tpex/2024/2024_6_13.csv | grep '^\"3260\"'` → 投信買進 1,541,000 / 買賣超 1,232,000 / 三大法人 3,107,549;`psql ... \"SELECT securities_investment_trust_companies_total_buy, securities_investment_trust_companies_difference, total_difference FROM daily_trading_details WHERE market='tpex' AND date='2024-06-13' AND company_code='3260';\"` → 1541 | -307459 | 1568090。兩邊各自內部自洽(合計 = 外資 + 投信 + 自營),證明不是解析錯而是版本停滯。全域範圍由全 12,218 檔重解析的逐日欄位加總比對得出:trust_buy 54 天、trust_sell 59 天、trust_diff 80 天、total_diff 80 天(皆 2024-01-02..2024-06-13,tpex)。",
+      "fix": "去重改成內容雜湊比對(檔案內容變了就重讀該日並以 upsert 覆蓋),不要只看日期是否存在。"
+    },
+    {
+      "severity": "BUG",
+      "what": "雲端 Python 爬蟲 research/crawl/sources/daily_trading_details.py 硬性要求 ≥19 欄,把 TWSE 現行檔案裡合法的 17 欄資料列整列丟掉(2018 年至今 549 列,2026 年 221 列)。該爬蟲直接寫 var/cache/cache.duckdb,會影響 live 決策。",
+      "evidence": "research/crawl/sources/daily_trading_details.py:69 `if len(r) < need: continue`(twse need=19)。不需連網重現:`uv run --project research python -c \"from pathlib import Path; from datetime import date; from research.crawl.sources import daily_trading_details as dtd; txt = Path('data/daily_trading_details/twse/2026/2026_7_8.csv').read_bytes().decode('big5hkscs'); print(dtd._parse(txt, date(2026,7,8), 'twse').height)\"` → 1322,而 cache 與 PG 同日皆 1336,被丟掉的是 0061 00669R 1721 1731 2356 2701 3010 4526 4532 5007 6215 7827 8021 8261。抽驗 2356 英業達該列:外資 -7,554,041 + 投信 5,637,196 + 自營 19,583 = 合計 -1,897,262,三項相加相符,是完全合法的資料列。cache 已含 PG 沒有的 2026-07-20,證明爬蟲確實在寫 live 路徑。",
+      "fix": "改成依列寬分派(17 與 20 兩種都支援,語意與 Scala reader 的 case 17 / case _ 一致);research/crawl/tests/test_parity.py 補一條鎖死「17 欄列不得被丟棄」的測試。"
+    },
+    {
+      "severity": "OK",
+      "what": "六個格式世代全部辨識正確,2015 年以後的解析零錯誤。全 12,218 個原始檔獨立重解析後與 PostgreSQL 比對:8,210 個有資料的日子列數全部相符(0 天不符);twse 17/20 欄世代與 tpex 16/24 欄世代的 22 個數值欄逐欄相符。混合列寬列(現行檔裡的 17 欄列 549 列、舊檔裡的 20 欄列 18 列)由 reader 依列寬分派,全部落對欄位。",
+      "evidence": "自寫 Python csv + Big5-HKSCS 解析器(依各世代表頭文字決定欄位語意,不呼叫受測程式),抽樣日 twse 2014-12-01 / 2017-12-15 / 2017-12-18 / 2021-03-04 / 2026-07-15、tpex 2014-12-01 / 2016-06-15 / 2018-01-12 / 2018-01-15 / 2022-06-15 / 2026-07-15 全部『ALL 22 NUMERIC COLUMNS MATCH』。混合列寬抽驗:twse 2026-07-08 的 2356 英業達(17 欄列)DB 值 fx=-7554041 / trust=5637196 / dealers=19583 / total=-1897262,與原始檔一致且三項相加等於合計。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "欄位漂移、編碼、日期、單位、正負號等其餘無聲錯誤類型全部查過:0 個表頭文字不符、0 個未知列寬(twse 只有 13/17/20;tpex 只有 12/16/24)、0 個非數值字元落進數值欄、0 個檔內重複代號、0 列中文亂碼、0 列異常 company_code、0 列真資料被列寬過濾丟掉。民國轉西元 8,208/8,210 標題日期與檔名相符(2 個例外即上面的別天資料),2,047 個無標題檔全是 TPEx 休市空表,1,961 個 0 位元組檔是休市 sentinel。所有欄位單位一致為股數,無元/千元/張混用,無百分比欄。",
+      "evidence": "全 12,218 檔掃描腳本輸出:header_mismatch_files=0、unknown_width={}、duplicate code-in-file rows=0、non-numeric tokens 空、rows with <12 fields whose first cell looks like a stock code = 0(短列全是單欄說明文字,如「說明:」「自營商表示證券自營商專戶。」)。`psql -tc \"SELECT market, count(*) FILTER (WHERE company_name ~ '[?]|<replacement>'), count(*) FILTER (WHERE company_code !~ '^[0-9A-Za-z]+$') FROM daily_trading_details GROUP BY market;\"` → 0 | 0(兩市場)。='00637L' 前綴由 util/QuantlibCSVReader.scala:23 的 nextLine.replace(\"=\",\"\") 剝除,DB 存的是 00637L。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "外資自營商空白格寫成 0 而非 NULL(28 天、每天數列);以及 foreign_investors_total_* 把外資自營商加進外資合計,與交易所頁尾「外資自營商買賣股數已計入自營商買賣股數,故不納入三大法人合計」的定義相衝突。兩者目前皆零數值影響。",
+      "evidence": "原始檔在「外資自營商買進/賣出」給空字串、「買賣超」給 0(例 data/daily_trading_details/twse/2016/2016_8_15.csv 的 6239 力成),Try(...).getOrElse(0) 一律轉 0,語意等價。雙重計算的部分:`psql -tc \"SELECT market, count(*) FILTER (WHERE foreign_dealers_difference IS NOT NULL AND foreign_dealers_difference<>0), count(*) FILTER (WHERE foreign_dealers_total_buy<>0) FROM daily_trading_details GROUP BY market;\"` → tpex 0|0、twse 0|0(非空值共 376 萬列)。交易所定義出處:data/daily_trading_details/tpex/2026/2026_7_15.csv 頁尾「*三大法人買賣超股數合計=外資及陸資淨買股數(不含自營商)+投信淨買股數+自營商淨買股數合計」「因外資自營商買賣金額已計入自營商買賣金額,故不納入三大法人買賣金額之合計數計算」。",
+      "fix": "目前無須動;若交易所開始給非零的外資自營商數字,foreign_investors_total_* 會與三大法人合計重複計算,屆時需改成不含外資自營商。建議先在註解寫明這條交易所規則與其出處。"
+    }
+  ],
+  "checked": [
+    "src/main/scala/reader/TradingReader.scala:160-246(readDailyTradingDetails 六個分支逐一對照原始檔表頭)",
+    "src/main/scala/db/table/DailyTradingDetails.scala(26 欄 Slick schema、型別、唯一索引)",
+    "src/main/scala/setting/DailyTradingDetailsSetting.scala(validate 只檢查表頭關鍵字/最少 100 列/最少 19 欄)",
+    "src/main/scala/util/QuantlibCSVReader.scala('=' 剝除、含 \"\" 行跳過的啟發式)",
+    "research/crawl/sources/daily_trading_details.py(雲端 Python 平行實作)+ research/crawl/tests/test_parity.py",
+    "全 12,218 個原始檔獨立重解析(Python csv + Big5-HKSCS,不呼叫受測程式),逐日逐欄與 PostgreSQL 比對列數、22 欄加總、22 欄 NULL 數",
+    "跨時代抽樣逐列比對 18 個交易日:twse 2012-05-02 / 2013-06-14 / 2014-11-28 / 2014-12-01 / 2016-08-15 / 2017-12-15 / 2017-12-18 / 2021-03-04 / 2026-07-15;tpex 2007-04-23 / 2010-06-15 / 2014-11-28 / 2014-12-01 / 2016-06-15 / 2018-01-12 / 2018-01-15 / 2022-06-15 / 2026-07-15",
+    "六個格式世代的表頭文字與欄序(twse 13/17/20、tpex 12/16/24),含世代交界日與混合列寬檔",
+    "檔名日期 vs 檔內民國標題日期(全 12,218 檔)",
+    "跨日期內容指紋比對(找出整日複製/stale payload)",
+    "三大法人恆等式 total = foreign + trust + dealers(全 587 萬列)",
+    "dealers_difference 正負號分布(分世代)",
+    "int32 溢位候選值全庫掃描",
+    "非數值 token、檔內重複代號、未知列寬、被過濾的短列、company_name 亂碼、company_code 字元集",
+    "daily_quote 與 daily_trading_details 的交易日覆蓋交叉比對(雙向缺漏)",
+    "DuckDB cache(var/cache/cache.duckdb)vs PostgreSQL 近 15 個交易日列數與污染日內容",
+    "交易所官方頁尾定義(TWSE T86 與 TPEx 3itrade 的三大法人合計算式與外資自營商歸屬)",
+    "下游消費者盤點:research/cache_tables.py:45、research/db.py:129、research/apex/data.py:171、research/futures/strategies.py:161、research/strat_lab/iter_32_first_principles.py:218、research/analyses/iter95_strategy_spec_report.py:328"
+  ]
+}

@@ -1,0 +1,46 @@
+{
+  "id": "C-bs_concise_raw",
+  "dim": "C",
+  "table": "bs_concise_raw",
+  "unit": "C-bs_concise_raw",
+  "verdict": "BUG",
+  "summary": "資產負債表的數字本身可以信——cache 與 PostgreSQL 214 萬列、7 欄逐列逐欄零差異,異常值掃描全清,88,583 個公司季的『資產 = 負債 + 權益』恆等式一筆不差;不能信的是『這一季有幾家公司』:2026Q1 的原始檔在法定申報截止日(5/15)前 5 天就被抓走並永久凍結,TWSE 只有 311/1069 家、TPEx 只有 228/881 家(1,411 家憑空消失,缺 72%),而且爬蟲設計上『這一季有檔就永遠不再抓』,今天已經過截止日 68 天仍然沒補。同一根因還讓 2022Q4~2025Q3 之間至少 13 個季度永久缺 14~111 家(金融股被砍得最兇,因為金融業半年報截止日更晚)。下游 research/raw_quarterly.parquet 已經吃到這個洞(2026Q1 只有 539 家)。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "2026Q1 資產負債表只有 539 家公司(twse 311 / tpex 228),對照 2025Q4 的 1,950 家(twse 1069 / tpex 881),缺 1,411 家(72%)。根因是原始檔在 2026-05-10 下載,比證交法 §36 的 5/15 申報截止日早 5 天,只抓到提前申報的公司;而 Task.pullQuarterlyFiles 用 filterNot(existFiles) 以『(年,季) 有任何檔案就跳過』的粒度去重,這一季從此永遠不會再被抓。今天是 2026-07-22,已過截止日 68 天,資料仍停在 28% 覆蓋率。",
+      "evidence": "檔案時間:ls -la data/balance_sheet/twse/2026/ → 2026_1_a_c_0.csv(78,852 B)、2026_1_a_c_1.csv(1,815 B),兩檔 mtime 皆 2026-05-10;tpex 同日兩檔。對照完整季 2025Q4 有 6 個 twse 表(10+3+1033+13+6+4 = 1069 家)、2 個 tpex 表(7+874 = 881 家)。cache 實測:SELECT year,quarter,COUNT(DISTINCT company_code) FROM bs_concise_raw WHERE market='twse' GROUP BY 1,2 → 2025Q4=1069、2026Q1=311;tpex 881→228。程式碼根因:src/main/scala/Task.scala:589-597(excludeYearToQuarter 在 5 月 1 日就把 (thisYear,1) 放行,早於 5/15 截止日)+ src/main/scala/Task.scala:599(.filterNot(existFiles))+ src/main/scala/setting/Detail.scala:123-130(getTuplesOfExistFiles 以 (year,quarter) 為粒度)。同樣的『視窗早開』出現在四個季:Q1 於 5/1 開(截止 5/15)、Q2 於 8/1 開(截止 8/14)、Q3 於 11/1 開(截止 11/14)、Q4 於 3/1 開(截止 3/31)。下游已受汙染:research/raw_quarterly.parquet(2026-07-07 產出)2026Q1 只有 539 列、2025Q4 有 1950 列。",
+      "fix": "補抓三步驟,順序不能反(因為 FinancialReader.readBalanceSheet 會跳過 DB 已有 (market,type,year,quarter) 的檔,且用 ++= 純 insert,不刪就會撞 unique index):(1) psql -c \"DELETE FROM concise_balance_sheet WHERE year=2026 AND quarter=1;\" (2) rm data/balance_sheet/twse/2026/2026_1_a_c_*.csv data/balance_sheet/tpex/2026/2026_1_a_c_*.csv (3) sbt \"runMain Main pull balance_sheet\" && sbt \"runMain Main read balance_sheet\" && uv run --project research python research/cache_tables.py。端點即現有的 MOPS t163sb05(TYPEK=sii / otc,application.conf 的 data.balanceSheet.page.afterIFRSs)。根因守護:把 excludeYearToQuarter 的視窗改成『法定截止日 + 緩衝』(Q1 6/1、Q2 9/1、Q3 12/1、Q4 5/1 開窗),並把去重粒度從 (year,quarter) 改成『該季公司數已達鄰季水準』或加一個 max-age 重抓規則,否則任何一次早跑 Main update 都會再造一個永久破洞。注意:concise_income_statement_progressive 與 cash_flows_progressive 走同一條 pullQuarterlyFiles 路徑,幾乎確定有一模一樣的破洞,建議一起檢查補齊。"
+    },
+    {
+      "severity": "BUG",
+      "what": "同一根因造成的歷史殘留:至少 13 個季度因為『下載時間離截止日太近』而永久少了一批晚申報的公司,且永遠不會補。twse 2023Q2 少 111 家、twse 2025Q2 少 101、twse 2024Q1 少 74、twse 2023Q3 少 69、tpex 2023Q3 少 66、tpex 2024Q1 少 60、tpex 2025Q2 少 38、tpex 2023Q2 少 33、twse 2024Q3 少 30、twse 2025Q3 少 21、tpex 2024Q3 少 21、tpex 2025Q3 少 15、twse 2022Q4 少 14。金融股受害最深——金融業半年報申報期限晚於一般業,而 2023Q2/2025Q2 都在 8/20-8/21 抓,銀行業表只抓到 3 家(2023Q1 有 10 家)、保險業表只抓到 2 家(2023Q1 有 6 家)。",
+      "evidence": "對每個 (market,year,quarter) 算『原始檔最晚 mtime』與法定截止日(Q1 5/15、Q2 8/14、Q3 11/14、Q4 次年 3/31)的距離,對照 cache 公司數與鄰季最大值:tpex 2026Q1 早 5 天 → 缺 653;twse 2026Q1 早 5 天 → 缺 758;twse 2023Q2 晚 6 天 → 缺 111;tpex 2023Q2 晚 6 天 → 缺 33;twse 2025Q2 晚 7 天 → 缺 101;tpex 2024Q1 晚 1 天 → 缺 60;twse 2024Q1 晚 1 天 → 缺 74;twse 2024Q3 晚 8 天 → 缺 30。反證(證明晚抓就沒事):tpex 2023Q1 於截止後 1074 天才抓 → 缺 0;twse 2023Q4 於截止後 753 天才抓 → 反而比鄰季多 69 家。原始檔表數直接看得出來:2023Q2 twse 只有 4 個表(2023Q1 有 6 個)、2025Q2 twse 只有 5 個表;一般業表 2023Q2=881 列 vs 2023Q1=954 列。重跑腳本:/private/tmp/.../bs_download_timing.py(邏輯已寫入本報告 findings/C-bs_concise_raw.md 附錄)。",
+      "fix": "與上一條同一根因、同一補法:逐季 DELETE + rm 原始檔 + 重抓 + 重讀 + rebuild cache。建議一次補完清單:twse 2022Q4、2023Q2、2023Q3、2024Q1、2024Q3、2025Q2、2025Q3;tpex 2023Q2、2023Q3、2024Q1、2024Q3、2025Q2、2025Q3;外加 2026Q1 兩市場。這些季現在距截止日都已超過一年,重抓即可拿到完整名單。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 逐列逐欄完全一致(非抽樣,是全體):2,142,171 列雙向 EXCEPT ALL 皆為 0,重複主鍵 0 筆。schema 型別零降級(double precision→DOUBLE、integer→INTEGER、varchar→VARCHAR),cache 只是把 PG 的 9 欄投影成 7 欄(丟掉 id 與 company_name,刻意取捨)。167 個 (market,year,quarter) 分組的列數、公司數、科目數三個數字全部相等。",
+      "evidence": "DuckDB ATTACH pg + ATTACH cache:SELECT COUNT(*) FROM (SELECT * FROM pg_rows EXCEPT ALL SELECT * FROM ca.bs_concise_raw) = 0;反向亦為 0;pg 2,142,171 = cache 2,142,171。PG 側分佈:SELECT market,type,COUNT(*) FROM concise_balance_sheet GROUP BY 1,2 → tpex/consolidated 899,445、twse/consolidated 1,242,726(兩者合計 = cache 總數)、tpex/individual 455,882、twse/individual 883,657(被 cache_tables.py:88-91 的 WHERE market IN ('twse','tpex') AND type='consolidated' 刻意排除)。逐季分組比對:167/167 組的 (n, n_codes, n_titles) 全等。抽樣佐證:3 個季 × 5 檔隨機(2008Q1 × 3221/2464/3021/3303/2606、2016Q1 × 4426/1454/3003/2488/8415、2009Q1 × 6292/3211/1707/3022/9944)共 302 列 2,114 個欄位值,pandas DataFrame.equals = True。cache 建置時間 2026-07-21 08:16,與 PG 無落差。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "異常值掃描全清:NULL 0、NaN 0、Inf 0、鍵欄位 NULL 0、重複主鍵 0、quarter 全在 1..4、無未來期別(最大 2026Q1)。最強的內部一致性檢定通過——88,711 個同時有『資產/負債/權益』三個總計欄的公司季,恆等式 資產 = 負債 + 權益 的最大誤差是 0.0(再拆成 post-IFRS『總計』56,570 筆、pre-IFRS『總額』32,013 筆,兩套命名各自也是 0 違反)。原始檔的 '--'(不適用)被正確丟棄而非寫成 0。",
+      "evidence": "SELECT COUNT(*) FILTER (WHERE value IS NULL) / isnan(value) / isinf(value) → 0/0/0。恆等式:WITH w AS (SELECT ... MAX(CASE WHEN title='資產總計' ...)) SELECT COUNT(*) FILTER (WHERE abs(a-(l+e)) > 1e-6*greatest(abs(a),1)) → 0,MAX(abs(a-(l+e))) = 0.0。'--' 處理:1216 統一 2026Q1 原始列有 4 個 '--' 欄(權益─具證券性質之虛擬通貨、庫藏股票、共同控制下前手權益、合併前非屬共同控制股權),cache 該公司季只有 17 個 title,四個 '--' 欄全數不存在(不是 0);程式對應 src/main/scala/reader/FinancialReader.scala:98(.filter(v => Try(v._2.toDouble).isSuccess))。極端值:資產總計 = 0 僅 1 筆、股本 = 0 僅 6 筆、流動資產/流動負債 = 0 各 5 筆,全部集中在 TDR 發行人(910801、910708)與已下市空殼(4144、3990、1258);權益總計為負 9 筆(6497、6287、3043、3085),是真的淨值為負。141 個 title 同時涵蓋 post-IFRS(資產總計)與 pre-IFRS(資產總額)兩套命名,長格式 title 設計讓 2026 新增的『權益─具證券性質之虛擬通貨』欄位自動被吸收,不會像寬表那樣欄位錯位。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "2018 年以前 Q1/Q3 系統性比 Q2/Q4 少 40~80 家,看起來像漏抓,其實是法規:未上市未上櫃公司(興櫃/公發)依『公開發行公司財務報告及營運情形公告申報特殊適用範圍辦法』§3 得免公告申報第一季及第三季合併財務報告,只交半年報與年報。這些公司一旦上市/上櫃就轉為四季都報。",
+      "evidence": "決定性樣本:2633 台灣高鐵在 cache 裡 2013Q2~2015Q4 只有 Q2/Q4,2016Q1 起四季齊全(2016-10-27 上市);5876 上海商銀 2012Q4~2017Q4 只有 Q2/Q4,2018Q1 起四季齊全(2018-10-19 上市);1760、1587、2897 同型態。排除漏抓的鐵證:這些季的原始檔是 2020-07-19 抓的(離截止日 1,700~2,600 天),而且 2015Q1 twse 有完整 6 個表,檔案裡就是沒有這些公司——python 直接數:2015Q1 六檔合計出現次數 2633=0、5876=0、2897=0、1760=0,而 1216 台化=1;2015Q2 同樣六檔則全部 =1。法源:https://law.fsc.gov.tw/LawContent.aspx?id=GL000593(未上市、未上櫃之國內及外國公司…得免公告申報第一季及第三季合併財務報告)。另:2004Q1~2007Q3 的 Q1/Q3 在 cache 幾乎是空的(2~22 家),因為當年合併報表只有半年報/年報,PG 裡那些季的 individual(個體)型別有 1,000~1,144 家,而 cache 的 type='consolidated' 過濾把它們全排除——這是刻意設計,不是 bug,但用 cache 的人要知道 2008 年以前沒有 Q1/Q3 合併資產負債表。",
+      "fix": "不需修資料。但用 bs_concise_raw 的程式不可把『某季查無此公司』解讀為公司消失或退市——2018 年以前的 Q1/Q3 尤其。建議在 research/strat_lab/raw_quarterly.py 的 docstring 註明此邊界。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "market 欄的語意是『這列來自 MOPS 的哪一個 TYPEK 頁面(sii/otc)』,不是『這檔股票在哪裡掛牌』。尚未上市的公司會帶著 market='twse' 出現好幾年(2633 台灣高鐵從 2013Q2 起、5876 上海商銀從 2012Q4 起,兩者分別到 2016/2018 才上市)。若有程式拿 bs_concise_raw.market 當可交易性或市場別的過濾條件,會把當年還不能買的公司算進 universe。",
+      "evidence": "SELECT company_code, market, MIN(year*10+quarter) FROM bs_concise_raw WHERE company_code IN ('2633','5876') GROUP BY 1,2 → 2633/twse/20132、5876/twse/20124;台灣高鐵 2016-10-27 上市、上海商銀 2018-10-19 上市。整體檢查結果健康:同一季同一代號出現在兩個 market 的情形 0 筆;跨期換過 market 的代號 13 個(轉上市屬正常)。另有 5,164 列是 6 碼代號(910322、911610 等 TDR 發行人,僅 2007~2013、twse 24 檔 + tpex 1 檔),與 daily_quote 的 4 碼代號 join 不上,會靜默消失。",
+      "fix": "在需要『當時可否交易』的地方,用 daily_quote 當日是否有報價來判斷,不要用 bs_concise_raw.market;或在 research/strat_lab/raw_quarterly.py 產出的面板裡明確標註 market 的來源語意。"
+    }
+  ]
+}

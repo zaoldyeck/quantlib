@@ -1,0 +1,106 @@
+{
+  "id": "C-operating_revenue",
+  "dim": "C",
+  "table": "operating_revenue",
+  "unit": "C-operating_revenue",
+  "verdict": "BUG",
+  "summary": "2013 年以後的解析零錯誤、月份零缺口、負值零值都是真的;但最近三個月(2026-04/05/06)cache 與 PostgreSQL 對不上——PG 少了一整片金融保險業(富邦金 2881 三個月完全沒有),cache 少了三家下市公司與所有 TDR,而且每跑一次資料更新兩邊會互相覆蓋、答案來回翻,所以近三個月的月營收不能信。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "PostgreSQL 永久漏掉「15 號之後才申報」的公司:twse/consolidated 金融保險業從 2026-01..03 的 32 家掉到 2026-04/05/06 的 17/16/24 家;富邦金 2881 在 PG 完全沒有這三個月的月營收。根因是 Task.pullOperatingRevenue 以 .filterNot(existFiles) 跳過已存在檔案,只有 dayOfMonth<=15 才重抓上月,而 MOPS t21sc03 檔在 15 號後仍持續長大,窗一關就永久凍結。",
+      "evidence": "psql -h localhost -p 5432 -d quantlib -c \"SELECT year,month,COUNT(*) FILTER (WHERE industry='金融保險業') fin,COUNT(*) all_ FROM operating_revenue WHERE market='twse' AND type='consolidated' AND year=2026 GROUP BY 1,2 ORDER BY 1,2;\" → 2026-01..03 fin=32/all=1070,1072,1073;2026-04/05/06 fin=17/16/24、all=1062/1065/1072。`wc -l data/operating_revenue/twse/2026/2026_4_c.csv`=1063(含表頭)= PG 1062 列,且 `grep -c '\"2881\"'` = 0。cache 同鍵為 1081 列、fin=32。程式碼:src/main/scala/Task.scala:189-217(inWindow 條件 LocalDate.now.getDayOfMonth <= 15、gated.filterNot(existFiles));src/main/scala/reader/FinancialReader.scala:299-303(revenueRefreshWindow 同條件的 delete+insert)。旁證:2026_1..3_c.csv 的 mtime 為 02-23/04-01/04-19(都在 15 號後才落地)故完整,2026_4/5/6_c.csv 為 05-13/06-11/07-15(15 號前)故殘缺。",
+      "fix": "重整視窗改為以內容判定而非日期判定:每次 update 都重抓最近 N(>=3)個月,比對列數與代號集合,有變化才 delete+insert;移除沒有量測出處的 dayOfMonth<=15 魔術數字。補抓:MOPS POST https://mopsov.twse.com.tw/server-java/FileDownLoad,form step=9&functionName=show_file&filePath=/home/html/nas/t21/sii/(tpex 用 /otc/)&fileName=t21sc03_115_4.csv(及 _5、_6),再跑 sbt \"runMain Main read operating_revenue\"。"
+    },
+    {
+      "severity": "BUG",
+      "what": "同一張表有兩條會互相覆蓋的寫入路徑,內容取決於今天先跑了哪一條,回測不可重現。Python 爬蟲 research/crawl/sources/operating_revenue.py::refresh 每次重抓最近 3 個月、經 Sink.upsert 直寫 cache.duckdb(不經 PG);research/cache_tables.py 則 os.remove 後從 PG 全砍重建。目前 cache 領先 PG(獨有 63 列、缺 10 列、24 列值不同),一旦跑 CLAUDE.md 規定的 Step 2 就會退回 PG 的殘缺版(1081→1062)。",
+      "evidence": "cache 481,582 列 vs PG 481,529 列;逐 (market,type,year,month) 差異只在 2026-04/05/06(twse +19/+16/+9、tpex +5/+3/+1)。research/cache_tables.py:20-23 `if os.path.exists(DB_PATH): os.remove(DB_PATH)` + 第 44 行 `CREATE TABLE operating_revenue AS SELECT ... FROM pg.public.operating_revenue`;research/crawl/sink.py:37-60 upsert 為「DELETE 該 key 全部 + INSERT」;research/crawl/sources/operating_revenue.py:30 `_REFRESH_MONTHS = 3`。呼叫點:research/serenity/daily.py:242 的 live 每日 loop 會跑 cache_tables.py。消費端(money path):research/serenity/daily.py:135 讀 monthly_revenue_yoy、research/apex/data.py:223。",
+      "fix": "選一個唯一寫入者:要嘛 Python 爬蟲同時回寫 PG,要嘛 cache_tables.py 對 operating_revenue 改成 merge(不 drop 既有列)。並加守護測試:對每個 (market,type,year,month),cache 列數必須 >= PG 且代號集合為超集,否則紅燈。"
+    },
+    {
+      "severity": "BUG",
+      "what": "重抓舊月份會刪掉已下市公司的歷史列,製造生存者偏誤。3426 台興(最後交易 2026-06-01)、4987 科誠(2026-05-20)、6806 森崴能源(2026-06-22)在 05-13 抓下的原始 CSV 與 PG 內都有 2026-04 月營收,但在 7 月重抓寫入的 cache 內整列消失——MOPS 彙總檔是「當下上市清單」的快照,下市後連歷史列也不再出現,而 Sink.upsert 是刪整月再插。",
+      "evidence": "grep '\"3426\"' data/operating_revenue/tpex/2026/2026_4_c.csv → 54906;grep '\"4987\"' → 122570;grep '\"6806\"' data/operating_revenue/twse/2026/2026_4_c.csv → 1052473。cache:SELECT company_code,year,month FROM operating_revenue WHERE company_code IN ('3426','4987','6806') AND year=2026 → 只剩 month 1,2,3。停止交易日:SELECT company_code,max(date) FROM daily_quote WHERE company_code IN ('3426','4987','6806') GROUP BY 1 → 2026-06-01 / 2026-05-20 / 2026-06-22。_REFRESH_MONTHS=3 表示每家公司下市前最後 3 個月都可能被抹掉。",
+      "fix": "Sink.upsert 對 operating_revenue 改成 upsert-by-(market,type,year,month,company_code):只新增與更新,不刪除既有代號;或對「本次抓到的代號集合不是上次的超集」fail-loud 並保留舊列。"
+    },
+    {
+      "severity": "BUG",
+      "what": "6 碼 TDR(存託憑證)被 Python 爬蟲的代號正則吃掉,912000 晨訊科-DR / 910069 / 912398 的月營收在被 Python 重寫過的月份整列消失。",
+      "evidence": "research/crawl/sources/operating_revenue.py:36 `_CODE = re.compile(r\"^\\d{4}[0-9A-Z]?$\")`(最多 5 碼),第 62-64 行 `if not _CODE.match(code): continue`。實測 _CODE.match('912000') → None。cache:912000 只有 2026-01/02/03(那是從 PG 重建來的),04/05/06 不存在;PG 三個月都有(且 912000 daily_quote 最後交易日 2026-07-20,公司仍在市)。",
+      "fix": "正則放寬為 ^\\d{4,6}[0-9A-Z]?$,並對「本次解析出的列數明顯少於上次」fail-loud(現在是靜默 continue)。"
+    },
+    {
+      "severity": "REAL",
+      "what": "我們只保留「首次公告值」,事後更正不會回補。8942 森鉅 2026-04:原始檔與 PG=250,438,7 月重抓為 213,316(另 1220 台榮、3095 及成、6426 統新同型)。更廣量測:PG 自帶的「去年當月營收」欄 vs 我們自己一年前存的那一列,2014 年起 254,381 對中 7,206 對不一致(2.8%)、323 對差 >50%,逐年穩定。",
+      "evidence": "grep '\"8942\"' data/operating_revenue/tpex/2026/2026_4_c.csv → 250438;cache 同鍵 213316。原始檔備註自證,例:grep '\"4950\"' data/operating_revenue/tpex/2025_10_c.csv → 「因113年12月適用組織重組,追溯113年9月,故去年同期申報數與去年公告金額不同」。SQL(DuckDB attach pg):以 (year,month,company_code,market,type) self-join 比 a.last_year_monthly_revenue 與 b.monthly_revenue(b.year=a.year-1),2014+ n=254,381、differ=7,206、differ_gt50=323。",
+      "fix": "不需修資料(首次公告值天然 PIT,適合回測);但要在文件寫清楚:任何拿本表算同比的程式,分母應優先用同列的 last_year_monthly_revenue 欄(MOPS 現行口徑),而非我們自己一年前那一列。cache 目前沒有這一欄。"
+    },
+    {
+      "severity": "BUG",
+      "what": "這張表唯一的稽核腳本 research/audits/05_revenue_audit.py 一跑就爆,所以沒人在稽核它——這是上面的洞能安靜躺三個月的直接原因。CLAUDE.md 仍把它列為可跑指令。",
+      "evidence": "uv run --project research python research/audits/05_revenue_audit.py → `_duckdb.BinderException: Binder Error: Catalog \"pg\" does not exist!`(05_revenue_audit.py:23 查 pg.public.operating_revenue,但 research/db.py:68-87 connect() 預設 use_cache=True,cache 存在就回 cache 連線)。",
+      "fix": "改用 connect(use_cache=False),或把查詢改成 cache 可用的欄位;並把它接進每日 loop 的健康檢查。"
+    },
+    {
+      "severity": "OK",
+      "what": "解析欄位對齊零錯誤(IFRS 後 2013+)。三組來源自帶的百分比欄位與自身的金額欄位逐列驗算,全部吻合。",
+      "evidence": "DuckDB attach pg,對 pg.public.operating_revenue:去年同月增減% vs (當月/去年當月-1)*100 不合 0/277,117;上月比較增減% vs (當月/上月-1)*100 不合 0/276,270;累計前期比較增減% vs (累計/去年累計-1)*100 不合 0/277,757(門檻 0.01pp)。IFRS 前 HTML 來源分別 18/2/20 例(約 0.01%,屬來源四捨五入)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "抽樣逐欄比對 cache vs PG 全同;整表共用鍵的值差異僅 24 列且全部落在 2026-04..06。",
+      "evidence": "3 個月 x 5 檔(2010-07、2020-10、2023-08)9 欄逐欄比對 15/15 全同。整表 shared-key 比對:company_name 6 筆(4530 宏易→天意能創、8472 夠麻吉→納維康、4953 緯軟→緯致 等更名)、industry 14 筆(產業別重分類)、monthly_revenue 4 筆、monthly_revenue_yoy 4 筆,全部 year=2026 且 month>=4。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "月份序列零缺口,且最新月份正確不算過期。",
+      "evidence": "cache:twse/consolidated 與 tpex/consolidated 皆 2005-01..2026-06 共 258 個月、missing=0;twse/tpex individual 皆 2001-06..2012-12 共 139 個月、missing=0。max(year*100+month)=202606,今天 2026-07-22,7 月營收要 8/10 前才公告,故不缺。2005-2012 consolidated 列數偏低是真實現象(IFRS 前合併營收非強制,individual 才是主檔)。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "負營收 800 筆、零營收 1,435 筆都是真的,不是解析錯。",
+      "evidence": "負值分佈:金融保險業 250、金融業 232、金控控股口徑 73、證券 33。非金融兩大戶回原始檔驗證:2905 三商 2025-06 = -3,729,844,備註「主係子公司提列外匯價格變動準備淨變動」(grep '\"2905\"' data/operating_revenue/twse/2025_6_c.csv);6901 鑽石投資 2025-03 = -646,593,備註「營業收入為投資標的之評價損益(含已實現及未實現)」。零營收 2013+ 集中生技醫療業 624、建材營造 226,與 CLAUDE.md 已知真實邊界一致。另:無重複鍵、無未來月份、無壞年月。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "schema 對照:cache 只同步 9 欄(PG 有 17 欄),型別無降級;但被丟掉的欄位包含「去年當月營收」與「累計營收」系列,做累計/MoM 研究時 cache 不夠用。另外原始檔的「備註」欄從來沒進資料庫,而判斷負營收真偽正需要它。",
+      "evidence": "PG \\d operating_revenue → 17 欄(含 id);cache DESCRIBE operating_revenue → 9 欄。對應關係 double precision→DOUBLE、character varying→VARCHAR、integer→INTEGER,一一對齊,無降級。cache_tables.py:44 的 SELECT 明確只取 9 欄。備註欄:FinancialReader.readOperatingRevenue 的 CSV 分支 `splitAt(5)._2.init` 丟掉最後一欄(備註),PG schema 亦無此欄。",
+      "fix": "若要讓 research 端能自行判斷負營收真偽,建議把備註欄加進 Slick Table 與 cache;至少把 last_year_monthly_revenue 加進 cache_tables.py 的 SELECT。"
+    },
+    {
+      "severity": "OK",
+      "what": "2013 年前 individual 與 consolidated 併存,不篩 type 的查詢在 2005-2012 會重複計算(27,917 組)。現有 money-path 消費端已檢查,無實害。",
+      "evidence": "cache:SELECT year,month,company_code,COUNT(*) FROM operating_revenue GROUP BY ALL HAVING COUNT(*)>1 → 27,917 組,max(year)=2012。research/apex/data.py:218-228 用 ROW_NUMBER() ORDER BY CASE type WHEN 'consolidated' THEN 0 ELSE 1 END 正確去重;research/serenity/daily.py:135 未篩 type,但只讀近月(2013+ 只有 consolidated)故無實害。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "research/records/revenue_first_seen.parquet(S 事件驅動進場的時間真相)未被 cache 內容翻覆污染。",
+      "evidence": "1,962 列、全為 2026-06;first_seen 分佈 07-07(325)/07-09(882)/07-13(547)/07-14(203)/07-17(5)。research/serenity/daily.py 用 parquet 自身的 known 集合做記憶,代號被移除後再出現不會產生第二筆 first_seen。金控 first_seen:2892/5880=07-14,2882/2886/2887/2891=07-17(晚於 Scala 的 15 號窗,證實這些列只由 Python 爬蟲進 cache)。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema 對照:psql \\d operating_revenue(17 欄)vs DuckDB DESCRIBE operating_revenue(9 欄),逐欄型別對應與 research/cache_tables.py:44 的 SELECT 清單",
+    "整表列數:PG 481,529 vs cache 481,582;逐 (market,type) 與逐 (market,type,year,month) 全 794 組比對",
+    "鍵級差異:DuckDB ATTACH postgres 做 cache/PG 雙向 anti-join(2026 年 4-6 月),列出 63 筆 cache-only + 10 筆 pg-only 的完整清單",
+    "共用鍵逐欄值比對(全史 481k 列):company_name / industry / monthly_revenue / monthly_revenue_yoy 各自的不一致筆數與樣本",
+    "指定抽樣:3 個月 x 5 檔(2010-07、2020-10、2023-08)9 欄逐欄比對",
+    "月份覆蓋:每個 (market,type) 的 year*12+month 連續性檢查與低列數月份標記",
+    "PG 內部算式一致性:YoY% / MoM% / 累計 YoY% 對照自身金額欄位(IFRS 前後分開統計)",
+    "更正與追溯:PG last_year_monthly_revenue 對照我們自己一年前存的列,2014-2026 逐年統計",
+    "異常值:null/負/零 monthly_revenue、負值的產業分佈、非金融負值清單、零值的產業分佈、極端 YoY、未來年月、壞年月、重複鍵、company_code 格式",
+    "原始檔對帳:grep 2905/6901/8942/4950/3426/4987/6806/2881/912000 於 data/operating_revenue/{twse,tpex}/ 的對應 CSV,含備註欄",
+    "檔案盤點:data/operating_revenue/{twse,tpex}/ 逐年檔案清單與 mtime(定位重整視窗行為)",
+    "程式碼:src/main/scala/Task.scala::pullOperatingRevenue、src/main/scala/reader/FinancialReader.scala::readOperatingRevenue、src/main/scala/setting/OperatingRevenueSetting.scala、research/cache_tables.py、research/crawl/update.py、research/crawl/sink.py、research/crawl/sources/operating_revenue.py、research/db.py::connect",
+    "消費端盤點:research/apex/data.py、research/serenity/daily.py、research/tri/daily.py、research/serenity/discovery_funnel.py 的 type 篩選與欄位使用",
+    "既有稽核腳本:實跑 research/audits/05_revenue_audit.py(失敗)",
+    "PG id 序列分佈(逐月 min/max/count)用以判定是否曾發生刪除與重灌",
+    "research/records/revenue_first_seen.parquet 的 first_seen 分佈與金控代號"
+  ]
+}

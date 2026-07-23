@@ -1,0 +1,79 @@
+{
+  "id": "A-index",
+  "dim": "A",
+  "source": "index",
+  "reader": "TradingReader.readIndex",
+  "table": "index",
+  "raw_files": 10149,
+  "unit": "A-index",
+  "verdict": "BUG",
+  "summary": "指數的數字本身可以信,解析器是乾淨的:另寫一份獨立解析器把全部 10,149 個原始檔(twse 2009→2026、tpex 2016→2026,不是抽樣)重讀,與 PG index 全表 769,751 列逐 (market,date,name) 逐欄比對——收盤點數 0 筆不符,列數『原始有 DB 沒有』0 筆、『DB 有原始沒有』0 筆,欄位無錯位、單位無誤、Big5 無亂碼、6,837 個非空檔的檔名日期 vs 內容民國日期 100% 相符,TWSE 第 6 欄『特殊處理註記』雖未接進 schema 但全史皆空、零損失。不能信的是四件事:(1) 有 8 個 twse 日期共 947 列整片是別的日期的資料(TWSE 靜默 fallback,把你要的日期印在檔頭、內容給別天),其中 3 天是週六根本沒開市;IndexSetting.validate 只比對檔頭日期,對這個失效模式完全無效。(2) 上櫃指數在 2024-06-27~2024-08-12 共 32 個交易日連檔案都不存在,加零星共缺 33 天;上市缺 2 天,另有 2 天是只剩一半指數的半殘檔。(3) change 與 change(%) 宣告成非 nullable,原始檔的『--』(當天未公布)一律被寫成 0,1,578 列『無資料』在庫裡長得像『當天平盤』。(4) TPEx 報酬指數改名器對已含『報酬指數』的 11 檔多疊一次,7,506 列(tpex 全表 4.72%)名字變成『…報酬報酬指數』,用官方名 join 會查無資料。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "8 個 twse 日期(2015-08-29、2016-05-26、2017-08-02、2018-08-04、2018-09-15、2018-10-03、2019-07-05、2019-09-25)共 947 列,整片是另一個日期的資料——每一檔指數的 close 與 change 都與來源日一字不差。其中 2015-08-29、2018-08-04、2018-09-15 是週六、daily_quote 為 0-byte sentinel(根本沒開市),整天是幻影列。根因不在解析器(它忠實搬運),在 IndexSetting.scala:14-17 的 validate 只比對『檔頭有沒有出現我要的民國日期』,而 TWSE 的 fallback 回應會把你要求的日期原樣印進檔頭、body 給別天的資料,這個守門對此失效模式無效(同一失效模式在 A-daily_quote 的 2009-12-12 已記錄過,是同一類缺陷散落在不同資料源)。",
+      "evidence": "SQL(可直接重跑):SELECT date, close, change FROM index WHERE market='twse' AND name='發行量加權股價指數' AND close IN (10634.85,7811.18,8257.32,10506.52,10995.39,9908.69,11087.47,10886.05) ORDER BY close,date; → 每個 close 恰好出現兩次(受汙染日 + 真來源日)且 change 相同:2015-08-29=2015-12-18、2016-05-26=2016-01-18、2017-08-02=2017-12-18、2018-08-04=2018-07-24、2018-09-15=2017-03-17、2018-10-03=2018-06-15、2019-07-05=2019-07-16、2019-09-25=2019-09-02。原始檔即已錯:iconv -f BIG5-HKSCS -t UTF-8 data/index/twse/2016/2016_5_26.csv | head -3 → 檔頭『105年05月26日』但『發行量加權股價指數』=7,811.18(2016 年 5 月台股在 8,400 附近;7,811 是 1 月水位),且該檔僅 91 行、鄰日 113 行。全表量化:docs/data_audit/scripts/A-index/probe8.py 逐日檢查 |close_t − close_(t−1) − change_t| > 0.02 的比例,767,148 個可檢查列中 2,367 列(0.31%)不一致、集中在 21 天,扣掉『前一天缺料』造成的連鎖後即上述 8 天。受影響列數:SELECT count(*) FROM index WHERE market='twse' AND date IN (...8 天...) → 947。",
+      "fix": "① 清除:DELETE FROM index WHERE market='twse' AND date IN ('2015-08-29','2016-05-26','2017-08-02','2018-08-04','2018-09-15','2018-10-03','2019-07-05','2019-09-25')(PG 與 var/cache/cache.duckdb 兩邊);3 個週六同時把原始檔改回 0-byte sentinel,其餘 5 天刪檔重抓重讀(readIndex 以 (market,檔名) 去重,不刪列就不會重匯)。② 根因守護:IndexSetting.validate 改成除檔頭日期外,再驗『本檔 發行量加權股價指數 的 close − change』是否等於 DB 中前一交易日的 close(容差 0.02),對不上即 [deferred] 刪檔重抓;等價守護也要補進 TPEx 側。③ 這條『只驗檔頭日期擋不住 TWSE fallback』的教訓應寫成跨資料源的共用驗收函式,別讓每個 Setting 各自重寫。"
+    },
+    {
+      "severity": "BUG",
+      "what": "33 個 tpex 交易日、2 個 twse 交易日的指數完全查無資料,另有 2 天只落了一半的指數。tpex 2024-06-27 ~ 2024-08-12 共 32 個交易日『連原始檔都不存在』(data/index/tpex/2024/ 從 2024_6_26.csv 直接跳到 2024_8_13.csv);2026-05-28 兩市場的 index 原始檔皆不存在;2016-09-10(週六補行交易日)檔案僅 122 bytes 表頭(TPEx 當天未公布)。twse 2009-12-12、2026-03-12 是 0-byte sentinel 但 daily_quote 當天有完整資料,屬真交易日漏抓。twse 2026-02-26、2026-03-11 是半殘檔(8.4KB/155 行 vs 鄰日 16.7KB/287 行),只落 135 列而非 267 列,值本身正確但少一半指數。影響:任何拿 index 當市場 regime / benchmark 的計算,2024 年 7 月整月拿不到櫃買指數。",
+      "evidence": "docs/data_audit/scripts/A-index/probe5.py(以 daily_quote 交易日為日曆)輸出:twse 交易日 4300 天、index 缺 2 天 [('2009-12-12',0),('2026-03-12',0)](括號內為檔案 bytes);tpex 交易日 2565 天、index 缺 33 天,其中 32 天標記 NO_FILE(2024-06-27~2024-08-12)、2026-05-28 NO_FILE、2016-09-10 為 122 bytes。目錄佐證:ls data/index/tpex/2024/ 只有 2024_6_26.csv → 2024_8_13.csv。半殘檔佐證:stat -f%z data/index/twse/2026/2026_2_26.csv = 8373(155 行)vs 2026_2_25.csv = 16735(287 行);SELECT date,count(*) FROM index WHERE market='twse' AND date IN ('2026-02-25','2026-02-26') GROUP BY 1 → 267 / 135。",
+      "fix": "補抓 tpex 2024-06-27~2024-08-12、2026-05-28、twse 2009-12-12、2026-03-12;2026-02-26、2026-03-11 先 DELETE FROM index WHERE market='twse' AND date IN ('2026-02-26','2026-03-11') 再重抓重讀(dedupe 是整檔跳過,不刪補不進去)。根因守護:pull 後對照 daily_quote 的交易日日曆盤點 index 缺日,缺日直接排進重抓佇列;另加『本日列數低於近 20 交易日中位數 80%』即判半殘、[deferred] 重抓。"
+    },
+    {
+      "severity": "BUG",
+      "what": "『當天未公布』被寫成 0,無法與『當天真的沒動』區分。db/table/Index.scala:29-31 把 change 與 change(%) 宣告成 Double 而非 Option[Double],於是 TradingReader.scala:433-438 只能把無法解析的值塞 0:case \"-\" => Try(-values(3).toDouble).getOrElse(0D)、case \"\" => 0、changePercentage = values(4).toDoubleOption.getOrElse(0)。TWSE 對未公布是印『--』。結果:1,578 列 close 為 NULL(正確,close 是 Option)但 change=0 且 change(%)=0,在庫裡長得像當天平盤;另 5 列方向欄有 +/- 但幅度欄是『--』被歸零(方向資訊丟失);另 2 列方向欄空白但幅度欄是 0.01 被歸零。做動能、波動度、regime 判斷會被這些假 0 汙染。",
+      "evidence": "原始檔:iconv -f BIG5-HKSCS -t UTF-8 data/index/twse/2026/2026_7_9.csv | sed -n '150p' → \"臺灣50報酬指數\",\"--\",\"\",\"--\",\"--\",\"\", ;落地:SELECT date,name,close,change,\"change(%)\" FROM index WHERE market='twse' AND name='臺灣50報酬指數' AND date IN ('2026-07-08','2026-07-09') → 07-08 (97679.53, 720.01) / 07-09 (NULL, 0, 0)。量化:SELECT count(*) FROM index WHERE close IS NULL AND change=0 AND \"change(%)\"=0 → 1578(860 個交易日)。docs/data_audit/scripts/A-index/probe_fields.py 與 probe3.py:pct 原始為『--』共 4,414 列,其中 2,831 列 close/change 有值(這批多數的真實漲跌幅四捨五入本來就是 0.00——TWSE 用『--』代替『0.00』——但有 21 列 |推得漲跌幅| ≥ 0.005% 被歸零);方向欄 +/- 但幅度『--』的 5 列:2014-04-01 臺灣低波動高股息(價格/報酬各 1)、2016-09-10 同兩檔、2017-06-03 電子通路類報酬指數;方向欄空白但幅度 0.01 的 2 列:2014-12-27 紡織纖維類報酬指數、2018-03-31 塑膠類報酬指數。",
+      "fix": "Index.scala 的 change 與 change(%) 改成 Option[Double](PG 端 ALTER TABLE ... DROP NOT NULL),readIndex 改用 toDoubleOption 不做 getOrElse(0);既有資料回填:UPDATE index SET change=NULL, \"change(%)\"=NULL WHERE close IS NULL AND change=0 AND \"change(%)\"=0(1,578 列),另 7 列個案依原始檔逐筆修正。"
+    },
+    {
+      "severity": "BUG",
+      "what": "TPEx 報酬指數改名器把官方名稱弄壞。TradingReader.scala:447 對報酬區無條件做 values.head.replace(\"指數\",\"\") + \"報酬指數\"。多數報酬指數在原始檔中與價格區同名(櫃買指數、半導體業…),需要加『報酬』以免撞名,這部分是對的;但有 11 檔原始名已自帶『報酬指數』,被再疊一次變成『…報酬報酬指數』。值是對的、查得到,但名字不是官方名,拿官方名 join 會查無資料。同一行的 .replace(\" \",\"\") 也把 'Quality 50指數'、'上櫃ESG 30指數'、'TPEx FactSet…' 的空白抹掉(5 檔)。目前尚未造成撞名丟列,但改名器一旦讓兩檔指數對映到同名,++= 會撞 unique index 讓整檔匯入失敗。",
+      "evidence": "SELECT count(*) FROM index WHERE market='tpex' AND name LIKE '%報酬報酬%' → 7506(占 tpex 全表 158,994 的 4.72%)。原始名 vs 落地名對照(docs/data_audit/scripts/A-index/probe6.py 全掃 tpex 報酬區 52 個原始名,11 個失真):'TPEx FactSet氣候韌性報酬指數'→'TPExFactSet氣候韌性報酬報酬指數'、'櫃買半導體領航報酬指數'→'櫃買半導體領航報酬報酬指數'、'富櫃200報酬正向2倍指數'→'富櫃200報酬正向2倍報酬指數'、'特選上櫃ESG成長/永續高股息/電子菁英/龍頭報酬指數'→'…報酬報酬指數'、'台灣5G報酬指數'、'臺灣5G+通訊報酬指數'、'特選臺灣電動車產業鏈代表報酬指數'、'TPEx FactSet半導體氣候韌性/淨零優選報酬指數' 同理。原始檔佐證:iconv -f BIG5-HKSCS -t UTF-8 data/index/tpex/2022/2022_1_13.csv | sed -n '40,41p' → \"櫃買半導體領航報酬指數\",\"10,570.30\",… / \"富櫃200報酬正向2倍指數\",\"23,455.32\",…。碰撞掃描(cmp_aligned.py):全史 (market,date,預期落地名) 碰撞 0 組,故目前無丟列。",
+      "fix": "改名器改成 if (name.endsWith(\"報酬指數\")) name else name.replace(\"指數\",\"\") + \"報酬指數\";並停止對『名稱欄』做 replace(\" \",\"\")(只對數值欄清空白,與 A-daily_quote 的 company_name 空白被抹掉是同一類缺陷)。既有 7,506 列以映射表 UPDATE 改名;改完務必檢查是否與既有名稱撞 unique index。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "footer 切割條件對 2025 年以前的檔完全無效(目前零實害,但靠下游濾網救)。TradingReader.scala:424 用 takeWhile(!_.startsWith(\"備註:\")),但 2025 年以前 TWSE 的 footer 首行是 \"備註:\"(有前導雙引號),startsWith 為 false → footer 根本沒被切掉;2026 起 TWSE 改成無引號的 備註: 才生效。目前沒出事,是因為 footer 各行都解析不出 6 或 7 欄(QuantlibCSVReader.scala:22 會跳過含 \"\" 且不含 ,\"\" 的行,其餘 footer 行是 1~3 欄,被 row.size==6||7 濾掉)。TWSE 哪天改 footer 格式就會有假資料列混進來。",
+      "evidence": "repr 逐行檢視:data/index/twse/2020/2020_6_1.csv 第 165 行 = '\"備註:\"'(takeWhile 失效);data/index/twse/2026/2026_7_9.csv 第 282 行 = '備註:\"'(生效)。反證目前零實害:獨立解析器(正確切 footer)與 DB 的列數比對『原始有 DB 沒有 0 筆、DB 有原始沒有 0 筆』(docs/data_audit/scripts/A-index/cmp_aligned.py),表示 footer 從未貢獻任何資料列。",
+      "fix": "切割條件改成 line.replaceAll(\"^\\\"\", \"\").trim.startsWith(\"備註:\"),或改用『區段表頭 + 資料列必須是 6/7 欄且第 2 欄可解析為數值』的正向白名單,別依賴 footer 格式。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "change 的 match 沒有 default case,TPEx 的 change 用 .toDouble 而非 toDoubleOption——兩者都跑在 .par.foreach 裡,來源端多出一種取值就會讓整個 Main update 掛掉。TradingReader.scala:433-437 只寫了 \"-\"、\"\"、\"+\" 三個 case;TradingReader.scala:452 是 values(2).toDouble。",
+      "evidence": "全史實測目前安全:docs/data_audit/scripts/A-index/probe_fields.py → twse 第 3 欄(漲跌 +/-)取值分佈只有三種:'+' 326,109 列、'-' 282,163 列、空字串 2,485 列,無第四種;probe3.py → tpex 漲跌欄 159,026 列全部可解析為 double、0 筆失敗,close 亦 0 筆失敗。",
+      "fix": "match 補 case other => 明確記錄並跳過該列(或 fail-fast 但帶上檔名/列號);TPEx 改 toDoubleOption 並對 None 記錄後跳過。避免一列壞資料讓整批平行匯入炸掉。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "TPEx 自己把 2 檔指數的名字寫成字面 'null',那段期間 32 列指數資料沒進庫。TradingReader.scala:458 的 .filterNot(_._3 == \"null\") 把它們丟掉——丟掉是對的(兩列同名會撞 (market,date,name) unique index 讓整檔匯入失敗),但代表 2022-01-13 ~ 2022-02-14 共 16 個交易日、每日 2 列的指數資料缺席。根因在 TPEx 來源端。",
+      "evidence": "原始檔:iconv -f BIG5-HKSCS -t UTF-8 data/index/tpex/2022/2022_1_13.csv | sed -n '32,33p' → \"null\",\"5,401.27\",\"-1.92\",\"-0.04\" 與 \"null\",\"5,854.36\",\"-10.73\",\"-0.18\"(數值都是真的,只有名字壞掉)。全史範圍:docs/data_audit/scripts/A-index/cmp_aligned.py → tpex 名稱為 'null' 的原始列 32 筆,日期範圍 2022-01-13 ~ 2022-02-14。落地驗證:該 16 天 DB 每日 60 列、獨立解析 62 列,差額正是這 2 列。",
+      "fix": "若要救回,需比對 TPEx 官網同期指數清單以人工還原這 2 檔的名稱後補匯;否則至少把丟棄事件記進 log/報表,別靜靜丟掉。"
+    },
+    {
+      "severity": "OK",
+      "what": "解析忠實度:收盤點數、漲跌、漲跌幅、指數名稱、市場、日期六欄,原始檔 → DB 全量逐欄比對零差異(除上述已列出的 change/change(%) 歸零與 tpex 改名兩項)。列數也完全對得起來:『原始檔有而 DB 沒有』0 筆、『DB 有而原始檔沒有』0 筆。欄位無錯位、單位無誤、無編碼亂碼、檔名日期與內容日期 100% 相符、TWSE 未接的第 6 欄實際零損失、被 size filter 略過的 3,312 個檔全部確認無資料。",
+      "evidence": "獨立解析器 docs/data_audit/scripts/A-index/indep_index.py 重讀全部 10,149 檔(不呼叫 Scala),產出 769,783 列;cmp_aligned.py 與 PG 全表 join 後:close mismatch 0 / 769,751(含 NULL 一致性檢查)、rows in raw but NOT in db = 0、rows in db but NOT in raw = 0、(market,date,name) 碰撞 0 組。欄序:抽 twse 2009_1_10 / 2012_6_1 / 2016_6_1 / 2020_6_1 / 2024_6_3 / 2026_7_9 與 tpex 2016_1_4 / 2020_6_1 / 2026_7_9 逐行檢視,TWSE 18 年恆為『指數,收盤指數,漲跌(+/-),漲跌點數,漲跌百分比(%),特殊處理註記』+ 尾逗號(6/7 欄),TPEx 恆為 4 欄,無新增欄造成的 fall-through。單位:指數點數原樣(僅去千分位逗號)、百分比原樣(-0.78 存 -0.78)。編碼:probe_fields.py 掃 Big5-HKSCS 解碼替換字元 → 0 筆。日期:6,837 個非空檔的檔頭民國日期 vs 檔名 → 0 筆不符。漏欄:TWSE 第 6 欄『特殊處理註記』schema 未接,但全史 610,757 列皆為空字串,且 grep -l ',\"A\",|,\"B\",' data/index/twse/*/*.csv 在 2013/2018/2022/2025/2026 各年命中 0 檔 → 零資訊損失。size filter:probe2.py 列出全部 3,312 個 ≤1024B 檔案 —— twse 1,845 個 0-byte + 227 個 116B(只有兩行表頭)、tpex 1 個 0-byte + 1,239 個 120/122B(只有表頭),無任何含資料的檔被略過。cache 一致性:DuckDB market_index 分市場列數 twse 610,757 / tpex 158,994,與 PG 完全一致。",
+      "fix": ""
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "(非本單位,順手抓到,建議轉交 daily_quote 相關單位)有 4 個交易日 index 有完整且內部一致的資料,daily_quote 卻整天是 0-byte sentinel:twse 2021-08-18(三)、twse 2025-08-15(五)、twse 2026-04-29(三)、tpex 2023-06-08(四)。index 這幾天的 close_t − close_(t−1) == change_t 全部對得起來,代表是真交易日、是 daily_quote 缺料,不是 index 多出來的幻影。",
+      "evidence": "docs/data_audit/scripts/A-index/probe4.py:index 有資料但 daily_quote 該日無任何列的日期共 7 個,扣掉 3 個已證實為 index 幻影的週六(2015-08-29、2018-08-04、2018-09-15)後剩這 4 天。原始檔:ls -l data/daily_quote/twse/2021/2021_8_18.csv → 0 bytes;data/index/twse/2021/2021_8_18.csv → 10,814 bytes 且檔頭『110年08月18日』。內部一致性:probe8.py 的 >50% 對不上清單不含這 4 天。",
+      "fix": "轉交 daily_quote 單位:重抓這 4 天並確認 sentinel 判定規則(0-byte sentinel 只該寫在確認休市時,不能在 D 日齊備時刻前寫)。"
+    }
+  ],
+  "checked": [
+    "src/main/scala/setting/IndexSetting.scala(欄位契約、validate 守門邏輯)",
+    "src/main/scala/reader/TradingReader.scala:398-463(readIndex 全文:去重、Big5 解碼、footer 切割、欄位取用、改名器、null 過濾)",
+    "src/main/scala/db/table/Index.scala(schema:close 為 Option、change/change(%) 非 Option、unique (market,date,name))",
+    "src/main/scala/util/QuantlibCSVReader.scala(跳過含 \"\" 行的規則,決定 footer 是否混入資料列)",
+    "獨立解析全部 10,149 個原始檔(twse 2009-2026、tpex 2016-2026 全年份,非抽樣)並與 PG index 全表 769,751 列逐 (market,date,name) 逐欄比對",
+    "跨時代欄序抽檢:twse 2009_1_10 / 2012_6_1 / 2016_6_1 / 2020_6_1 / 2024_6_3 / 2026_7_9;tpex 2016_1_4 / 2020_6_1 / 2026_7_9",
+    "欄位錯位、單位(點數/百分比)、正負號(方向欄 vs 百分比符號)、編碼(Big5-HKSCS 替換字元)、日期(民國 vs 西元、檔名 vs 內容)、漏欄(特殊處理註記)六類無聲錯誤",
+    "完整性:以 daily_quote 交易日為日曆盤點 index 缺日;3,312 個被 size filter 略過的檔逐一確認內容",
+    "語意交叉驗證:全表逐日 |close_t − close_(t−1) − change_t| 一致性掃描(767,148 可檢查列)",
+    "DuckDB cache market_index 與 PG index 分市場列數一致性"
+  ]
+}

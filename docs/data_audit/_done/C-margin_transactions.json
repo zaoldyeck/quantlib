@@ -1,0 +1,106 @@
+{
+  "id": "C-margin_transactions",
+  "dim": "C",
+  "table": "margin_transactions",
+  "unit": "C-margin_transactions",
+  "verdict": "BUG",
+  "summary": "cache 跟 PostgreSQL 一模一樣,一位都不差(全史 8,341,265 列、11,081 個市場×日、7 個欄位三重指紋零差異,連多一天少一天都沒有),所以「cache 有沒有走樣」這件事可以放心。真正不能信的是資料本身齊不齊、對不對:11 個真交易日整天沒資料(其中 twse 2002-10-24 是這次新抓到、A 維沒看到的一天,已用交易所自己的資料證實那天 TAIEX 收 4,574.80),10 天存的是別天的複製品(含 7 個颱風休市日的幽靈資料、1 天是六年後的前視),tpex 2007-06~2008-09 的 13.6 萬列券限額整欄裝錯東西——這三類全部原封傳進 cache,用 cache 自己的方法逐一重現。另外 cache 目前落後齊備日兩個交易日(7/20、7/21 沒有),而同一份 cache 的報價/法人/本益比三張表已經有 7/20,表間錯位正在發生;repo 自己的融資融券體檢式子門檻設成『餘額 > 限額的 100 倍』,全史只命中 1 列,等於是一道死掉的守護。",
+  "findings": [
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 的 margin_transactions 全史逐欄一致(非抽樣,是全體):8,341,265 列兩邊相等,11,081 個 (market,date) 分組上『列數 + sum(hash(7 欄)::HUGEINT) + bit_xor(hash(7 欄))』三個指紋全部相等,mismatch=0、only_cache=0、only_pg=0;46 個年×市場格逐格相等。schema 零降級:PG 的 varchar/date/integer 對到 cache 的 VARCHAR/DATE/INTEGER;research/cache_tables.py:47 的投影 SQL 與 research/db.py:134-139 的 pg-attach view 逐字元完全相同(程式化比對回 True),兩種存取模式無漂移。PG 18 欄投影成 cache 7 欄,被丟掉的 11 欄(company_name、margin_purchase、margin_sales、cash_redemption、margin_balance_of_previous_day、short_covering、short_sale、stock_redemption、short_balance_of_previous_day、offsetting_of_margin_purchases_and_short_sales、id)在 research/ 與 docs/(排除 data_audit)全文搜尋零命中,無消費者受影響。",
+      "evidence": "docs/data_audit/scripts/C-margin_transactions/01_parity.py(DuckDB 同時 ATTACH pg READ_ONLY + cache READ_ONLY,PG 側套用與 cache_tables.py:47 相同的改名投影後比對)。輸出:pg_rows=8341265 / cache_rows=8341265;逐年逐市場『不符的年×市場格數: 0』(共比對 46 格);全史指紋 days_total=11081 only_cache=0 only_pg=0 mismatch=0。抽樣佐證(3 日期 × 5 檔,pandas DataFrame.equals):twse 2013-06-14 × 2330/2317/1101/3008/2412 → True;tpex 2019-11-07 × 6488/3105/5483/8069/4966 → True;twse 2026-07-17 × 同五檔 → True(見 03_sample_and_anomaly.py 第 ① 段)。投影字面比對:對 research/cache_tables.py 與 research/db.py 抽出 margin 投影字串正規化後相等。型別安全:cache 四個數值欄最大值 margin_quota=13,872,687、margin_balance=1,095,338,離 int32 上界 2.147e9 有兩個數量級,|v|>2.0e9 的列數為 0——與 daily_trading_details 的 int32 溢位問題不同,本表無此風險。",
+      "fix": ""
+    },
+    {
+      "severity": "BUG",
+      "what": "11 個真的有開市的交易日,margin_transactions 在 PG 與 cache 都一列都沒有,估計缺 8,618 列:twse 2002-10-24、2004-08-20、2007-09-06、2008-11-28、2010-08-03、2011-03-28、2011-06-23、2013-08-30、2014-05-23、2018-11-01(10 天),tpex 2023-06-09(1 天)。**其中 twse 2002-10-24 是本次新抓到的**——A 維的缺日檢定拿 daily_quote 當日曆,而 daily_quote 只到 2004-02-11 為止,2002 年整段是盲區。這些日子的原始檔留下的是交易所的 4-byte 空回應(不是『無資料』頁面),而 Detail.getDatesOfExistFiles 只要檔案存在就把該日算進 existFiles、Task.pullDailyFiles 的 filterNot(existFiles) 於是永久跳過,readMarginTransactions 的去重條件又是『(market,檔名) 已在 DB 就跳過』——兩條補抓路徑都不會回頭,所以這 11 天永遠不會自己補上。",
+      "evidence": "三種互相獨立的方法收斂到同一組日期。方法 A(證人投票,docs/data_audit/scripts/C-margin_transactions/02_gaps.py):在 margin 起訖區間內找『其他 6 張日頻表有資料、margin 無列』者 → twse 證人 ≥2 的 8 天(2018-11-01 有 6 個證人:daily_quote/daily_trading_details/foreign_holding_ratio/market_index/sbl_borrowing/stock_per_pbr;2013-08-30、2014-05-23 各 5 個)、tpex 1 天(2023-06-09,5 個證人),另有 twse 2004-08-20 因該年只有 daily_quote 一個證人落在『單一證人』桶但 is_trading_day=True。方法 B(純日曆,05_calendar_gaps.py):列出 margin 沒有、非週末、is_trading_day=True 的平日 → twse 58 天、tpex 1 天。方法 C(原始檔回應形態,06_empty_file_classify.py):TWSE 對『該日無資料』的回應實測只有三種大小——818 bytes(舊版完整標頭空表,363 天)、26 bytes(新版 Big5『很抱歉,沒有符合條件的資料!』,36 天)、0 bytes(爬蟲自寫 sentinel,3 天);**4 bytes(只有 CRLF)是抓失敗**,方法 B 的 58 天中恰好 10 天是 4-byte,其餘 48 天全是前三種形態(即 2001~2004 那批看似缺漏的日子其實是農曆春節/228/清明/勞動節/中秋/國慶等休市)。三法交集 = 上列 11 天。第一手覆核(TWSE 自己的每日市場成交資訊 FMTQIK):20021024 → 91/10/24 存在,發行量加權股價指數 4,574.80(-15.08)→ **2002-10-24 確定是交易日**;反向覆核 20010101 → 90/01/19 不存在、20010901 → 90/09/12、90/09/17、90/09/18 皆不存在、20020901 → 91/09/06 不存在、20030901 → 92/09/11 不存在,證明 818/26-byte 形態確實對應休市,判別法可靠。原始檔實測:stat -f%z data/margin_transactions/twse/2002/2002_10_24.csv → 4;同為 4-byte 的還有 twse 2007-01-27、2020-06-27(兩天都是週六,DB 無列屬正常)。缺漏量以前一交易日列數估:603/652/655/695/742/1000/772/844/856/1024(twse)+775(tpex)= 8,618 列。程式碼:src/main/scala/setting/Detail.scala:132-169(getDatesOfExistFiles)、src/main/scala/Task.scala:576(filterNot(existFiles))、src/main/scala/reader/TradingReader.scala:652-656(依檔名去重)。",
+      "fix": "順序不能反——先刪空檔再補抓,否則 filterNot(existFiles) 仍會跳過:rm data/margin_transactions/twse/2002/2002_10_24.csv data/margin_transactions/twse/2004/2004_8_20.csv data/margin_transactions/twse/2007/2007_9_6.csv data/margin_transactions/twse/2008/2008_11_28.csv data/margin_transactions/twse/2010/2010_8_3.csv data/margin_transactions/twse/2011/2011_3_28.csv data/margin_transactions/twse/2011/2011_6_23.csv data/margin_transactions/twse/2013/2013_8_30.csv data/margin_transactions/twse/2014/2014_5_23.csv data/margin_transactions/twse/2018/2018_11_1.csv data/margin_transactions/tpex/2023/2023_6_9.csv。端點:TWSE https://www.twse.com.tw/rwd/zh/marginTrading/MI_MARGN?response=csv&date=YYYYMMDD&selectType=ALL(對照 src/main/resources/application.conf 的 margin 設定);TPEx 2023-06-09 用民國年 d=112/06/09 的借貸/信用交易日報端點(見 setting/MarginTransactionsSetting.scala 的 TpexDetail)。補完跑 sbt \"runMain Main read margin\" + uv run python research/cache_tables.py。根因守護三道:(1) Crawler 落檔前判『空回應(≤8 bytes)且該日 daily_quote 有資料』→ 一律刪檔標 [deferred] 重抓,不得留檔;(2) getDatesOfExistFiles 把 ≤8 bytes 且非 0-byte sentinel 的檔案視為未下載;(3) 加測試鎖死『margin_transactions 的 (market,date) 集合 ⊇ daily_quote 同市場同區間的 (market,date) 集合』,並對 daily_quote 起點之前的年份改用『原始檔為 4-byte』當判準。"
+    },
+    {
+      "severity": "BUG",
+      "what": "cache 忠實複製了 PG 的兩類日期汙染,共 6,068 列:(a) 8 個非交易日有整天的資料——tpex 2012-08-02、2014-07-23、2015-07-10、2015-09-29、2016-07-08、2016-09-27、2016-09-28 七個颱風休市日,以及 twse 2011-03-26(週六);(b) 9 對整天內容是別天的複製品——上述 7 個 tpex 日各自複製前一交易日、tpex 2008-08-29(真交易日,真資料遺失、內容是 08-28 的複本)、twse 2003-09-12 裝的是 09-18 的資料、**twse 2011-03-26 裝的是六年後 2017-12-18 的資料(前視汙染)**。cache 與 PG 一致,但是一致地錯。",
+      "evidence": "cache 端獨立複驗(不依賴 A 維的原始檔指紋):docs/data_audit/scripts/C-margin_transactions/03_sample_and_anomaly.py 第 ③ 段對每個 (market,date) 取 count + sum(hash(company_code||margin_balance||short_balance||margin_quota||short_quota)) 撞號 → 6 對;改用只含兩個餘額欄的指紋(hash(company_code||margin_balance||short_balance))→ **恰好 9 對,與 A 維的 9 對完全相同**。差別在於 tpex (2008-08-28,08-29)、(2015-09-25,09-29)、(2016-09-27,09-28) 三對的餘額逐列相同但限額有微幅差異(2015-09-25 sum(short_quota)=15,037,785 vs 09-29 =15,042,711,僅 4 列不同;2016 那對僅 3 列不同;2008 那對 252 列不同)——限額是每日依流通股數重算的,休市日照樣更新,餘額才是被複製的部分。幽靈日認定(02_gaps.py,限縮在 daily_quote 該市場自己有覆蓋的區間內,否則報價表起點會製造數百個假陽性):tpex 7 天 margin 有 470~605 列而 daily_quote 0 列且其他 6 張表也全部 0 列;twse 2011-03-26 有 1,000 列而所有其他表皆 0 列。對照組:tpex 2023-06-08 與 twse 2021-08-18/2025-08-15/2026-04-29/2026-05-28 雖然 daily_quote 也是 0 列,但其他 2~4 張表都有資料 → 那是 daily_quote 自己的缺漏(已記在 C-daily_quote),margin 有資料才是對的。列數:8 個幽靈日合計 5,438 列 + tpex 2008-08-29 的 408 列 + twse 2003-09-12 的 632 列 = 6,068 列(2011-03-26 的 1,000 列同時屬幽靈日與複製日,未重複計)。",
+      "fix": "根因修在 A 維(reader 改讀檔案內容的民國日期並與檔名核對、落檔前加整日內容指紋去重);cache 側必須在 PG 修好後重跑 uv run python research/cache_tables.py 才會跟著修正。在那之前,任何用 margin_balance / short_balance 做時序變化率的回測(research/evergreen/ev48_chip_axes.py 的 margin_chg5、research/evergreen/{ev18_make_packs,make_tables_chips}.py 的 m20/m60、research/apex/experiments/{f01_daily_factors,f10_chip_axes,b11_new_families}.py 的 mchg)在這 10 天前後會算出假的『零變化』或六年跳躍。cache 端可加一條體檢:整日餘額指紋撞號即告警(全史只有 9 對,成本極低)。"
+    },
+    {
+      "severity": "BUG",
+      "what": "A 維查出的 short_quota 欄位錯位(tpex 2007-06-01~2008-09-29,135,679 列)原封傳進 cache,用 cache 自己的資料就能重現:那 16 個月裡 65,821 列(48.51%)出現『融券餘額 > 融券限額』這種物理上不可能的組合,而同期 avg(short_quota) 從 36,375 掉到 204.6 再回到 14,054。因為 cache_tables.py:47 是純投影(無任何運算或過濾),PG 錯什麼 cache 就錯什麼。",
+      "evidence": "docs/data_audit/scripts/C-margin_transactions/03_sample_and_anomaly.py 第 ② 段的分期統計(對 var/cache/cache.duckdb 全表):tpex era A(<2007-06)n=38,718 sb>sq=0 (0.00%) avg_sq=37,139;**era B(2007-06~2008-09)n=135,679 sb>sq=65,821 (48.51%) avg_sq=97.5**;era C(≥2008-09-30)n=2,763,516 sb>sq=6,713 (0.24%) avg_sq=32,688;對照 twse 三期分別為 0.00% / 0.00% / 0.19%。逐月表(cache 端):tpex avg(short_quota) 2007-05=36,375.0 → 2007-06=204.6 → 2007-11=65.4 → 2008-09=712.8 → 2008-10=14,054.3 → 2009-01=35,285.0,而同期 avg(margin_quota) 一路穩定在 34,900~37,700——兩欄在 era B 之外恆等,在 era B 分岔,斷點乾淨。決定性的一刀:全表『short_balance > short_quota 且 short_quota > 0』共 33,001 列,**逐年分布顯示 100% 落在 tpex 2007(17,554 列)與 2008(15,447 列)**,2009 年以後與 twse 全史一列都沒有——也就是說 era C/twse 的那 14,778 列 sb>sq 全是『限額=0(停券)但餘額仍在』的合法情形,只有 era B 是真的錯。",
+      "fix": "根因修在 A 維(TradingReader TPEx 尾三欄改依版型分支);cache 側在 PG 修好並重跑 research/cache_tables.py 之前,short_quota 在 tpex 2007-06-01~2008-09-29 一律當 NULL。現有唯一會拉 short_quota 的消費者是 research/apex/data.py:180(load_margin);research/apex/experiments/r09_finlab_harvest.py:99 與 research/apex/rebuild/recovered/038_r09a.py:103 用的是 margin_quota(未受此 bug 影響,但見『限額 0』那條 REAL)。防復發守護:cache 建好後跑一條『short_balance > short_quota 且 short_quota > 0 的列數必須為 0』的斷言(修好後應真的歸零,現在跑會紅 33,001 列,先紅後綠)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 落後齊備日兩個交易日,而且是表間錯位的形態:margin_transactions 兩市場都只到 2026-07-17,但同一份 cache 的 daily_quote / daily_trading_details / stock_per_pbr 已經有 2026-07-20,齊備日是 2026-07-21。原因是 margin 不在 Python 直寫路徑的日頻源清單裡(research/crawl/update.py:27 的 DAILY_SOURCES 只有 daily_quote / daily_trading_details / stock_per_pbr),只能靠 Scala 的 Main update 抓進 PG 再由 cache_tables.py 全砍重建,而最後一次 Scala 爬蟲是 2026-07-19 21:56。這正是 CLAUDE.md 記載 2026-07-15 事故的形態(表間日期錯位 → 策略閘門查無資料 fail-closed 靜靜砍光候選)。",
+      "evidence": "PYTHONPATH=<repo> uv run --project research python -c \"from research.data_calendar import stale_tables, latest_complete_trading_day; print(latest_complete_trading_day()); print(stale_tables())\" → 2026-07-21;{'daily_quote': 2026-07-20, 'market_index': 2026-07-17, 'daily_trading_details': 2026-07-20, 'stock_per_pbr': 2026-07-20, 'margin_transactions': 2026-07-17, 'sbl_borrowing': 2026-07-17, 'foreign_holding_ratio': 2026-07-17}。cache 逐日查:2026-07-20(Mon)margin 0 列 / daily_quote 2,384 列;2026-07-21(Tue)兩者皆 0 列。原始檔:data/margin_transactions/twse/2026/ 最新有資料的是 2026_7_17.csv(124,137 bytes,mtime Jul 19 21:56),之後只有 2026_7_18.csv 的 0-byte;無 2026_7_20/21。cache.duckdb mtime = Jul 21 08:16。程式碼:research/crawl/update.py:27。",
+      "fix": "跑一次完整更新把兩邊拉平:sbt \"runMain Main update\" 後 uv run python research/cache_tables.py。長期解與 C-daily_quote / C-daily_trading_details 同一條——把 market_index / margin_transactions / sbl_borrowing / foreign_holding_ratio 也納入 DAILY_SOURCES(需先為 margin 寫 research/crawl/sources/margin_transactions.py 並附 parity 測試),或在每日 loop 明確要求先跑 Scala Main update;在此之前 ensure_fresh_cache 的擋門不可放寬。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "repo 自己的融資融券體檢是一道死掉的守護:research/audits/03_full_data_audit.py:78 的條件是 margin_balance_of_the_day > margin_quota * 100 且每日命中要 > 5 筆才報告。全史 8,341,265 列中滿足『餘額 > 限額 × 100』的只有 1 列,單日不可能 > 5,所以這個檢查從來沒有、也永遠不會亮紅燈——它既看不到 84,057 列『限額 0 但仍有餘額』,也完全沒有檢查融券側(era B 的 33,001 列物理不可能組合)。",
+      "evidence": "程式碼:research/audits/03_full_data_audit.py:73-89(margin_trans_sanity)。實測:SELECT max(margin_balance*1.0/margin_quota) FROM margin_transactions WHERE margin_quota>0 → 131.70(唯一超過 100 的一列);SELECT count(*) ... WHERE margin_quota>0 AND margin_balance > margin_quota*100 → 1;對照真正該抓的兩組:margin_quota=0 且 margin_balance>0 → 84,057 列、short_quota>0 且 short_balance>short_quota → 33,001 列(全在 tpex 2007-2008)。",
+      "fix": "把守護換成有物理意義的兩條:(1)『short_quota > 0 且 short_balance > short_quota』筆數必須為 0(修好 era B 後應真的為 0);(2)『margin_quota > 0 且 margin_balance > margin_quota』的比例必須 < 0.01%(現況 184 / 8.34M = 0.0022%,見 REAL 條)。並把 *100 這個沒有出處的魔術數字刪掉——它讓守護在數學上不可能觸發。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 的 margin_transactions 沒有唯一索引(只有非唯一的 idx_mt_code_date on (company_code, date)),而 PG 側有 UNIQUE 的 idx_MarginTransactions_market_date_companyCode。目前實測重複主鍵 0 筆,唯一性完全靠『cache_tables.py 每次砍掉重建、資料來源本身唯一』這條自律維持;一旦未來有人替 margin 加上增量寫入路徑(如同 daily_quote 走 research/crawl/sink.py),就沒有任何東西擋得住重複列。",
+      "evidence": "duckdb_indexes() 對 cache:idx_mt_code_date,is_unique=False,CREATE INDEX idx_mt_code_date ON margin_transactions(company_code, date)(research/cache_tables.py:118);psql \\d margin_transactions → \"idx_MarginTransactions_market_date_companyCode\" UNIQUE, btree (market, date, company_code)。實測 SELECT count(*) FROM (SELECT market,date,company_code FROM margin_transactions GROUP BY 1,2,3 HAVING count(*)>1) → 0。",
+      "fix": "cache 建表後補 CREATE UNIQUE INDEX ON margin_transactions(market, date, company_code)(與 PG 對齊);成本極低(建表當下即驗證),收益是把『唯一性』從自律變成不變式。"
+    },
+    {
+      "severity": "REAL",
+      "what": "看起來像壞資料、查證後是真的:限額為 0 卻仍有餘額共 84,057 列(融資)/ 47,598 列(融券),以及四個欄位全為 0 的 264,731 列(3.17%)。那是**停資停券**——交易所把該股的融資/融券限額設為 0,但先前已建立的餘額還掛在那裡。原始檔的『註記』欄會印 O(停止融資)/ X(停止融券),cache 沒有接這一欄,所以從 cache 看只剩一個突兀的 0。",
+      "evidence": "逐格對原始檔:iconv -f BIG5-HKSCS -t UTF-8 data/margin_transactions/twse/2019/2019_9_5.csv | grep '^\"2609' → \"2609\",\"陽明\",\"0\",\"7\",\"0\",\"5,454\",\"5,447\",\"0\",...,\"OX \" —— 資限額 0、券限額 0、融資餘額 5,447、註記 OX;cache 同列 margin_balance=5447 / margin_quota=0 / short_quota=0。四欄全 0 的樣本同檔:\"1413\",\"宏洲\",全 0 + \"OX \"。對照組同檔的 2330 台積電註記為空白、限額 6,482,595。分布合理:限額 0 的列共 348,788(4.18%),集中在停資停券名單。",
+      "fix": "不改資料。消費端規則(建議寫進 CLAUDE.md 的 Data Judgement Rules):**任何『融資使用率』類因子必須先過 margin_quota > 0 的閘門**——Scala 端 src/main/scala/strategy/Signals.scala:390 有這道閘門,Python 端 research/apex/experiments/r09_finlab_harvest.py:99 與 research/apex/rebuild/recovered/038_r09a.py:103 寫的是 margin_balance / (margin_quota + 1),對這 84,057 列會算出『使用率 = 餘額本身』的天文數字,應改成 quota=0 時填 NULL。若要讓停資停券可被直接辨識,正解是依 CLAUDE.md 的 Schema Contract 把原始檔的『註記/備註』欄接進 Slick 與 cache(A 維已列同一建議)。"
+    },
+    {
+      "severity": "REAL",
+      "what": "2017-08-11 兩個市場同時發生的來源格式變更:在那之前,停資停券股票的限額欄照印真實數字;從那天起改印 0。所以『四欄全 0』的比例在 2017 年之前是 0.00%,2018 年起跳到 5~7.6%——這不是我們的解析變了,是交易所的印法變了。這件事對跨年代的『融資使用率』因子是隱形陷阱:同一檔停資股票在 2017-08-10 的使用率算得出來、2017-08-11 之後變成除以零。",
+      "evidence": "cache 端:SELECT min(date) FROM margin_transactions WHERE 四欄全 0 AND date>=2016-01-01 GROUP BY market → twse 與 tpex **都是 2017-08-11**(同一天,排除單一市場的偶發)。逐年占比(04_rowcount_shape.py):pct_all_zero 2016=0.00 / 2017=3.06 / 2018=7.56 / 2019=7.19 / 2025=5.47;同期每日列數沒有變(tpex 2017-07 = 625 列/日、2017-08 = 625 列/日),也就是列數不變、值變了。逐格對原始檔:data/margin_transactions/twse/2017/2017_8_10.csv 的 1413 宏洲 → \"0\",\"0\",\"0\",\"0\",\"0\",\"25,528\",...,\"25,528\",\"0\",\"OX \";2017_8_11.csv 同一檔 → 全部 0,註記仍是 \"OX \"。cache 對應列 2017-08-10 margin_quota=25528 → 2017-08-11 margin_quota=0。",
+      "fix": "不改資料。在策略文件與 CLAUDE.md 註明:**margin_quota / short_quota 對停資停券股票的語義在 2017-08-11 前後不同**(之前印真值、之後印 0),任何橫跨該日期的融資使用率因子必須用 quota>0 當閘門,否則會在 2017-08-11 出現人造的截面斷層。"
+    },
+    {
+      "severity": "REAL",
+      "what": "184 列『融資餘額 > 融資限額(且限額 > 0)』看起來不可能,查證後是真的:限額調降(減資、融資成數調整、標的資格取消)時,先前建立的餘額不會被強制平倉,於是餘額暫時高於新限額。占比 0.0022%,集中在兩類——2001 年的 2410 鼎大(98 天,註記 OX 停資停券中)與 2018-2019 的 00686R(槓桿/反向 ETF,受益權單位隨買回而縮減,限額跟著縮、餘額還在)。",
+      "evidence": "逐格對原始檔:iconv -f BIG5-HKSCS -t UTF-8 data/margin_transactions/twse/2001/2001_1_2.csv | grep '^\"2410' → \"2410\",\"鼎大\",\"0\",\"0\",\"0\",\"31,412\",\"31,412\",\"30,875\",...,\"OX \" —— 今日餘額 31,412 > 資限額 30,875,原始檔就是這樣印的,cache 同值。分布:cache 全表 margin_balance>margin_quota 且 quota>0 共 184 列,twse 2001 佔 99 列(其中 2410 佔 98 天,2001-01-02~2001-05-30)、twse 2018 佔 43 列(全是 00686R,元大 S&P 原油反向 ETF)、其餘年份 ≤12 列。最大比值 131.70(單一列)。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "cache 全表異常值掃描全清:8,341,265 列中,重複主鍵 0、date 在未來 0、market 非 twse/tpex 0、company_code 非英數 0、四個數值欄任一為 NULL 0、任一欄為負值 0、任一欄 |v| > 2.0e9(int32 邊界)0。單日列數異常低掃描(前後 21 日滾動中位數的 70% 門檻)命中 0 天——本表沒有 daily_trading_details 那種週六補行交易日列數腰斬的現象,因為融資融券日報涵蓋全部信用交易標的而非只涵蓋當日有成交者。margin 每日列數恆小於同日 daily_quote(2015 年起 twse 平均少 58.8 檔、tpex 少 128.0 檔,25 年間沒有任何一天 margin 比 daily_quote 多),與『非信用交易標的(部分 ETF/ETN、新掛牌、全額交割股)不列入』相符。",
+      "evidence": "docs/data_audit/scripts/C-margin_transactions/03_sample_and_anomaly.py 第 ② 段(逐項 SQL 已列在腳本內)與 04_rowcount_shape.py。值域:margin_balance 0~1,095,338、short_balance 0~525,101、margin_quota 0~13,872,687、short_quota 0~13,872,687(單位為張,與 A 維用『檔頭彙總 == 個股加總』對帳過的單位一致)。列數形狀:margin - daily_quote 的每日差,twse min=-96 max=-20 avg=-58.8(2,805 天)、tpex min=-149 max=-95 avg=-128.0(2,808 天),n_margin_more=0。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "409 個『margin 沒有資料的平日』不是缺漏而是休市:twse 的 818-byte 舊版空表 363 天、26-byte 新版『很抱歉,沒有符合條件的資料!』36 天、0-byte sentinel 3 天;tpex 側則是 871/922/993/994/1045/1046/1086/1087 bytes 的『共0筆』回應共 316 天。2001~2004 那批看似密集的缺漏(春節連假、228、清明、勞動節、端午、中秋、國慶,以及 2001-07-30 桃芝颱風、2001-09-17/18 納莉颱風)全部屬於此類,只是那幾年沒有任何其他表可以當證人,才需要用原始檔形態來判。",
+      "evidence": "docs/data_audit/scripts/C-margin_transactions/06_empty_file_classify.py 的大小分布表。抽樣覆核用交易所第一手資料(TWSE FMTQIK 每日市場成交資訊):20010101 → 90/01/19 不在交易日清單;20010901 → 90/09/12、90/09/17、90/09/18 皆不在;20020901 → 91/09/06 不在;20030901 → 92/09/11 不在;反向對照 20021024 → 91/10/24 **在**清單且指數 4,574.80(即 4-byte 那天確實是交易日)。818-byte 檔的內容實例:iconv -f BIG5-HKSCS -t UTF-8 data/margin_transactions/twse/2001/2001_1_19.csv → 有完整標頭『090年01月19日 信用交易統計』與欄名列,但無任何個股資料列。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema 對照:PG information_schema(18 欄型別)vs DuckDB DESCRIBE(7 欄型別);確認 varchar→VARCHAR、date→DATE、integer→INTEGER 零降級",
+    "research/cache_tables.py:47 的投影 SQL 與 research/db.py:134-139 的 pg-attach view 逐字元程式化比對 → 完全相同,兩種存取模式無漂移",
+    "cache vs PG 全史指紋比對(非抽樣):11,081 個 (market,date) × count + sum(hash(7 欄)::HUGEINT) + bit_xor(hash(7 欄))",
+    "逐年逐市場列數比對 2001~2026 × twse/tpex(46 個年市場格,全等)",
+    "抽樣逐欄比對 3 日期 × 5 檔:twse 2013-06-14、tpex 2019-11-07、twse 2026-07-17(pandas DataFrame.equals 全 True)",
+    "cache 索引與唯一性:duckdb_indexes() vs psql \\d;重複 (market,date,company_code) 實測 0 筆",
+    "被丟掉的 11 個 PG 欄位是否有人要:research/ 與 docs/(排除 data_audit)全文搜尋 offsetting_of_margin|margin_purchase|margin_sales|cash_redemption|stock_redemption|short_covering|*_balance_of_previous_day|short_sale → 零命中",
+    "覆蓋缺口第一法(證人投票):6 張日頻表(daily_quote / daily_trading_details / stock_per_pbr / market_index / sbl_borrowing / foreign_holding_ratio)× 證人數分級",
+    "覆蓋缺口第二法(純日曆):margin 沒有、非週末、is_trading_day=True 的平日,twse 58 天 / tpex 1 天",
+    "覆蓋缺口第三法(原始檔回應形態,獨立於任何 DB):TWSE 818/26/0 bytes = 交易所明說無資料、4 bytes = 抓失敗;全 corpus 4-byte 檔 12 個逐一對 DB 列數",
+    "第一手覆核交易日曆:TWSE FMTQIK(每日市場成交資訊)6 次查詢 —— 20021024 證實 2002-10-24 是交易日(指數 4,574.80),20010101/20010901/20020901/20030901 反向證實 2001-01-19、2001-09-12/17/18、2002-09-06、2003-09-11 皆非交易日",
+    "幽靈日:margin 有資料但 daily_quote 該市場 0 列(限縮在 daily_quote 自己有覆蓋的區間內,避免報價表起點造成數百個假陽性),並逐日查其他 5 張表的證人數以區分『margin 幽靈』與『daily_quote 缺漏』",
+    "整日內容指紋撞號(cache 端獨立複驗):全 7 欄版本抓到 6 對、兩個餘額欄版本抓到 9 對,與 A 維的 9 對完全一致;差異三對經逐列 EXCEPT 證實為限額微差",
+    "異常值掃描:重複主鍵、未來日期、market 值域、company_code 字元集、NULL、負值、int32 邊界、四欄全零、限額 0 但有餘額、餘額 > 限額",
+    "A 維 BUG#1(tpex era B short_quota 錯位)的 cache 端獨立重現:分期『餘額 > 限額』比例(0% / 48.51% / 0.24%)+ 逐月 avg(short_quota) 斷層 + 『sb>sq 且 sq>0』逐年分布 100% 落在 tpex 2007-2008",
+    "單日列數異常低掃描(前後 21 日滾動中位數 70% 門檻)→ 0 天;margin 每日列數 vs daily_quote 每日列數(2015 起 5,613 個市場日,margin 從未較多)",
+    "『四欄全 0』的世代斷點定位:兩市場同時始於 2017-08-11,逐格對原始檔(1413 宏洲 2017-08-10 限額 25,528 → 08-11 變 0,註記皆為 OX)確認為來源印法變更",
+    "停資停券與餘額 > 限額的原始檔覆核:twse 2019-09-05 的 2609 陽明(OX,限額 0 餘額 5,447)、twse 2001-01-02 的 2410 鼎大(OX,餘額 31,412 > 限額 30,875)、twse 2018 的 00686R(反向 ETF 限額縮減)",
+    "cache 新鮮度與表間錯位:research.data_calendar.latest_complete_trading_day() / stale_tables() 實測 + 原始檔 mtime 追到最後一次 Scala 爬蟲(2026-07-19 21:56)+ research/crawl/update.py:27 的 DAILY_SOURCES 盤點",
+    "repo 既有守護有效性:research/audits/03_full_data_audit.py:73-89 的 margin_quota*100 門檻實測全史只命中 1 列(單日 >5 筆的報告條件永不成立)",
+    "消費端盤點(哪些欄位真的被用到):research/apex/data.py:175-181(四欄全拉)、research/apex/experiments/{f01_daily_factors:131,f10_chip_axes:18-22,b11_new_families:81,r09_finlab_harvest:99}.py、research/apex/rebuild/recovered/{017_b11a,038_r09a,059_r22a}.py、research/evergreen/{ev18_make_packs:79-84,ev48_chip_axes:30-36,make_tables_chips:49-51}.py、research/strat_lab/iter_52_ownership_flow_alpha.py:91-201、research/futures/strategies.py:169-170、research/experiments/build_spike_dataset.py:156-185、src/main/scala/strategy/Signals.scala:384-413",
+    "排除已知真實現象:金融業負營收、營建業零營收、concise_* 無 market 欄皆與本表無關;週六補行交易日在本表不造成列數腰斬(已量測);2026-07-18/19 為週末、2026-07-20/21 為尚未爬取(非永久缺口)"
+  ]
+}

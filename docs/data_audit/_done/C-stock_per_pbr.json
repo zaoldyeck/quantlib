@@ -1,0 +1,95 @@
+{
+  "id": "C-stock_per_pbr",
+  "dim": "C",
+  "table": "stock_per_pbr",
+  "unit": "C-stock_per_pbr",
+  "verdict": "BUG",
+  "summary": "cache 和 PostgreSQL 之間零不一致——774 萬列、三個數值欄逐位相同,抽樣 15/15 也全同;不能信的是「哪天的數字屬於哪一天」:上市有 19 個日期存的是別天的資料(其中 10 天是真開市的交易日,7 天還是未來的數字提前出現),另有 13 個真交易日整天一列都沒有。錯誤全在 cache 上游,cache 只是忠實複製 PG 的錯。受影響 16,447 列(0.21%),其餘 774 萬列可信。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "19 個 twse 日期存的是別天的資料,共 16,447 列;其中 10 天是真的有開市的交易日(8,605 列),7 天存的是未來的數字(前視偏誤,最遠 +9.8 年),3 天存的是八年前的數字。根因:TWSE BWIBBU_d 端點對「它沒有資料的日期」不回空,而是回一份別天的快照(最常見 2017-12-18),標題誠實寫著真正的日期;爬蟲以請求日為檔名存檔,TradingReader.readStockPER_PBR_DividendYield 又只從檔名取日期、從不讀標題。爬蟲跳過已存在檔案 + Reader 跳過已在 DB 的 (market,檔名),所以永遠不會自癒。",
+      "evidence": "全史掃描 docs/data_audit/scripts/C-stock_per_pbr/04_filename_vs_content_date.py → twse 7,625 檔中 19 檔檔名日期≠內容日期(tpex 7,137 檔全對)。清單(檔名日→內容日,列數,該日 daily_quote 檔數):2008-03-03→2017-12-18 905 列(有報價 732)、2008-03-06→2008-12-18 710(732)、2008-12-04→2008-12-18 710(734)、2012-08-07→2017-12-18 905(863)、2013-05-13→2017-12-18 905(874)、2014-12-16→2014-12-18 850(909)、2016-10-06→2017-12-18 905(959)、2018-12-13→2017-12-18 905(1072)、2025-08-12→2017-12-18 905(1302)、2026-02-25→2017-12-18 905(1344);另 9 個休市日 2009-08-02/2011-07-10/2012-03-31/2012-10-21/2012-11-11/2012-11-25/2014-10-12/2017-04-03/2026-04-12。逐欄證明:05_phantom_impact.py 對每個錯位日與其「內容日」做同代號比對,三個數值欄完全相同的筆數 = 該日總列數(如 2026-02-25:905/905/905)。直觀樣本:2330 台積電 PB 2026-02-23=9.86、02-24=10.20、**02-25=4.11**、02-26=9.55(4.11 正是 2017-12-18 的值);2025-08-11=6.70、**08-12=4.11**、08-13=6.82。原始檔自證:head -1 data/stock_per_pbr_dividend_yield/twse/2026/2026_2_25.csv(Big5)= 「106年12月18日 個股日本益比、殖利率及股價淨值比」,且與 2025_8_12.csv、2018/2018_12_13.csv 內容同源(2009_8_2.csv / 2011_7_10.csv / 2012_3_31.csv / 2017_4_3.csv 四檔 md5 完全相同 = daa6e01429dae3ee1f2648d4c4d7d304)。程式碼:src/main/scala/reader/TradingReader.scala:719 `val date = LocalDate.of(year, month, day)`(整個函式沒有讀過標題行);同函式第 706 行 `filterNot(m => dataAlreadyInDB.contains(...))` 使重跑不會覆蓋。PG 側同樣 16,447 列(psql 對 19 個日期 group by 逐一核對)。消費端:research/serenity/engine.py:964 → replay_2025.py:260 load_point_in_time_table + style_replay_2025.py:223 row_latest_before(取 ≤ 決策日最新一筆)→ 這 10 個交易日當天約 700~905 檔的 PE/PB/殖利率是錯的。",
+      "fix": "(1) 刪 19 個原始檔 + DELETE FROM stock_per_pbr_dividend_yield WHERE market='twse' AND date IN (上列 19 日);(2) 對 10 個真交易日重抓 https://www.twse.com.tw/rwd/zh/afterTrading/BWIBBU_d?response=csv&selectType=ALL&date=YYYYMMDD,**存檔前先核對標題日期**;9 個休市日刪掉即可、留 0-byte sentinel;(3) 防復發守護(重點):Scala Reader 與 Python research/crawl/sources/stock_per_pbr.py::_parse 都加「標題日期必須等於請求日」的 fail-loud 閘門(twse 解析『106年12月18日』、tpex 解析『資料日期:113/12/04』),先用 2026_4_12.csv 驗紅再驗綠;(4) 把「檔名日期 vs 內容日期」掃描接進每日 loop 健康檢查。"
+    },
+    {
+      "severity": "BUG",
+      "what": "13 個真的有開市的交易日,stock_per_pbr 整天一列都沒有:twse 11 天(2008-08-26、2009-12-12〔週六補行交易日〕、2014-05-07、2016-09-09、2016-11-01、2016-12-21、2017-02-13、2017-02-24、2020-02-06、2025-08-05、2026-04-01)、tpex 2 天(2010-11-22、2016-08-31)。twse 那 11 天的原始檔存在但只有 2 bytes(交易所回空內容),因為爬蟲「檔案已存在就跳過」而被永久凍結;tpex 那 2 天檔案根本不存在。",
+      "evidence": "docs/data_audit/scripts/C-stock_per_pbr/03_coverage_gaps.py 與 06_value_anomaly.py:以 daily_quote 為交易日母體交叉比對,這 13 天 daily_quote 分別有 562~1,348 檔報價(2008-08-26=734、2009-12-12=772、2014-05-07=900、2016-09-09=961、2016-11-01=974、2016-12-21=979、2017-02-13=989、2017-02-24=992、2020-02-06=1111、2025-08-05=1301、2026-04-01=1348;tpex 2010-11-22=562、2016-08-31=719);再用 research/data_calendar.py::is_trading_day(讀 0-byte 休市 sentinel,能認颱風假)複核,10 天判為交易日,2009-12-12 是週六補行交易日(CLAUDE.md 已記為真實邊界)。原始檔:stat -f%z 顯示 twse 11 檔皆為 2 bytes,tpex 2 檔 MISSING。全史統計:twse 7,625 檔中 2,465 檔為 ≤10 bytes 的空回應(約 118/年 = 非交易日數,正常),29 檔 0-byte。",
+      "fix": "先刪掉 11 個 2-byte 空檔(否則爬蟲跳過),再抓:twse 用 BWIBBU_d?response=csv&selectType=ALL&date=YYYYMMDD;tpex 用 https://www.tpex.org.tw/web/stock/aftertrading/peratio_analysis/pera_result.php?l=zh-tw&o=csv&d=民國年/MM/DD(99/11/22、105/08/31)。抓完跑 sbt \"runMain Main read stock_per_pbr\" 再 uv run python research/cache_tables.py。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "同一張表有兩條寫入路徑,cache 目前領先 PG 一天(2026-07-20,1,968 列只在 cache);現在照 CLAUDE.md 的 Step 2 跑 cache_tables.py 會把這天無聲抹掉、cache 退回 2026-07-17。與 C-operating_revenue 查到的是同一個結構病(daily_quote / daily_trading_details 同時受影響)。",
+      "evidence": "cache 7,740,905 列 vs PG 7,738,937 列;逐日差異只有 2026-07-20(twse 1,079 + tpex 889 = 1,968,PG 該日 0 列),其餘 5,131 個 twse 日與 4,797 個 tpex 日筆數全同(01_counts.py)。psql 確認 PG 四張日頻表 max(date) 全為 2026-07-17。程式碼:research/cache_tables.py:22-23 `if os.path.exists(DB_PATH): os.remove(DB_PATH)` 後第 38 行從 pg.public.stock_per_pbr_dividend_yield 全砍重建;另一條 research/crawl/sources/stock_per_pbr.py + research/crawl/sink.py::upsert_day 直寫 cache.duckdb、完全不經 PG(設計意圖見 research/crawl/__init__.py:雲端 VM 自主)。兩條路徑的呼叫點:research/serenity/daily.py:238-242(sbt Main update → cache_tables.py)vs research/crawl/update.py::ensure_fresh。2026-07-20 的資料本身是真的:列數與 07-17 相同、PB 中位數 1.66→1.65、1,968 檔的 PB 變動比 p05/p50/p95 = 0.933/0.9932/1.0271(會動,非複製前一日,見 07_sample_and_newest.py)。",
+      "fix": "cache_tables.py 全砍重建前先檢查「PG max(date) >= cache max(date)」,否則拒跑並提示先跑 Scala 端更新;或對日頻表改成 merge 不 drop。長期應收斂成單一 writer。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "BUG 1 與 BUG 2 的守護在新舊兩條管線都缺席,同樣的錯還會再發生:(a) Python 爬蟲 _parse 有欄位位移守護(SchemaDrift)卻沒有任何日期檢查;(b) research/crawl/update.py::_refresh_daily 在 fetch_day 回 None 時只 continue,而下次要抓哪幾天由 _missing_days(從 max(date)+1 起算)決定 —— 某天抓失敗、隔天成功之後,失敗那天永遠不會被回頭補。",
+      "evidence": "research/crawl/sources/stock_per_pbr.py:44-50 `_guard()` 只比對表頭欄名(raise parse.SchemaDrift),第 52-73 行 `_parse` 全程未使用參數 day 做任何驗證;research/crawl/parse.py 亦無日期核對工具(只有 twse_date / minguo_slash / parse_minguo_slash 三個格式化函式)。research/crawl/update.py:60-72 `for day in _missing_days(...)` → `if df is None: ... continue`(僅 daily_quote/twse 會寫 sentinel,stock_per_pbr 什麼都不留);_missing_days(update.py:34-45)`mx = SELECT max(date) ... ; d = mx + 1day` 證明失敗日不會回補。既有守護 research/crawl/tests/test_parity.py 只驗「Python 爬蟲輸出 == cache 舊值」,不驗日期正確性。",
+      "fix": "(a) 在 _parse 加標題日期閘門(tpex 標題有『資料日期:113/12/04』、twse 有『106年12月18日』),不符即 raise;(b) fetch_day 回 None 的交易日要落待補清單或 sentinel,讓下一次 loop 能回頭補。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "cache 落後齊備日一個交易日:latest_complete_trading_day() = 2026-07-21,stock_per_pbr 最新只到 2026-07-20(七張日頻表全部落後)。這是營運狀態(今天的 loop 還沒跑),不是這張表的資料錯誤,記一筆以免下次誤判。",
+      "evidence": "uv run --project research python -c \"from research.data_calendar import latest_complete_trading_day, stale_tables; print(latest_complete_trading_day(), stale_tables())\" → 2026-07-21;stale_tables() = {daily_quote: 2026-07-20, market_index: 2026-07-17, daily_trading_details: 2026-07-20, stock_per_pbr: 2026-07-20, margin_transactions: 2026-07-17, sbl_borrowing: 2026-07-17, foreign_holding_ratio: 2026-07-17}。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 逐欄完全一致——不是抽樣,是全表 7,738,937 個共用鍵零差異;PG 獨有鍵 0 筆。指定的隨機抽樣(3 日 x 5 檔)也 15/15 相同。",
+      "evidence": "docs/data_audit/scripts/C-stock_per_pbr/02_value_parity.py(DuckDB ATTACH postgres READ_ONLY,約 48 秒):鍵 (market,date,company_code) 做雙向 EXCEPT → cache_only 1,968(全為 2026-07-20)、pg_only 0;共用鍵 JOIN 後 price_book_ratio / dividend_yield / price_to_earning_ratio 的 IS DISTINCT FROM 筆數皆為 0。01_counts.py 逐年 x market 只有 2026 有差(twse +1,079、tpex +889),逐日只有 2026-07-20 一天。07_sample_and_newest.py(seed 20260722)抽 2023-06-12/19/20 各 5 檔,六個欄位逐一比對 15/15 相同。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "schema 對照無型別降級。PG 8 欄、cache 同步 6 欄,丟掉的是 id 與 company_name;pg-attach 模式的對照 view 欄位與順序和 cache 表完全一致,parity 沒破。",
+      "evidence": "psql \\d stock_per_pbr_dividend_yield → id bigint / market varchar / date date / company_code varchar / company_name varchar / price_to_earning_ratio double precision / price_book_ratio double precision / dividend_yield double precision(唯一索引 (market,date,company_code))。DuckDB DESCRIBE stock_per_pbr → market VARCHAR / date DATE / company_code VARCHAR / price_book_ratio DOUBLE / dividend_yield DOUBLE / price_to_earning_ratio DOUBLE。同步 SQL:research/cache_tables.py:38;pg-attach 對照 view:research/db.py:103-106(欄位與順序逐字相同)。cache 索引 idx_pb_code_date 於 cache_tables.py:112 建立。company_name 在 research 端由 industry_taxonomy_pit 提供,盤點 30 個消費端無人因此壞掉。",
+      "fix": "若日後有需要,把 company_name 加進 cache_tables.py:38 的 SELECT 即可(PG 已有)。"
+    },
+    {
+      "severity": "OK",
+      "what": "數值欄異常掃描全清:負淨值比 0、負本益比 0、負殖利率 0、未來日期 0、重複鍵 0、代號格式異常 0;三欄全 NULL 只有 713 列。本益比 NULL 184 萬列(23.8%)是虧損公司交易所印『-』的正常結果。",
+      "evidence": "docs/data_audit/scripts/C-stock_per_pbr/06_value_anomaly.py:n=7,740,905;pb_null 7,404、dy_null 8,618、pe_null 1,840,592、all_null 713;pb_neg 0、pe_neg 0、dy_neg 0、future 0;dup_keys 0(GROUP BY market,date,company_code HAVING COUNT(*)>1)、odd_codes 0(regexp '^[0-9]{4}[0-9A-Z]?$')。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "TPEx 側全清:7,137 個原始檔內容日期零錯位、0-byte 檔 0 個;逐日列數相對前一交易日的變動沒有任何一天超過 10%;兩市場都沒有「與前一交易日內容逐檔完全相同」的重複日。twse 那 17 筆超過 10% 的跳動全部是 BUG 1 的錯位日,沒有額外的部分公告日。",
+      "evidence": "04_filename_vs_content_date.py → tpex 7,137 檔,檔名≠內容 0、無日期表頭 0。08_daycount_jumps.py → tpex 逐日列數變動 >10% 為空;twse 17 筆全部對應 2008-03-03/2009-08-02/2011-07-10/2012-03-31/2012-08-07/2013-05-13/2025-08-12/2026-02-25/2026-04-12 及其隔日回彈(905 列的錯位快照進出所致)。連日重複內容偵測(同代號三欄全同且共同代號 >50)兩市場皆空。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "極端值不是解析錯位,是交易所原始檔就這樣:8444 綠河-KY 淨值比 115、6720 久昌 2024-12-04 淨值比與本益比皆為 0(全表唯一)、本益比 >1000 共 22,645 列、殖利率 >30% 共 8,517 列。",
+      "evidence": "iconv -f big5-hkscs data/stock_per_pbr_dividend_yield/tpex/2026/2026_7_17.csv | grep '\"8444\"' → \"8444\",\"綠河-KY\",\"N/A\",\"0.00000000\",\"114\",\"0.00\",\"115.00\",\"115Q1\"(欄序 代號/名稱/本益比/每股股利/股利年度/殖利率/淨值比/財報年季,與 Reader values(2)=PE、values(6)=PB、values(5)=DY 及 Python 爬蟲 pe=2,pb=6,dy=5 一致);同法 2024/2024_12_4.csv grep '\"6720\"' → \"6720\",\"久昌\",\"0\",\"1.68000000\",\"112\",\"1.03\",\"0\"。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "stock_per_pbr 有資料、daily_quote 卻整天空白的 4 個 twse 交易日(2021-08-18、2025-08-15、2026-04-29、2026-05-28),缺的是 daily_quote 不是本表——本表這幾天內容日期正確、列數正常。與 C-daily_quote 的 BUG 1 完全吻合,互為佐證。",
+      "evidence": "03_coverage_gaps.py 檢查 2:twse 有 13 個日期存在於 stock_per_pbr 而不在 daily_quote,其中 9 個是 BUG 1 的休市幽靈日,剩下 4 個(2021-08-18 週三 951 列、2025-08-15 週五 1,046 列、2026-04-29 週三 1,071 列、2026-05-28 週四 1,077 列)在 04 的錯位清單中不存在(內容日期正確),且在 08 的列數跳動掃描中未出現。tpex 那 120 天是 daily_quote/tpex 起點 2007-07-02 晚於 stock_per_pbr/tpex 起點 2007-01-02 所致,同樣不是本表的問題。docs/data_audit/_done/C-daily_quote.json 的 BUG 1 列出的正是這 4 天 + tpex 2023-06-08。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema 對照:psql \\d stock_per_pbr_dividend_yield(8 欄)vs DuckDB DESCRIBE stock_per_pbr(6 欄),逐欄型別對應 + research/cache_tables.py:38 的 SELECT 清單 + research/db.py:103-106 的 pg-attach 對照 view parity",
+    "整表列數:cache 7,740,905 vs PG 7,738,937;逐 market、逐 (market,year)、逐 (market,date) 全比對(01_counts.py)",
+    "全表逐鍵逐欄值比對(非抽樣):7,738,937 個共用鍵的三個數值欄 IS DISTINCT FROM 計數 + 雙向 EXCEPT 找獨有鍵(02_value_parity.py)",
+    "指定隨機抽樣:seed 20260722,3 個日期 x 5 檔共 15 組,六個欄位逐一比對(07_sample_and_newest.py)",
+    "日期覆蓋缺口三路交叉:對 daily_quote 同市場日期集合、對 research/data_calendar.py::is_trading_day(0-byte sentinel 休市日曆,含颱風假)、每日列數對中位數(03_coverage_gaps.py、06_value_anomaly.py)",
+    "全史原始檔檔名日期 vs 內容日期:twse 7,625 檔 + tpex 7,137 檔,解析 Big5 標題的民國日期(04_filename_vs_content_date.py)",
+    "錯位日汙染量化:19 個錯位日在 cache 的列數、與「內容日」同代號三欄逐欄比對、該日 daily_quote 是否有報價、鄰近交易日列數(05_phantom_impact.py)",
+    "原始檔對帳:md5 比對 2009_8_2 / 2011_7_10 / 2012_3_31 / 2017_4_3 四檔完全相同;head 檢視 2025_8_12 / 2026_2_25 / 2026_4_12 / 2018_12_13 / 2016_10_6 的標題與欄位佈局;缺漏日 13 檔的檔案大小",
+    "原始檔盤點分類:twse 7,625 檔分為 has_date 5,131 / empty_body(<=10B)2,465 / 0-byte 29,逐年分佈與非交易日數對照",
+    "數值欄異常掃描:NULL 分佈、負/零 PB、負/零 PE、負 DY、PB>100、PE>1000、DY>30、未來日期、重複鍵、company_code 格式、三欄全 NULL(06_value_anomaly.py)",
+    "極端值回原始檔驗證:8444(tpex 2026-07-17)、6720(tpex 2024-12-04)、6806(twse 2026-06 高殖利率)",
+    "逐日列數跳動偵測(>10%)與連日重複內容偵測,補「標題日期正確但內容只有一半」的死角(08_daycount_jumps.py)",
+    "cache 獨有日 2026-07-20 的合理性:列數、PB/DY 中位數、pe_null 數對照 07-17,以及 1,968 檔的 PB 變動比分位數(07_sample_and_newest.py)",
+    "齊備度:research/data_calendar.py::latest_complete_trading_day() 與 stale_tables() 實跑",
+    "程式碼(codebase-memory-mcp + 精讀):src/main/scala/reader/TradingReader.scala::readStockPER_PBR_DividendYield(700-761)、src/main/resources/application.conf 的 stockPER_PBR_DividendYield 端點、research/cache_tables.py、research/db.py::connect、research/crawl/sources/stock_per_pbr.py、research/crawl/parse.py、research/crawl/sink.py、research/crawl/update.py、research/crawl/tests/test_parity.py、research/crawl/__init__.py",
+    "消費端盤點(30 處):research/serenity/engine.py:964 + replay_2025.py::load_point_in_time_table + style_replay_2025.py::row_latest_before(as-of 取值語義)、research/apex/data.py:204、research/strat_lab/v4.py:99/110、research/evergreen/ev18_make_packs.py:112、research/serenity/discovery_funnel.py:55 等",
+    "與其他稽核單位交叉:docs/data_audit/_done/C-daily_quote.json(同型 TWSE 端點回別日內容、幽靈日 2009-12-12)、C-operating_revenue.json(同型雙寫入路徑互相覆蓋)"
+  ]
+}

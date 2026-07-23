@@ -1,0 +1,108 @@
+{
+  "id": "C-capital_reduction",
+  "dim": "C",
+  "table": "capital_reduction",
+  "unit": "C-capital_reduction",
+  "verdict": "BUG",
+  "summary": "表本身乾淨到挑不出毛病——cache 對 PostgreSQL 666 個共用鍵逐欄零差異、對 284 個原始 CSV 的 11 欄也零差異;不能信的是這份對的資料被浪費掉的兩處:(1) research/prices.py 的 0.05<f<5 護欄把 15 筆大比例減資因子當髒資料丟掉,還原價完全沒調整,canonical 報酬序列憑空多出 +365%~+3626% 的假暴漲,其中 2408 南亞科 2014-09-09 的 +832% 中位成交金額 6,149 萬 > 5,000 萬流動性門檻,進得了策略池;(2) 減資表 twse 只從 2011-01-25、tpex 只從 2013-01-16 開始,但報價從 2004/2007 就有,pre-2011 回測有 254(twse)+332(tpex)筆股數驟減事件無人還原,實測 3021 假報酬 +830.8%、1805 +754.4%。另查到 TWSE 端點在 2024-05~2025-12 對有事件的區間持續回空,27 筆漏抓,靠 2026-05-20 端點出包吐全量傾印才意外補回,守護至今不存在。",
+  "findings": [
+    {
+      "severity": "BUG",
+      "what": "research/prices.py 的減資因子護欄 0.05<f<5.0 把 15 筆真實的大比例減資(台股「彌補虧損」型可減到只剩 2.5%,因子最高 40.04)當髒資料丟掉;備援的分割偵測又因為「這天有減資紀錄」被 anti-join 關掉 → 價格完全沒還原 → canonical 日報酬出現 +365%~+3626% 的假暴漲。最嚴重的是 2408 南亞科 2014-09-09 +832.10%,它的中位成交金額高於流動性門檻,會被策略選進去。",
+      "evidence": "程式碼:research/prices.py:318 `.filter((pl.col(\"factor\") > 0.05) & (pl.col(\"factor\") < 5.0))`;備援關閉點 research/prices.py:395 `split_events.join(known, on=[\"company_code\",\"ex_date\"], how=\"anti\")`(known 含 capital_reduction)。實測 docs/data_audit/scripts/C-capital_reduction/07_prices_guard_impact.py:15 筆被丟掉的事件中 13 筆產生假報酬——2408 南亞科 2014-09-09 pre=8.10 post=80.93 f=9.99 → +832.10%;5364 易福 2013-12-10 pre=1.15 post=46.04 f=40.04 → +3626.09%;3095 及成 2022-10-31 +983.03%;2348 力廣 2012-12-28 +923.21%;8941 關中 2013-10-18 +830.65%;2364 倫飛 2021-10-08 +612.17%;6246 臺龍 2016-10-31 +586.27%;6259 百徽 2020-09-21 +564.53%;6103 合邦 2023-03-08 +541.98%;2429 銘旺科 2013-03-13 +530.37%;2496 卓越 2016-09-10 +522.70%;9906 興達 2011-04-08 +452.63%;3043 科風 2022-12-19 +365.36%。全市場複現:`prices.fetch_daily_returns(con,'2014-08-01','2014-09-30',market='twse')` 的單日報酬第 1 名就是 2014-09-09 2408 +832.10%(第 2 名 2634 才 +28.3%);同期 panel 顯示 2014-08-25 close=8.10 → 2014-09-09 close=75.50 而 adj_factor 恆為 1.0。材料性:2408 在 2014-03-09~2014-09-08 的中位 trade_value = 61,492,810 > Universe.scala:31 的 MinMedianTradeValue 50,000,000(research/strat_lab/v4.py:62 同門檻),事件前 120 日 ADV = 105,335,526。對照組(f<5 的減資)當日報酬都在 ±10% 內。",
+      "fix": "拿掉沒有出處的 0.05/5.0 魔術數字。交易所自己在 CSV 給了『停止買賣前收盤價格』(PG 欄 closing_price_on_the_last_trading_date),本次實測它與 daily_quote 前一交易日收盤 666/666 完全相符(誤差<0.005),所以因子根本不必用範圍猜:把該欄加進 research/cache_tables.py:43 的 SELECT,因子改成 post_ref / closing_price_on_the_last_trading_date,護欄只留『兩者皆 > 0』。若堅持保留上限,證據顯示台股實際因子上界至少 40.04、下界 0.922,任何 < 50 的上限都會誤殺。防復發:加測試『全市場 canonical 日報酬最大值不得超過 +10%,除非該 (code,date) 是已知分割/減資事件』,先用 2408 2014-09-09 驗紅再驗綠。"
+    },
+    {
+      "severity": "BUG",
+      "what": "減資表的覆蓋起點比報價晚 7 年:twse 從 2011-01-25、tpex 從 2013-01-16,但 daily_quote 從 2004-02-11 / 2007-07-02 就有。爬蟲設定把起始日寫死。結果 2004~2011(twse)與 2007~2013(tpex)的還原價完全沒有減資調整,那段期間的回測報酬是假的。",
+      "evidence": "程式碼:src/main/scala/setting/CapitalReductionSetting.scala:6 `new TwseDetail(LocalDate.of(2011, 1, 1), ...)`、:11 `new TpexV2Detail(LocalDate.of(2013, 1, 2), ...)`。PG 實際範圍:twse 2011-01-25~2026-06-29(386 筆)、tpex 2013-01-16~2026-06-30(280 筆);daily_quote twse 2004-02-11~、tpex 2007-07-02~。獨立偵測 docs/data_audit/scripts/C-capital_reduction/10_shares_outstanding_probe.py(用 foreign_holding_ratio.outstanding_shares 的股數驟減;先用 666 筆已知減資校準,召回 twse 316/386、tpex 221/280):覆蓋起點之前有 twse 254 筆(2005-01-07~2011-01-24)、tpex 332 筆(2011-01-03~2012-11-27)。抽樣皆為教科書式 1:10 反分割——3021 2006-10-11 股數 245,023,005→24,502,300、收盤 1.30→12.10;2342 2009-10-13 5,763,336,680→576,333,668、8.20→16.05;1805 2006-12-25 425,000,000→53,125,000、2.37→20.25;tpex 8934 2012-02-20 65,000,000→5,200,000、2.60→30.25。實測 prices.fetch_daily_returns 假報酬:3021 2006-10-13 +830.77%、1805 2006-12-25 +754.43%、2342 2009-10-14 +95.73%(3004 2008-09-19 被分割偵測救回,無假報酬)。",
+      "fix": "短期:把回測起點限制在 2011-01-25(twse)/ 2013-01-16(tpex)之後,或把 pre-2011 的既有回測結論標記為不可信。補料:此端點現況已無法用 strDate 回溯(見下一條),需改走替代來源(公開資訊觀測站減資歷史查詢),或用 foreign_holding_ratio.outstanding_shares 的股數比反推換股率當 fallback 還原因子(已驗證能抓到 1:10)。補抓不要在稽核步驟做,交主流程統一安排。"
+    },
+    {
+      "severity": "BUG",
+      "what": "TWSE TWTAUU 端點會對『明明有事件』的區間回空(2 bytes),而爬蟲把空回應當成『那段沒事件』照樣存檔並推進游標,所以漏抓永遠不會自癒。2024-05~2025-12 期間 27 筆 twse 減資當時全部漏抓,今天之所以在資料庫裡,純粹是 2026-05-20 端點自己出包吐出一份 2011~2026-01 的全量傾印才意外補回。守護至今不存在,同樣的漏抓會再發生。",
+      "evidence": "程式碼:src/main/scala/Task.scala:343-352 `pullCapitalReduction`(strDate = existFiles.max.plusDays(1)、endDate = 昨天、檔名取 endDate),空回應照存 → 下次從新檔名+1 開始,失敗區間永不回頭。逐檔還原請求 vs 回應區間(docs/data_audit/scripts/C-capital_reduction/05_requested_vs_returned_window.py;非空回應的標題在前期 100% 吻合請求,可信):2025_6_14.csv req 2024-06-25~2025-06-14 → EMPTY,但該區間真的有 13 筆減資(2024-07-29 2363、2024-08-26 3481、2024-09-09 2911、2024-09-30 2489、2024-10-21 5469/8249、2024-10-28 6164、2024-11-11 3041/3356/5515、2024-11-25 3494、2024-12-30 1538、2025-02-12 2025);2025_9_27.csv req 2025-09-08~2025-09-27 → EMPTY(2025-09-15 有 2 筆);2025_10_7.csv → EMPTY(2025-10-07 有 5 筆);2025_12_9.csv req 2025-10-24~2025-12-09 → EMPTY(11/03、11/24×2、12/08 共 4 筆);2026_5_20.csv req 2026-05-20~2026-05-20 → 37,250 bytes / 390 列 / 內容 2011-01-25~2026-01-12,標題卻是亂碼「-1900年12月18日 至 106年12月18日」。來源追蹤 04_provenance.py:27 筆 twse 減資(2024-07-29~2025-12-22)的唯一首抓來源就是 2026_5_20.csv,首抓延遲 149~660 天;逐年增量抓到率 twse 2020 23/28、2021 27/27、2022 31/31、2023 26/26、2024 3/15、2025 2/17。端點現況(2026-07-22 單次唯讀探測,curl):strDate=20040101&endDate=20260722 與 strDate=20240101&endDate=20260722 都回同一份標題「115年06月29日 至 115年07月22日」的 1 列 → strDate 已被伺服器完全忽略;strDate=20241101&endDate=20241130(該月確有 3 筆)、20240101~20241231、20060101~20061231 全回 2 bytes;新平台路徑 /rwd/zh/reduction/TWTAUU 回 0 bytes(不存在)。對照 TPEx bulletin/revivt 完全正常:142 檔的區間合併後是一整段 2013-01-02~2026-07-18,無洞。",
+      "fix": "(1) 爬蟲加 fail-loud:回應標題起點晚於請求起點、或整份回空時,不寫檔也不推進 existFiles.max,並落待補清單(TWSE 這支不能再把『回空』當成『沒事件』);(2) 改成 endDate 固定為今天的滾動全量抓取——實測端點會回『伺服器錨點 → endDate』,固定 endDate=今天就能拿到目前願意給的最大範圍,去重交給 reader 既有的 filterNot(dataAlreadyInDB);(3) 加月度對帳守護:比對 foreign_holding_ratio 的股數驟減事件與 capital_reduction,差額超門檻即告警(10_shares_outstanding_probe.py 已是現成偵測器)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "同一張表有兩條寫入路徑,cache 比 PG 多 1 列(twse 2026-08-03 1459 聯發,post_ref 為 NULL,是 Python 爬蟲往未來抓 30 天抓到的『已排定但尚未定價』事件);照 CLAUDE.md 的 Step 2 跑 cache_tables.py 會把它無聲抹掉。它同時是 cache 裡唯一的未來日期列,消費端若沒有 date <= 決策日 的過濾就會前視。",
+      "evidence": "01_schema_and_counts.py:cache 667 vs PG 666,雙向 EXCEPT 只差這一列;666 個共用鍵的 post_reduction_reference_price / reason_for_capital_reduction 兩欄 IS DISTINCT FROM 皆為 0,pg_only = 0。來源:research/crawl/sources/capital_reduction.py:31 `_BACK_DAYS, _FWD_DAYS = 90, 30` + :39-42 `_price()` 對非數字回 None;覆寫點 research/cache_tables.py:22-23 `if os.path.exists(DB_PATH): os.remove(DB_PATH)` 後第 43 行從 pg 全量重建。原始列(2026-07-22 探測 strDate=20260601&endDate=20260831 實得):`\"115/08/03\",\"1459\",\"聯發\",\"-\",\"-\",\"-\",\"-\",\"-\",\"--\",\"退還股款\",\"請點選\",`。前視風險盤點:research/prices.py:154 有 `AND date <= DATE '{end}'`、research/audits/01_find_spikes.py:60 與 02_anomaly_scan.py:56 都按事件日 join、research/experiments/official_event_alpha_survey.py:128 按 event_date 展開 → 目前沒有實際前視發生。",
+      "fix": "cache_tables.py 全砍重建前先檢查『PG max(date) >= cache max(date)』,否則拒跑;或對這類事件表改成 merge 不 drop。長期收斂成單一 writer。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "Scala reader 對價格欄是 `-` 的列會丟 NumberFormatException,而這樣的列現在就在證交所線上。目前碰不到是因為 Scala 端 endDate=昨天、端點會濾掉未來列;但 2026-05-20 那種『吐出跟請求無關的全量』一旦包含未定價列,Main update 會整批失敗。",
+      "evidence": "src/main/scala/reader/TradingReader.scala:273 `values(3).toDouble, values(4).toDouble, values(5).toDouble, values(6).toDouble, values(7).toDouble`(TWSE 分支)與 :287(TPEx 分支)皆無 try/except;`\"-\".toDouble` 拋 NumberFormatException,且呼叫點在 `files.foreach` 的平行集合裡會中斷整批。線上實證(2026-07-22 curl strDate=20260601&endDate=20260831):`\"115/08/03\",\"1459\",\"聯發\",\"-\",\"-\",\"-\",\"-\",\"-\",\"--\",\"退還股款\",\"請點選\",`。對照 Python 爬蟲 research/crawl/sources/capital_reduction.py:39-42 `_price()` 有 try/except ValueError → 回 None,不會炸。全史 666 列都成功解析,所以尚未發生。",
+      "fix": "TradingReader 的兩個分支改用 toDoubleOption + 對『尚未定價』的列跳過或寫 NULL(PG 該欄目前是 NOT NULL,要一併放寬或在 reader 過濾掉未定價列)。"
+    },
+    {
+      "severity": "SUSPECT",
+      "what": "(跨單位)research/data_calendar.py::is_trading_day 一行 weekday>=5 就把所有週六判成非交易日,但台股的週六補行交易日是真的有開市。影響 latest_complete_trading_day() 在補行交易日當週會退回週五。不是本表的問題,但證據是查本表時撞到的。",
+      "evidence": "research/data_calendar.py:50 `if d.weekday() >= 5: return False`(在讀 0-byte sentinel 之前就 return)。本表的 443 個 distinct 日期中有 6 天被判非交易日,其中 4 個週六 2013-09-14 / 2016-09-10 / 2017-09-30 / 2018-12-22 在 daily_quote 當天分別有 twse 872 / 962 / 1,019 / 1,072 檔報價(tpex 644 / 719 / 741 / 797)= 真的有開市。CLAUDE.md 已把『週六補行交易日』列為真實現象。",
+      "fix": "is_trading_day 改成先看 sentinel/報價存在性,再用星期幾當 fallback:週六若該日 daily_quote 檔案存在且非 0-byte,就判為交易日。"
+    },
+    {
+      "severity": "OK",
+      "what": "cache 與 PostgreSQL 逐鍵逐欄完全一致——不是抽樣,是全表 666 個共用鍵零差異,PG 獨有鍵 0;逐年 × market 30 組筆數只有 twse 2026 因為那筆未來排定事件差 1。指定的隨機抽樣(3 個日期 × 每天最多 5 檔)13/13 逐欄相同。",
+      "evidence": "docs/data_audit/scripts/C-capital_reduction/01_schema_and_counts.py:共用鍵 666、diff_post_ref 0、diff_reason 0、鍵層級 EXCEPT cache_only 1 / pg_only 0;逐年 × market 全表列出,只有 (twse,2026) cache 3 / pg 2。11_sample_and_freshness.py(seed 20260722,挑當天≥3 檔的日期):2021-01-18(2061/6134/6251)、2024-09-30(2489/4946/5348/6208/8034)、2019-10-07(2204/2316/2380/2478/3071)共 13 組,五個欄位逐一比對 13/13 SAME。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "原始 CSV 全史 → PostgreSQL 零差異。這張表是『一個檔 = 一段日期區間的全量傾印』,所以缺漏不能用逐日檔案在不在來判;把 284 個原始檔全部依 Reader 規則解析後 union,與 PG 對帳:唯一鍵 666 = 666,原始有/PG 無 0、PG 有/原始無 0,11 欄(含 cache 沒帶的 6 欄)逐欄差異全部 0。",
+      "evidence": "docs/data_audit/scripts/C-capital_reduction/02_raw_vs_db.py:twse 142 檔(0-byte 4)解析 784 列、tpex 142 檔解析 280 列,去重後唯一鍵 666;逐欄差異 company_name 0 / close_last_trading 0 / post_ref 0 / limit_up 0 / limit_down 0 / opening_ref 0 / ex_right_ref 0 / reason 0。跨檔同鍵衝突 4 個,全是交易所檔案內部的重複列(2408 南亞科/南科、2438 英誌/翔耀、5906 F-台南/台南-KY 的公司改名列;3536 誠創 2015-03-20 的除權參考價 `--` 與 13.06 兩版),Reader 的 distinctBy 取第一筆,與 PG 現況一致。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "schema 對照無型別降級,且 cache 丟掉的欄位可以精確重建。PG 12 欄 → cache 5 欄,丟掉 id、company_name 與 6 個價格欄。關鍵驗證:prices.py 需要的『停止買賣前收盤價』改從 daily_quote 取前一交易日收盤,實測 666/666 完全相等,所以丟欄零資訊損失。pg-attach 對照 view 與 cache 表欄位、順序逐字相同,parity 沒破。",
+      "evidence": "psql \\d capital_reduction → id bigint / market varchar / date date / company_code varchar / company_name varchar / closing_price_on_the_last_trading_date double / post_reduction_reference_price double / limit_up double / limit_down double / opening_reference_price double / ex_right_reference_price double(唯一可 NULL)/ reason_for_capital_reduction varchar;唯一索引 (market,date,company_code)。DuckDB DESCRIBE capital_reduction → market VARCHAR / date DATE / company_code VARCHAR / post_reduction_reference_price DOUBLE / reason_for_capital_reduction VARCHAR。同步 SQL:research/cache_tables.py:43;索引 idx_cr_code_date 於 :114;pg-attach view:research/db.py:118-121(逐字相同)。重建驗證:06_semantics_and_anomaly.py 段 B1 → n=666、no_prior_quote 0、exact 666、mismatch 0(門檻 0.005 元)。",
+      "fix": "把 closing_price_on_the_last_trading_date 加進 cache_tables.py:43 的 SELECT(BUG 1 的修法會用到)。"
+    },
+    {
+      "severity": "OK",
+      "what": "數值異常掃描全清:post_ref 負值 0、≤0 值 0、重複鍵 0、company_code 格式異常 0、減資原因空白 0。唯一的 NULL 與唯一的未來日期是同一列(1459)。事件表沒有『每天都該有一列』的概念,不存在日頻缺漏。",
+      "evidence": "docs/data_audit/scripts/C-capital_reduction/06_semantics_and_anomaly.py:n=667、post_null 1、post_le0 0、future_date 1、reason_blank 0、odd_code 0(regexp '^[0-9]{4}[0-9A-Z]?$');GROUP BY market,date,company_code HAVING COUNT(*)>1 為空。減資原因三類:彌補虧損 374(2011-01-27~2026-06-29)、退還股款 208(2011-01-25~2026-08-03)、現金減資 85(2013-10-07~2026-06-30)。因子分佈:twse n=386 min 0.9344 / p50 1.2787 / max 10.2357;tpex n=280 min 0.9220 / p50 1.4650 / max 40.0348。",
+      "fix": ""
+    },
+    {
+      "severity": "OK",
+      "what": "反向驗證:覆蓋期內沒有任何真正漏抓的減資。用『停牌數日後價格大跳』掃 daily_quote,再扣掉 capital_reduction 與 ex_right_dividend 已解釋的,覆蓋期內剩 19 筆未解釋向上跳,逐一分流後全是誤報。",
+      "evidence": "docs/data_audit/scripts/C-capital_reduction/08_unexplained_jumps.py + 09_unexplained_triage.py:偵測器先用 666 筆已知減資校準(召回 twse 197/386、tpex 176/280,故為漏抓的上界估計)。覆蓋期(twse ≥2011-01-25 / tpex ≥2013-01-16)的未解釋向上跳共 47 筆,其中 13 筆在 ±30 天內找得到同代號的減資紀錄(宣告的恢復買賣日碰到颱風假/延後,如 2314 台揚 CR 2016-09-28 → 實際 09-29、2323 中環 CR 2019-09-30 → 實際 10-01、1538 正峰 CR 2024-12-30 → 實際 12-31、5455 訊利電 CR 2014-12-30 → 實際 2015-01-07),其餘為槓桿/反向 ETF 與 ETN 反分割(00673R、00715L、00632R、00676R、00706L、00674R、00887、00643K、00633L、00637L、00655L、00677U)、TDR(910708)、以及冷門股零成交日造成的假缺口。假缺口舉證:6103 合邦 2015-09-02、09-03 的 daily_quote closing_price 為空、trade_volume=0(不是停牌);2740 在 2024-11-20~12-13 有 9 天無成交。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "13 筆恢復買賣參考價落在復牌當天 low~high 之外,不是資料錯——那些股票復牌當天直接跌停鎖死、全天一價到底。",
+      "evidence": "docs/data_audit/scripts/C-capital_reduction/06_semantics_and_anomaly.py 段 B2:n=666、當天無報價 22、落在 low*0.9~high*1.1 內 631、外 13。逐筆驗算即為跌停價:6165 捷泰 2015-08-24 post_ref 13.38 → 13.38×0.9=12.042 → 檔位 12.05 = 當天 open/low/high/close;1456 怡華 2016-02-02 10.02→9.03;6228 全譜 2016-11-15 16.66→15.00;2456 奇力新 2018-10-12 118.81→107.00;6541 泰福-KY 2023-03-13 111.51→100.50;3064 泰偉 2024-02-05 35.50→31.95。全部在 2015-06-01 漲跌幅放寬到 10% 之後。",
+      "fix": ""
+    },
+    {
+      "severity": "REAL",
+      "what": "6 個減資日不是一般交易日,但都不是錯:4 個週六是真的補行交易日(當天有 872~1,072 檔上市報價),2 個是颱風休市(交易所排定的恢復買賣日碰上臨時休市,實際隔一個交易日才復牌)。",
+      "evidence": "research/data_calendar.py::is_trading_day 對 443 個 distinct 日期判出 6 個非交易日:2013-09-14(六)、2016-09-10(六)、2016-09-28(三)、2017-09-30(六)、2018-12-22(六)、2019-09-30(一)。daily_quote 當天列數:2013-09-14 twse 872/tpex 644、2016-09-10 twse 962/tpex 719、2017-09-30 twse 1019/tpex 741、2018-12-22 twse 1072/tpex 797(= 真補行交易日);2016-09-28(梅姬)與 2019-09-30(米塔)全市場零報價,data/daily_quote/twse/2016/2016_9_28.csv 為 0-byte sentinel。這兩天的減資實際復牌日:2314 台揚 2016-09-29、3055 蔚華科 2016-09-29、2323 中環 2019-10-01、5345 天揚 2019-10-01、6276 安鈦克 2019-10-01。還原因子提早一天套用,但中間沒有交易日,對報酬零影響。",
+      "fix": ""
+    }
+  ],
+  "checked": [
+    "schema 對照:psql \\d capital_reduction(12 欄)vs DuckDB DESCRIBE capital_reduction(5 欄)+ research/cache_tables.py:43 的 SELECT 清單 + research/db.py:118-121 的 pg-attach 對照 view parity + 索引 idx_cr_code_date(cache_tables.py:114)",
+    "整表/逐年/逐鍵筆數與逐欄值比對:cache 667 vs PG 666,逐年 × market 30 組,雙向全列 EXCEPT + 鍵層級 EXCEPT + 共用鍵 IS DISTINCT FROM(01_schema_and_counts.py)",
+    "指定隨機抽樣:seed 20260722,3 個日期 × 每天最多 5 檔共 13 組,五個欄位逐一比對(11_sample_and_freshness.py)",
+    "原始檔全史對帳:284 個 CSV(twse 142 / tpex 142)以 TradingReader.readCapitalReduction 的規則重解析,與 PG 做 11 欄逐欄比對 + 雙向缺漏(02_raw_vs_db.py)",
+    "區間傾印的覆蓋鋪滿檢查:解析每個檔標題回報的日期區間並合併,找覆蓋空洞(03_window_coverage.py)",
+    "來源追蹤:每筆事件『第一次被哪個檔抓到』與延遲分佈,分辨增量抓到 vs 事後全量傾印補回(04_provenance.py)",
+    "請求區間 vs 回應區間逐檔對照:從檔名序列重建 Task.pullCapitalReduction 的 strDate,與回應標題並排,定位漏抓根因(05_requested_vs_returned_window.py)",
+    "端點行為第一手探測(2026-07-22,單次唯讀 curl,輸出只寫 scratchpad 未落 data/):legacy TWTAUU 六種日期組合 + 新平台 /rwd/zh/reduction/TWTAUU 兩種參數名,證明 strDate 已被忽略、歷史 endDate 一律回空",
+    "數值異常掃描:NULL / ≤0 / 負值 / 未來日期 / 重複鍵 / company_code 格式 / 減資原因分類 / 因子分位數(06_semantics_and_anomaly.py)",
+    "語意自洽:closing_price_on_the_last_trading_date vs daily_quote 前一交易日收盤 666/666 相符;post_reduction_reference_price vs 復牌當日 low~high 落點(06_semantics_and_anomaly.py)",
+    "消費端衝擊實測:prices.fetch_adjusted_panel / fetch_daily_returns 對 15 筆被護欄丟掉的事件逐一實跑,含全市場單日報酬排序與 adj_factor 檢視(07_prices_guard_impact.py)",
+    "材料性:被丟掉事件的事件前 120 日 ADV 與 6 個月中位 trade_value,對照 Universe.scala:31 / v4.py:62 的 NT$50M 流動性門檻",
+    "反向驗證(漏抓上界):daily_quote 停牌後大跳事件掃描 + 對 capital_reduction / ex_right_dividend 的解釋率 + 逐筆分流(08_unexplained_jumps.py、09_unexplained_triage.py)",
+    "獨立偵測器:foreign_holding_ratio.outstanding_shares 股數驟減,先用 666 筆已知減資校準召回率,再量化覆蓋起點前的缺口(10_shares_outstanding_probe.py)",
+    "交易日曆交叉:research/data_calendar.py::is_trading_day 對 443 個減資日的判定 + 對 daily_quote 實際列數與 0-byte sentinel 的複核",
+    "程式碼精讀:src/main/scala/reader/TradingReader.scala:248-300(readCapitalReduction)、src/main/scala/Task.scala:343-352(pullCapitalReduction)、src/main/scala/Crawler.scala:222-225、src/main/scala/setting/CapitalReductionSetting.scala、src/main/scala/setting/Detail.scala(fileName / getDatesOfExistFiles)、src/main/scala/setting/Setting.scala(markets 交集)、src/main/resources/application.conf:119-128、research/prices.py:148-170/264-396、research/cache_tables.py、research/db.py、research/crawl/sources/capital_reduction.py、research/crawl/tests/test_parity.py、research/data_calendar.py",
+    "消費端盤點:research/prices.py:151、research/audits/01_find_spikes.py:60、research/audits/02_anomaly_scan.py:56、research/audits/03_full_data_audit.py、research/experiments/official_event_alpha_survey.py:123-143、research/evergreen/ev18_make_packs.py:151、research/tests/test_prices.py:76、research/crawl/tests/test_parity.py:221-252",
+    "與其他稽核單位交叉:docs/data_audit/_done/C-stock_per_pbr.json(同型雙寫入路徑覆蓋、同型 TWSE 端點回別日內容)、C-daily_quote.json、C-operating_revenue.json"
+  ]
+}
