@@ -81,6 +81,12 @@ qd = (grid.sort("date")
 G1 = pl.min_horizontal(pl.max_horizontal(pl.col("g3y"), pl.lit(0.0)), pl.lit(0.25))
 _dcf_pv = sum((1 + G1) ** t_ / 1.10 ** t_ for t_ in range(1, 6)) \
     + (1 + G1) ** 5 * 1.02 / (0.10 - 0.02) / 1.10 ** 5
+# 命名口徑誠實標註(2026-07-23 稽核 D-valuation;這批皆 IC-dead 研究因子、非生產):
+# - ev_ebit_inv:EV = 市值 + **總負債 tl**(非教科書淨負債 = 有息負債 − 現金),屬資料受限
+#   代理;此檔無有息負債/現金明細欄,總負債為粗代理,截面 rank 用途可接受但非嚴格 EV。
+# - peg_inv:= 盈餘殖利率 × **營收 YoY 成長 g_yoy**(非 PEG 的盈餘成長),故非教科書 PEG;
+#   營收成長 ≠ EPS 成長,此為啟發式代理。兩者稽核實測 IC 近零(peg mean_ic −0.017)已判死、
+#   不進任何生產策略,保留僅為 IC 廣篩存證;若日後要真 PEG/EV 需接 EPS 成長與淨負債欄位。
 qd = qd.with_columns([
     (pos("cfo_ttm") / pos("mcap_k")).alias("cfo_yield"),
     (pl.col("ebit_ttm") / (pos("mcap_k") + pos("tl"))).alias("ev_ebit_inv"),

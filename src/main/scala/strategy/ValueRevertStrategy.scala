@@ -61,13 +61,20 @@ class ValueRevertStrategy(topN: Int = 10) extends Strategy {
   private def dropScoreFilter(asOf: LocalDate, universe: Set[String], db: Database): Set[String] = {
     val (year, quarter) = PublicationLag.asOfQuarter(asOf)
     val codeList = universe.map(c => s"'$c'").mkString(",")
+    // 2026-07-23 稽核 D-screening 舉一反三:drop_score<10 門檻**必須在收斂到最新季之後**
+    // 才套用。舊版把門檻放進 DISTINCT ON 的同一 WHERE(門檻在收斂前)→ 若公司最新季
+    // drop_score≥10(已惡化)但早季 <10,WHERE 先剔掉最新季、DISTINCT ON 反而選中早季
+    // 那筆達標列 → 等價「歷史任一季曾達標就永久放行」(實測 PIT 2024Q1 漏網 235 家)。
+    // 正解:內層先 DISTINCT ON 取每家 PIT 最新一季,外層才對那一季套 drop_score 門檻。
     val q = sql"""
-      SELECT DISTINCT ON (company_code) company_code
-      FROM growth_analysis_ttm
-      WHERE company_code IN (#$codeList)
-        AND (year < #$year OR (year = #$year AND quarter <= #$quarter))
-        AND COALESCE(drop_score, 0) < 10
-      ORDER BY company_code, year DESC, quarter DESC
+      SELECT company_code FROM (
+        SELECT DISTINCT ON (company_code) company_code, drop_score
+        FROM growth_analysis_ttm
+        WHERE company_code IN (#$codeList)
+          AND (year < #$year OR (year = #$year AND quarter <= #$quarter))
+        ORDER BY company_code, year DESC, quarter DESC
+      ) latest
+      WHERE COALESCE(drop_score, 0) < 10
     """.as[String]
     Await.result(db.run(q), Duration.Inf).toSet
   }

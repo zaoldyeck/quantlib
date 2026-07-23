@@ -84,11 +84,13 @@ ${u.focus}
 ## 你要做的
 1. 把稽核列出的**每一個 BUG 全部修對**(不是只修一個),對照它宣稱/學理定義。
 2. **每一個 SUSPECT 都要處置**:能修就修;判定不修的,在 \`suspects\` 明確寫理由(如「屬合理簡化、方向不變」)——**零缺漏**,不准默默略過。
-3. **自驗**:
-   - Scala:在你的 worktree 跑 \`sbt compile\`(逾時給足,可能 10+ 分),確認你的修改編譯通過;若有對應測試就跑。把結果寫進 \`verify\`。
+3. **自驗**(priority 是精確 edits;編譯自驗盡力而為、**不阻塞**):
+   - Scala:**先把 edits 設計對、寫進回傳**;若資源允許可在 worktree 跑 \`sbt compile\` 佐證
+     (逾時/資源不足就在 \`verify\` 註記「compile 未跑,edits 經逐行語法自審」,**不要卡住**)。
+     整合編譯由主 agent 在主工作區統一做,你不必為編譯成功與否負全責,但 edits 必須語法正確。
    - SQL(view .sql):人工核對改後 SQL 的邏輯與語法(欄位、GROUP BY、視窗、除零 guard),寫清楚為何正確。
-   - Python(q01):跑 \`uv run --project research python -m pytest\`(若有測試)或實際 parse/計算一筆對照學理手算值,寫進 \`verify\`。
-4. 回傳**精確 edits**(對 HEAD 現況檔可乾淨套用的 old_string/new_string):主 agent 會統一套用到主工作區並做整合編譯。old_string 必須逐字相符且在檔內唯一(含足夠上下文)。
+   - Python(q01):跑 \`uv run --project research python\` 實際 parse/計算一筆對照學理手算值(如 2330 某季),寫進 \`verify\`。
+4. 回傳**精確 edits**(對 HEAD 現況檔可乾淨套用的 old_string/new_string):主 agent 會統一套用到主工作區並做整合編譯。**old_string 必須是 HEAD 現況檔的逐字原文**(不是你改後的版本)、含足夠上下文在檔內唯一;多個 edit 依「對原始檔依序套用」設計、彼此不重疊。
 
 ## 鐵律
 - **只認可重現證據**:改法要能對照學理定義/稽核證據說明,不空口。
