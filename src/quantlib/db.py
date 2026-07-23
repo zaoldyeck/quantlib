@@ -80,12 +80,30 @@ def connect(cache_path: str = CACHE_DB, read_only: bool = True,
             f"cache 不存在:{cache_path}。PostgreSQL 已退役(2026-07-23),"
             "請從 raw 重建:`uv run --project . python -m quantlib.crawl.rebuild --all`"
             "(季報鏈另跑 quantlib.crawl.rebuild_financials)。")
-    con = duckdb.connect(cache_path, read_only=read_only)
+    con = _connect_retry(cache_path, read_only)
     _configure_connection(con)
     if register_raw_quarterly:
         _register_raw_quarterly(con)
     _register_industry_taxonomy(con)
     return con
+
+
+def _connect_retry(path: str, read_only: bool, tries: int = 120,
+                   backoff: float = 0.25) -> duckdb.DuckDBPyConnection:
+    """開 cache;遇「別的程序持寫鎖」時**短暫重試等空檔**(DuckDB native 跨程序單寫者)。
+
+    搭配長寫者(crawl.backfill/update)批次寫完即釋放鎖,讀者在批次間隙即可取得鎖——
+    效果上讀寫幾乎不互擋、無需 PostgreSQL。預設等到 ~30s(120×0.25);仍拿不到才拋。
+    """
+    import time
+    for i in range(tries):
+        try:
+            return duckdb.connect(path, read_only=read_only)
+        except duckdb.IOException as exc:
+            if "lock" in str(exc).lower() and i < tries - 1:
+                time.sleep(backoff)
+                continue
+            raise
 
 
 if __name__ == "__main__":

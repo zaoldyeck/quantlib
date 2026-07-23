@@ -22,8 +22,9 @@ LIMIT_CHANGE_DATE = Date(2015, 6, 1)
 
 
 def connect() -> duckdb.DuckDBPyConnection:
-    """Read-only cache 連線(可多程序並行)。附掛 raw_quarterly 基本面 view(若存在)。"""
-    con = duckdb.connect(CACHE_DB, read_only=True)
+    """Read-only cache 連線(遇寫者鎖短暫重試;可多程序並行)。附掛 raw_quarterly view。"""
+    from quantlib.db import _connect_retry
+    con = _connect_retry(CACHE_DB, read_only=True)
     con.sql(f"SET threads = {max(1, os.cpu_count() or 4)}")
     if os.path.exists(RAW_QUARTERLY_PARQUET):
         con.sql(
