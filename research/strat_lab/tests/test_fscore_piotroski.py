@@ -26,9 +26,9 @@ from research.strat_lab.raw_quarterly import build_raw_quarterly
 @pytest.fixture(scope="module")
 def panel():
     try:
-        con = connect(use_cache=False)
+        con = connect()  # cache(PG 已退役 2026-07-23;raw IS/BS/CF 基表在 cache 內)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"PG 不可用:{exc}")
+        pytest.skip(f"cache 不可用:{exc}")
     return build_raw_quarterly(con, date(2022, 1, 1), date(2025, 1, 1))
 
 

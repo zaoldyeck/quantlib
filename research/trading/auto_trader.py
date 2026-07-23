@@ -253,9 +253,10 @@ def run_capital_check(args: argparse.Namespace) -> None:
 
 
 def refresh_data() -> None:
-    subprocess.run(["sbt", "runMain Main update"], check=True)
+    # Python 爬蟲直寫 cache.duckdb(PostgreSQL/Scala 已退役 2026-07-23);
+    # research.crawl.update 一步取代舊「Main update(Scala→PG)+ cache_tables(PG→cache)」。
     subprocess.run(
-        ["uv", "run", "--project", "research", "python", "research/cache_tables.py"],
+        ["uv", "run", "--project", "research", "python", "-m", "research.crawl.update"],
         check=True,
     )
 

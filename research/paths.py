@@ -42,7 +42,8 @@ RAW_INTRADAY = RAW / "intraday" / "kbars_1m"
 VAR = REPO / "var"
 
 CACHE_DIR = VAR / "cache"
-#: 全表 DuckDB 快照(由 research/cache_tables.py 從 PostgreSQL 重建)
+#: 全表 DuckDB 快照(唯一結構化真源;由 research/crawl/rebuild.py 從 raw 封存重建、
+#: research.crawl.update 每日增量更新。PostgreSQL 已退役 2026-07-23)
 CACHE_DB = CACHE_DIR / "cache.duckdb"
 #: S 策略用的瘦身快照(雲端 VM 用;內容為全表快照的子集)
 CACHE_SLIM_DB = CACHE_DIR / "cache_s_slim.duckdb"

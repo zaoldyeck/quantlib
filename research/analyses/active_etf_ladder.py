@@ -1,8 +1,8 @@
 """Stair-step same-window ranking for Taiwan-listed active ETFs.
 
 Prerequisite: refresh PostgreSQL and DuckDB cache before running:
-  sbt "runMain Main update"
-  uv run --project research python research/cache_tables.py
+  uv run --project research python -m research.crawl.update
+
 
 This script intentionally reads from `var/cache/cache.duckdb` through
 `research.db.connect()` and adjusted prices through `research.prices.py`.

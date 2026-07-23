@@ -1,8 +1,8 @@
 """Add fee and holding-cost columns to the broad Taiwan ETF decision ranking.
 
 Prerequisites:
-  sbt "runMain Main update"
-  uv run --project research python research/cache_tables.py
+  uv run --project research python -m research.crawl.update
+
 
 This script intentionally does not recompute historical returns.  The input
 ranking already uses total-return-equivalent adjusted prices, so historical

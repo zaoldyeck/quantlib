@@ -19,12 +19,19 @@ from datetime import date as Date, timedelta
 
 from research.crawl.sink import Sink
 from research.crawl.sources import (daily_quote, daily_trading_details,
+                                    foreign_holding_ratio, insider_holding,
+                                    margin_transactions, sbl_borrowing,
                                     stock_per_pbr)
+from research.crawl.sources import index as market_index
 from research.data_calendar import (QUOTE_DIR, is_trading_day,
                                     latest_complete_trading_day)
 
-#: 日頻源(每交易日必有資料;以 cache 最新日 + 1 起補)
-DAILY_SOURCES = [daily_quote, daily_trading_details, stock_per_pbr]
+#: 日頻源(每交易日必有資料;以 cache 最新日 + 1 起補)。完整替代 Scala `Main update`
+#: 的日頻爬取——含籌碼面(margin/foreign/sbl)、指數、內部人,消費者(Serenity/S/
+#: auto_trader)全需,不得只留 S 熱路徑造成籌碼訊號靜默降級。
+DAILY_SOURCES = [daily_quote, daily_trading_details, stock_per_pbr,
+                 margin_transactions, foreign_holding_ratio, sbl_borrowing,
+                 market_index, insider_holding]
 
 
 def _missing_days(sink: Sink, table: str, market: str, upto: Date) -> list[Date]:
@@ -69,17 +76,21 @@ def _refresh_daily(sink: Sink, upto: Date) -> int:
 
 def _refresh_monthly(sink: Sink, upto: Date) -> None:
     """月頻/不定期源:operating_revenue(S 進場訊號)、ex_right_dividend、
-    capital_reduction —— 全 Python 直抓,VM 完全自主、零 Mac 依賴。
+    capital_reduction、treasury_stock_buyback(庫藏股,Serenity 消費)——
+    全 Python 直抓,VM 完全自主、零 Mac 依賴。
     operating_revenue 更新後重算 industry_taxonomy_pit(唯一真源)。
+    註:財報 bs/is/cf(季頻)由 research.crawl.rebuild_financials 另跑(季度一次),
+    不在每日路徑——季報資料 stale-tolerant,每日 loop 不需刷新。
     """
     from research.crawl.sources import (capital_reduction, ex_right_dividend,
-                                        operating_revenue)
+                                        operating_revenue, treasury_stock_buyback)
 
     n = operating_revenue.refresh(sink, upto)
     if n:
         operating_revenue.rebuild_industry_taxonomy(sink)
     ex_right_dividend.refresh(sink, upto)
     capital_reduction.refresh(sink, upto)
+    treasury_stock_buyback.refresh(sink, upto)
 
 
 def ensure_fresh(upto: Date | None = None, *, monthly: bool = True) -> None:

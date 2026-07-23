@@ -27,7 +27,7 @@ def daily_row_count_anomalies(con, table: str, market_filter: str = "twse") -> p
     """Dates where the row count is < 50% of the 30-day rolling median for the table."""
     q = f"""
     WITH daily AS (
-      SELECT date, COUNT(*) AS n FROM pg.public.{table}
+      SELECT date, COUNT(*) AS n FROM {table}
       WHERE market = '{market_filter}'
       GROUP BY date
     ),
@@ -56,7 +56,7 @@ def stock_per_pbr_sanity(con) -> pl.DataFrame:
              COUNT(*) FILTER (WHERE price_book_ratio > 100) AS pb_too_high,
              COUNT(*) FILTER (WHERE price_to_earning_ratio > 1000) AS pe_too_high,
              COUNT(*) AS total
-      FROM pg.public.stock_per_pbr_dividend_yield
+      FROM stock_per_pbr
       WHERE market IN ('twse','tpex')
       GROUP BY 1, 2
     )
@@ -79,7 +79,7 @@ def margin_trans_sanity(con) -> pl.DataFrame:
                  AND margin_quota > 0
              ) AS impossible_balance,
              COUNT(*) AS n
-      FROM pg.public.margin_transactions
+      FROM margin_transactions
       WHERE market IN ('twse','tpex')
       GROUP BY 1, 2
     )
@@ -94,13 +94,13 @@ def operating_revenue_sanity(con) -> pl.DataFrame:
       SELECT year, month,
              COUNT(*) FILTER (WHERE monthly_revenue < 0) AS negative_rev,
              COUNT(*) FILTER (WHERE monthly_revenue = 0) AS zero_rev,
+             -- cache 的 monthly_revenue_yoy 已是 YoY 成長率(%);
+             -- > 9900%(≈100x)或 < -99% 視為不可能(取代 PG 時代的 last_year 比值)
              COUNT(*) FILTER (WHERE monthly_revenue > 0
-                              AND last_year_monthly_revenue > 0
-                              AND (monthly_revenue::double / last_year_monthly_revenue > 100
-                                   OR monthly_revenue::double / last_year_monthly_revenue < 0.01)
+                              AND (monthly_revenue_yoy > 9900 OR monthly_revenue_yoy < -99)
              ) AS impossible_yoy,
              COUNT(*) AS n
-      FROM pg.public.operating_revenue
+      FROM operating_revenue
       GROUP BY year, month
     )
     SELECT * FROM by_month
@@ -116,7 +116,7 @@ def index_sanity(con) -> pl.DataFrame:
     WITH seq AS (
       SELECT name, date, close,
              LAG(close) OVER (PARTITION BY name ORDER BY date) AS prev
-      FROM pg.public.index
+      FROM market_index
       WHERE market='twse' AND name IN ('發行量加權股價指數','未含金融保險股指數','未含電子股指數')
         AND close > 0
     )
@@ -130,17 +130,21 @@ def index_sanity(con) -> pl.DataFrame:
     return con.sql(q).pl()
 
 
-def financial_index_null_check(con) -> pl.DataFrame:
-    """Which quarters have a lot of null fields in financial_index_ttm?"""
+def raw_quarterly_null_check(con) -> pl.DataFrame:
+    """Which quarters have a lot of null fields in raw_quarterly (first-principles factors)?
+
+    取代 PG 時代的 financial_index_ttm(已退役);raw_quarterly 是 F-Score/品質因子的
+    唯一真源(research/strat_lab/raw_quarterly.py 從 raw IS/BS/CF 算出)。
+    """
     q = """
     SELECT year, quarter,
            COUNT(*) AS total,
-           COUNT(*) FILTER (WHERE ocf IS NULL) AS null_ocf,
-           COUNT(*) FILTER (WHERE profit IS NULL) AS null_profit,
-           COUNT(*) FILTER (WHERE roic IS NULL) AS null_roic,
-           COUNT(*) FILTER (WHERE fcf_per_share IS NULL) AS null_fcf,
-           COUNT(*) FILTER (WHERE cbs IS NULL) AS null_cbs
-    FROM pg.public.financial_index_ttm
+           COUNT(*) FILTER (WHERE cfo_ttm IS NULL) AS null_cfo,
+           COUNT(*) FILTER (WHERE ni_ttm IS NULL) AS null_ni,
+           COUNT(*) FILTER (WHERE roa_ttm IS NULL) AS null_roa,
+           COUNT(*) FILTER (WHERE gross_margin_q IS NULL) AS null_gm,
+           COUNT(*) FILTER (WHERE f_score_raw IS NULL) AS null_fscore
+    FROM raw_quarterly
     GROUP BY year, quarter
     ORDER BY year, quarter
     """
@@ -150,7 +154,7 @@ def financial_index_null_check(con) -> pl.DataFrame:
 def ex_right_dividend_span(con) -> pl.DataFrame:
     q = """
     SELECT EXTRACT(year FROM date)::int AS year, COUNT(*) AS n
-    FROM pg.public.ex_right_dividend
+    FROM ex_right_dividend
     GROUP BY 1 ORDER BY 1
     """
     return con.sql(q).pl()
@@ -168,7 +172,7 @@ def main():
     pl.Config.set_fmt_str_lengths(80)
 
     for table in ("daily_quote", "daily_trading_details", "margin_transactions",
-                  "stock_per_pbr_dividend_yield"):
+                  "stock_per_pbr"):
         print(f"\n--- {table}: dates with row count < 50% of 30-day rolling median ---")
         df = daily_row_count_anomalies(con, table)
         print(f"[{len(df)} anomaly dates]")
@@ -199,9 +203,9 @@ def main():
     if len(df) > 0:
         print(df.head(30))
 
-    print("\n--- financial_index_ttm: null prevalence by quarter ---")
-    df = financial_index_null_check(con)
-    total_nulls = df.select(pl.col("null_ocf").sum().alias("total_null_ocf"))
+    print("\n--- raw_quarterly: null prevalence by quarter ---")
+    df = raw_quarterly_null_check(con)
+    total_nulls = df.select(pl.col("null_cfo").sum().alias("total_null_cfo"))
     print(total_nulls)
     print(df.tail(20))
 

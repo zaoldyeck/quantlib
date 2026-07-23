@@ -8,7 +8,9 @@
 修法:改用交易所公告的「參考價 / 除權息前收盤」當還原因子(配息+配股一體涵蓋),
 對純配息事件與舊 cash 法實測僅差 4e-5,故等價且更完整。
 
-本測試走 pg-attach(use_cache=False),不依賴 cache 是否已 rebuild。PG 不可用則 skip。
+本測試走 cache(PG 已退役 2026-07-23);cache 的 ex_right_dividend 由
+research.crawl.rebuild 寫入 FC1 參考價欄(closing_price_before / reference_price)。
+cache 缺該欄則 skip(rebuild 未帶入,見 rebuild._EXD_KEEP)。
 Run: uv run --project research python -m pytest research/tests/test_prices_dividend_fc1.py
 """
 from __future__ import annotations
@@ -22,15 +24,15 @@ from research import db, prices
 @pytest.fixture(scope="module")
 def con():
     try:
-        c = db.connect(use_cache=False, read_only=True)
+        c = db.connect(read_only=True)
     except Exception as exc:  # noqa: BLE001
-        pytest.skip(f"PG 不可用:{exc}")
-    # 確認 view 已帶參考價欄(否則測不到修復)
+        pytest.skip(f"cache 不可用:{exc}")
+    # 確認 cache 已帶參考價欄(否則測不到修復)
     cols = {r[0] for r in c.sql(
         "SELECT column_name FROM information_schema.columns "
         "WHERE table_name='ex_right_dividend'").fetchall()}
     if "ex_right_ex_dividend_reference_price" not in cols:
-        pytest.skip("ex_right_dividend view 尚未帶參考價欄(db.py 未更新)")
+        pytest.skip("ex_right_dividend cache 尚未帶參考價欄(rebuild 未帶入)")
     return c
 
 
@@ -54,7 +56,7 @@ def test_cash_dividend_factor_matches_reference_method(con) -> None:
             (ex_right_ex_dividend_reference_price / closing_price_before_ex_right_ex_dividend)
           - ((closing_price_before_ex_right_ex_dividend - cash_dividend)
              / closing_price_before_ex_right_ex_dividend)))
-        FROM pg.public.ex_right_dividend
+        FROM ex_right_dividend
         WHERE right_or_dividend='息' AND cash_dividend>0
           AND closing_price_before_ex_right_ex_dividend>0
           AND ex_right_ex_dividend_reference_price>0

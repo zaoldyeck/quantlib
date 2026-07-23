@@ -48,10 +48,18 @@ def _independent_total_return(con, code: str, market: str = "twse"):
         WHERE market='{market}' AND company_code='{code}' AND closing_price > 0
         ORDER BY date
     """).pl()
+    # FC1:優先用官方參考價因子(ref/pre,配股+配息一體);無參考價才回退 cash 法。
+    # 與 prices.py 同法、不同程式路徑(此處逐事件反向回推,prices.py 走累乘)——
+    # 純 cash-only 會漏掉 2330 早年盈餘配股(除權)→ 與 prices.py 分歧、非 prices.py 錯。
     divs = con.sql(f"""
-        SELECT date AS ex_date, cash_dividend
+        SELECT date AS ex_date, cash_dividend,
+               closing_price_before_ex_right_ex_dividend AS pre_tbl,
+               ex_right_ex_dividend_reference_price AS ref
         FROM ex_right_dividend
-        WHERE market='{market}' AND company_code='{code}' AND cash_dividend > 0
+        WHERE market='{market}' AND company_code='{code}'
+          AND (cash_dividend > 0
+               OR (closing_price_before_ex_right_ex_dividend > 0
+                   AND ex_right_ex_dividend_reference_price > 0))
         ORDER BY date
     """).pl()
     splits = con.sql(f"""
@@ -82,14 +90,20 @@ def _independent_total_return(con, code: str, market: str = "twse"):
 
     events = []
     for row in divs.iter_rows(named=True):
-        ex, d = row["ex_date"], row["cash_dividend"]
-        pre = s.filter(pl.col("date") < ex).tail(1)
-        if pre.height == 0:
-            continue
-        p_pre = pre["closing_price"][0]
-        if p_pre <= d:
-            continue
-        events.append({"ex_date": ex, "factor": (p_pre - d) / p_pre})
+        ex = row["ex_date"]
+        pre_tbl, ref = row["pre_tbl"], row["ref"]
+        if pre_tbl and ref and pre_tbl > 0 and ref > 0:
+            factor = ref / pre_tbl                       # 官方參考價法(配股+配息一體)
+        else:
+            d = row["cash_dividend"]
+            pre = s.filter(pl.col("date") < ex).tail(1)
+            if pre.height == 0:
+                continue
+            p_pre = pre["closing_price"][0]
+            if p_pre <= d:
+                continue
+            factor = (p_pre - d) / p_pre                  # 無參考價 → cash 回退
+        events.append({"ex_date": ex, "factor": factor})
     events.extend(splits.iter_rows(named=True))
 
     for row in sorted(events, key=lambda x: x["ex_date"], reverse=True):

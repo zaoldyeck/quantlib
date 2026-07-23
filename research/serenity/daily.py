@@ -235,13 +235,13 @@ def cmd_run(args: argparse.Namespace) -> None:
 
     # 1) data refresh
     if not args.skip_refresh:
-        r = sh(["sbt", "runMain Main update"], timeout=3000)
+        # Python 爬蟲直寫 cache.duckdb(PostgreSQL/Scala 已退役 2026-07-23);
+        # research.crawl.update 一步取代舊「Main update(Scala→PG)+ cache_tables(PG→cache)」。
+        r = sh(["uv", "run", "--project", "research", "python", "-m",
+                "research.crawl.update"], timeout=3000)
         if r.returncode != 0:
             print(r.stdout[-1500:], r.stderr[-1500:])
             raise SystemExit("crawl failed — no plan today (fail-closed).")
-        r = sh(["uv", "run", "--project", "research", "python", "research/cache_tables.py"], timeout=1200)
-        if r.returncode != 0:
-            raise SystemExit("cache rebuild failed — no plan today (fail-closed).")
 
     con = duckdb.connect(str(paths.CACHE_DB), read_only=True)
     cutoff = con.sql("select max(date) from daily_quote").fetchone()[0]

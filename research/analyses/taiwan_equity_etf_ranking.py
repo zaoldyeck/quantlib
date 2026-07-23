@@ -1,9 +1,9 @@
 """Rank all Taiwan domestic-equity ETFs using adjusted total-return prices.
 
 Inputs are intentionally local and reproducible:
-  1. `sbt "runMain Main update"` refreshes TWSE/TPEx files and PostgreSQL.
-  2. `uv run --project research python research/cache_tables.py` syncs DuckDB.
-  3. This script reads TWSE ETF metadata from `data/etf/*.json` and adjusted
+  1. `uv run --project research python -m research.crawl.update` 增量抓
+     TWSE/TPEx 並直寫 cache.duckdb(PostgreSQL 已退役 2026-07-23)。
+  2. This script reads TWSE ETF metadata from `data/etf/*.json` and adjusted
      prices from `research.prices.fetch_adjusted_panel`.
 
 The output is a professional decision ranking, not a one-window return chase.
@@ -721,7 +721,7 @@ def _write_doc(
 def main() -> None:
     metas = _load_current_domestic_etfs()
     codes = [meta.code for meta in metas]
-    con = connect(use_cache=True)
+    con = connect()
     cutoff = con.sql("SELECT max(date) FROM daily_quote WHERE market='twse'").fetchone()[0]
     cache_rows = con.sql("SELECT count(*) FROM daily_quote").fetchone()[0]
 

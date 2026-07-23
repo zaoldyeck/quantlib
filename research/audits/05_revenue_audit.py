@@ -25,11 +25,11 @@ def main():
           SELECT year, month,
                  COUNT(*) FILTER (WHERE monthly_revenue < 0) AS neg,
                  COUNT(*) FILTER (WHERE monthly_revenue = 0) AS zero,
-                 COUNT(*) FILTER (WHERE monthly_revenue > 0 AND last_year_monthly_revenue > 0
-                                  AND (monthly_revenue::DOUBLE / last_year_monthly_revenue > 100
-                                       OR monthly_revenue::DOUBLE / last_year_monthly_revenue < 0.01)) AS extreme,
+                 -- cache 用 monthly_revenue_yoy(YoY 成長率 %);>9900%(≈100x)或 < -99% 為極端
+                 COUNT(*) FILTER (WHERE monthly_revenue > 0
+                                  AND (monthly_revenue_yoy > 9900 OR monthly_revenue_yoy < -99)) AS extreme,
                  COUNT(*) AS total
-          FROM pg.public.operating_revenue
+          FROM operating_revenue
           GROUP BY year, month
         )
         SELECT year, month, neg, zero, extreme, total,
@@ -47,7 +47,7 @@ def main():
                COUNT(*) AS zero_months,
                MIN(year*100+month) AS earliest,
                MAX(year*100+month) AS latest
-        FROM pg.public.operating_revenue
+        FROM operating_revenue
         WHERE year >= 2024 AND monthly_revenue = 0
         GROUP BY company_code
         HAVING COUNT(*) >= 3
@@ -56,14 +56,17 @@ def main():
     print(df.head(30))
 
     print("\n=== Stocks with sharp last_year → current drop (real restatement/delisting?) ===")
+    # cache 無去年絕對營收欄 → self-join 同公司同月去年一筆取回(取代 PG 的 last_year_monthly_revenue)
     df = con.sql("""
-        SELECT company_code, year, month,
-               monthly_revenue, last_year_monthly_revenue
-        FROM pg.public.operating_revenue
-        WHERE year >= 2024
-          AND last_year_monthly_revenue > 1000  -- meaningful scale
-          AND monthly_revenue = 0
-        ORDER BY last_year_monthly_revenue DESC
+        SELECT o.company_code, o.year, o.month,
+               o.monthly_revenue, ly.monthly_revenue AS last_year_monthly_revenue
+        FROM operating_revenue o
+        JOIN operating_revenue ly
+          ON ly.company_code = o.company_code AND ly.year = o.year - 1 AND ly.month = o.month
+        WHERE o.year >= 2024
+          AND ly.monthly_revenue > 1000  -- meaningful scale
+          AND o.monthly_revenue = 0
+        ORDER BY ly.monthly_revenue DESC
         LIMIT 15
     """).pl()
     print(df)
@@ -71,7 +74,7 @@ def main():
     print("\n=== Negative monthly_revenue rows ===")
     df = con.sql("""
         SELECT company_code, year, month, monthly_revenue
-        FROM pg.public.operating_revenue
+        FROM operating_revenue
         WHERE monthly_revenue < 0
         ORDER BY year DESC, month DESC
         LIMIT 20

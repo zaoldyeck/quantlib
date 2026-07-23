@@ -68,7 +68,7 @@ def regen_raw_quarterly() -> None:
     from research.db import RAW_QUARTERLY_PARQUET, connect
     from research.strat_lab.raw_quarterly import build_raw_quarterly
 
-    con = connect(use_cache=True)  # 用重建後的 cache(bs/is/cf)
+    con = connect()  # 用重建後的 cache(bs/is/cf;PG 已退役)
     rq = build_raw_quarterly(con, date(2001, 1, 1), date(2026, 8, 1))
     out = RAW_QUARTERLY_PARQUET  # canonical:research/raw_quarterly.parquet(S cfo_ni 閘門讀這個)
     # 原子換名:先寫 tmp 再 os.replace,避免中途被中止留半檔汙染 S 的 live 源

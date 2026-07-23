@@ -142,14 +142,15 @@ def ensure_fresh_cache(no_refresh: bool) -> None:
     log_dir.mkdir(parents=True, exist_ok=True)
     log_path = log_dir / f"update_{Date.today()}.log"
     with open(log_path, "w", encoding="utf-8") as lf:
-        rc = subprocess.run(["sbt", "-batch", "runMain Main update"],
+        # Python 爬蟲直寫 cache.duckdb(PostgreSQL/Scala 已退役 2026-07-23);
+        # research.crawl.update 一步到位取代舊「Main update(Scala→PG)+ cache_tables(PG→cache)」。
+        rc = subprocess.run(["uv", "run", "--project", "research", "python", "-m",
+                             "research.crawl.update", "--upto", str(want)],
                             stdout=lf, stderr=subprocess.STDOUT,
                             env={**_os.environ}).returncode
         if rc != 0:
             print(f"✗ 更新失敗(rc={rc})——詳見 {log_path}")
             raise SystemExit(1)
-        subprocess.run(["uv", "run", "--project", "research", "python", "research/cache_tables.py"],
-                      stdout=lf, stderr=subprocess.STDOUT, check=True)
     left = stale_tables(want)
     if left:
         print("ℹ 更新後仍缺(該表可能延遲發布,或當日休市):"
@@ -162,7 +163,7 @@ def freshness_line(d0: str) -> str:
     gap = (Date.today() - Date.fromisoformat(d0)).days
     if gap > 4:
         return (f"⚠ cache 最新資料 {d0}(落後 {gap} 天)——建議先刷新:\n"
-                "  sbt \"runMain Main update\" && uv run python research/cache_tables.py")
+                "  uv run --project research python -m research.crawl.update")
     return f"cache 最新資料日:{d0}"
 
 

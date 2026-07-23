@@ -9,13 +9,11 @@ Apples-to-apples vs iter_21 (DRIP NAV). Method:
 """
 import polars as pl
 import numpy as np
-import duckdb
 from datetime import date
 from research import paths
+from research.db import connect
 
-con = duckdb.connect()
-con.sql("INSTALL postgres; LOAD postgres;")
-con.sql("ATTACH 'host=localhost port=5432 dbname=quantlib' AS pg (TYPE postgres, READ_ONLY)")
+con = connect()  # local cache(PostgreSQL 已退役 2026-07-23)
 
 tickers = ['00981A','00982A','00984A','00987A','00988A','00990A','00991A',
            '00992A','00993A','00994A','00995A','0050','0052']
@@ -23,15 +21,15 @@ in_clause = ",".join(f"'{t}'" for t in tickers)
 
 # Pull prices
 prices = con.sql(f"""
-    SELECT date, company_code, company_name, closing_price
-    FROM pg.public.daily_quote
+    SELECT date, company_code, company_code AS company_name, closing_price
+    FROM daily_quote
     WHERE market='twse' AND company_code IN ({in_clause})
 """).pl()
 
 # Pull dividends
 divs = con.sql(f"""
     SELECT date AS ex_date, company_code, cash_dividend
-    FROM pg.public.ex_right_dividend
+    FROM ex_right_dividend
     WHERE company_code IN ({in_clause})
       AND cash_dividend > 0
 """).pl()

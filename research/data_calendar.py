@@ -29,7 +29,7 @@ QUOTE_DIR = REPO_ROOT / "data" / "daily_quote" / "twse"
 #: D 的資料自 D+1 的此時刻起視為齊備(見模組 docstring 的依據)
 DATA_COMPLETE_AFTER = time(0, 30)
 
-#: `Main update` 每日會抓的日頻表(cache 表名)。齊備 = 這些表都有該交易日的資料。
+#: research.crawl.update 每日會抓的日頻表(cache 表名)。齊備 = 這些表都有該交易日的資料。
 DAILY_TABLES = (
     "daily_quote",
     "market_index",

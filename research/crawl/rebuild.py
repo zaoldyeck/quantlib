@@ -149,19 +149,28 @@ def rebuild_operating_revenue() -> int:
     return full.height
 
 
+#: 除權息 cache 目標欄——**含 FC1 參考價欄**(closing_price_before / reference_price)。
+#: prices.py 以「參考價/前收盤」為首選還原因子(純配股不再幽靈崩跌);絕不可沿用舊 4 欄
+#: 瘦身 schema(cash_dividend only),否則 prices.py 退回 cash-only fallback → FC1 失效。
+_EXD_KEEP = ["market", "date", "company_code", "cash_dividend", "right_or_dividend",
+             "closing_price_before_ex_right_ex_dividend",
+             "ex_right_ex_dividend_reference_price"]
+
+
 def rebuild_ex_right_dividend() -> int:
     """除權息全世代(parse_raw 標頭判世代:MOPS / twse 舊制 / tpex 舊制)。"""
     import glob
     from research.crawl.sources import ex_right_dividend as exd
-    cache_cols = _cache_cols("ex_right_dividend")
     frames = []
     for market in exd.MARKETS:
         for f in glob.glob(f"data/ex_right_dividend/{market}/**/*.csv", recursive=True):
             d = _safe(exd.parse_raw, market, open(f, "rb").read())
             if d is not None and not d.is_empty():
-                frames.append(d.select([c for c in cache_cols if c in d.columns]))
-    full = pl.concat(frames, how="vertical_relaxed").unique()
-    print(f"[rebuild] ex_right_dividend: {_write('ex_right_dividend', full):,} 列")
+                frames.append(d.select([c for c in _EXD_KEEP if c in d.columns]))
+    full = pl.concat(frames, how="vertical_relaxed").unique(
+        subset=["market", "date", "company_code"], keep="last")
+    print(f"[rebuild] ex_right_dividend: {_write('ex_right_dividend', full):,} 列"
+          f"(欄:{', '.join(full.columns)})")
     return full.height
 
 
@@ -200,16 +209,6 @@ def _safe(fn, *a):
         return fn(*a)
     except Exception:  # noqa: BLE001 - 收集,單檔錯不中斷整源(rebuild 對汙染/漂移 fail-soft)
         return None
-
-
-def _cache_cols(table: str) -> list[str]:
-    con = __import__("duckdb").connect(str(paths.CACHE_DB), read_only=True)
-    try:
-        return [c[0] for c in con.execute(
-            f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}' "
-            "ORDER BY ordinal_position").fetchall()]
-    finally:
-        con.close()
 
 
 def rebuild_insider_holding() -> int:

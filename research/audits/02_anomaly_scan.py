@@ -33,7 +33,7 @@ def scan(con, min_stocks: int = 20, market: str = "twse") -> pl.DataFrame:
         LAG(date) OVER (
           PARTITION BY company_code, market ORDER BY date
         ) AS prev_date
-      FROM pg.public.daily_quote
+      FROM daily_quote
       WHERE market = '{market}'
         AND company_code ~ '^[1-9][0-9]{{3}}$'
         AND closing_price > 0
@@ -48,12 +48,12 @@ def scan(con, min_stocks: int = 20, market: str = "twse") -> pl.DataFrame:
              OR w.closing_price / w.prev_close > 2.0)
         -- Exclude genuine corporate actions:
         AND NOT EXISTS (
-          SELECT 1 FROM pg.public.ex_right_dividend e
+          SELECT 1 FROM ex_right_dividend e
           WHERE e.market = w.market AND e.company_code = w.company_code
             AND e.date > w.prev_date AND e.date <= w.date
         )
         AND NOT EXISTS (
-          SELECT 1 FROM pg.public.capital_reduction c
+          SELECT 1 FROM capital_reduction c
           WHERE c.market = w.market AND c.company_code = w.company_code
             AND c.date > w.prev_date AND c.date <= w.date
         )

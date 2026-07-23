@@ -2,8 +2,8 @@
 
 The raw tables are populated by the Scala crawler/reader:
 
-    sbt "runMain Main pull taifex"
-    sbt "runMain Main read taifex"
+    uv run --project research python -m research.crawl.rebuild --source taifex
+
 
 This module then builds research-ready DuckDB tables from the raw TAIFEX rows.
 """
