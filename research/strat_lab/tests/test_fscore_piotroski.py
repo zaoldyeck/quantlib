@@ -91,3 +91,20 @@ def test_no_row_explosion_from_densify(panel) -> None:
 def pl_len_gt_one():
     import polars as pl
     return pl.col("len") > 1
+
+def test_missing_quarter_yields_null_not_two_quarter_sum(panel) -> None:
+    """FC5 結案:財報是年度累計數,單季 = 本季 YTD − 上季 YTD。某公司缺一季時,
+    缺季的**下一季**不得被算成「兩季合計」——densify 到日曆格線後,缺季是 null
+    佔位,單季差分自然傳成 null(而非跨過缺季相減)。
+
+    1256 於 2023 有 Q1/Q3/Q4、缺 Q2:2023Q3 的單季值必須是 null(舊碼會算成
+    Q3_YTD − Q1_YTD = Q2+Q3 合計),Q4 正常(Q4−Q3 都在)。"""
+    q3 = _row(panel, "1256", 2023, 3)
+    q4 = _row(panel, "1256", 2023, 4)
+    if q3 is None or q4 is None:
+        pytest.skip("1256 2023 樣本不在視窗")
+    assert q3["rev_q"] is None, "缺季的下一季被算成兩季合計(FC5 未修)"
+    assert q3["ni_q"] is None
+    assert q3["rev_ttm"] is None, "TTM 跨缺季必須 null(效度閘)"
+    assert q4["rev_q"] is not None, "缺季的隔兩季(Q4−Q3 都在)應正常"
+
