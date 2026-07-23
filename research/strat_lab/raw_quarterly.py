@@ -44,15 +44,18 @@ from research.db import connect
 # IMPORTANT: TWSE pre-IFRS-2013 用 ASCII 半形括號 (), post-IFRS 用全形（）。
 # Schema drift discovered 2026-04-27 (iter_10 debug)：必須兩種都收，否則 2005-2012
 # 整段 IS 資料變 NULL，downstream ROA/margin TTM 全空。
+# 清單順序 = COALESCE 優先序(見 _pivot_titles)。**Piotroski (2000) 明定用
+# 「除非常項目與停業單位前之淨利」**,故 ni 優先取「繼續營業單位本期淨利」,
+# 取不到才退回「本期淨利」;毛利優先取「淨額」。
 IS_TITLES = {
     "rev":       ["營業收入", "營業收入淨額"],
     "cogs":      ["營業成本"],
-    "gross_pf":  ["營業毛利（毛損）", "營業毛利（毛損）淨額",
-                  "營業毛利(毛損)", "營業毛利(毛損)淨額"],
+    "gross_pf":  ["營業毛利（毛損）淨額", "營業毛利(毛損)淨額",
+                  "營業毛利（毛損）", "營業毛利(毛損)"],
     "op_income": ["營業利益（損失）", "營業利益（淨損）",
                   "營業利益(損失)", "營業利益(淨損)"],
-    "ni":        ["本期淨利（淨損）", "繼續營業單位本期淨利（淨損）",
-                  "繼續營業單位淨利(淨損)", "本期淨利(淨損)",
+    "ni":        ["繼續營業單位本期淨利（淨損）", "繼續營業單位淨利(淨損)",
+                  "本期淨利（淨損）", "本期淨利(淨損)",
                   "本期稅後淨利（淨損）", "本期稅後淨利(淨損)"],
 }
 
@@ -81,8 +84,16 @@ def _pivot_titles(con, cache_table: str, mapping: dict[str, list[str]],
     Reads from cache.duckdb tables (is_progressive_raw, bs_concise_raw,
     cf_progressive_raw) which are already filtered to twse market.
     """
+    # **固定優先序 COALESCE,不是 MAX**(2026-07-23 FC4/BUG-10)。
+    # 舊寫法 MAX(value) FILTER (title IN (...)) 在同一格有兩個候選科目時挑「數字大的」
+    # ——系統性偏差,且哪個較大隨季別變動 → Δ毛利率/淨利被灌雜訊(88,036/89,006 格
+    # 同時有 2+ 候選科目,1,168 格淨利差達 120 億)。改成照 mapping 清單的順序逐一
+    # 回退:繼續營業單位淨利(≈ 除非常項目前淨利,Piotroski 明定用它)優先於本期淨利;
+    # 毛利淨額優先於毛利。
     select_clauses = [
-        f"MAX(value) FILTER (WHERE title IN ({','.join(repr(t) for t in titles)})) AS {key}"
+        "COALESCE(" + ", ".join(
+            f"MAX(value) FILTER (WHERE title = {t!r})" for t in titles
+        ) + f") AS {key}"
         for key, titles in mapping.items()
     ]
     # Cache tables: is/bs filter market IN ('twse','tpex'); cf uses 'tw' (no split)
@@ -121,34 +132,66 @@ def build_raw_quarterly(con, start: date, end: date) -> pl.DataFrame:
                             IS_TITLES, sy, ey).sort(["company_code", "year", "quarter"])
     print(f"  [is] {len(is_ytd):,} rows ({time.time()-t0:.1f}s)")
 
-    # Convert to standalone quarterly via lag-diff:
-    # Q1 standalone = Q1 progressive (since YTD up to Q1 = Q1)
-    # Q2/3/4 standalone = current YTD - prior YTD (within same year)
-    is_q = is_ytd.with_columns([
-        pl.when(pl.col("quarter") == 1).then(pl.col("rev"))
-          .otherwise(pl.col("rev") - pl.col("rev").shift(1)
-                     .over(["company_code", "year"], order_by="quarter"))
-          .alias("rev_q"),
-        pl.when(pl.col("quarter") == 1).then(pl.col("cogs"))
-          .otherwise(pl.col("cogs") - pl.col("cogs").shift(1)
-                     .over(["company_code", "year"], order_by="quarter"))
-          .alias("cogs_q"),
-        pl.when(pl.col("quarter") == 1).then(pl.col("gross_pf"))
-          .otherwise(pl.col("gross_pf") - pl.col("gross_pf").shift(1)
-                     .over(["company_code", "year"], order_by="quarter"))
-          .alias("gross_pf_q"),
-        pl.when(pl.col("quarter") == 1).then(pl.col("op_income"))
-          .otherwise(pl.col("op_income") - pl.col("op_income").shift(1)
-                     .over(["company_code", "year"], order_by="quarter"))
-          .alias("op_income_q"),
-        pl.when(pl.col("quarter") == 1).then(pl.col("ni"))
-          .otherwise(pl.col("ni") - pl.col("ni").shift(1)
-                     .over(["company_code", "year"], order_by="quarter"))
-          .alias("ni_q"),
-    ])
+    # ============ BS pivot (point-in-time end of quarter) ============
+    print("  [bs] pivoting bs_concise_raw...")
+    bs = _pivot_titles(con, "bs_concise_raw", BS_TITLES, sy, ey)
+    print(f"  [bs] {len(bs):,} rows ({time.time()-t0:.1f}s)")
 
-    # Standalone margins
-    is_q = is_q.with_columns([
+    # ============ CF pivot (YTD progressive) ============
+    print("  [cf] pivoting cf_progressive_raw...")
+    cf_ytd = _pivot_titles(con, "cf_progressive_raw", CF_TITLES, sy, ey)
+
+    # ============ Join YTD IS + PIT BS + YTD CF (尚未做單季差分) ============
+    # cf 用 'tw' 不分市場 → join 只用 (year, quarter, company_code)。
+    panel = (is_ytd.join(bs, on=["market", "year", "quarter", "company_code"], how="left")
+             .join(cf_ytd.select("year", "quarter", "company_code", "cfo"),
+                   on=["year", "quarter", "company_code"], how="left"))
+
+    # ============ 日曆季格線(2026-07-23 FC4/FC5:BUG-9 根治)============
+    # **所有位移一律在完整日曆季格線上做**,不是按實體列。舊寫法 shift(1)/shift(4)/
+    # rolling_sum(4) 都是「往前 N 列」,一旦公司缺報一季,窗口就跨超過 4 個日曆季、
+    # 「去年同季」錯位、YTD 差分把兩季當一季(5.5% 的列受影響)。densify 成每
+    # (market, code) 一條連續 yq 序列後,缺的季變成 null 列,位移即日曆精確,
+    # 缺料自然傳播成 null(而非算出錯值)。
+    panel = panel.with_columns([
+        (pl.col("year") * 4 + pl.col("quarter") - 1).alias("yq"),
+        pl.lit(True).alias("_present"),   # 標記原始申報列;densify 的佔位列為 null
+    ])
+    bounds = panel.group_by(["market", "company_code"]).agg(
+        pl.col("yq").min().alias("lo"), pl.col("yq").max().alias("hi"))
+    grid = (bounds.with_columns(pl.int_ranges("lo", pl.col("hi") + 1).alias("yq"))
+            .explode("yq").select("market", "company_code", "yq"))
+    panel = (grid.join(panel.drop("year", "quarter"),
+                       on=["market", "company_code", "yq"], how="left")
+             .with_columns([(pl.col("yq") // 4).alias("year"),
+                            (pl.col("yq") % 4 + 1).alias("quarter")])
+             .sort(["market", "company_code", "yq"]))
+
+    G = ["market", "company_code"]        # 位移的分組鍵(每公司一條 yq 序列)
+
+    def _standalone(col: str) -> pl.Expr:
+        """YTD → 單季:Q1 = YTD;Q2-4 = 本季 YTD − 上一日曆季 YTD(缺季 → null)。"""
+        return (pl.when(pl.col("quarter") == 1).then(pl.col(col))
+                .otherwise(pl.col(col) - pl.col(col).shift(1).over(G, order_by="yq"))
+                .alias(col + "_q"))
+
+    panel = panel.with_columns([_standalone(c) for c in
+                                ("rev", "cogs", "gross_pf", "op_income", "ni")]
+                               + [_standalone("cfo")])
+
+    def _ttm(col_q: str) -> pl.Expr:
+        """單季 → TTM(4 季和);**4 季必須全部有值**才輸出,否則 null。"""
+        s = pl.col(col_q)
+        valid = s.is_not_null().cast(pl.Int32).rolling_sum(4).over(G, order_by="yq")
+        return (pl.when(valid == 4)
+                .then(s.rolling_sum(4).over(G, order_by="yq"))
+                .alias(col_q.replace("_q", "") + "_ttm"))
+
+    panel = panel.with_columns([_ttm(c) for c in
+                                ("rev_q", "ni_q", "cfo_q", "gross_pf_q")])
+
+    # 標準化單季利潤率(其他消費者用)
+    panel = panel.with_columns([
         pl.when(pl.col("rev_q") > 0).then(pl.col("gross_pf_q") / pl.col("rev_q"))
           .alias("gross_margin_q"),
         pl.when(pl.col("rev_q") > 0).then(pl.col("op_income_q") / pl.col("rev_q"))
@@ -157,115 +200,96 @@ def build_raw_quarterly(con, start: date, end: date) -> pl.DataFrame:
           .alias("net_margin_q"),
     ])
 
-    # TTM (rolling 4 quarters): need to sort across years too.
-    is_q = is_q.sort(["company_code", "year", "quarter"]).with_columns([
-        pl.col("rev_q").rolling_sum(window_size=4).over("company_code").alias("rev_ttm"),
-        pl.col("ni_q").rolling_sum(window_size=4).over("company_code").alias("ni_ttm"),
-    ])
-
-    # ============ BS pivot (point-in-time end of quarter) ============
-    print("  [bs] pivoting bs_concise_raw...")
-    bs = _pivot_titles(con, "bs_concise_raw", BS_TITLES, sy, ey)
-    print(f"  [bs] {len(bs):,} rows ({time.time()-t0:.1f}s)")
-
-    # ============ CF pivot (YTD progressive → standalone) ============
-    print("  [cf] pivoting cf_progressive_raw...")
-    cf_ytd = _pivot_titles(con, "cf_progressive_raw",
-                            CF_TITLES, sy, ey).sort(["company_code", "year", "quarter"])
-    # cf 用 'tw' 不分市場 → 不加 market 欄位，後面 join 只用 (year, quarter, company_code)
-    cf_q = cf_ytd.with_columns(
-        pl.when(pl.col("quarter") == 1).then(pl.col("cfo"))
-          .otherwise(pl.col("cfo") - pl.col("cfo").shift(1)
-                     .over(["company_code", "year"], order_by="quarter"))
-          .alias("cfo_q")
-    ).sort(["company_code", "year", "quarter"]).with_columns(
-        pl.col("cfo_q").rolling_sum(window_size=4).over("company_code").alias("cfo_ttm")
-    )
-    print(f"  [cf] {len(cf_q):,} rows ({time.time()-t0:.1f}s)")
-
-    # ============ Join all ============
-    panel = (is_q.select("market", "year", "quarter", "company_code",
-                          "rev_q", "cogs_q", "gross_pf_q", "op_income_q", "ni_q",
-                          "gross_margin_q", "operating_margin_q", "net_margin_q",
-                          "rev_ttm", "ni_ttm")
-             .join(bs.select("market", "year", "quarter", "company_code",
-                             *BS_TITLES.keys()),
-                   on=["market", "year", "quarter", "company_code"], how="left")
-             .join(cf_q.select("year", "quarter", "company_code",
-                                "cfo_q", "cfo_ttm"),
-                   on=["year", "quarter", "company_code"], how="left"))
-
-    # ============ Derived ratios ============
+    # ============ 衍生比率(Piotroski 分母口徑,2026-07-23 FC4/BUG-8)============
+    # Piotroski (2000):ROA 與資產週轉率的分母用**年初總資產**(= 4 季前期末),
+    # 不是期末;槓桿(LEVER)用**平均總資產**。舊寫法一律用期末 → 38.2% 的格子
+    # 分數不同、系統性寬鬆 0.29 分。
+    panel = panel.with_columns(
+        pl.col("total_assets").shift(4).over(G, order_by="yq").alias("total_assets_begin"))
     panel = panel.with_columns([
-        # ROA TTM = NI_TTM / TA
-        pl.when(pl.col("total_assets") > 0)
-          .then(pl.col("ni_ttm") / pl.col("total_assets")).alias("roa_ttm"),
-        # Asset turnover TTM = Rev_TTM / TA
-        pl.when(pl.col("total_assets") > 0)
-          .then(pl.col("rev_ttm") / pl.col("total_assets")).alias("asset_turnover_ttm"),
-        # Current ratio
+        # ROA_TTM = NI_TTM / 年初總資產
+        pl.when(pl.col("total_assets_begin") > 0)
+          .then(pl.col("ni_ttm") / pl.col("total_assets_begin")).alias("roa_ttm"),
+        # 資產週轉率 = Rev_TTM / 年初總資產
+        pl.when(pl.col("total_assets_begin") > 0)
+          .then(pl.col("rev_ttm") / pl.col("total_assets_begin")).alias("asset_turnover_ttm"),
+        # 流動比率(期末)
         pl.when(pl.col("current_liabilities") > 0)
-          .then(pl.col("current_assets") / pl.col("current_liabilities"))
-          .alias("current_ratio"),
-        # LT debt ratio (proxy: non-current liabilities / TA)
-        pl.when(pl.col("total_assets") > 0)
-          .then(pl.col("non_current_liab") / pl.col("total_assets"))
-          .alias("lt_debt_ratio"),
-        # CFO / NI ratio (accruals quality, > 1 = good)
+          .then(pl.col("current_assets") / pl.col("current_liabilities")).alias("current_ratio"),
+        # 槓桿 = 非流動負債 / 平均總資產((期末 + 年初)/2)。非流動負債是「長期負債」
+        # 的可得近似(concise 表層級無更細分),與 Piotroski ΔLEVER 定義一致。
+        pl.when(((pl.col("total_assets") + pl.col("total_assets_begin")) / 2) > 0)
+          .then(pl.col("non_current_liab")
+                / ((pl.col("total_assets") + pl.col("total_assets_begin")) / 2))
+          .alias("leverage"),
+        # 現金流品質:CFO_TTM / |NI_TTM|(獨立訊號,非 Piotroski 項)
         pl.when(pl.col("ni_ttm").abs() > 0)
           .then(pl.col("cfo_ttm") / pl.col("ni_ttm").abs()).alias("cfo_ni_ratio_ttm"),
-        # Gross margin TTM
+        # 毛利率 TTM = 毛利 TTM / 營收 TTM
         pl.when(pl.col("rev_ttm") > 0)
-          .then(pl.col("gross_pf_q").rolling_sum(4).over("company_code")
-                / pl.col("rev_ttm")).alias("gross_margin_ttm"),
+          .then(pl.col("gross_pf_ttm") / pl.col("rev_ttm")).alias("gross_margin_ttm"),
     ])
-
-    # ============ YoY differences (Δ vs same Q last year) ============
-    # Need 4-quarter shift on (code, year, quarter ordering). sort properly.
-    panel = panel.sort(["company_code", "year", "quarter"]).with_columns([
-        (pl.col("roa_ttm") - pl.col("roa_ttm").shift(4).over("company_code"))
-          .alias("d_roa_yoy"),
-        (pl.col("current_ratio") - pl.col("current_ratio").shift(4).over("company_code"))
-          .alias("d_current_ratio_yoy"),
-        (pl.col("lt_debt_ratio") - pl.col("lt_debt_ratio").shift(4).over("company_code"))
-          .alias("d_lt_debt_yoy"),
-        (pl.col("gross_margin_ttm") - pl.col("gross_margin_ttm").shift(4).over("company_code"))
-          .alias("d_gross_margin_yoy"),
-        (pl.col("asset_turnover_ttm") - pl.col("asset_turnover_ttm").shift(4).over("company_code"))
-          .alias("d_asset_turnover_yoy"),
-        (pl.col("capital_stock") - pl.col("capital_stock").shift(4).over("company_code"))
-          .alias("d_capital_stock_yoy"),
-    ])
-
-    # ============ Piotroski F9 (each 0/1) ============
+    # 期末口徑的沿用欄位(非 Piotroski;為既有消費者保留原名原義):
+    #   roa_ttm_eop      = NI_TTM / 期末總資產
+    #   lt_debt_ratio    = 非流動負債 / 期末總資產(g04c_fundamentals 等實驗沿用)
     panel = panel.with_columns([
-        # 1. ROA > 0
-        pl.when(pl.col("roa_ttm") > 0).then(1).otherwise(0).alias("f1_roa_pos"),
-        # 2. CFO > 0 (using cfo_ttm)
-        pl.when(pl.col("cfo_ttm") > 0).then(1).otherwise(0).alias("f2_cfo_pos"),
-        # 3. ΔROA > 0
-        pl.when(pl.col("d_roa_yoy") > 0).then(1).otherwise(0).alias("f3_d_roa_pos"),
-        # 4. Accrual: CFO_TTM > NI_TTM (CF earnings quality)
-        pl.when(pl.col("cfo_ttm") > pl.col("ni_ttm")).then(1).otherwise(0).alias("f4_cfo_gt_ni"),
-        # 5. ΔLT-Debt < 0 (debt is decreasing)
-        pl.when(pl.col("d_lt_debt_yoy") < 0).then(1).otherwise(0).alias("f5_d_debt_neg"),
-        # 6. ΔCurrent ratio > 0
-        pl.when(pl.col("d_current_ratio_yoy") > 0).then(1).otherwise(0).alias("f6_d_curr_pos"),
-        # 7. No new shares (ΔCapitalStock <= 0). Use small epsilon to allow rounding.
-        pl.when(pl.col("d_capital_stock_yoy") <= 1).then(1).otherwise(0).alias("f7_no_new_eq"),
-        # 8. ΔGross margin > 0
-        pl.when(pl.col("d_gross_margin_yoy") > 0).then(1).otherwise(0).alias("f8_d_gm_pos"),
-        # 9. ΔAsset turnover > 0
-        pl.when(pl.col("d_asset_turnover_yoy") > 0).then(1).otherwise(0).alias("f9_d_at_pos"),
-    ]).with_columns(
-        (pl.col("f1_roa_pos") + pl.col("f2_cfo_pos") + pl.col("f3_d_roa_pos")
-         + pl.col("f4_cfo_gt_ni") + pl.col("f5_d_debt_neg") + pl.col("f6_d_curr_pos")
-         + pl.col("f7_no_new_eq") + pl.col("f8_d_gm_pos") + pl.col("f9_d_at_pos"))
-        .alias("f_score_raw")
-    )
+        pl.when(pl.col("total_assets") > 0)
+          .then(pl.col("ni_ttm") / pl.col("total_assets")).alias("roa_ttm_eop"),
+        pl.when(pl.col("total_assets") > 0)
+          .then(pl.col("non_current_liab") / pl.col("total_assets")).alias("lt_debt_ratio"),
+    ])
 
-    # Filter to requested window (we kept extra history for TTM/YoY)
-    panel = panel.filter(pl.col("year") >= start.year)
+    # ============ YoY 差分(Δ vs 去年同季,日曆對齊)============
+    panel = panel.with_columns([
+        (pl.col("roa_ttm") - pl.col("roa_ttm").shift(4).over(G, order_by="yq")).alias("d_roa_yoy"),
+        (pl.col("current_ratio") - pl.col("current_ratio").shift(4).over(G, order_by="yq")).alias("d_current_ratio_yoy"),
+        (pl.col("leverage") - pl.col("leverage").shift(4).over(G, order_by="yq")).alias("d_leverage_yoy"),
+        (pl.col("gross_margin_ttm") - pl.col("gross_margin_ttm").shift(4).over(G, order_by="yq")).alias("d_gross_margin_yoy"),
+        (pl.col("asset_turnover_ttm") - pl.col("asset_turnover_ttm").shift(4).over(G, order_by="yq")).alias("d_asset_turnover_yoy"),
+        (pl.col("capital_stock") - pl.col("capital_stock").shift(4).over(G, order_by="yq")).alias("d_capital_stock_yoy"),
+    ])
+
+    # ============ Piotroski F9(每項 0/1,**缺料 → null 不當 0**)============
+    # BUG-7 根治:每一項的輸入若為 null,該項給 null(不是 0)。舊寫法 .otherwise(0)
+    # 把「算不出來」當「不加分」→ (a) 系統性低估 (b) 金融業毛利恆 null → f8/f9 恆 0、
+    # 平均分被壓到 3.0,形成沒人宣告過的隱形濾網 (c) 2011 前現金流缺料 → f2/f4 恆 0,
+    # 「F-Score 逐年上升」其實是資料補齊軌跡。改成 null 傳播後:
+    #   f_score_raw     = 有效項之和
+    #   f_score_n_valid = 有效項數(消費端要求 == 9 才採用,金融業/歷史不足自動排除)
+    def _crit(cond: pl.Expr, inputs: list[str]) -> pl.Expr:
+        null_any = None
+        for c in inputs:
+            e = pl.col(c).is_null()
+            null_any = e if null_any is None else (null_any | e)
+        return pl.when(null_any).then(None).when(cond).then(1).otherwise(0)
+
+    panel = panel.with_columns([
+        _crit(pl.col("roa_ttm") > 0, ["roa_ttm"]).alias("f1_roa_pos"),
+        _crit(pl.col("cfo_ttm") > 0, ["cfo_ttm"]).alias("f2_cfo_pos"),
+        _crit(pl.col("d_roa_yoy") > 0, ["d_roa_yoy"]).alias("f3_d_roa_pos"),
+        # 應計品質:CFO_TTM > NI_TTM(同分母下 CFO/資產 > ROA)
+        _crit(pl.col("cfo_ttm") > pl.col("ni_ttm"), ["cfo_ttm", "ni_ttm"]).alias("f4_cfo_gt_ni"),
+        # ΔLEVER < 0(槓桿下降)
+        _crit(pl.col("d_leverage_yoy") < 0, ["d_leverage_yoy"]).alias("f5_d_debt_neg"),
+        _crit(pl.col("d_current_ratio_yoy") > 0, ["d_current_ratio_yoy"]).alias("f6_d_curr_pos"),
+        # 未發新股:ΔStock ≤ 0(嚴格,無魔術 epsilon)。**台股 caveat**:盈餘/資本
+        # 公積轉增資(股票股利)也會讓股本增加卻非對外募資,此代理會保守扣分;理想解
+        # 需 MOPS 現增事件(見 docs/data_audit,FC4 尾註),此管線暫無該資料。
+        _crit(pl.col("d_capital_stock_yoy") <= 0, ["d_capital_stock_yoy"]).alias("f7_no_new_eq"),
+        _crit(pl.col("d_gross_margin_yoy") > 0, ["d_gross_margin_yoy"]).alias("f8_d_gm_pos"),
+        _crit(pl.col("d_asset_turnover_yoy") > 0, ["d_asset_turnover_yoy"]).alias("f9_d_at_pos"),
+    ])
+    _fcols = ["f1_roa_pos", "f2_cfo_pos", "f3_d_roa_pos", "f4_cfo_gt_ni", "f5_d_debt_neg",
+              "f6_d_curr_pos", "f7_no_new_eq", "f8_d_gm_pos", "f9_d_at_pos"]
+    panel = panel.with_columns([
+        pl.sum_horizontal([pl.col(c).fill_null(0) for c in _fcols]).alias("f_score_raw"),
+        pl.sum_horizontal([pl.col(c).is_not_null().cast(pl.Int32) for c in _fcols])
+          .alias("f_score_n_valid"),
+    ])
+
+    # 只留原始申報列(densify 的佔位列是 spacer,只為位移日曆對齊,不進輸出),
+    # 並裁到請求視窗(前面多留了歷史供 TTM/YoY)。
+    panel = panel.filter(pl.col("_present") & (pl.col("year") >= start.year)).drop("_present")
     print(f"  [done] {len(panel):,} rows × {len(panel.columns)} cols ({time.time()-t0:.1f}s)")
     return panel
 
