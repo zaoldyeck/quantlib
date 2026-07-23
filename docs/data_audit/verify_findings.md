@@ -14,6 +14,39 @@
   stock_per_pbr 不再需映射。舊目錄已除,rebuild 驗證讀到全史。
 - **✅ 清 stray**:`data/tw_market.db`、`research/market_data.db`(無引用 DuckDB stray)刪除。
 
+## 2026-07-24 raw-vs-cache 全源對照定案(工具 `quantlib.verify.raw_coverage`)
+
+**教訓先行**:先前把 `pipeline_health`(只看 cache 一層)報的「落後/稀疏」誤讀成「資料缺、
+要重抓」,還啟動 insider 背景重下載。經使用者提醒盤點 raw,發現 **raw 全在專案裡**——真問
+題是 rebuild 沒吃全,不是資料缺。原則:任何「疑似缺」動手前先 `find data/` 盤 raw;cache 落
+後→先 rebuild(從既有 raw),不重抓(記憶 `feedback-inventory-raw-before-concluding-missing`)。
+
+工具逐結構化源對照「raw 檔實際涵蓋 ↔ cache」,並以 daily_quote 當交易日曆真源交叉過濾假日
+雜訊。定案:
+
+- **✅ 股票資料管線關鍵路徑完整**:daily_quote / dtd / margin / foreign / sbl / stock_per_pbr /
+  operating_revenue / bs / is 全部 **cache ⊇ raw 資料日**。工具初報的「缺 N 日」經抽驗**全是
+  假日/補班/無資料檔**(0-byte sentinel、TPEx『共0筆』363B 頁、header-only 探針 116B、Saturday
+  補班日輔助源 2~4B 空檔)——parser 正確吐 0 列,非缺。
+- **✅ insider_holding 更正(推翻前一版「欠收需數小時爬」)**:raw 2030 檔早在專案裡
+  (2007-2015 + 2020 + 2026 稀疏),只是 cache 沒吃全。從全 raw canonical rebuild:
+  **12,593 → 15,285 列**。剩餘「105 缺日」抽驗全為「當日無內部人申報」空頁(非缺)。
+- **✅ ex_right / capital_reduction / treasury = 全史 dump**:raw 檔名雖近年(2020+/2026),但
+  **每檔內容涵蓋全史**(TWSE/MOPS 端點回全史,檔名只是查詢標記),parse 逐列 == cache
+  (29,625 / 666 / 5,768)。→ 無歷史缺口、DROP+rebuild 安全。(一度誤讀檔名為事件日而發
+  「歷史損毀」警報,已更正;`rebuild._write` 仍留一般性不准縮表防護防未來 parser 退化。)
+- **🔴→ 死掉的休市日曆(高嚴重,已修)**:`data_calendar.is_trading_day` 因 research→src/quantlib
+  改名後 `parents[1]` 自算根深一層 → QUOTE_DIR 指向不存在的 `src/data/...` → 讀不到任何
+  sentinel → **每個假日(颱風/勞動節/端午)誤判成交易日**。改走 `paths.RAW`;守護
+  `test_data_calendar.py`(路徑不變式 + sentinel/週末行為)。
+- **🟡 taifex_futures_final_settlement 缺 1998**(真缺,低優先):raw `1998.html`(277 KB 真資料)
+  在,但 futures 載入從 1999 起 → 期貨結算表缺 1998 一年。屬 futures 子系統(非股票策略路徑),
+  待期貨戰役隨 institutional 停更一併補。
+- **🔴→ 無法回補 tdcc_shareholding**:端點只給當週 → 結構性無法回補(現 2026-04~07),端點限制非 bug。
+
+**範圍界定(使用者定調)**:只補**可量化結構化**源;需 LLM 語意分析者(MOPS 重大訊息 free-text、
+法說會逐字稿)不進管線,未來每日爬蟲亦同。
+
 ## Phase 2 待修(正確性/缺口,Phase 0 合併時揭露)
 
 - **✅ capital_reduction 端點失效(已修,money-path)**:根因 = TWSE 2026-07 把參數名

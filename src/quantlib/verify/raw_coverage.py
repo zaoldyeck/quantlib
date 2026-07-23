@@ -246,7 +246,9 @@ def main() -> None:
                 need_rebuild.append((c.source, len(c.real_gap), sorted(c.real_gap)[:4], lay))
         print(f"  {c.source:30} {raw_rng:21} {cache_rng:21} {len(c.real_gap):>5}  {verdict}"
               + (f"  [假日 sentinel {c.sentinels}]" if c.sentinels else ""))
-    print("\n=== 需動作(從既有 raw rebuild,不重抓)===")
+    print("\n=== 候選缺日(從既有 raw rebuild parse 確認,不重抓)===")
+    print("  註:個位數殘餘多為『非空但無資料』檔——週六補班日輔助源空檔(2~4B)、header-only")
+    print("  探針(116B)、insider 當日無申報空頁——parse 吐 0 列即非缺;rebuild 一跑即定案。")
     if not need_rebuild and not missing_tbl:
         print("  ✓ 全部結構化源 cache ⊇ raw 資料日,無缺口。")
     for s, n, sample, lay in need_rebuild:
