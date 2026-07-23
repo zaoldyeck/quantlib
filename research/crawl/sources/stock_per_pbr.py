@@ -12,7 +12,7 @@ from datetime import date as Date
 
 import polars as pl
 
-from research.crawl import http, parse
+from research.crawl import archive, http, parse
 
 TABLE = "stock_per_pbr"
 KEY_COLS = ["market", "date"]
@@ -77,4 +77,6 @@ def _parse(text: str, day: Date, market: str) -> pl.DataFrame | None:
 def fetch_day(market: str, day: Date) -> pl.DataFrame | None:
     d = parse.twse_date(day) if market == "twse" else parse.minguo_slash(day)
     url = (_TWSE_URL if market == "twse" else _TPEX_URL).format(d=d)
-    return _parse(http.fetch_text(url), day, market)
+    text = http.fetch_text(url)
+    archive.save_raw("stock_per_pbr", market, day, text)   # 原始檔封存鐵律:先落地再 parse
+    return _parse(text, day, market)

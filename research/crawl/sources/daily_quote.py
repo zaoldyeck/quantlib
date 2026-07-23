@@ -14,7 +14,7 @@ from datetime import date as Date
 
 import polars as pl
 
-from research.crawl import http, parse
+from research.crawl import archive, http, parse
 
 TABLE = "daily_quote"
 KEY_COLS = ["market", "date"]
@@ -114,8 +114,11 @@ def _parse_tpex(text: str, day: Date) -> pl.DataFrame | None:
 
 
 def fetch_day(market: str, day: Date) -> pl.DataFrame | None:
+    """抓當日報價 → **先原樣封存原始檔到 data/** → 再 parse(原始檔封存鐵律)。"""
     if market == "twse":
         text = http.fetch_text(_TWSE_URL.format(d=parse.twse_date(day)))
+        archive.save_raw("daily_quote", "twse", day, text)
         return _parse_twse(text, day)
     text = http.fetch_text(_TPEX_URL.format(d=parse.minguo_slash(day)))
+    archive.save_raw("daily_quote", "tpex", day, text)
     return _parse_tpex(text, day)
