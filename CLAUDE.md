@@ -2,36 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 架構方向(2026-07-23 使用者定調,凌駕舊慣例)
+## 架構原則
 
-本專案正**全面 Python 化**,方向已拍板,新工作一律照這個終局架構做:
-
-```
-Python 爬蟲 → data/ 原始封存 → 解析 → cache.duckdb(唯一結構化真源)→ 研究 + 實盤
-無 PostgreSQL、無 Scala、無 JVM
-```
-
-- **全 Python、零 Scala 依賴**:爬蟲、研發策略、實盤下單全部 Python。Scala 爬蟲+reader
-  在其 bug 逐條修到結案 + 加測試證明後**正式退役封存**(不再執行,但程式碼不留破 bug)。
-- **PostgreSQL 退役**:全 Python 化後 PG 整個移除(cache_tables.py、db.py 的 pg-attach、
-  application.conf 的 PG 設定一併退役)。cache.duckdb 成唯一結構化真源。過渡期保留 PG
-  唯讀僅供 Python port 的 parity 對照。
-- **專案結構改為以 Python 為主體**(Scala 退役後)。細節見
-  `docs/data_audit/REMEDIATION_PLAN.md`。
-
-### 🔴 原始檔封存鐵律(使用者堅持,不可違反)
-
-**任何爬蟲抓下來的資料,一定要先把原始檔原樣落地 `data/`,才 parse 進 cache——
-絕不可以只有 cache.duckdb。** `data/`(paths.RAW)是**最寶貴、不可重生的事實地基**:
-發生任何意外,靠它才能復原整個歷史資料;cache.duckdb 只是它的衍生查詢層,隨時可
-從原始檔重建。
-
-- 順序不可顛倒:**抓取 → 原子落地 raw 到 data/ → 再 parse → 寫 cache**。用
-  `research/crawl/archive.py`(`save_raw` / `save_sentinel`,tmp→os.replace 原子換名)。
-- 所有源一律 `data/<source>/<market>/<year>/<year>_<m>_<d>.<ext>`(統一整理,新舊一致)。
-- **禁止**寫成「抓完直接 parse、raw 丟掉」(2026-07-23 前的 Python 爬蟲舊 bug,
-  原始檔自 2026-07-09 起斷檔,每天流失最寶貴的資料——已列為必修)。
-- cache 全可從 raw 重建(取代靠 PG 重建的 cache_tables.py,即 PG 退役後的災難復原路徑)。
+- **全 Python、零 Scala/JVM/PostgreSQL 依賴**:爬蟲、研發、實盤下單一律 Python。
+  資料流唯一形態:`Python 爬蟲 → data/ 原始封存 → 解析 → cache.duckdb → 研究 + 實盤`。
+  cache.duckdb 是唯一結構化真源;不引入第二個資料 store 或第二條寫入路徑。
+- **🔴 原始檔封存鐵律(不可違反)**:任何爬蟲抓下來的資料,一律**先把原始檔原樣
+  原子落地 `data/`,才 parse 進 cache**——絕不「抓完直接 parse、raw 丟掉」。
+  `data/`(paths.RAW)是**不可重生的事實地基**,cache 只是其衍生查詢層、隨時可從
+  原始檔重建;出任何意外靠原始檔復原全部歷史。用 `research/crawl/archive.py`
+  (`save_raw`/`save_sentinel`,tmp→os.replace);路徑一律
+  `data/<source>/<market>/<year>/<year>_<m>_<d>.<ext>`。
 
 ## Development Commands
 
