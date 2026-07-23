@@ -56,5 +56,32 @@ def refetch(sleep: float = 0.3) -> dict:
     return {"fixed": fixed, "still_wrong": still_wrong, "nodata": nodata, "errs": errs}
 
 
+def sentinel_unrecoverable(min_gap_years: int = 3) -> int:
+    """把「端點無法重爬」的錯日 raw 改 0-byte sentinel(只留正確資料)。
+
+    判準:content_dates 揪出的錯日檔,其內容日**遠晚於**檔名日(≥min_gap_years 年)=
+    請求舊日期端點回傳最新資料(該日資料源本不存在,如 foreign 2004/2010 TPEx——TPEx
+    外資 2011 才有)。這種重爬只會再拿到最新垃圾,唯一正解是 sentinel 標記無資料。
+    近距離錯位(可能真能重爬)不動,交給 refetch()。
+    """
+    from quantlib import paths
+    from quantlib.verify.content_dates import _DAILY_SOURCES, scan_source
+    n = 0
+    for source in _DAILY_SOURCES:
+        for path, fn, ct in scan_source(source)["mismatches"]:
+            if ct.year - fn.year < min_gap_years:  # 近距離錯位 → 可能可重爬,不 sentinel
+                continue
+            raw = paths.RAW / path
+            if raw.exists() and raw.stat().st_size > 0:
+                raw.write_bytes(b"")
+                n += 1
+    print(f"[sentinel] {n} 個無法重爬的錯日 raw → 0-byte sentinel(標記無資料)")
+    return n
+
+
 if __name__ == "__main__":
-    refetch()
+    import sys
+    if "--sentinel-unrecoverable" in sys.argv:
+        sentinel_unrecoverable()
+    else:
+        refetch()

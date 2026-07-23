@@ -18,7 +18,10 @@ from datetime import date as Date
 
 from quantlib import paths
 
-_ROC_HEADER = re.compile(r"(\d{2,3})年(\d{1,2})月(\d{1,2})日")  # 民國日期頭(首 300 bytes)
+_ROC_HEADER = re.compile(r"(\d{2,3})年(\d{1,2})月(\d{1,2})日")     # 民國中文頭(CSV,如 margin/quote)
+# 民國 slash 只在**明確標籤後**才認(JSON "date":… 或 CSV 資料日期:…),避免誤抓檔內
+# 註記/參考日(如 margin CSV 的「次一營業日 114/04/07」)造成假陽性。
+_ROC_SLASH = re.compile(r'(?:"date"\s*:\s*"|資料日期[:：]\s*)(\d{2,3})/(\d{1,2})/(\d{1,2})')
 _FNAME = re.compile(r"^(\d{4})_(\d{1,2})_(\d{1,2})$")
 
 #: 帶民國日期頭、可驗內容日的日源(raw 在 <source>/<market>/<year>/Y_M_D.csv)。
@@ -29,16 +32,21 @@ _DAILY_SOURCES = [
 
 
 def _content_date(raw: bytes) -> Date | None:
-    """從首行民國日期頭抽內容日(Big5);無頭回 None。"""
-    head = raw[:300].decode("big5", errors="replace")
-    m = _ROC_HEADER.search(head)
-    if not m:
-        return None
-    roc_y, mo, d = (int(m.group(i)) for i in (1, 2, 3))
-    try:
-        return Date(roc_y + 1911, mo, d)  # 民國 + 1911 = 西元
-    except ValueError:
-        return None
+    """抽 raw 內容日:認民國中文頭(`NN年NN月NN日`,Big5 CSV)+ 民國 slash(`YYY/MM/dd`,
+    JSON 如 foreign/sbl TPEx)。兩種編碼、前 4KB 都試(頭部日期未必在首 300 bytes)。無頭回 None。
+    注:仍非萬能——各源 parser 自身的內容日守衛才是格式完整的權威偵測器(rebuild 時逐檔驗)。"""
+    # **只看前 2 行**(檔頭):日期一律在檔頭(CSV 第 1-2 行、JSON 開頭),資料區某 cell 的
+    # 註記日(margin CSV 備註欄「114年4月7日起…」)會誤抓致假陽性,故不看資料區。
+    for enc in ("big5", "utf-8"):
+        head = "\n".join(raw[:2000].decode(enc, errors="replace").splitlines()[:2])
+        for pat in (_ROC_HEADER, _ROC_SLASH):
+            m = pat.search(head)
+            if m:
+                try:
+                    return Date(int(m.group(1)) + 1911, int(m.group(2)), int(m.group(3)))
+                except ValueError:
+                    return None
+    return None
 
 
 def _filename_date(stem: str) -> Date | None:
