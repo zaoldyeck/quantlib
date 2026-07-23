@@ -10,10 +10,13 @@ experiments/chart_s_vs_benchmarks 搬到正式模組,消除「策略引擎住在
 """
 from __future__ import annotations
 
+import hashlib
+import os
 from datetime import date as Date
 
 import polars as pl
 
+from quantlib import paths
 from quantlib.apex import data
 from quantlib.apex.assemble import build_features, entries_and_flags
 from quantlib.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
@@ -63,6 +66,23 @@ def prep(con, end: str | None = None):
            .select(["date", C, "accel_rel"]))
     feat = feat.join(rel, on=["date", C], how="left")
     elig = data.eligibility(panel, min_adv=5_000_000.0)
+    return panel, feat, elig
+
+
+def prep_cached(con, end: str | None = None):
+    """prep 的磁碟快取版(極速鐵律:昂貴衍生物必快取)。key 含 cache.duckdb mtime——資料世代
+    一變即失效重算。特徵組裝 ~31s → 迭代研究首次算完後 ~0.3s 秒回。生產路徑仍用 prep(要當下
+    最新);純研究掃參/掃變體用本函式免每次重算。"""
+    de = end or data.latest_date(con).isoformat()
+    key = hashlib.md5(f"{de}_{os.path.getmtime(paths.CACHE_DB)}".encode()).hexdigest()[:12]
+    cdir = paths.CACHE_DIR / "prep_cache"
+    cdir.mkdir(parents=True, exist_ok=True)
+    fs = {n: cdir / f"s_{n}_{key}.parquet" for n in ("panel", "feat", "elig")}
+    if all(f.exists() for f in fs.values()):
+        return tuple(pl.read_parquet(fs[n]) for n in ("panel", "feat", "elig"))
+    panel, feat, elig = prep(con, de)
+    for n, df in zip(("panel", "feat", "elig"), (panel, feat, elig)):
+        df.write_parquet(fs[n])
     return panel, feat, elig
 
 
