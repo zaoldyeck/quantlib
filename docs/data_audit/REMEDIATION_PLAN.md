@@ -44,3 +44,24 @@
 - **待辦大類**:FC8 產業別 report-date PIT(Scala 捕捉出表日期 + 重解析,影響 live S)、
   FC2/FC3 重抓執行、FC5 累計制缺季、FC6 季報存活者偏誤、FC7 int32 溢位、
   演算法稽核發現的修法、S 全面重驗證。
+
+## 架構決策(2026-07-23 使用者定調):全爬蟲 Python 化,Scala 退役
+
+**背景**:line S 跑在只有 Python 的 VM,但 cfo_ni 閘門吃財報(BS/IS/CF)——那些只有
+Scala 爬+解析,靠 scp 財報衍生的 raw_quarterly.parquet 到 VM。VM 因此不自足,且那份
+資料是 Scala 解析的(有 bug)。
+
+**決策**:把 11 個只有 Scala 的源全部 Python 化,Scala 爬蟲+reader 退役。這同時
+(a) 讓 VM 自足(b) 用「重寫正確 Python」取代「修 Scala reader」——correct-by-construction,
+照稽核 bug 一次寫對 (c) 統一技術棧。**這取代了原 FC7 + Scala reader 修復路線。**
+
+**要 port 的源**(照 research/crawl/sources/ 框架:source adapter + Sink upsert + SchemaDrift 守護):
+- 財報(live 關鍵):balance_sheet、income_statement、cash_flows
+- 籌碼:margin_transactions、foreign_holding_ratio、sbl_borrowing、tdcc、insider、treasury
+- 指數:index(market_index);期貨:taifex_*;financial_analysis
+
+**每個 port 的驗收**:(1) parser 修掉該源稽核發現的所有 bug(2) 對現存「正確」PG 資料
+逐位 parity(已知壞的日期除外,那些本就要重抓)(3) 落地測試。
+
+**順序**:稽核完成(拿完整 parser bug 清單)→ port workflow 平行重寫 → 逐個驗 parity →
+切換 crawl/update.py 用新源 → slim_cache 加財報/籌碼 → Scala 退役 → S 重驗證。
