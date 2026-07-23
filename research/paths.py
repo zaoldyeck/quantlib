@@ -47,6 +47,9 @@ CACHE_DIR = VAR / "cache"
 CACHE_DB = CACHE_DIR / "cache.duckdb"
 #: S 策略用的瘦身快照(雲端 VM 用;內容為全表快照的子集)
 CACHE_SLIM_DB = CACHE_DIR / "cache_s_slim.duckdb"
+#: 財務品質因子面板(Piotroski F-Score / cfo_ni;由 crawl.rebuild_financials 從 is/bs/cf
+#: 重生,可重生產物 → 放 var/,不進源碼樹)。db.connect() 自動註冊為 raw_quarterly view。
+RAW_QUARTERLY = CACHE_DIR / "raw_quarterly.parquet"
 
 #: 回測與研究的輸出根
 OUT = VAR / "out"

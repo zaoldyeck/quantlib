@@ -16,7 +16,7 @@ from research import paths
 
 
 CACHE_DB = str(paths.CACHE_DB)
-RAW_QUARTERLY_PARQUET = os.path.join(os.path.dirname(__file__), "raw_quarterly.parquet")
+RAW_QUARTERLY_PARQUET = str(paths.RAW_QUARTERLY)  # var/cache/(可重生產物,不在源碼樹)
 
 
 def _configure_connection(con: duckdb.DuckDBPyConnection) -> None:
