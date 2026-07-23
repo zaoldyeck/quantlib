@@ -24,14 +24,13 @@ def evaluate_exit(
     peak: float,
     days_held: int,
     inst20: float | None = None,
-    yoy3: float | None = None,
 ) -> str | None:
-    """六道門逐一評估(順序即優先序);全綠回 None。
+    """champion ev_v3_wf 的五道門逐一評估(順序即優先序);全綠回 None。
 
     px=最新收盤、anchor=該 lot 的止盈/止損錨(成交價或收養價)、
-    peak=持有期收盤峰值、days_held=交易日、inst20=20 日法人淨買賣(股)、
-    yoy3=近三月營收 YoY 均值(%)。override(人工事實級出場)屬 live-ops
-    層,不在本函式。
+    peak=持有期收盤峰值、days_held=交易日、inst20=20 日法人淨買賣(股)。
+    (yoy3 已於 2026-07-23 移除——champion 的 thesis 只吃 inst_neg,見下方註解。)
+    override(人工事實級出場)屬 live-ops 層,不在本函式。
     """
     if px <= anchor * (1 - ABS_STOP):
         return "abs_stop"
@@ -43,6 +42,10 @@ def evaluate_exit(
         return "time_stop"
     if inst20 is not None and inst20 < 0 and px < anchor:
         return "thesis(inst_20d<0 且虧損)"  # battle 8 champion rule
-    if yoy3 is not None and yoy3 < 0:
-        return "thesis(yoy_3m<0)"
+    # 2026-07-23 稽核 D-serenity-live:移除未驗證的 live-only「yoy_3m<0 無條件出場」門。
+    # champion ev_v3_wf 的 thesis_mode=inst_neg,回測引擎(engine.py:592-598)**只**在
+    # inst<0 且 px<進場價時點 thesis(yoy3<0 只屬 yoy3m_neg 這個未上場的別的變體,
+    # engine.py:571/588)。此門讓 live 在 yoy3<0 時賣掉驗證版會續抱的部位 = 未驗證分岔;
+    # 移除即使 evaluate_exit 與已驗證 champion 逐門一致(abs/trail/tp/time/inst_neg 五門)。
+    # 屬「修 live 對齊已驗證引擎」的 parity 修正,非引擎變更(champion 定義不變、無需重跑)。
     return None

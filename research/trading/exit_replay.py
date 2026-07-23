@@ -239,12 +239,13 @@ def replay(path: pl.DataFrame, entry_day: date, rule: Callable[[DayState], str |
 # ── 各策略的規則(常數來自各自的規格書,集中在此讓重放與報告共用一份) ──
 
 def serenity_rule(anchor: float) -> Callable[[DayState], str | None]:
-    """Serenity 六道門——規則源 `research/serenity/exit_rules.py`(與執行系統同一份)。"""
+    """Serenity champion 五道門——規則源 `research/serenity/exit_rules.py`(與執行系統同一份;
+    2026-07-23 稽核移除未驗證的 yoy3 第六門後為五門:abs/trail/tp/time/inst_neg)。"""
     from research.serenity.exit_rules import evaluate_exit
 
     def rule(st: DayState) -> str | None:
         return evaluate_exit(px=st.px, anchor=anchor, peak=st.peak,
-                             days_held=st.days_held, inst20=st.inst20, yoy3=st.yoy3)
+                             days_held=st.days_held, inst20=st.inst20)
     return rule
 
 
