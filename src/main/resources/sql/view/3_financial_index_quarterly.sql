@@ -1,3 +1,11 @@
+-- ============================================================================
+-- ⚠️ DEPRECATED(2026-07-23,資料稽核 B 維):本 view 有多處學理/實作 bug,
+--    已被 Python 唯一真源 research/strat_lab/raw_quarterly.py 取代——請勿再使用。
+--    已知 bug(見 docs/data_audit/findings/):lag 位移錯位(去年同期用錯欄/錯期)、
+--    NULL→0 造成隱形濾網、缺一季當兩季合計、期末 vs 年初資產分母、合併/個體混用、
+--    負權益拿滿分等。F-Score 已於 raw_quarterly.py 重寫為 Piotroski (2000) 學理精確版。
+--    專案全面 Python 化 + PostgreSQL 退役後,本檔隨 PG 一併封存。
+-- ============================================================================
 create view financial_index_quarterly as
 with industry as (select distinct on (company_code) company_code, industry
                   from operating_revenue
