@@ -263,7 +263,10 @@ def selection_permutation(
             "n_perm": n_perm,
             "perm_cagr_med": float(np.median(arr)),
             "perm_cagr_p95": float(np.quantile(arr, 0.95)),
-            "p_value": float((arr >= actual_cagr).mean()),
+            # Phipson & Smyth (2010):有限次置換的無偏 p = (1+#{≥觀測})/(1+n_perm),
+            # 永不為 0(n_perm=200 時最小 ≈1/201≈0.005)。舊版 #{≥}/n_perm 會報 p=0.000
+            # (機率不可能值,低估顯著性上限)。2026-07-23 修 D-perf。
+            "p_value": float((1 + int((arr >= actual_cagr).sum())) / (1 + n_perm)),
         }
     finally:
         con.close()

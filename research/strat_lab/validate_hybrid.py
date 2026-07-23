@@ -25,6 +25,7 @@ import warnings
 from datetime import date
 from pathlib import Path
 
+import empyrical as ep  # Sharpe/Sortino 學理正解基準(2026-07-23 稽核 D-perf/D-metrics)
 import numpy as np
 import polars as pl
 from scipy.stats import norm
@@ -53,10 +54,14 @@ def metrics(rets: np.ndarray, years: float | None = None) -> dict:
     nav = np.cumprod(1 + rets)
     cagr = nav[-1] ** (1 / years) - 1
     vol = rets.std(ddof=1) * math.sqrt(TDPY)
-    downside = rets[rets < 0]
-    downvol = (downside.std(ddof=1) * math.sqrt(TDPY)) if len(downside) > 1 else 1e-9
-    sharpe = (cagr - RF) / vol if vol > 0 else 0.0
-    sortino = (cagr - RF) / downvol if downvol > 0 else 0.0
+    # Sharpe/Sortino 走 empyrical 學理正解(2026-07-23 稽核 D-perf/D-metrics):舊版
+    # Sharpe 分子用幾何 CAGR(波動拖累低估約 4 成)、Sortino 下行差用「負報酬對自身
+    # 均值 ddof=1 std」(非 sqrt(mean(min(r−MAR,0)²)) 對全期平均,偏高約 16%)。這兩個
+    # 又是 DSR/PBO/bootstrap 下界的上游輸入,不修會把偏差往下游傳。
+    sharpe = float(ep.sharpe_ratio(rets, risk_free=RF / TDPY, annualization=TDPY))
+    sortino = float(ep.sortino_ratio(rets, required_return=RF / TDPY, annualization=TDPY))
+    sharpe = sharpe if math.isfinite(sharpe) else 0.0
+    sortino = sortino if math.isfinite(sortino) else 0.0
     peak, mdd = 1.0, 0.0
     for v in nav:
         peak = max(peak, v)
@@ -86,7 +91,17 @@ def lo_2002_sharpe_test(daily_rets: np.ndarray) -> dict:
 
 
 def deflated_sharpe(sr_annual: float, n_trials: int, daily_rets: np.ndarray) -> float:
-    """López de Prado DSR with adjustment for skew + kurtosis + multi-trial."""
+    """⚠ 反保守、非教科書 DSR——**不可當已通過多重測試校正的證據**(2026-07-23 稽核 D-perf)。
+
+    Bailey & López de Prado (2014) 的 SR0 需 √(V[{ŜR_n}])=**N 個嘗試各自 Sharpe 的
+    橫截面變異數**(真實跨設定離散度);本實作卻把它偷換成 `sigma_sr`(單策略 Sharpe
+    估計量的標準誤),隱含「N 個嘗試彼此只差抽樣雜訊」。掃越多元設定、真實 V 越大時
+    懲罰過輕 → DSR 系統性偏高(Serenity 報的 DSR 1.00 建立在此反保守輸入上)。
+
+    **正解**:`research/apex/validate.py::deflated_sharpe(nav, n_trials, sr_var_across_trials)`
+    搭配 `sr_variance_from_curves(curves)`——需 campaign 各候選設定的日報酬曲線。單策略
+    日報酬無法供給真實 V[SR],故本函式保留僅為相容,結果**不得作為上線關卡**。
+    """
     n = len(daily_rets)
     if n < 30:
         return 0.0
@@ -136,15 +151,32 @@ def bootstrap_ci(rets: np.ndarray, dates: list[date], n: int = N_BOOT) -> dict:
         cagrs.append(m["cagr"])
         sortinos.append(m["sortino"])
     return {
-        "cagr_lb": np.percentile(cagrs, 2.5),
+        "cagr_lb": np.percentile(cagrs, 2.5),       # 雙邊 95%(strat_lab 既有讀者)
         "cagr_ub": np.percentile(cagrs, 97.5),
         "sortino_lb": np.percentile(sortinos, 2.5),
         "sortino_ub": np.percentile(sortinos, 97.5),
+        # 單邊 95% 下界 = 5th percentile:serenity 長史穩健度關卡讀這組 key,語意與
+        # month_block_bootstrap(serenity/validate.py:121,123)一致(2026-07-23 修 D-perf:
+        # serenity 舊版讀 cagr_lb95 但本函式只回 cagr_lb → ≥4 年窗一律 NaN,關卡靜默失效)。
+        "cagr_lb95": np.percentile(cagrs, 5),
+        "sortino_lb95": np.percentile(sortinos, 5),
     }
 
 
 def pbo_cscv(folds: list[dict], n_trials: int = N_PBO_SPLITS) -> float:
-    """Combinatorially symmetric CV: random IS/OOS halves of folds."""
+    """⚠ 退化估計量,**不是 PBO**——約 0.5 的擲硬幣噪音(2026-07-23 稽核 D-perf)。
+
+    真 PBO/CSCV(Bailey et al. 2015)需 **T×N 績效矩陣(N 個候選設定)**:每組 IS 挑
+    最佳設定 n*,看 n* 在 OOS 於 N 設定間的相對排名。本實作輸入的 `folds` 是**單一策略**
+    逐年 metrics(每 fold 只有一個 sortino),隨機把 folds 對半、判 oos 平均 < 全體中位
+    ——本質是「隨機半數年份平均是否低於中位」的對稱 ≈50/50 事件,與過度配適無關,且
+    `is_sortino`(:158)算出後從未使用(判斷完全不看 IS 選擇)。Serenity 出廠『PBO 0.526』
+    正是此退化量的產物,「fold 稀疏」是誤診——真因是根本沒在算 PBO。
+
+    **正解**:`research/apex/validate.py::pbo_cscv(returns: T×K, s=16)`——需把同一 campaign
+    各候選設定的日報酬曲線堆成 T×K 矩陣。單策略逐年 folds 無法算 PBO,本函式結果
+    **不得作為上線關卡或排序因子**。
+    """
     if len(folds) < 4:
         return 0.5
     rng = np.random.default_rng(42)
