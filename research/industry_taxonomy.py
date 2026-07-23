@@ -102,9 +102,20 @@ def broad_sector(industry: str | None) -> str | None:
         return "傳產工業"
     if industry in {"生技醫療業", "文化創意業", "農業科技"}:
         return "特色產業"
+    if industry in {"水泥窯製營造"}:          # 水泥 + 窯製 + 營造 → 營建建材
+        return "營建建材"
+    if industry in {"綜合", "其他", "其他業"}:  # 綜合企業/未細分 → 其他
+        return "其他"
     if industry in _SPECIAL:
         return "特殊分類"
-    return industry
+    # 未映射的分類**歸「其他」並告警**,不再把原名當粗分類洩漏出去(2026-07-23 FC8)。
+    # 舊 fallback `return industry` 讓 27,401 列(其他)、綜合、水泥窯製營造 等直接
+    # 用細分類當 broad_sector → sector 中性化/分組時多出假桶。告警讓新出現的分類被
+    # 看見而非靜默漏出。
+    import warnings
+    warnings.warn(f"broad_sector 未映射分類「{industry}」→ 歸『其他』;"
+                  "請補映射", stacklevel=2)
+    return "其他"
 
 
 def _schema_empty() -> pl.DataFrame:
