@@ -58,9 +58,11 @@ class Sink:
             self.con.unregister("_keys")
         return df.height
 
-    def upsert_day(self, table: str, market: str, day: Date, df: pl.DataFrame) -> int:
-        """日頻表便捷:以 (market, date) 為批次 key(刪整日 + 插入)。"""
-        return self.upsert(table, df, ["market", "date"])
+    def upsert_day(self, table: str, market: str, day: Date, df: pl.DataFrame,
+                   date_col: str = "date") -> int:
+        """日頻表便捷:以 (market, <date_col>) 為批次 key(刪整日 + 插入)。
+        date_col 預設 'date';無 date 欄的源(如 insider_holding='report_date')傳自己的欄。"""
+        return self.upsert(table, df, ["market", date_col])
 
     def has_day(self, table: str, market: str, day: Date) -> bool:
         """該 (market, date) 是否已在表中(避免重抓)。"""

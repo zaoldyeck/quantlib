@@ -74,6 +74,9 @@ from quantlib.crawl import archive, http, parse
 TABLE = "insider_holding"
 #: cache 增量 upsert 的批次鍵(刪整日 + 插入;此表用 report_date 非 date)。
 KEY_COLS = ["market", "report_date"]
+#: 日頻機制(update._missing_days / sink.upsert_day)的日期欄——此表無 date 欄,用 report_date。
+#: 缺此宣告會讓 `SELECT max(date)` 炸、insider 日頻刷新靜默壞掉(2026-07-24 修根因)。
+DATE_COL = "report_date"
 MARKETS = ("twse", "tpex")
 
 #: 2-step ajax(InsiderHoldingSetting.scala:39-44, 80)。

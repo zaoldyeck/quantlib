@@ -34,10 +34,12 @@ DAILY_SOURCES = [daily_quote, daily_trading_details, stock_per_pbr,
                  market_index, insider_holding]
 
 
-def _missing_days(sink: Sink, table: str, market: str, upto: Date) -> list[Date]:
-    """cache 中該 (表,市場) 最新日之後、直到 upto 的交易日(跳週末/sentinel)。"""
+def _missing_days(sink: Sink, src, market: str, upto: Date) -> list[Date]:
+    """cache 中該 (源,市場) 最新日之後、直到 upto 的交易日(跳週末/sentinel)。
+    源可宣告 `DATE_COL`(預設 'date';insider_holding 用 'report_date',無 date 欄)。"""
+    dcol = getattr(src, "DATE_COL", "date")
     mx = sink.con.execute(
-        f"SELECT max(date) FROM {table} WHERE market = ?", [market]).fetchone()[0]
+        f"SELECT max({dcol}) FROM {src.TABLE} WHERE market = ?", [market]).fetchone()[0]
     if mx is None:
         return []  # 空表 → 應先 scp 種歷史,不從零下載
     out, d = [], mx + timedelta(days=1)
@@ -59,8 +61,9 @@ def _write_sentinel(day: Date) -> None:
 def _refresh_daily(sink: Sink, upto: Date) -> int:
     total = 0
     for src in DAILY_SOURCES:
+        dcol = getattr(src, "DATE_COL", "date")
         for market in src.MARKETS:
-            for day in _missing_days(sink, src.TABLE, market, upto):
+            for day in _missing_days(sink, src, market, upto):
                 df = src.fetch_day(market, day)
                 if df is None:
                     # TWSE 無資料 = 休市 → 寫 sentinel;其餘源跟隨日曆,不寫
@@ -68,7 +71,7 @@ def _refresh_daily(sink: Sink, upto: Date) -> int:
                         _write_sentinel(day)
                         print(f"[crawl] {day} TWSE 無資料 → 休市 sentinel")
                     continue
-                n = sink.upsert_day(src.TABLE, market, day, df)
+                n = sink.upsert_day(src.TABLE, market, day, df, date_col=dcol)
                 total += n
                 print(f"[crawl] {src.TABLE}/{market} {day}: {n} 列")
     return total
