@@ -34,10 +34,21 @@ DAILY_SOURCES = [
     "foreign_holding_ratio", "index", "stock_per_pbr", "sbl_borrowing",
 ]
 
+#: 源名 → raw 目錄名(不一致的舊 Scala 路徑;統一保管前的過渡對映)。
+#: stock_per_pbr 的歷史 raw 落在 Scala 時代的 stock_per_pbr_dividend_yield/(14762 檔),
+#: 新 Python 源才用 stock_per_pbr/。rebuild 要讀完整歷史 → 指到舊路徑。
+_RAW_DIR = {"stock_per_pbr": "stock_per_pbr_dividend_yield"}
+
+
+def _raw_path(source: str, market: str, day: Date) -> "object":
+    """該(源,市場,日)的封存 raw 路徑,套用舊路徑對映(stock_per_pbr → …_dividend_yield)。"""
+    d = _RAW_DIR.get(source, source)
+    return paths.RAW / d / market / f"{day.year:04d}" / f"{day.year:04d}_{day.month}_{day.day}.csv"
+
 
 def _archived_days(source: str, market: str) -> list[Date]:
     """該源該市場封存了哪些日子(含 sentinel;由檔名 <y>_<m>_<d>.csv 推得),排序。"""
-    base = paths.RAW / source / market
+    base = paths.RAW / _RAW_DIR.get(source, source) / market
     if not base.exists():
         return []
     out: list[Date] = []
@@ -53,7 +64,7 @@ def _archived_days(source: str, market: str) -> list[Date]:
 @contextlib.contextmanager
 def _read_from_archive(source: str, market: str, day: Date):
     """讓源的 fetch_day 改讀封存 raw(不連網、不重寫 raw)。"""
-    p = archive.raw_path(source, market, day)
+    p = _raw_path(source, market, day)
     raw = p.read_bytes()
     o_bytes, o_text, o_save = http.fetch_bytes, http.fetch_text, archive.save_raw
     http.fetch_bytes = lambda *a, **k: raw

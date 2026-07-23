@@ -29,7 +29,21 @@
    cache/PG 為 BIGINT;本 port 一律 Int64 對齊,杜絕未來溢位。
 
 4. **版型用明確 header/fields 守衛**(`parse.SchemaDrift` fail-loud),不用
-   fallthrough——TWSE 悄悄加欄地雷。
+   fallthrough——TWSE 悄悄加欄地雷。TWSE 有資料列卻找不到『代號』表頭即 fail-loud
+   (不靜默跳過守衛而錯位)。TPEx `json.loads` 對 **0-byte 哨兵 / 壞 JSON** 回空 DF
+   (不炸),讓 rebuild-from-raw 把休市日當「空」乾淨略過、不誤計為 error(與姊妹源
+   `foreign_holding_ratio.parse_tpex` 同一守衛;缺此守衛時 1,074 個 tpex 哨兵會在
+   rebuild 被 `json.loads("")` 炸成假 error、掩蓋真解析錯)。
+
+## 歷史格式世代(2026-07 全量掃描 6,266 檔實證)
+
+**兩市場各只有一個封存世代**,因全史於 2026-04 用現行端點一次回補、格式一致:
+- TWSE `TWT93U` Big5-HKSCS CSV,16 欄,標頭固定在第 3 列(`代號…備註`),
+  借券區塊 index 8-13;2016-01-04~今無漂移。
+- TPEx `margin/sbl` UTF-8 JSON,`{date, tables:[{fields, data}], stat}`,
+  data 每列 15 欄;2016 起 `fields` 陣列未變。
+無 2007-2015 舊世代(封存不含;端點回補即現行版)。故單一 case 即涵蓋全史,
+非多世代分派——但守衛仍 fail-loud,未來端點改版立即紅燈而非靜默錯位。
 
 ## 刻意不接的欄位 / 語義坑(留註以免下一人重查)
 
@@ -182,6 +196,8 @@ def parse_twse(raw: bytes) -> tuple[Date | None, pl.DataFrame]:
     if h >= 0:
         _guard(rows[h], _TWSE_GUARD, "TWSE")
     df = _frame(rows)
+    if df.height and h < 0:
+        raise parse.SchemaDrift("sbl_borrowing TWSE 有資料列卻找不到『代號』表頭(格式漂移?)")
     if df.height and content_date is None:
         raise parse.SchemaDrift("sbl_borrowing TWSE 有資料列卻無法從標題解析日期(格式漂移?)")
     return content_date, df
@@ -189,7 +205,10 @@ def parse_twse(raw: bytes) -> tuple[Date | None, pl.DataFrame]:
 
 def parse_tpex(raw: bytes) -> tuple[Date | None, pl.DataFrame]:
     """TPEx UTF-8 JSON → (內容日期, DF)。fields 位置守衛 fail-loud。"""
-    obj = json.loads(raw.decode("utf-8"))
+    try:
+        obj = json.loads(raw.decode("utf-8"))
+    except (ValueError, UnicodeDecodeError):
+        return None, pl.DataFrame([], schema=_PARSE_SCHEMA)  # 0-byte 哨兵 / 壞 JSON
     content_date = _tpex_content_date(obj)
     tables = obj.get("tables") or []
     if not tables:
