@@ -35,7 +35,7 @@ KEY_COLS = ["market", "date", "company_code"]
 MARKETS = ("twse", "tpex")
 
 _TWSE = ("https://www.twse.com.tw/exchangeReport/TWTAUU"
-         "?response=csv&strDate={s}&endDate={e}")
+         "?response=csv&startDate={s}&endDate={e}")  # 2026-07 TWSE 改參數名 strDate→startDate
 _TPEX = ("https://www.tpex.org.tw/www/zh-tw/bulletin/revivt"
          "?response=csv&startDate={s}&endDate={e}")
 #: 每次補抓的視窗(過去 90 日抓已恢復、未來 30 日抓已排定的恢復)

@@ -16,15 +16,13 @@
 
 ## Phase 2 待修(正確性/缺口,Phase 0 合併時揭露)
 
-- **🔴 capital_reduction 端點失效**:TWSE `exchangeReport/TWTAUU?strDate=…&endDate=…`
-  對單日與範圍**都回空(`\r\n` 2 bytes)**——端點疑已遷移(TWSE 近年多端點改 `rwd/zh/…`)。
-  fetch_text 舊法亦空 → 非本輪回歸,是既有失效 bug。**capital_reduction 已停止更新**
-  (cache 只到 2026-07-08 的歷史 raw)。→ Phase 2 找正確現行端點、補回、加抓取健康度守護。
-  影響:prices.py 減資還原(money-path)——未來新減資若漏,除權日會幽靈跳空。
-- **🟠 stock_per_pbr TPEx 值被截**:同日 raw 兩版——Python 精確(殖利率 `2.03099616`)vs
-  歷史 rounded(`2.00000000`);**cache 是從歷史 rounded 版建的 → TPEx 2026-07 殖利率被截值**。
-  合併已採 Python 精確版為 canonical;→ Phase 2 rebuild stock_per_pbr,cache TPEx 值修正;
-  查此截值是否波及更早 TPEx 歷史。
+- **✅ capital_reduction 端點失效(已修,money-path)**:根因 = TWSE 2026-07 把參數名
+  `strDate`→`startDate`(TPEx 那條早就對),舊參數回空 `\r\n`。改一字修好——2026 H1 回 2 筆
+  (1414/2380 對上 cache)、raw 封存。舉一反三:全源僅此一處用舊 strDate。影響過:未來新減資
+  會被 update.py 捕捉。
+- **✅ stock_per_pbr TPEx「截值」= 誤報(已釐清)**:raw 兩版差異在**每股股利欄**(第 4 欄,
+  parser docstring 明寫「刻意不接」),非殖利率;同列 PE/DY/PB 兩版**完全相同** → cache 值
+  不受影響、無需 rebuild。raw 合併仍有效(統一目錄)。
 - **🟠 覆蓋缺口(初掃)**:insider_holding 僅 156 檔/771 列(19 年應 ~47,500);
   tdcc_shareholding 僅近 3 月(歷史回補從未做);taifex 三大法人從 2023(日資料 1998 起);
   各源最新日不齊(07-17/07-20/07-23 錯位);market_index 從 2009、capital_reduction 從 2011
