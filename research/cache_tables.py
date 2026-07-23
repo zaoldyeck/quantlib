@@ -39,7 +39,15 @@ def main():
         # REMOVED: growth_analysis_ttm (was a PG VIEW with hand-written F-Score derivation
         # we couldn't fully verify). See research/strat_lab/raw_quarterly.py for the
         # first-principles replacement (Piotroski F9 from raw IS+BS+CF).
-        ("ex_right_dividend",    "SELECT market, date, company_code, cash_dividend FROM pg.public.ex_right_dividend WHERE cash_dividend > 0"),
+        # 2026-07-23 FC1:除同步 cash_dividend,也帶交易所公告的「除權息前收盤 / 參考價」
+        # ——那是官方還原因子本身(參考價/前收盤),配息+配股一體涵蓋。**不再 WHERE
+        # cash_dividend > 0**:那個過濾把 2,304 筆純配股與配股配息的股票腿整批砍掉,
+        # 導致 prices.py 在除權日看不到因子 → 幽靈崩跌(見 prices.py FC1 註)。
+        ("ex_right_dividend",
+         "SELECT market, date, company_code, cash_dividend, right_or_dividend, "
+         "       closing_price_before_ex_right_ex_dividend, "
+         "       ex_right_ex_dividend_reference_price "
+         "FROM pg.public.ex_right_dividend"),
         ("capital_reduction",    "SELECT market, date, company_code, post_reduction_reference_price, reason_for_capital_reduction FROM pg.public.capital_reduction"),
         ("operating_revenue",    'SELECT market, type, year, month, company_code, company_name, industry, monthly_revenue, "monthly_revenue_compared_last_year(%))" AS monthly_revenue_yoy FROM pg.public.operating_revenue'),
         ("daily_trading_details", "SELECT market, date, company_code, foreign_investors_difference, securities_investment_trust_companies_difference AS trust_difference, dealers_difference, total_difference FROM pg.public.daily_trading_details"),

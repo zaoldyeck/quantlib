@@ -137,14 +137,37 @@ def fetch_adjusted_panel(
     if px.is_empty():
         return _empty_panel()
 
-    divs = con.sql(f"""
-        SELECT date AS ex_date, company_code, cash_dividend
-        FROM ex_right_dividend
-        WHERE market = '{market}'
-          AND cash_dividend > 0
-          {code_filter_sql}
-          AND date <= DATE '{end}'
-    """).pl()
+    # **拉全部除權息事件,不再只認 cash_dividend > 0**(2026-07-23 修 FC1)。
+    # 舊查詢用 cash_dividend > 0 過濾 → 純配股(2,304 筆「權」)與配股配息的股票腿
+    # 全數落空 → 除權日原始收盤跳水卻無因子還原 → 幽靈崩跌(中位 -3.94%、最深
+    # -23.76%),直接汙染所有 NAV 回測與 live S 的 exit_replay。
+    # 交易所公告的「參考價 / 除權息前收盤」同時涵蓋配息+配股,是官方還原因子本身;
+    # 對純配息事件與現行 cash 法實測僅差 4e-5(20,273 筆),故切換等價且更完整。
+    #
+    # **對兩種 cache 世代皆正確**:舊 cache 只同步了 cash_dividend 一欄(rebuild 前)。
+    # 偵測欄位——有前收盤/參考價就用完整法,只有 cash 就退回舊法(對配息仍正確,
+    # 配股待 cache rebuild 後自動修復)。不是 walkaround:函式本就不該假設 cache 世代。
+    _erd_cols = {r[0] for r in con.sql(
+        "SELECT column_name FROM information_schema.columns "
+        "WHERE table_name = 'ex_right_dividend'").fetchall()}
+    _has_ref = {"closing_price_before_ex_right_ex_dividend",
+                "ex_right_ex_dividend_reference_price"} <= _erd_cols
+    if _has_ref:
+        divs = con.sql(f"""
+            SELECT date AS ex_date, company_code, cash_dividend,
+                   closing_price_before_ex_right_ex_dividend AS tbl_pre,
+                   ex_right_ex_dividend_reference_price       AS tbl_ref
+            FROM ex_right_dividend
+            WHERE market = '{market}' {code_filter_sql} AND date <= DATE '{end}'
+        """).pl()
+    else:
+        divs = con.sql(f"""
+            SELECT date AS ex_date, company_code, cash_dividend,
+                   CAST(0.0 AS DOUBLE) AS tbl_pre, CAST(0.0 AS DOUBLE) AS tbl_ref
+            FROM ex_right_dividend
+            WHERE market = '{market}' AND cash_dividend > 0
+              {code_filter_sql} AND date <= DATE '{end}'
+        """).pl()
 
     cr = con.sql(f"""
         SELECT date AS ex_date, company_code, post_reduction_reference_price AS post_ref
@@ -284,15 +307,24 @@ def _build_factor_table(px: pl.DataFrame, divs: pl.DataFrame, cr: pl.DataFrame) 
                  left_on="probe", right_on="px_date",
                  by="company_code", strategy="backward",
              )
-             .filter(
-                 pl.col("pre_close").is_not_null()
-                 & (pl.col("pre_close") > 0)
-                 & (pl.col("pre_close") > pl.col("cash_dividend"))
-             )
              .with_columns(
-                 ((pl.col("pre_close") - pl.col("cash_dividend"))
-                   / pl.col("pre_close")).alias("factor")
+                 # 因子優先序(2026-07-23 FC1):
+                 #  ① 交易所公告的參考價/前收盤 —— 官方還原因子本身,配息+配股一體涵蓋
+                 #  ② 無參考價但有現金股利 → 沿用 (前收盤−現金股利)/前收盤(2,456 筆息)
+                 #  ③ 兩者皆無 → null,下方過濾掉並回報(那些是 pre/ref/cash 全 0 的壞列,
+                 #     須重解析 ex_right_dividend 補回,見 FC1-parse)
+                 pl.when((pl.col("tbl_pre") > 0) & (pl.col("tbl_ref") > 0))
+                   .then(pl.col("tbl_ref") / pl.col("tbl_pre"))
+                   .when((pl.col("pre_close") > 0)
+                         & (pl.col("pre_close") > pl.col("cash_dividend"))
+                         & (pl.col("cash_dividend") > 0))
+                   .then((pl.col("pre_close") - pl.col("cash_dividend"))
+                         / pl.col("pre_close"))
+                   .otherwise(None)
+                   .alias("factor")
              )
+             .filter(pl.col("factor").is_not_null()
+                     & (pl.col("factor") > 0.05) & (pl.col("factor") < 5.0))
              .select(["company_code", "ex_date", "factor"])
         )
         events.append(d)

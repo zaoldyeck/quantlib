@@ -112,9 +112,13 @@ def connect(dsn: str = DEFAULT_DSN, read_only: bool = True,
     #   operating_margin_q, net_margin_q, roa_ttm, asset_turnover_ttm, current_ratio,
     #   lt_debt_ratio, cfo_ni_ratio_ttm
     # Built via `python research/strat_lab/raw_quarterly.py`.
+    # 2026-07-23 FC1:帶交易所公告的前收盤/參考價(官方還原因子),且不再過濾
+    # cash_dividend > 0(否則純配股整批漏還原 → 幽靈崩跌)。與 cache_tables.py 同構。
     con.sql("CREATE OR REPLACE VIEW ex_right_dividend AS "
-            "SELECT market, date, company_code, cash_dividend "
-            "FROM pg.public.ex_right_dividend WHERE cash_dividend > 0")
+            "SELECT market, date, company_code, cash_dividend, right_or_dividend, "
+            "       closing_price_before_ex_right_ex_dividend, "
+            "       ex_right_ex_dividend_reference_price "
+            "FROM pg.public.ex_right_dividend")
     con.sql("CREATE OR REPLACE VIEW capital_reduction AS "
             "SELECT market, date, company_code, post_reduction_reference_price, "
             "       reason_for_capital_reduction "
