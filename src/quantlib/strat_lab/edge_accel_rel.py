@@ -30,9 +30,12 @@ def main() -> None:
     print("\n=== edge 直接檢驗:各營收建構塊的截面 IC / decile(20d 前瞻)===")
     print("  (IC>0 且 t>2 = 有截面訊號;decile spread 年化 = 多空報酬差;mono→1 = 單調)\n")
     cands = [
-        ("rev_yoy_accel", "營收年增加速度(原始,未相對產業)"),
-        ("accel_rel", "加速度相對產業中位數(S 用的 edge)"),
-        ("rev_seq", "近 3 月環比營收成長"),
+        ("rev_yoy_accel", "營收年增加速度(原始;WREL w=1.0)"),
+        ("accel_rel", "加速度相對產業中位數(WREL w=0.5)"),
+        ("rev_seq", "近 3 月環比營收成長(WREL w=0.5)"),
+        ("high_52w", "近 52 週高比例(動能;WREL w=1.0)"),
+        ("close_pos_20", "20 日區間收盤位置(短動能;WREL w=1.0)"),
+        ("mom_126_5", "126 日動能 skip5(中動能;WREL w=0.5)"),
     ]
     for col, desc in cands:
         if col not in feat.columns:
