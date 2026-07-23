@@ -149,7 +149,10 @@ def pool_history(feat: pl.DataFrame, elig: pl.DataFrame,
             .filter(pl.col("rev_fresh_days") <= 7)
             .join(elig.filter(pl.col("eligible")).select(["date", C]),
                   on=["date", C], how="semi")
-            .drop_nulls(subset=list(S_WTS)))
+            .drop_nulls(subset=list(S_WTS))
+            # defense-in-depth(2026-07-23 稽核 D-apex-s-live):drop_nulls 不剔除 inf/NaN,
+            # rank 會把它排到頂端污染選股;六因子一律要求有限值(rev_seq 護欄已治本)。
+            .filter(pl.all_horizontal([pl.col(c).is_finite() for c in S_WTS])))
     # 現金流品質閘:當日池內中位數以上;覆蓋率不足 30% 的日子不啟用(避免用少數樣本殺全池)
     cand = cand.with_columns([
         pl.col("cfo_ni_ratio_ttm").median().over("date").alias("_med"),
@@ -218,8 +221,12 @@ def s_advisor(con, holdings: dict[str, float], today: Date,
            .with_columns([
                pl.date(pl.col("year") + pl.col("month") // 12,
                        pl.col("month") % 12 + 1, 10).alias("avail"),
-               (pl.col("monthly_revenue").rolling_sum(3)
-                / pl.col("monthly_revenue").rolling_sum(3).shift(3) - 1)
+               # 分母護欄(2026-07-23 稽核 D-apex-s-live):前三月營收合計為 0 時 +inf/NaN
+               # 會被 rank 排到頂端污染選股(與 strategy_s.py 同治;未定義成長率該 null)。
+               pl.when(pl.col("monthly_revenue").rolling_sum(3).shift(3) > 0)
+               .then(pl.col("monthly_revenue").rolling_sum(3)
+                     / pl.col("monthly_revenue").rolling_sum(3).shift(3) - 1)
+               .otherwise(None)
                .over(C).alias("rev_seq"),
            ]))
     rev = (apply_avail_override(rev, ov)

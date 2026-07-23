@@ -34,8 +34,14 @@ def prep(con, end: str | None = None):
            .with_columns([
                pl.date(pl.col("year") + pl.col("month") // 12,
                        pl.col("month") % 12 + 1, 10).alias("avail"),
-               (pl.col("monthly_revenue").rolling_sum(3)
-                / pl.col("monthly_revenue").rolling_sum(3).shift(3) - 1)
+               # 分母護欄(2026-07-23 稽核 D-apex-s-live):前三月營收合計為 0 時
+               # ratio=+inf、0/0=NaN,兩者皆非 null → 不被 drop_nulls 剔除,polars rank
+               # 會把 inf/NaN 排到近頂/絕對頂(建設股認列跳動,6 列)。未定義的成長率
+               # 該 null 掉,與 close_pos_20 對 high==low 的 when/else None 同款範式。
+               pl.when(pl.col("monthly_revenue").rolling_sum(3).shift(3) > 0)
+               .then(pl.col("monthly_revenue").rolling_sum(3)
+                     / pl.col("monthly_revenue").rolling_sum(3).shift(3) - 1)
+               .otherwise(None)
                .over(C).alias("rev_seq"),
            ])
            .select([C, "avail", "rev_seq"]).drop_nulls().sort("avail"))
@@ -68,6 +74,10 @@ def run_s_full(panel, feat, elig, start: str
     df = (pool.join(elig.filter(pl.col("eligible")).select(["date", C]),
                     on=["date", C], how="semi")
           .drop_nulls(subset=list(WREL))
+          # defense-in-depth(2026-07-23 稽核 D-apex-s-live):任何因子若殘留 inf/NaN
+          # (drop_nulls 不剔除 NaN/inf),rank 會把它排到頂端污染選股。六因子一律要求
+          # 有限值,關掉此陷阱(rev_seq 護欄已治本,此為第二道防線)。
+          .filter(pl.all_horizontal([pl.col(c).is_finite() for c in WREL]))
           .filter(pl.col("cfo_ni_ratio_ttm")
                   >= pl.col("cfo_ni_ratio_ttm").median().over("date")))
     expr = None
