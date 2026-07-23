@@ -30,7 +30,12 @@ _REFRESH_MONTHS = 3
 
 _SCHEMA = {"market": pl.Utf8, "type": pl.Utf8, "year": pl.Int32, "month": pl.Int32,
            "company_code": pl.Utf8, "company_name": pl.Utf8, "industry": pl.Utf8,
-           "monthly_revenue": pl.Float64, "monthly_revenue_yoy": pl.Float64}
+           "monthly_revenue": pl.Float64, "monthly_revenue_yoy": pl.Float64,
+           # 出表日期(原始檔第一欄,民國):**產業別 PIT 的真實生效錨**(FC8)。MOPS 月報回傳
+           # 的產業別是**當前**分類,套到歷史月會前視(3687 歐買尬 2020 的「數位雲端」被回填
+           # 到 2013);出表日期記錄該檔實際產出時點,industry_taxonomy 用它(取每家每產業最早
+           # 出表日期)當 effective_date,即消除前視。缺欄(極舊格式)→ null,builder 退回月推算。
+           "report_date": pl.Date}
 
 _CODE = re.compile(r"^\d{4}[0-9A-Z]?$")
 
@@ -38,6 +43,18 @@ _CODE = re.compile(r"^\d{4}[0-9A-Z]?$")
 def _dbl(v: str) -> float | None:
     try:
         return float(v.replace(",", "").strip())
+    except (ValueError, AttributeError):
+        return None
+
+
+def _roc_date(v: str) -> Date | None:
+    """民國日期字串(如 109/06/14 或 "109/6/14")→ 西元 date;無法解析回 None。"""
+    try:
+        parts = v.strip().strip('"').split("/")
+        if len(parts) != 3:
+            return None
+        roc_y, mo, dy = int(parts[0]), int(parts[1]), int(parts[2])
+        return Date(roc_y + 1911, mo, dy)
     except (ValueError, AttributeError):
         return None
 
@@ -64,6 +81,7 @@ def fetch_month(market: str, year: int, month: int) -> pl.DataFrame | None:
             "company_code": code, "company_name": r[3].strip(),
             "industry": (r[4].strip() or None),
             "monthly_revenue": _dbl(r[5]), "monthly_revenue_yoy": _dbl(r[9]),
+            "report_date": _roc_date(r[0]),  # 出表日期(FC8:產業別 PIT 生效錨)
         })
     if not recs:
         return None

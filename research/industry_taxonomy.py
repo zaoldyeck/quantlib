@@ -142,13 +142,22 @@ def _schema_empty() -> pl.DataFrame:
 def build_industry_taxonomy_pit(con: Any) -> pl.DataFrame:
     """Build a point-in-time industry table from raw operating revenue rows.
 
-    Effective date is set to the conservative monthly revenue publication proxy
-    used elsewhere in the research stack: first day of the next month + 12 days.
-    This avoids applying a classification before the source file was observable.
+    **Effective date = 出表日期(report_date)**(FC8 修,2026-07-23):MOPS 月報回傳的產業別
+    是**當前**分類,若以「營收月」推算生效日,重爬的歷史檔會把新分類回填到舊月 = 前視
+    (3687 歐買尬 2020 的「數位雲端」被當 2013 就生效,污染 S 的 accel_rel 同業中位數)。
+    出表日期記錄該檔**實際產出時點**,是唯一免前視的生效錨:一筆 2013 營收但 2020 才出表的
+    列,生效日 = 2020,asof-join 在 2013 觀察日不會採到它。report_date 缺(極舊格式或尚未
+    重解析)→ 退回原本的營收月+次月 12 日保守 proxy(不惡化既有行為)。
     """
+    has_rd = "report_date" in {
+        r[0] for r in con.sql(
+            "SELECT column_name FROM information_schema.columns "
+            "WHERE table_name = 'operating_revenue'").fetchall()
+    }
+    rd_sel = "report_date" if has_rd else "CAST(NULL AS DATE) AS report_date"
     raw = con.sql(
         f"""
-        SELECT market, type, year, month, company_code, company_name, industry
+        SELECT market, type, year, month, company_code, company_name, industry, {rd_sel}
         FROM operating_revenue
         WHERE industry IS NOT NULL
           AND industry <> ''
@@ -172,10 +181,12 @@ def build_industry_taxonomy_pit(con: Any) -> pl.DataFrame:
                 pl.col("raw_industry")
                 .map_elements(normalize_industry_name, return_dtype=pl.Utf8)
                 .alias("industry"),
-                pl.date(pl.col("year"), pl.col("month"), 1)
-                .dt.offset_by("1mo")
-                .dt.offset_by("12d")
-                .alias("effective_date"),
+                # 生效日 = 出表日期(真實產出時點,免前視);缺則退回營收月+次月12日 proxy
+                pl.coalesce([
+                    pl.col("report_date"),
+                    pl.date(pl.col("year"), pl.col("month"), 1)
+                    .dt.offset_by("1mo").dt.offset_by("12d"),
+                ]).alias("effective_date"),
                 (pl.col("year") * 100 + pl.col("month")).cast(pl.Int32).alias("source_ym"),
             ]
         )
