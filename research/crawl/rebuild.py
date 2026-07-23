@@ -212,12 +212,55 @@ def _cache_cols(table: str) -> list[str]:
         con.close()
 
 
-#: 非日頻源 → rebuild 函式(財報 bs/is/cf 見 rebuild_financials.py,量大另跑)。
+def rebuild_insider_holding() -> int:
+    import glob
+    import re
+    from datetime import date as _D
+    from pathlib import Path
+    from research.crawl.sources import insider_holding as ins
+    frames = []
+    for market in ins.MARKETS:
+        for f in glob.glob(f"data/insider_holding/{market}/**/*.html", recursive=True):
+            m = re.match(r"(\d+)_(\d+)_(\d+)", Path(f).stem)
+            if not m:
+                continue
+            rd = _D(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            d = _safe(ins.parse_raw, market, open(f, "rb").read(), rd)
+            if d is not None and not d.is_empty():
+                frames.append(d)
+    full = pl.concat(frames, how="vertical_relaxed").unique() if frames else None
+    if full is None or full.is_empty():
+        print("[rebuild] insider_holding: 0 列(保護舊表不寫)")
+        return 0
+    print(f"[rebuild] insider_holding: {_write('insider_holding', full):,} 列")
+    return full.height
+
+
+def rebuild_treasury_buyback() -> int:
+    import glob
+    from research.crawl.sources import treasury_stock_buyback as tsb
+    frames = []
+    for market in tsb.MARKETS:
+        for f in glob.glob(f"data/treasury_stock_buyback/{market}/**/*.html", recursive=True):
+            d = _safe(tsb.parse_raw, market, open(f, "rb").read())
+            if d is not None and not d.is_empty():
+                frames.append(d)
+    full = pl.concat(frames, how="vertical_relaxed").unique() if frames else None
+    if full is None or full.is_empty():
+        print("[rebuild] treasury_stock_buyback: 0 列(保護舊表不寫)")
+        return 0
+    print(f"[rebuild] treasury_stock_buyback: {_write('treasury_stock_buyback', full):,} 列")
+    return full.height
+
+
+#: 非日頻源 → rebuild 函式(財報 bs/is/cf + raw_quarterly 見 rebuild_financials.py,量大另跑)。
 QUARTERLY_REBUILDS = {
     "operating_revenue": rebuild_operating_revenue,
     "ex_right_dividend": rebuild_ex_right_dividend,
     "capital_reduction": rebuild_capital_reduction,
     "taifex_futures_daily": rebuild_taifex_daily,
+    "insider_holding": rebuild_insider_holding,
+    "treasury_stock_buyback": rebuild_treasury_buyback,
 }
 
 
