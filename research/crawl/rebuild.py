@@ -117,15 +117,125 @@ def rebuild_daily_source(source: str, *, dry_run: bool = False) -> dict:
             "empty": n_empty, "errors": n_err, "err_sample": errs}
 
 
+def _write(table: str, df: "pl.DataFrame") -> int:
+    con = __import__("duckdb").connect(str(paths.CACHE_DB), read_only=False)
+    try:
+        con.register("_new", df)
+        con.execute(f"DROP TABLE IF EXISTS {table}")
+        con.execute(f"CREATE TABLE {table} AS SELECT * FROM _new")
+    finally:
+        con.unregister("_new")
+        con.close()
+    return df.height
+
+
+def rebuild_operating_revenue() -> int:
+    """oprev 全 raw(CSV+HTML,3 世代)→ operating_revenue + 重算 industry_taxonomy_pit(FC8)。"""
+    import glob
+    from research.crawl.sources import operating_revenue as opr
+    from research.crawl.sink import Sink
+    files = (glob.glob("data/operating_revenue/**/*.csv", recursive=True)
+             + glob.glob("data/operating_revenue/**/*.html", recursive=True))
+    frames = [d for f in files if (d := _safe(opr.parse_file, f)) is not None and not d.is_empty()]
+    full = pl.concat(frames, how="vertical_relaxed").unique(
+        subset=["market", "type", "year", "month", "company_code"], keep="last")
+    with Sink() as s:
+        s.con.register("_o", full)
+        s.con.execute("DROP TABLE IF EXISTS operating_revenue")
+        s.con.execute("CREATE TABLE operating_revenue AS SELECT * FROM _o")
+        s.con.unregister("_o")
+        opr.rebuild_industry_taxonomy(s)  # FC8:用出表日期當生效錨
+    print(f"[rebuild] operating_revenue: {full.height:,} 列 + industry_taxonomy_pit")
+    return full.height
+
+
+def rebuild_ex_right_dividend() -> int:
+    """除權息全世代(parse_raw 標頭判世代:MOPS / twse 舊制 / tpex 舊制)。"""
+    import glob
+    from research.crawl.sources import ex_right_dividend as exd
+    cache_cols = _cache_cols("ex_right_dividend")
+    frames = []
+    for market in exd.MARKETS:
+        for f in glob.glob(f"data/ex_right_dividend/{market}/**/*.csv", recursive=True):
+            d = _safe(exd.parse_raw, market, open(f, "rb").read())
+            if d is not None and not d.is_empty():
+                frames.append(d.select([c for c in cache_cols if c in d.columns]))
+    full = pl.concat(frames, how="vertical_relaxed").unique()
+    print(f"[rebuild] ex_right_dividend: {_write('ex_right_dividend', full):,} 列")
+    return full.height
+
+
+def rebuild_capital_reduction() -> int:
+    import glob
+    from research.crawl.sources import capital_reduction as cr
+    frames = []
+    for market in cr.MARKETS:
+        for f in glob.glob(f"data/capital_reduction/{market}/**/*.csv", recursive=True):
+            recs = _safe(lambda m, x: cr._parse(m, x), market,
+                         open(f, "rb").read().decode("Big5-HKSCS", errors="replace"))
+            if recs:
+                frames.append(pl.DataFrame(recs))
+    full = pl.concat(frames, how="vertical_relaxed").unique()
+    print(f"[rebuild] capital_reduction: {_write('capital_reduction', full):,} 列")
+    return full.height
+
+
+def rebuild_taifex_daily() -> int:
+    """期貨日資料:parse_text over 年檔+月檔;**全列去重(非只 date——同日多合約)**。"""
+    import glob
+    from research.crawl.sources import taifex
+    files = sorted(glob.glob("data/taifex/futures_daily/*_fut.csv")
+                   + glob.glob("data/taifex/futures_daily/*/*.csv"))
+    frames = [d for f in files
+              if (d := _safe(taifex.parse_text,
+                             open(f, encoding="Big5-HKSCS", errors="replace").read())) is not None
+              and not d.is_empty()]
+    full = pl.concat(frames, how="vertical_relaxed").unique(keep="first")
+    print(f"[rebuild] taifex_futures_daily: {_write('taifex_futures_daily', full):,} 列")
+    return full.height
+
+
+def _safe(fn, *a):
+    try:
+        return fn(*a)
+    except Exception:  # noqa: BLE001 - 收集,單檔錯不中斷整源(rebuild 對汙染/漂移 fail-soft)
+        return None
+
+
+def _cache_cols(table: str) -> list[str]:
+    con = __import__("duckdb").connect(str(paths.CACHE_DB), read_only=True)
+    try:
+        return [c[0] for c in con.execute(
+            f"SELECT column_name FROM information_schema.columns WHERE table_name='{table}' "
+            "ORDER BY ordinal_position").fetchall()]
+    finally:
+        con.close()
+
+
+#: 非日頻源 → rebuild 函式(財報 bs/is/cf 見 rebuild_financials.py,量大另跑)。
+QUARTERLY_REBUILDS = {
+    "operating_revenue": rebuild_operating_revenue,
+    "ex_right_dividend": rebuild_ex_right_dividend,
+    "capital_reduction": rebuild_capital_reduction,
+    "taifex_futures_daily": rebuild_taifex_daily,
+}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="從 raw 全量重建 cache 表(全世代 parser)")
     ap.add_argument("--source", help="單一源(見 DAILY_SOURCES)")
     ap.add_argument("--all", action="store_true", help="全部日頻源")
+    ap.add_argument("--quarterly", action="store_true", help="季頻/特殊源(oprev/除權息/減資/期貨)")
     ap.add_argument("--dry-run", action="store_true", help="只解析算列數/錯誤,不寫 cache")
     args = ap.parse_args()
+    if args.quarterly:
+        for name, fn in QUARTERLY_REBUILDS.items():
+            fn()
+        print("[rebuild] 季頻/特殊源完成;財報鏈另跑 research.crawl.rebuild_financials")
+        return
     todo = DAILY_SOURCES if args.all else ([args.source] if args.source else [])
     if not todo:
-        ap.error("需 --source <name> 或 --all")
+        ap.error("需 --source <name> / --all / --quarterly")
     for s in todo:
         r = rebuild_daily_source(s, dry_run=args.dry_run)
         tag = "(dry)" if args.dry_run else ""
