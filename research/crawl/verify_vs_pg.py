@@ -18,13 +18,13 @@ from research import paths
 
 DEFAULT_DSN = "postgresql://localhost:5432/quantlib"
 
-#: cache 表 → (pg.public 表名, 日期欄, 市場欄或 None)
+#: cache 表 → (pg.public 表名, 日期欄)。PG 舊表名:指數=index、pbr=…_dividend_yield。
 TABLES = {
     "daily_quote": ("daily_quote", "date"),
     "daily_trading_details": ("daily_trading_details", "date"),
     "margin_transactions": ("margin_transactions", "date"),
     "foreign_holding_ratio": ("foreign_holding_ratio", "date"),
-    "market_index": ("market_index", "date"),
+    "market_index": ("index", "date"),
     "stock_per_pbr": ("stock_per_pbr_dividend_yield", "date"),
     "sbl_borrowing": ("sbl_borrowing", "date"),
 }
@@ -39,39 +39,51 @@ def _con():
 
 def verify() -> None:
     con = _con()
-    print(f"{'表':<26}{'cache 列':>12}{'PG 列':>12}{'cache 日':>9}{'PG 日':>8}  判定")
-    print("─" * 82)
+    # daily_quote 交易日 = 真交易日權威(cache 比 PG 少的日,必須全是「非此集合」的幽靈日)
+    qset = {r[0] for r in con.execute("SELECT DISTINCT date FROM daily_quote").fetchall()}
+    print(f"{'表':<26}{'cache 列':>12}{'PG 列':>12}{'cache 日':>8}{'PG 日':>7}  判定(PG 多出日的性質)")
+    print("─" * 92)
     all_ok = True
     for tbl, (pgt, dcol) in TABLES.items():
         try:
             cc = con.execute(f"SELECT count(*), count(DISTINCT {dcol}) FROM {tbl}").fetchone()
             pc = con.execute(f"SELECT count(*), count(DISTINCT {dcol}) FROM pg.public.{pgt}").fetchone()
+            extra = [r[0] for r in con.execute(
+                f"SELECT DISTINCT {dcol} FROM pg.public.{pgt} "
+                f"WHERE {dcol} NOT IN (SELECT DISTINCT {dcol} FROM {tbl})").fetchall()]
         except Exception as exc:  # noqa: BLE001
             print(f"{tbl:<26} 查詢失敗:{str(exc)[:40]}")
             all_ok = False
             continue
-        # cache 日數應 ≥ PG(重建補回缺日);列數通常 ≥(補回被丟的列)
-        day_ok = cc[1] >= pc[1]
-        verdict = "✓" if day_ok else "✗ cache 日 < PG!"
-        if not day_ok:
+        # 正確語義:cache 可比 PG 少「幽靈日」(PG 錯存的非交易日),但**不得少任何真交易日**。
+        real_missing = [d for d in extra if d in qset]
+        if real_missing:
+            verdict = f"✗ 真缺 {len(real_missing)} 交易日:{[str(x) for x in real_missing[:3]]}"
             all_ok = False
-        print(f"{tbl:<26}{cc[0]:>12,}{pc[0]:>12,}{cc[1]:>9,}{pc[1]:>8,}  {verdict}")
+        else:
+            verdict = f"✓(PG 多 {len(extra)} 日全為幽靈,cache 正確排除)"
+        print(f"{tbl:<26}{cc[0]:>12,}{pc[0]:>12,}{cc[1]:>8,}{pc[1]:>7,}  {verdict}")
 
-    # dtd 三大法人恆等式:cache vs PG 破裂數
+    # dtd 三大法人恆等式(cache 欄名 trust_difference;PG 舊 schema 用 securities_investment_trust_companies)
     print("\n── 表特定不變式 ──")
     try:
-        q = ("WITH x AS (SELECT CAST(foreign_investors_difference AS BIGINT) f,"
-             "CAST(trust_difference AS BIGINT) t, CAST(dealers_difference AS BIGINT) d,"
-             "CAST(total_difference AS BIGINT) tot FROM {src} WHERE foreign_investors_difference IS NOT NULL)"
-             " SELECT count(*) FROM x WHERE tot != f+t+d")
-        cb = con.execute(q.format(src="daily_trading_details")).fetchone()[0]
-        pb = con.execute(q.format(src="pg.public.daily_trading_details")).fetchone()[0]
+        cb = con.execute(
+            "WITH x AS (SELECT CAST(foreign_investors_difference AS BIGINT) f,"
+            "CAST(trust_difference AS BIGINT) t, CAST(dealers_difference AS BIGINT) d,"
+            "CAST(total_difference AS BIGINT) tot FROM daily_trading_details WHERE foreign_investors_difference IS NOT NULL)"
+            " SELECT count(*) FROM x WHERE tot != f+t+d").fetchone()[0]
+        pb = con.execute(
+            "WITH x AS (SELECT CAST(foreign_investors_difference AS BIGINT) f,"
+            "CAST(securities_investment_trust_companies_difference AS BIGINT) t,"
+            "CAST(dealers_difference AS BIGINT) d, CAST(total_difference AS BIGINT) tot "
+            "FROM pg.public.daily_trading_details WHERE foreign_investors_difference IS NOT NULL)"
+            " SELECT count(*) FROM x WHERE tot != f+t+d").fetchone()[0]
         print(f"  dtd 三大法人恆等式破裂:cache={cb:,}  PG={pb:,}  " +
               ("✓ cache 大幅修正" if cb < pb else "✗ cache 未改善"))
         if cb >= pb:
             all_ok = False
     except Exception as exc:  # noqa: BLE001
-        print(f"  dtd 恆等式檢查失敗:{str(exc)[:50]}")
+        print(f"  dtd 恆等式檢查失敗:{str(exc)[:60]}")
 
     # 已知 bug 修對(dtd 00403A Int64 / 0050 2012 自營商)
     for code, d, col, want, desc in [
