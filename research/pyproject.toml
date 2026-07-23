@@ -21,6 +21,9 @@ dependencies = [
     "fubon-neo ; (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux')",
     "yfinance>=1.5.1",
     "shioaji>=1.7.0",
+    "lxml>=6.1.1",
+    "cssselect>=1.4.0",
+    "beautifulsoup4>=4.12",
 ]
 
 [tool.uv]

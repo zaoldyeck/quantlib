@@ -36,6 +36,26 @@ def raw_path(source: str, market: str, day: Date, ext: str = "csv") -> Path:
             / f"{day.year:04d}_{day.month}_{day.day}.{ext}")
 
 
+def save_raw_bytes_at(path: Path, content: bytes) -> Path:
+    """**原子落地的唯一真源**:把 bytes 以 tmp → os.replace 寫到任意 `path`。
+
+    封存原子性(斷網/當機不留半檔)在此一處實作,`save_raw` / `save_raw_named` 皆
+    委派本函式;路徑慣例不吃 `<source>/<market>/<year>` 版型的源(如 TAIFEX 期貨日檔
+    的 `data/taifex/futures_daily/<year>_fut.csv` 年檔 + `<year>/<year>_<m>.csv` 月檔)
+    自算 path 後直呼本函式,仍走同一條原子鐵律。
+
+    **只收 bytes**(封存 = 位元保真);str 一律由呼叫端明確決定編碼後再傳。
+    """
+    if isinstance(content, str):
+        raise TypeError(
+            "save_raw_bytes_at 只收 bytes(封存位元保真);str 請由呼叫端明確 encode 後再傳")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_bytes(content)
+    os.replace(tmp, path)
+    return path
+
+
 def save_raw(source: str, market: str, day: Date, content: bytes,
              ext: str = "csv") -> Path:
     """把抓到的 raw **原子**落地(tmp → os.replace)。回傳落地路徑。
@@ -50,12 +70,41 @@ def save_raw(source: str, market: str, day: Date, content: bytes,
         raise TypeError(
             "save_raw 只收伺服器原樣 bytes,不收已解碼的 str——傳 http.fetch_bytes() "
             "的結果,不要傳 fetch_text()(封存必須位元保真,見 docstring)")
-    p = raw_path(source, market, day, ext)
-    p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(p.suffix + ".tmp")
-    tmp.write_bytes(content)
-    os.replace(tmp, p)
-    return p
+    return save_raw_bytes_at(raw_path(source, market, day, ext), content)
+
+
+def raw_named_path(source: str, market: str, year: int, filename: str,
+                   subdir: bool = True) -> Path:
+    """季頻/多檔源的封存路徑。
+
+    - `subdir=True`(預設):`data/<source>/<market>/<year>/<filename>`——季頻財報
+      一期會回多張表(MOPS t163sb05 依產業模板切成 `<year>_<quarter>_a_c_<idx>.csv`),
+      檔名不是年月日格式,故走這條;`filename` 由呼叫端依 Scala 時代慣例組好。
+    - `subdir=False`:`data/<source>/<market>/<filename>`——供 `financial_analysis`
+      這類**既有封存採扁平佈局**的源:76 檔歷史封存在「pre year-routing」時代就落地為
+      `data/financial_analysis/<market>/<year>_<a|b>.csv`(扁平),Scala reader 以
+      `deepFiles` 遞迴掃描故位置無所謂。fetch **覆寫同一扁平路徑**保單一副本、
+      idempotent;若改寫 year 子目錄會與既有扁平檔並存 → 重建掃描重複讀入同一年。
+
+    日頻源用 `raw_path`(檔名 = 年_月_日)。
+    """
+    base = paths.RAW / source / market
+    if subdir:
+        base = base / f"{year:04d}"
+    return base / filename
+
+
+def save_raw_named(source: str, market: str, year: int, filename: str,
+                   content: bytes | str, subdir: bool = True) -> Path:
+    """季頻/多檔源:把抓到的 raw **原子**落地到 `raw_named_path`。回傳落地路徑。
+
+    與 `save_raw` 同一條原子換名鐵律(tmp → os.replace,斷網不留半檔),只是檔名
+    由呼叫端指定(季頻多表無「年_月_日」語義)。**封存 = 原樣**,不做任何清洗。
+    `subdir=False` 供既有扁平佈局的源(見 `raw_named_path`)。
+    """
+    data = content.encode("utf-8") if isinstance(content, str) else content
+    return save_raw_bytes_at(
+        raw_named_path(source, market, year, filename, subdir=subdir), data)
 
 
 def save_sentinel(source: str, market: str, day: Date) -> Path:
