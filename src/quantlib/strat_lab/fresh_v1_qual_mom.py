@@ -14,6 +14,12 @@
 
 這是**baseline / 起點**,非最終策略——使用者要定 alpha thesis 方向後再迭代深化。
 
+**乾淨資料結果(2026-07-24,資料權威重建後)**:
+- v1(無風控):CAGR 16.7% / Sharpe 0.69 / MDD -44%(5/13 負年)——modest。
+- v2(+TAIEX<10m MA regime 過濾):CAGR 11.2% / Sharpe 0.54 / MDD -43.5% → **更差(負結果)**:
+  市場級 regime 過濾砍掉 upside、MDD 幾乎沒壓下(-44%→-43.5%)。**證偽**:此策略的 -44% MDD
+  來自個股崩跌,需**個股級風控**(單筆 trailing/abs 止損)而非市場級 regime。下輪往此方向。
+
 Run: uv run python -m quantlib.strat_lab.fresh_v1_qual_mom
 依賴 cache:是(校正世代)。
 """
