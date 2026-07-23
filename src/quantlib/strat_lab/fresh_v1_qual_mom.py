@@ -58,6 +58,18 @@ def pit_fscore(con) -> pl.DataFrame:
         "company_code", pl.col("f_score_raw").alias("fscore")]).sort(["avail_month", "company_code"])
 
 
+def market_regime(con) -> dict:
+    """TAIEX 月底收盤 > 10 月均線 → risk_on(趨勢過濾,Faber GTAA)。回 {month: risk_on(bool)}。
+    出處:時序動能/趨勢過濾在空頭轉現金,系統性壓低 MDD(Faber 2007)。"""
+    idx = con.execute(
+        "SELECT date, close FROM market_index WHERE market='twse' "
+        "AND name='發行量加權股價指數' AND close > 0 ORDER BY date").pl()
+    idx = idx.with_columns(pl.col("date").dt.truncate("1mo").alias("mo"))
+    m = (idx.group_by("mo").agg(pl.col("close").last()).sort("mo")
+         .with_columns(pl.col("close").rolling_mean(10).alias("ma")))
+    return {r["mo"]: (r["ma"] is None or r["close"] > r["ma"]) for r in m.iter_rows(named=True)}
+
+
 def _rank(x: np.ndarray) -> np.ndarray:
     """截面百分位 rank(0..1,高=好);NaN → NaN。"""
     r = np.full(len(x), np.nan)
@@ -69,8 +81,9 @@ def _rank(x: np.ndarray) -> np.ndarray:
     return r
 
 
-def backtest(monthly: pl.DataFrame, fscore: pl.DataFrame) -> pl.DataFrame:
-    """月頻:合成 = 0.5 rank(品質) + 0.5 rank(動能),long top-K 等權,含換手成本。"""
+def backtest(monthly: pl.DataFrame, fscore: pl.DataFrame, regime: dict | None = None) -> pl.DataFrame:
+    """月頻:合成 = 0.5 rank(品質) + 0.5 rank(動能),long top-K 等權,含換手成本。
+    regime(可選):{month: risk_on};risk-off 月持現金(次月報酬 0),壓 MDD。"""
     piv = monthly.pivot(values="mret", index="month", on="company_code").sort("month")
     months = piv["month"].to_list()
     codes = [c for c in piv.columns if c != "month"]
@@ -107,6 +120,11 @@ def backtest(monthly: pl.DataFrame, fscore: pl.DataFrame) -> pl.DataFrame:
         if len(idx) < _TOP_K:
             continue
         top = set(idx[np.argsort(-comp[idx])[:_TOP_K]])
+        # regime 過濾:risk-off 月持現金(次月報酬 0、不換手)
+        if regime is not None and not regime.get(m, True):
+            prev_held = set()
+            out_m.append(months[t + 1]); out_r.append(0.0)
+            continue
         gross = float(np.nanmean(mat[t + 1, list(top)]))
         turnover = len(top - prev_held) / _TOP_K
         net = gross - turnover * _COST
@@ -126,29 +144,32 @@ def _stats(rets: np.ndarray) -> dict:
     return {"cagr": cagr, "sharpe": sharpe, "mdd": mdd}
 
 
-def main() -> None:
-    con = data.connect()
-    print("[3.4-v1] 載入月報酬 + PIT F-Score…", flush=True)
-    monthly = load_monthly_returns(con)
-    fscore = pit_fscore(con)
-    bt = backtest(monthly, fscore)
+def _report(tag: str, bt: pl.DataFrame) -> dict:
     rets = bt["ret"].to_numpy()
     months = bt["month"].to_list()
     full = _stats(rets)
-    print(f"\n=== 品質+動能 baseline(top-{_TOP_K},月頻,含成本;{months[0]}~{months[-1]})===")
+    print(f"\n=== {tag}(top-{_TOP_K},月頻,含成本;{months[0]}~{months[-1]})===")
     print(f"  全跨度:CAGR {full['cagr']:+.1%}  Sharpe {full['sharpe']:.2f}  MDD {full['mdd']:.1%}")
-    # 逐年 OOS(3.2:regime 一致性)
-    print("  逐年 Sharpe(OOS 一致性):")
     yr = {}
     for m, r in zip(months, rets):
         yr.setdefault(m.year, []).append(r)
-    line = []
-    for y in sorted(yr):
-        s = _stats(np.array(yr[y]))
-        line.append(f"{y}:{s.get('sharpe', float('nan')):+.1f}")
-    print("    " + "  ".join(line))
-    neg_years = sum(1 for y in yr if np.prod(1 + np.array(yr[y])) < 1)
-    print(f"  負報酬年數:{neg_years}/{len(yr)};判準:全跨度 Sharpe>1 且多數年正 = 穩健 baseline。")
+    line = [f"{y}:{_stats(np.array(yr[y])).get('sharpe', float('nan')):+.1f}" for y in sorted(yr)]
+    print("  逐年 Sharpe:" + "  ".join(line))
+    neg = sum(1 for y in yr if np.prod(1 + np.array(yr[y])) < 1)
+    print(f"  負報酬年數:{neg}/{len(yr)}")
+    return full
+
+
+def main() -> None:
+    con = data.connect()
+    print("[3.4] 載入月報酬 + PIT F-Score + TAIEX regime…", flush=True)
+    monthly = load_monthly_returns(con)
+    fscore = pit_fscore(con)
+    regime = market_regime(con)
+    v1 = _report("v1 品質+動能 baseline(無風控)", backtest(monthly, fscore))
+    v2 = _report("v2 + regime 過濾(TAIEX<10m MA 轉現金)", backtest(monthly, fscore, regime=regime))
+    print(f"\n判準:全跨度 Sharpe>1 且多數年正 = 穩健。regime 應顯著壓 MDD "
+          f"({v1['mdd']:.0%}→{v2['mdd']:.0%})、抬 Sharpe({v1['sharpe']:.2f}→{v2['sharpe']:.2f})。")
 
 
 if __name__ == "__main__":
