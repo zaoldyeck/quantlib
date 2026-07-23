@@ -14,6 +14,34 @@
   stock_per_pbr 不再需映射。舊目錄已除,rebuild 驗證讀到全史。
 - **✅ 清 stray**:`data/tw_market.db`、`research/market_data.db`(無引用 DuckDB stray)刪除。
 
+## 2026-07-24(下午)dimension-① 內容正確性:cache-vs-PG 抓不到的三類 raw 汙染
+
+**關鍵洞察(使用者點破)**:當年 remediation 的驗證是「cache 對 PG 逐表比對全綠」,但 cache
+與 PG **同源同錯**(共用 Scala 爬蟲餵資料),**兩邊都錯的汙染**綠燈照過。這類只能對 raw 本身
+/對現實檢驗。逐一以確定性工具掃出並清除(工具落地 `src/quantlib/verify/`,可重跑防復發):
+
+- **① 錯日**(`content_dates`:raw 檔頭日≠檔名日):掃出 49 檔(下載游標錯位把 A 日資料存到
+  B 日檔名),其中 **22 個真交易日 cache 裝著別天數字**(dtd 2023-10-06 存 2017-12-18 法人、
+  stock_per_pbr 2014-12-16 存 12-18 PB/PE)。`refetch_wrongday` 逐檔重爬修正(TWSE 對歷史日
+  回正確資料、parser 內容日守衛驗證);27 個非交易日回無資料、cache 本就 0。複驗 0 錯日。
+- **② 幽靈日**(`ghost_days`:兩日期整日內容指紋碰撞):掃出 40 個(TWSE 對非交易日請求回鄰日
+  資料、標頭卻印請求日 → 檔頭對、content_dates 抓不到)。dtd 2025-11-12 曾存 2017-12-18 的
+  908 列(重爬修為 1259 正確列)。修:真交易日幽靈重爬取正確值;非交易日幽靈直接移除(刪
+  cache + raw 0-byte sentinel);端點無法服務的老日期(margin tpex 2008-08-29)以融資餘額
+  連續性判定為幽靈後移除。複驗 0 幽靈。
+- **③ 截斷**(`raw_integrity`:TPEx 缺「共N筆」結尾):全史唯一 1 檔 2017-04-17 TPEx(21 檔缺、
+  Python parser 完整性守衛拒之致 cache 0 列),重爬修為 734 列。
+- **總閘 `raw_integrity`**:一指令跑齊三類,現況全綠 → 可從 raw 全量 rebuild = 正確 cache。
+
+**parser 層 tracker bug spot-check(當前 Python parser)**:int32 溢位已修(00403A 2026-05-12
+dealers_diff = -24.3 億 Int64,Scala 曾溢位成 0)、自營商欄對位正常、`financial_analysis` 表
+已退役(A-financial_analysis「近半錯」作廢)。
+
+**authoritative 全量 rebuild(使用者定調:用最正確 raw 一次 parse 進 DuckDB)**:raw 三類汙染
+清除後,`rebuild --all --allow-shrink` + `--quarterly` 從乾淨 raw 全量重建 → **cache = parser(raw)
+by construction**,消除任何 PG 殘留、且等於把 parser 對全史 raw 跑一遍(parse 無錯 = parser 過關)。
+使用者定調:舊錯誤資料乾淨移除,專案只留最新完整正確的資料。
+
 ## 2026-07-24 raw-vs-cache 全源對照定案(工具 `quantlib.verify.raw_coverage`)
 
 **教訓先行**:先前把 `pipeline_health`(只看 cache 一層)報的「落後/稀疏」誤讀成「資料缺、
