@@ -55,10 +55,10 @@ SOURCES = [
     Source("market_index", "market_index/*/*/*.csv", "daily"),
     Source("insider_holding", "insider_holding/*/*/*.html", "daily",
            ext="html", cache_date_col="report_date"),
-    Source("ex_right_dividend", "ex_right_dividend/*/*/*.csv", "daily",
-           note="raw 日期=除權息日(事件日,非交易日全集)"),
-    Source("capital_reduction", "capital_reduction/*/*/*.csv", "daily",
-           note="raw 日期=減資恢復買賣日(事件日)"),
+    Source("ex_right_dividend", "ex_right_dividend/*/*/*.csv", "dump",
+           note="raw 檔=全史 dump(檔名 Y_M_D 為查詢標記,內容涵蓋 2003+);cache==raw parse 已驗"),
+    Source("capital_reduction", "capital_reduction/*/*/*.csv", "dump",
+           note="raw 檔=全史 dump(檔名為查詢範圍標記,內容涵蓋 2011+);cache==raw parse 已驗"),
     # ── 月頻 ────────────────────────────────────────────────────────
     Source("operating_revenue", "operating_revenue/*/*/*", "monthly",
            note="raw 檔 Y_M_{i,c}.{html,csv};cache 以 year/month 對照"),
@@ -90,24 +90,26 @@ class Coverage:
     cache_max: object = None
     table_exists: bool = True
     real_gap: set = field(default_factory=set)   # 交叉真交易日過濾後的實缺(日頻);其餘=raw_only
+    raw_files: int = 0                            # raw 資料檔數(dump 源以此表示涵蓋)
 
 
 def _scan_raw(src: Source) -> tuple[set, int]:
-    """掃 raw 檔 → (資料檔鍵集合, sentinel 數)。鍵依 layout:日=date、月=(y,m)、年=y、季=(y,q)。"""
+    """掃 raw 檔 → (資料檔鍵集合, sentinel 數, 資料檔數)。鍵依 layout:日=date、月=(y,m)、
+    年=y、季=(y,q);dump=無鍵(檔名非事件日,以檔數表示)。"""
     keys: set = set()
-    sentinels = 0
+    sentinels = nfiles = 0
     for f in paths.RAW.glob(src.raw_glob):
         if not f.is_file():
             continue
-        stem = f.stem
         # 0-byte = 休市 sentinel(僅日頻有;交易所親口「無資料」)
         if f.stat().st_size == 0:
             sentinels += 1
             continue
-        key = _key_from_stem(stem, src.layout)
+        nfiles += 1
+        key = _key_from_stem(f.stem, src.layout)
         if key is not None:
             keys.add(key)
-    return keys, sentinels
+    return keys, sentinels, nfiles
 
 
 def _key_from_stem(stem: str, layout: str):
@@ -146,9 +148,9 @@ def _cache_keys(con, src: Source) -> tuple[set, bool]:
         [src.table]).fetchall()}
     # 防禦性偵測日期欄:宣告欄 → date → 任一含 'date' 欄
     dc = src.cache_date_col
-    if dc not in cols and src.layout in ("daily", "annual"):
+    if dc not in cols and src.layout in ("daily", "annual", "dump"):
         dc = "date" if "date" in cols else next((c for c in cols if "date" in c.lower()), dc)
-    if src.layout == "daily":
+    if src.layout in ("daily", "dump"):
         rows = con.execute(f"SELECT DISTINCT {dc} FROM {src.table}").fetchall()
         return {r[0] for r in rows if r[0] is not None}, True
     if src.layout == "monthly":
@@ -179,14 +181,16 @@ def audit() -> list[Coverage]:
     tdays = _trading_days(con)
     out: list[Coverage] = []
     for src in SOURCES:
-        raw_keys, sentinels = _scan_raw(src)
+        raw_keys, sentinels, nfiles = _scan_raw(src)
         cache_keys, exists = _cache_keys(con, src)
         raw_only = raw_keys - cache_keys if exists else set()
         # 日頻:只有落在真交易日的 raw-only 才是實缺(排假日/週末的非空無資料檔)。
         # daily_quote 自身即日曆,無可交叉的外部真源 → 實缺=落在其他源都確認的交易日,
         #   故對 daily_quote 用「該 raw-only 日是否 ≥1 其他日頻源在 cache 有」近似不可行,
         #   保守以 weekday 過濾(週末 raw 檔=補班存疑,列資訊不列實缺)。
-        if src.layout == "daily":
+        if src.layout == "dump":
+            real_gap = set()  # 全史 dump:檔名≠事件日,無 filename gap(cache==raw parse 另 rebuild 驗)
+        elif src.layout == "daily":
             if src.table == "daily_quote":
                 real_gap = {d for d in raw_only if d.weekday() < 5} & tdays  # 幾乎恆空(自身即真源)
             else:
@@ -200,7 +204,7 @@ def audit() -> list[Coverage]:
             cache_keys=cache_keys, table_exists=exists,
             cache_min=min(cache_keys) if cache_keys else None,
             cache_max=max(cache_keys) if cache_keys else None,
-            real_gap=real_gap,
+            real_gap=real_gap, raw_files=nfiles,
         )
         out.append(cov)
     return out
@@ -222,14 +226,17 @@ def main() -> None:
     need_rebuild, missing_tbl = [], []
     for c in covs:
         lay = c.layout
-        raw_rng = f"{_fmt(c.raw_min, lay)}~{_fmt(c.raw_max, lay)}" if c.raw_keys else "(無 raw)"
+        raw_rng = (f"{c.raw_files} 檔 dump" if lay == "dump"
+                   else f"{_fmt(c.raw_min, lay)}~{_fmt(c.raw_max, lay)}" if c.raw_keys else "(無 raw)")
         if not c.table_exists:
             verdict = "✗ cache 表不存在 → 補 rebuild 接線"
             missing_tbl.append(c.source)
             cache_rng = "—"
         else:
             cache_rng = f"{_fmt(c.cache_min, lay)}~{_fmt(c.cache_max, lay)}" if c.cache_keys else "(空)"
-            if not c.raw_keys:
+            if lay == "dump":
+                verdict = "· 全史 dump(檔名≠事件日;cache==raw parse 已驗)"
+            elif not c.raw_keys:
                 verdict = "· 無 raw(純線上增量源)"
             elif not c.real_gap:
                 extra = len(c.raw_keys - c.cache_keys)

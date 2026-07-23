@@ -111,13 +111,13 @@ def rebuild_daily_source(source: str, *, dry_run: bool = False) -> dict:
 
 
 def _write(table: str, df: "pl.DataFrame", *, allow_shrink: bool = False) -> int:
-    """DROP+重建 cache 表,**帶不准縮表防護**。
+    """DROP+重建 cache 表,**帶不准縮表防護**(一般性防退化)。
 
-    防資料損毀(2026-07-24 發現):ex_right_dividend / capital_reduction 的 raw 只封存到
-    2020+,但 cache 有 2003/2011 起的歷史(舊 PG 匯入,無 raw 背書)。無防護的 DROP+重建
-    會把那段 cache-only 歷史**靜默砍光**(prices.py 的 FC1 除權息還原直接斷底)。故:新表
-    列數 < 現有 → 中止,除非 raw 已補齊歷史後顯式 allow_shrink。raw 完整的源(日頻)新≥舊
-    自然放行。根治之道是補齊歷史 raw 讓 raw 重回唯一真源,不是放寬此閘門。
+    2026-07-24 驗證:所有源的 raw 皆足以重現 cache(日頻逐日檔全史;ex_right/capital_reduction/
+    treasury 的檔為『全史 dump』——檔名雖是查詢標記,內容涵蓋 2000/2003/2011 起全史,parse
+    列數與 cache 逐列一致)。故目前無任何源會縮表。防護留作**防未來退化**:若 parser 迴歸或
+    raw 損毀導致新表列數 < 現有,寧可中止讓人查(可能是解析 bug),不靜默砍掉 cache。真要縮
+    (如源正式下線)才顯式 allow_shrink=True。
     """
     con = __import__("duckdb").connect(str(paths.CACHE_DB), read_only=False)
     try:
@@ -180,6 +180,7 @@ def rebuild_ex_right_dividend() -> int:
                 frames.append(d.select([c for c in _EXD_KEEP if c in d.columns]))
     full = pl.concat(frames, how="vertical_relaxed").unique(
         subset=["market", "date", "company_code"], keep="last")
+    # raw 檔為全史 dump(2020+ 檔名=查詢標記,內容涵蓋 2003+);parse == cache → DROP+重建安全
     print(f"[rebuild] ex_right_dividend: {_write('ex_right_dividend', full):,} 列"
           f"(欄:{', '.join(full.columns)})")
     return full.height
@@ -196,6 +197,7 @@ def rebuild_capital_reduction() -> int:
             if recs:
                 frames.append(pl.DataFrame(recs))
     full = pl.concat(frames, how="vertical_relaxed").unique()
+    # raw 檔為全史 dump(檔名=查詢範圍標記,內容涵蓋 2011+);parse == cache → DROP+重建安全
     print(f"[rebuild] capital_reduction: {_write('capital_reduction', full):,} 列")
     return full.height
 
