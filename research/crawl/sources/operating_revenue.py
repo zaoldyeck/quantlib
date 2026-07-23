@@ -31,7 +31,7 @@ from pathlib import Path
 
 import polars as pl
 
-from research.crawl import http, parse
+from research.crawl import archive, http, parse
 from research.crawl.sink import Sink
 
 TABLE = "operating_revenue"
@@ -253,7 +253,9 @@ def fetch_month(market: str, year: int, month: int) -> pl.DataFrame | None:
     raw = http.fetch_bytes(_URL, form=form)  # bytes:讓 parse_bytes 自行按世代解碼
     text = raw.decode("utf-8", errors="replace")
     if "查詢無資料" in text or "無應揭露資訊" in text:
-        return None
+        return None  # 無資料 → 不封存(對齊 ex_right:無資料檔不落地)
+    # 原始檔封存鐵律:先原樣原子落地 raw 才 parse(歷史命名 {年}_{月}_c.csv,c=合併)
+    archive.save_raw_named(TABLE, market, year, f"{year}_{month}_c.csv", raw)
     return _to_df(parse_bytes(raw, market, "consolidated", year, month))
 
 

@@ -34,10 +34,11 @@ DAILY_SOURCES = [
     "foreign_holding_ratio", "index", "stock_per_pbr", "sbl_borrowing",
 ]
 
-#: 源名 → raw 目錄名(不一致的舊 Scala 路徑;統一保管前的過渡對映)。
-#: stock_per_pbr 的歷史 raw 落在 Scala 時代的 stock_per_pbr_dividend_yield/(14762 檔),
-#: 新 Python 源才用 stock_per_pbr/。rebuild 要讀完整歷史 → 指到舊路徑。
-_RAW_DIR = {"stock_per_pbr": "stock_per_pbr_dividend_yield"}
+#: 源模組名 → raw 目錄名(過渡對映)。2026-07-23 raw 集中統一:stock_per_pbr 歷史已從
+#: Scala 時代的 stock_per_pbr_dividend_yield/ 併入 canonical stock_per_pbr/(不再需對映);
+#: `index` 模組的 raw(TABLE=market_index)歷史已從 index/ 併入 market_index/。
+#: 模組檔正名 index→market_index 留 Phase 1(架構重整)。
+_RAW_DIR = {"index": "market_index"}
 
 
 def _raw_path(source: str, market: str, day: Date) -> "object":

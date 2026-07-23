@@ -27,7 +27,7 @@ from datetime import date as Date, timedelta
 
 import polars as pl
 
-from research.crawl import http, parse
+from research.crawl import archive, http, parse
 from research.crawl.sink import Sink
 
 TABLE = "capital_reduction"
@@ -116,7 +116,12 @@ def fetch_range(market: str, start: Date, end: Date) -> pl.DataFrame | None:
     else:
         fmt = "{d.year:04d}/{d.month:02d}/{d.day:02d}"
         url = _TPEX.format(s=fmt.format(d=start), e=fmt.format(d=end))
-    recs = _parse(market, http.fetch_text(url))
+    raw = http.fetch_bytes(url)  # bytes:位元保真封存後才解碼(範圍回應原樣落地)
+    # 原始檔封存鐵律:先原子落地 raw 才 parse。範圍檔命名 {end}_r.csv(r=range);
+    # 每日刷新的重疊範圍由 rebuild 的 unique(date,company_code) 收斂,不重複入庫。
+    archive.save_raw_named(TABLE, market, end.year,
+                           f"{end.year}_{end.month}_{end.day}_r.csv", raw)
+    recs = _parse(market, raw.decode("Big5-HKSCS", errors="replace"))
     if not recs:
         return None
     return (pl.DataFrame(recs, schema=_SCHEMA)
