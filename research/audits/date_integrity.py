@@ -97,10 +97,14 @@ def phantom_days(con, table: str, cols: list[str]) -> list[DateIssue]:
 def missing_trading_days(con, table: str) -> list[DateIssue]:
     """本表整天 0 列、但其他日頻表證明市場有開市的日期。"""
     issues: list[DateIssue] = []
-    # 建全市場交易日集合(任一證人表健康列數 ≥ 門檻)
-    witness_sql = " UNION ".join(
+    # 建全市場交易日集合:**需 ≥2 張證人表同時健康**才算交易日。
+    # 單一證人表若自己被別天資料汙染(把非交易日灌成 >50 列),就會誤判成交易日 →
+    # 誤報數百天缺漏。要求多表同意可濾掉單表汙染(真交易日所有表都有,汙染只在一表)。
+    witness_union = " UNION ALL ".join(
         f"SELECT market, date FROM pg.public.\"{t}\" GROUP BY market, date "
         f"HAVING count(*) >= {MIN_HEALTHY_ROWS}" for t in WITNESS_TABLES)
+    witness_sql = (f"SELECT market, date FROM ({witness_union}) "
+                   f"GROUP BY market, date HAVING count(*) >= 2")
     for market in _markets(con, table):
         # **只在本表自己的覆蓋範圍 [min,max] 內找洞**:表的起點比別表晚(如 tpex
         # daily_quote 2007-07 起、stock_per_pbr 2007-01 起)是覆蓋差異,不是缺漏,
