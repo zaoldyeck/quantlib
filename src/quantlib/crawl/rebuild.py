@@ -77,8 +77,10 @@ def _read_from_archive(source: str, market: str, day: Date):
         http.fetch_bytes, http.fetch_text, archive.save_raw = o_bytes, o_text, o_save
 
 
-def rebuild_daily_source(source: str, *, dry_run: bool = False) -> dict:
-    """重建一個日頻源的 cache 表。回 {rows, days, empty, errors}。"""
+def rebuild_daily_source(source: str, *, dry_run: bool = False, allow_shrink: bool = False) -> dict:
+    """重建一個日頻源的 cache 表。回 {rows, days, empty, errors}。
+    allow_shrink:authoritative 全量重建(cache=parser(raw))時放行縮表(移除 PG 殘留/
+    幽靈日 sentinel 後列數減少是正確的)。"""
     mod = importlib.import_module(f"quantlib.crawl.sources.{source}")
     table = mod.TABLE
     markets = getattr(mod, "MARKETS", ("twse", "tpex"))
@@ -103,7 +105,7 @@ def rebuild_daily_source(source: str, *, dry_run: bool = False) -> dict:
     rows = 0
     if frames and not dry_run:
         full = pl.concat(frames, how="vertical_relaxed")
-        rows = _write(table, full)  # 帶不准縮表防護(raw 完整的日頻新≥舊自然放行)
+        rows = _write(table, full, allow_shrink=allow_shrink)  # 帶不准縮表防護(authoritative 重建可放行)
     elif frames:
         rows = sum(f.height for f in frames)
     return {"source": source, "table": table, "rows": rows, "days": n_days,
@@ -282,6 +284,8 @@ def main() -> None:
     ap.add_argument("--all", action="store_true", help="全部日頻源")
     ap.add_argument("--quarterly", action="store_true", help="季頻/特殊源(oprev/除權息/減資/期貨)")
     ap.add_argument("--dry-run", action="store_true", help="只解析算列數/錯誤,不寫 cache")
+    ap.add_argument("--allow-shrink", action="store_true",
+                    help="authoritative 全量重建:放行縮表(移除 PG 殘留/幽靈 sentinel 致列數減少)")
     args = ap.parse_args()
     if args.quarterly:
         for name, fn in QUARTERLY_REBUILDS.items():
@@ -292,7 +296,7 @@ def main() -> None:
     if not todo:
         ap.error("需 --source <name> / --all / --quarterly")
     for s in todo:
-        r = rebuild_daily_source(s, dry_run=args.dry_run)
+        r = rebuild_daily_source(s, dry_run=args.dry_run, allow_shrink=args.allow_shrink)
         tag = "(dry)" if args.dry_run else ""
         print(f"[rebuild]{tag} {r['source']}: {r['rows']:,} 列 / {r['days']} 日"
               f"(空 {r['empty']}、錯 {r['errors']})")
