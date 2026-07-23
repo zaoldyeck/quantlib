@@ -55,11 +55,10 @@ print("industry_taxonomy_pit", con.sql("select max(effective_date) from industry
 PY
 ```
 
-如果 PostgreSQL 或 DuckDB cache 落後，先更新資料：
+如果 DuckDB cache 落後，先更新資料（Python 爬蟲直寫 cache;PostgreSQL 已退役 2026-07-23）：
 
 ```bash
-sbt "runMain Main update"
-uv run --project research python research/cache_tables.py
+uv run --project research python -m research.crawl.update
 ```
 
 ### 2.2 資料建置後的最低驗證

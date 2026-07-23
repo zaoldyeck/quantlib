@@ -27,23 +27,20 @@ repository.
 Before any data-related conclusion, ranking, backtest, KPI table, or investment
 analysis:
 
-1. Check the latest date in the relevant PostgreSQL source tables.
-2. Check the latest date in `var/cache/cache.duckdb` when Python research scripts
-   will read from the cache.
-3. If either side is stale, update data first, then recompute results.
-4. State the actual data cutoff used in the output or document.
+1. Check the latest date in `var/cache/cache.duckdb`（唯一結構化真源;Python 研究一律讀它,
+   PostgreSQL 已退役 2026-07-23）。
+2. If stale, update data first, then recompute results.
+3. State the actual data cutoff used in the output or document.
 
-If the standard refresh sequence has already completed on the same Taiwan
-calendar day and both PostgreSQL and DuckDB cutoffs are still verified, do not
-rerun the full refresh merely because another research task starts. Refresh
-again after a new market close, date change, stale cutoff, inconsistent cutoff,
+If the standard refresh has already completed on the same Taiwan calendar day and
+the cache cutoff is still verified, do not rerun merely because another research
+task starts. Refresh again after a new market close, date change, stale cutoff,
 or an explicit user request to force-refresh.
 
-Standard refresh sequence:
+Standard refresh（Python 爬蟲直寫 cache,一步到位取代舊 Scala Main update + cache_tables）:
 
 ```bash
-sbt "runMain Main update"
-uv run --project research python research/cache_tables.py
+uv run --project research python -m research.crawl.update
 ```
 
 Do not publish rankings or backtest conclusions from stale cached data.
@@ -71,7 +68,7 @@ Research and backtests must be implemented with production-grade performance in
 mind:
 
 - Prefer vectorized Polars/DuckDB operations over Python row loops.
-- Prefer local PostgreSQL/DuckDB cache reads over repeated remote fetches.
+- Prefer local DuckDB cache reads (`research.db.connect()`) over repeated remote fetches.
 - Use cache tables and reusable intermediate artifacts when iterations are
   expensive.
 - Use DuckDB threading / local columnar execution for broad scans.
