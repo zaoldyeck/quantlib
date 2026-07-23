@@ -65,11 +65,30 @@ def _markets(con, table: str) -> list[str]:
         f"SELECT DISTINCT market FROM pg.public.\"{table}\" ORDER BY 1").fetchall()]
 
 
+def _trading_days(con, market: str) -> set:
+    """≥2 張證人表同時健康的日期集合 = 可信的真交易日。"""
+    union = " UNION ALL ".join(
+        f"SELECT date FROM pg.public.\"{t}\" WHERE market = ? GROUP BY date "
+        f"HAVING count(*) >= {MIN_HEALTHY_ROWS}" for t in WITNESS_TABLES)
+    params = [market] * len(WITNESS_TABLES)
+    rows = con.execute(
+        f"SELECT date FROM ({union}) GROUP BY date HAVING count(*) >= 2", params
+    ).fetchall()
+    return {r[0] for r in rows}
+
+
 def phantom_days(con, table: str, cols: list[str]) -> list[DateIssue]:
-    """整日內容指紋與另一日相同的日期(別天的資料)。"""
+    """整日內容指紋與另一日相同的日期(別天的資料)。
+
+    **哪個是幽靈由「是不是真交易日」判定,不是「保留最早」**:同指紋的多天中,
+    真交易日(≥2 證人)的那天是真資料,其餘是複製品(幽靈)。例:2009-12-12(週六,
+    0 證人)與 2009-12-18(交易日)同指紋 → 幽靈是 12-12,不是最早的那天。
+    若同組有 >1 天都是交易日(或都不是)→ 標 review,交人工判(不亂刪)。
+    """
     issues: list[DateIssue] = []
     fp = " || '|' || ".join(f"COALESCE(CAST({c} AS VARCHAR),'')" for c in cols)
     for market in _markets(con, table):
+        tdays = _trading_days(con, market)
         # 每個 (market,date) 算一個整日指紋 = 排序後所有列指紋的雜湊
         rows = con.execute(f"""
             WITH per_row AS (
@@ -84,13 +103,20 @@ def phantom_days(con, table: str, cols: list[str]) -> list[DateIssue]:
             FROM per_day WHERE n >= ? GROUP BY day_fp HAVING count(*) > 1
         """, [market, MIN_HEALTHY_ROWS]).fetchall()
         for day_fp, dup, keep, dates in rows:
-            # 指紋相同的多天:最早那天多半是真的,其餘是「複製過去/未來」的幽靈
-            for d in dates:
-                if d == keep:
-                    continue
-                issues.append(DateIssue(
-                    table, market, str(d), "phantom",
-                    f"整日內容與 {keep} 逐列相同({dup} 天共用同指紋)"))
+            real = [d for d in dates if d in tdays]      # 是真交易日的那些
+            fakes = [d for d in dates if d not in tdays]
+            if len(real) == 1 and fakes:
+                # 唯一真交易日 = 真資料;其餘非交易日 = 幽靈(可安全刪除重抓)
+                for d in fakes:
+                    issues.append(DateIssue(
+                        table, market, str(d), "phantom",
+                        f"非交易日卻有資料,整日內容與真交易日 {real[0]} 逐列相同"))
+            else:
+                # 0 或 >1 個真交易日同指紋 → 無法自動判定該刪哪天,交人工
+                for d in dates:
+                    issues.append(DateIssue(
+                        table, market, str(d), "phantom_review",
+                        f"{dup} 天共用同指紋且真交易日數={len(real)},需人工判定該刪哪天"))
     return issues
 
 
