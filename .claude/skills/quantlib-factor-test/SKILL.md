@@ -23,7 +23,7 @@ Reject if the hypothesis is vague ("因為應該會漲"). Require specific mecha
 
 ## Step 3: Python implementation
 
-Write to `research/experiments/factor_<name>.py`:
+Write to `src/quantlib/experiments/factor_<name>.py`:
 ```python
 """Factor: <name>. Hypothesis: <1-line>."""
 import polars as pl
@@ -42,7 +42,7 @@ def factor_<name>(asof_dates: list) -> pl.DataFrame:
 
 if __name__ == "__main__":
     from datetime import date
-    # Read rebal dates same way research/strat_lab/v4.py does
+    # Read rebal dates same way src/quantlib/strat_lab/v4.py does
     ...
 ```
 
@@ -76,7 +76,7 @@ Before adding to production strategies:
 
 1. **Redundancy**: Spearman correlation with surviving factors (yield, pbBand, dropScore, fcfYield, revenueYoYLatest). If |ρ| > 0.7 with any, pick the higher-IC one (usually existing survivor).
 
-2. **Factor dilution test**: Fork `research/strat_lab/v4.py` to add factor as composite member. If composite CAGR < pbBand-only CAGR, the new factor dilutes the signal even though its solo IC is valid → reject despite IC.
+2. **Factor dilution test**: Fork `src/quantlib/strat_lab/v4.py` to add factor as composite member. If composite CAGR < pbBand-only CAGR, the new factor dilutes the signal even though its solo IC is valid → reject despite IC.
 
 ## Step 7: Memory update
 

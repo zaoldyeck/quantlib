@@ -4,7 +4,7 @@
 
 ## 結論
 
-台股策略研究的正式產業分類來源是 `research/cache.duckdb` 內的 `industry_taxonomy_pit`，建置程式為 `research/industry_taxonomy.py`。
+台股策略研究的正式產業分類來源是 `research/cache.duckdb` 內的 `industry_taxonomy_pit`，建置程式為 `src/quantlib/industry_taxonomy.py`。
 
 策略不得直接使用 `operating_revenue.industry` 做產業輪動或同業分組，因為原始欄位包含歷史舊分類、名稱變更、合併分類與長描述文字；若直接取每家公司最新一筆 industry，會把現在分類套回歷史。
 
@@ -97,7 +97,7 @@ Normalization 只做名稱歸一與官方分類演進對齊，不做主觀產業
 ## 建置命令
 
 ```bash
-uv run --project research python research/cache_tables.py
+uv run --project . python research/cache_tables.py
 ```
 
 建置會在複製 `operating_revenue` 後產生 `industry_taxonomy_pit`，並建立：
@@ -110,7 +110,7 @@ CREATE INDEX idx_itp_market_code_date ON industry_taxonomy_pit(market, company_c
 ## 驗證命令
 
 ```bash
-uv run --project research pytest research/tests/test_industry_taxonomy.py -q
+uv run --project . pytest src/quantlib/tests/test_industry_taxonomy.py -q
 ```
 
 測試涵蓋：

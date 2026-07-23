@@ -42,31 +42,31 @@ var/state/trading/managed_positions.json
 收盤後：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader run-after-close
+uv run --project . python -m quantlib.trading.auto_trader run-after-close
 ```
 
 如果同一個台灣日已經完成資料刷新且 cutoff 已驗證，可用：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader run-after-close --skip-refresh
+uv run --project . python -m quantlib.trading.auto_trader run-after-close --skip-refresh
 ```
 
 隔天盤前 dry-run：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json
+uv run --project . python -m quantlib.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json
 ```
 
 成交後 reconcile：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader reconcile-plan var/out/trading/plans/<plan>.json --write
+uv run --project . python -m quantlib.trading.auto_trader reconcile-plan var/out/trading/plans/<plan>.json --write
 ```
 
 隔天盤前真實送單：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json --live
+uv run --project . python -m quantlib.trading.auto_trader submit-plan var/out/trading/plans/<plan>.json --live
 ```
 
 真實送單還必須在 `research/.env` 設定：
@@ -88,7 +88,7 @@ FUBON_DRY_RUN=false
 次日再跑：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader smoke-test --accounting
+uv run --project . python -m quantlib.trading.auto_trader smoke-test --accounting
 ```
 
 若成功，才會繼續查委託、銀行餘額與庫存。
@@ -96,7 +96,7 @@ uv run --project research python -m research.trading.auto_trader smoke-test --ac
 若要完全對齊富邦文件中的 `sdk.login(身分證字號, 登入密碼, 憑證路徑, 憑證密碼)` 測試步驟，使用：
 
 ```bash
-uv run --project research python -m research.trading.auto_trader smoke-test --login-method password
+uv run --project . python -m quantlib.trading.auto_trader smoke-test --login-method password
 ```
 
 API key 模式開通後，再使用預設的 `--login-method apikey`。

@@ -16,7 +16,7 @@
 不可能的數字。此外櫃買(上櫃)指數整整少了 **2024-06-27 到 08-12 這 31 個交易日**,連原始檔
 都沒下載過。
 
-**好消息**:現役實盤策略 Serenity 完全不碰這張表(全文搜尋 `research/serenity/` 零命中),
+**好消息**:現役實盤策略 Serenity 完全不碰這張表(全文搜尋 `src/quantlib/serenity/` 零命中),
 所以這些髒污**不影響現在的下單決策**;受害的是研究線——Evergreen 的大盤 regime 判斷、
 apex 的下跌市過濾、期貨基差因子。
 
@@ -31,7 +31,7 @@ apex 的下跌市過濾、期貨基差因子。
 | 全史 (market,date) 三重指紋 | 6,837 天,mismatch 0、only_pg 0、only_cache 0 |
 | NULL 分佈 | 兩邊 close_null 都是 1,578,change/pct 都是 0 |
 | schema | PG 7 欄(含 `id`)→ cache 6 欄;`varchar→VARCHAR`、`date→DATE`、`double precision→DOUBLE`,零型別降級 |
-| 投影 SQL | `research/cache_tables.py:46` 與 `research/db.py:131-133` 逐字元相同(程式化比對回 True) |
+| 投影 SQL | `research/cache_tables.py:46` 與 `src/quantlib/db.py:131-133` 逐字元相同(程式化比對回 True) |
 
 指紋 = 每個 (market,date) 上算 `count(*)` + `sum(hash(6 欄)::HUGEINT)` + `bit_xor(hash(6 欄))`,
 三個都相等才算過。抽樣逐欄比對(3 日期 × 5 指數,`pandas.DataFrame.equals`)也全 True。
@@ -94,7 +94,7 @@ apex 的下跌市過濾、期貨基差因子。
 
 ## 3. 髒 TAIEX 會被 cache 二次加工,汙染期貨基差(BUG)
 
-`research/futures/taifex.py:216-217` 在**建 cache 時現算**基差:
+`src/quantlib/futures/taifex.py:216-217` 在**建 cache 時現算**基差:
 `tx_spot_basis = 期貨結算價 − taiex_close`。5 個平日幽靈日都落在期貨因子表裡:
 
 | 日期 | 基差(存) | 基差%(存) | 基差(真) | 基差%(真) |
@@ -114,7 +114,7 @@ apex 的下跌市過濾、期貨基差因子。
 ## 4. 覆蓋缺口:36 個交易日整天沒有指數(BUG)
 
 用「同市場 `daily_quote` 當天有 ≥100 檔成交」當交易日曆(`03_gaps_refined.py`)——
-比 `research/data_calendar.is_trading_day` 準,因為後者只讀 TWSE 的哨兵檔、而且週末
+比 `src/quantlib/data_calendar.is_trading_day` 準,因為後者只讀 TWSE 的哨兵檔、而且週末
 一律判非交易日,會漏掉**週六補行交易日**。
 
 | 市場 | 缺的日子 | 原始檔狀態 | 估計缺列 |
@@ -145,8 +145,8 @@ apex 的下跌市過濾、期貨基差因子。
 10,952.47 − 13.41 = 10,939.06 ✓。
 
 但 repo 裡所有消費者都寫 `WHERE name = '發行量加權股價指數'`
-(`research/evergreen/{ev26_engine.py:60,ev46_downmkt.py:29,ev51_regime_defs.py:27,ev49b_regime_real.py:49}`、
-`research/apex/experiments/{g04,g04b,g04c,f08,l01}*.py`、`research/analyses/serenity_valuation.py:19`),
+(`src/quantlib/evergreen/{ev26_engine.py:60,ev46_downmkt.py:29,ev51_regime_defs.py:27,ev49b_regime_real.py:49}`、
+`src/quantlib/apex/experiments/{g04,g04b,g04c,f08,l01}*.py`、`src/quantlib/analyses/serenity_valuation.py:19`),
 **這天會被靜靜跳過**,於是 2019-04-30 的「日報酬」實際上橫跨兩天。
 
 同一天還有 4 個只出現過一次的名字:`加權股價指數`、`加權股價報酬指數`、`寶島指數`、`寶島報酬指數`。
@@ -196,7 +196,7 @@ daily_trading_details       = 2026-07-20
 stock_per_pbr               = 2026-07-20
 ```
 
-原因:`index` 不在 Python 直寫路徑的日頻源清單裡(`research/crawl/update.py:27` 的
+原因:`index` 不在 Python 直寫路徑的日頻源清單裡(`src/quantlib/crawl/update.py:27` 的
 `DAILY_SOURCES` 只有 daily_quote / daily_trading_details / stock_per_pbr),只能靠 Scala
 `Main update` 抓進 PG 再全砍重建 cache;最後一次 Scala 爬蟲是 2026-07-19 21:55
 (`data/index/twse/2026/2026_7_17.csv` 的 mtime)。
@@ -222,7 +222,7 @@ stock_per_pbr               = 2026-07-20
   2021-08-18 / 2025-08-15 / 2026-04-29 同理。
 - **`name='發行量加權股價指數'` 不加 market 條件是安全的**:全表只有 twse 有這個名字
   (4,303 列),不會誤撈 tpex。
-- **盤中 K 線回補不受幽靈日影響**:`research/intraday/pull_kbars.py:248` 的日曆權威是
+- **盤中 K 線回補不受幽靈日影響**:`src/quantlib/intraday/pull_kbars.py:248` 的日曆權威是
   `daily_quote`,不是 market_index。
 
 ---
@@ -259,7 +259,7 @@ stock_per_pbr               = 2026-07-20
      低於即判「舊名冊/半殘檔」→ `[deferred]` 重抓(這條會直接抓到 2026-02-26 / 2026-03-11)。
 5. **消費端**:所有取加權指數的地方改成 `name IN ('發行量加權股價指數','加權股價指數')`
    或先做名稱正規化表,才不會在 2019-04-29 掉一天。
-6. **新鮮度**:把 index / margin / sbl / foreign 納入 `research/crawl/update.py` 的 `DAILY_SOURCES`,
+6. **新鮮度**:把 index / margin / sbl / foreign 納入 `src/quantlib/crawl/update.py` 的 `DAILY_SOURCES`,
    或在每日 loop 明確要求先跑 Scala `Main update`;在此之前 `ensure_fresh_cache` 的擋門不可放寬。
 7. **cache 唯一性**:建表後補 `CREATE UNIQUE INDEX ON market_index(market, date, name)`
    (PG 有 `idx_Index_market_date_name` UNIQUE,cache 目前只有非唯一的 `idx_market_index_date`;

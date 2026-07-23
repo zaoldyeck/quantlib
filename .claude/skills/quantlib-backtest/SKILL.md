@@ -1,6 +1,6 @@
 ---
 name: quantlib-backtest
-description: Use this skill when the user wants to run a strategy backtest, compare variants, or parameter-sweep (e.g. "跑 apex v3", "test threshold 3% vs 5% vs 7%", "backtest my new strategy idea", "比較 A vs B"). Always uses Python — never Scala. New-strategy research goes through the apex harness (research/apex/); legacy baselines (v4/iter 系列) reproduce via research/strat_lab/. Interprets against ledger baselines, flags deviations, produces actionable next-step recommendation.
+description: Use this skill when the user wants to run a strategy backtest, compare variants, or parameter-sweep (e.g. "跑 apex v3", "test threshold 3% vs 5% vs 7%", "backtest my new strategy idea", "比較 A vs B"). Always uses Python — never Scala. New-strategy research goes through the apex harness (src/quantlib/apex/); legacy baselines (v4/iter 系列) reproduce via src/quantlib/strat_lab/. Interprets against ledger baselines, flags deviations, produces actionable next-step recommendation.
 ---
 
 # Backtest workflow(Python-only)
@@ -9,17 +9,17 @@ description: Use this skill when the user wants to run a strategy backtest, comp
 reference.
 
 **兩套 harness 的分工**:
-- **新策略研究(預設)= `research/apex/`**:事件驅動日頻引擎、PIT 對齊、雙市場、
+- **新策略研究(預設)= `src/quantlib/apex/`**:事件驅動日頻引擎、PIT 對齊、雙市場、
   era-aware 漲跌停鎖死(E01 精準掛單偵測)、trial ledger + 反過擬合協議。
-  憲章與判準:`research/apex/CHARTER.md`;方法紀錄:`research/apex/ledger/batches.md`。
-- **舊 baseline 重現 = `research/strat_lab/`**(v4/iter 系列):只為對照歷史數字,
+  憲章與判準:`src/quantlib/apex/CHARTER.md`;方法紀錄:`src/quantlib/apex/ledger/batches.md`。
+- **舊 baseline 重現 = `src/quantlib/strat_lab/`**(v4/iter 系列):只為對照歷史數字,
   不再新增策略。
 
 ## Step 1: Parse request
 
 Classify:
-- **Single run**:specific strategy + window → apex:寫 `research/apex/experiments/`
-  腳本(拷貝 `p03_gauntlet_v3.py` 的 `run()` 模式);legacy → `research/strat_lab/v4.py`
+- **Single run**:specific strategy + window → apex:寫 `src/quantlib/apex/experiments/`
+  腳本(拷貝 `p03_gauntlet_v3.py` 的 `run()` 模式);legacy → `src/quantlib/strat_lab/v4.py`
 - **Parameter sweep**:apex 擾動迴圈(見 p03 的 perturb 段)或 vectorbt grid
 - **Variant comparison**:2-5 策略 side-by-side → 各跑 + tabulate
 
@@ -33,15 +33,15 @@ first(don't auto-refresh)。
 ```bash
 # 從 repo root 以模組模式跑(script 模式 sys.path 會斷)
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python -m research.apex.experiments.<script>
+  uv run --project . python -m quantlib.apex.experiments.<script>
 ```
 
 最小骨架(完整 12 年雙市場回測 ~10-20 秒):
 
 ```python
-from research.apex import data, metrics
-from research.apex.assemble import blend_score, build_features, entries_and_flags
-from research.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
+from quantlib.apex import data, metrics
+from quantlib.apex.assemble import blend_score, build_features, entries_and_flags
+from quantlib.apex.engine import ExecSpec, ExitSpec, PortSpec, simulate
 
 con = data.connect()
 panel, feat, elig = build_features(con, "2012-01-02", "2023-12-29")
@@ -78,7 +78,7 @@ Sanity checks:
 - Sharpe < 0.8 with CAGR > 20% → high-beta ride warning
 - MDD worse than −35% → 憲章 dev gate 直接不過
 - 新 idea 勝過 v3 → 必須走完整 gauntlet(±20% 擾動、val、fill 雙測、battery),
-  參考 `research/apex/experiments/p03_gauntlet_v3.py`
+  參考 `src/quantlib/apex/experiments/p03_gauntlet_v3.py`
 
 ## Step 5: Output(Traditional Chinese)
 

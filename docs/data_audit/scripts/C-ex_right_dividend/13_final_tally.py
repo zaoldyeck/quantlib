@@ -2,7 +2,7 @@
 
 把 01~12 的結論壓成報告要引用的幾個數字,一次跑完可重現。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/13_final_tally.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/13_final_tally.py
 """
 from __future__ import annotations
 

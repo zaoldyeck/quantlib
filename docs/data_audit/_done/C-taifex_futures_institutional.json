@@ -20,12 +20,12 @@
       "severity": "SUSPECT",
       "what": "尾端落後 38 個交易日(不是 cache 不同步,是爬蟲沒跑)。taifex_futures_institutional 與 taifex_futures_daily 都停在 2026-05-21;PG 與 cache 同步停在此,cache 忠實鏡射 PG 的舊。2026-05-22 至 2026-07-17 有 38 個 twse 交易日沒有 TAIFEX 資料。<3 年窗尚未永久遺失,但拖過三年最舊段會滾出免費端點只能付費取得。",
       "evidence": "SELECT MAX(date) FROM taifex_futures_institutional → 2026-05-21;taifex_futures_daily 同為 2026-05-21;data/taifex/ 目錄 mtime = May 21 07:42(爬蟲最後跑的時間)。缺口天數:SELECT COUNT(DISTINCT date) FROM \"index\" WHERE market='twse' AND name='發行量加權股價指數' AND date > '2026-05-21' AND date <= '2026-07-23' → 38(first_missing 2026-05-22, last_available 2026-07-17)。",
-      "fix": "由主流程統一補抓(稽核不自己下載):sbt \"runMain Main pull taifex\" → sbt \"runMain Main read taifex\"(reader 為 insert 不刪舊,補上尾端) → uv run --project research python research/cache_tables.py 重建 cache。端點 https://www.taifex.com.tw/cht/3/futContractsDateDown(三大法人-區分各期貨契約-依日期,免費滾動三年)。建議儘快,以免最舊段滾出免費窗。"
+      "fix": "由主流程統一補抓(稽核不自己下載):sbt \"runMain Main pull taifex\" → sbt \"runMain Main read taifex\"(reader 為 insert 不刪舊,補上尾端) → uv run --project . python research/cache_tables.py 重建 cache。端點 https://www.taifex.com.tw/cht/3/futContractsDateDown(三大法人-區分各期貨契約-依日期,免費滾動三年)。建議儘快,以免最舊段滾出免費窗。"
     },
     {
       "severity": "REAL",
       "what": "涵蓋窗內 institutional 有、twse 報價卻沒有的兩天 2025-08-15、2026-04-29,不是 institutional 的錯——是真交易日被 twse 0-byte sentinel 誤標成休市(已在 C-daily_quote 立案)。institutional 正確收錄這兩天,獨立佐證那個 sentinel 誤標 bug。",
-      "evidence": "以 daily_quote market='twse' 交易日為基準,窗 [2023-05-22,2026-05-21] 內『有報價無法人資料』=0,『institutional 有 twse 報價沒有』=2(2025-08-15 Fri、2026-04-29 Wed)。三重獨立佐證這兩天是真交易日:(a) 原始 Big5 CSV 實體有該日 69 列=23 契約×3 身份別,iconv -f BIG5 解碼日期欄為西元 '2026/04/29'/'2025/08/15'(先前用民國 '114/04/29' grep 才 miss);(b) taifex_futures_daily 同日 2341/2287 列;(c) TAIEX 加權指數當日真實收盤 24334.48(+96.38)/39303.50(-218.23)。而 research/data_calendar.py::is_trading_day 對兩天皆回 False(讀 twse 0-byte sentinel)。窗內另外兩個誤標日 2021-08-18(窗外)、2026-05-28(尾端後)與本表無關。",
+      "evidence": "以 daily_quote market='twse' 交易日為基準,窗 [2023-05-22,2026-05-21] 內『有報價無法人資料』=0,『institutional 有 twse 報價沒有』=2(2025-08-15 Fri、2026-04-29 Wed)。三重獨立佐證這兩天是真交易日:(a) 原始 Big5 CSV 實體有該日 69 列=23 契約×3 身份別,iconv -f BIG5 解碼日期欄為西元 '2026/04/29'/'2025/08/15'(先前用民國 '114/04/29' grep 才 miss);(b) taifex_futures_daily 同日 2341/2287 列;(c) TAIEX 加權指數當日真實收盤 24334.48(+96.38)/39303.50(-218.23)。而 src/quantlib/data_calendar.py::is_trading_day 對兩天皆回 False(讀 twse 0-byte sentinel)。窗內另外兩個誤標日 2021-08-18(窗外)、2026-05-28(尾端後)與本表無關。",
       "fix": ""
     },
     {

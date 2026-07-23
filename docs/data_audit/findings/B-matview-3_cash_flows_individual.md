@@ -67,7 +67,7 @@ end
 matview),自己重算單季。它的差分**依年度切窗**——這就是正解:
 
 ```python
-# research/strat_lab/raw_quarterly.py:176-180
+# src/quantlib/strat_lab/raw_quarterly.py:176-180
 pl.when(pl.col("quarter") == 1).then(pl.col("cfo"))
   .otherwise(pl.col("cfo") - pl.col("cfo").shift(1)
              .over(["company_code", "year"], order_by="quarter"))   # ← 依 (公司, 年度) 切窗
@@ -107,6 +107,6 @@ Python 版也一樣。這是「半年報無法還原成季」的本質限制;正
    /`financial_index_ttm`(view 3/4)→ `growth_analysis_ttm`(view 5,F-score 用 ocf)。
 4. 逐筆算術驗證 000156 的 raw vs matview vs 下游 `cash_flows_with_titles`,四筆全吻合。
 5. 量化 blast radius(343,444 汙染 title-列 / 6,906 company-year)。
-6. 比對 Python 平行實作 `research/strat_lab/raw_quarterly.py` 與 `research/db.py`——確認
+6. 比對 Python 平行實作 `src/quantlib/strat_lab/raw_quarterly.py` 與 `src/quantlib/db.py`——確認
    現役路徑依年度切窗、未用此表、無此 bug。
 7. 掃同類:matview 5、7 為同款差分寫法(同缺陷類)。

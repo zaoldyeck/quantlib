@@ -11,7 +11,7 @@
   C. 外部驗證:daily_quote 裡「停牌數日後價格大跳」但 capital_reduction /
      ex_right_dividend 都沒有紀錄的事件 = 疑似漏抓的減資。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/06_semantics_and_anomaly.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/06_semantics_and_anomaly.py
 """
 from __future__ import annotations
 

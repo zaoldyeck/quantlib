@@ -64,8 +64,8 @@ const COMMON = `
 
 ## 環境
 - repo: /Users/zaoldyeck/Documents/scala/quantlib(所有指令從 repo 根執行)
-- 路徑唯一真源:\`research/paths.py\`(cache 在 paths.CACHE_DB = var/cache/cache.duckdb)
-- DuckDB cache 可讀:\`uv run --project research python -c "..."\`
+- 路徑唯一真源:\`src/quantlib/paths.py\`(cache 在 paths.CACHE_DB = var/cache/cache.duckdb)
+- DuckDB cache 可讀:\`uv run --project . python -c "..."\`
 - PostgreSQL 可用:\`psql -h localhost -p 5432 -d quantlib -c "..."\`(32 張表)
 - 原始檔在 \`data/<source>/<market>/<year>/\`
 
@@ -154,7 +154,7 @@ const PROMPT = {
 3. **抽樣逐欄比對**:隨機挑 3 個日期 × 5 檔股票,兩邊的每一欄值必須相同。
 4. **覆蓋缺口**:列出日期序列中的缺口。判斷缺口是「休市」還是「真的漏抓」——
    休市日曆看 \`data/daily_quote/twse/<year>/\` 下的 0-byte sentinel 檔,
-   或用 \`research/data_calendar.py::is_trading_day\`。**颱風假不能從星期幾推得**。
+   或用 \`src/quantlib/data_calendar.py::is_trading_day\`。**颱風假不能從星期幾推得**。
 5. **異常值掃描**:該表的關鍵數值欄有沒有不可能的值(負價格、零成交量卻有成交值、
    本益比極端值、日期在未來)。列出筆數與代表樣本。
 6. 若發現真的漏抓,寫明「缺哪些日期、可從哪個 endpoint 補」到 fix 欄位

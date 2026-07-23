@@ -7,7 +7,7 @@
 證人表(同一 cache 世代):daily_quote、stock_per_pbr、margin_transactions、
 market_index、sbl_borrowing、foreign_holding_ratio。
 
-用法:PYTHONPATH=<repo> uv run --project research python \
+用法:PYTHONPATH=<repo> uv run --project . python \
       docs/data_audit/scripts/C-daily_trading_details/02_gaps.py
 """
 from __future__ import annotations

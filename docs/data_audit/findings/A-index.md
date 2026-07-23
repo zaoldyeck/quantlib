@@ -87,17 +87,17 @@ Table[(Long, String, LocalDate, String, Option[Double], Double, Double)]
 
 ```bash
 # 先跑這支:獨立解析全部 10,149 個原始檔 -> indep_index.parquet(其餘腳本的輸入)
-uv run --project research python docs/data_audit/scripts/A-index/indep_index.py
+uv run --project . python docs/data_audit/scripts/A-index/indep_index.py
 # 逐 (market,date,name) 逐欄比對(自己連 PG,不需先匯出 CSV)
-uv run --project research python docs/data_audit/scripts/A-index/cmp_aligned.py
-uv run --project research python docs/data_audit/scripts/A-index/probe_fields.py   # 欄位語意/單位/編碼/日期/漏欄
-uv run --project research python docs/data_audit/scripts/A-index/probe2.py         # sentinel 檔、檔名 vs 內容日期
-uv run --project research python docs/data_audit/scripts/A-index/probe3.py         # 歸零的實質影響、tpex 可解析性
-uv run --project research python docs/data_audit/scripts/A-index/probe4.py         # index vs daily_quote 交叉
-uv run --project research python docs/data_audit/scripts/A-index/probe5.py         # 缺漏交易日盤點
-uv run --project research python docs/data_audit/scripts/A-index/probe6.py         # tpex 改名器破壞範圍
-uv run --project research python docs/data_audit/scripts/A-index/probe7.py         # 旗艦指數嚴格一致性
-uv run --project research python docs/data_audit/scripts/A-index/probe8.py         # 全表逐日內部一致性
+uv run --project . python docs/data_audit/scripts/A-index/cmp_aligned.py
+uv run --project . python docs/data_audit/scripts/A-index/probe_fields.py   # 欄位語意/單位/編碼/日期/漏欄
+uv run --project . python docs/data_audit/scripts/A-index/probe2.py         # sentinel 檔、檔名 vs 內容日期
+uv run --project . python docs/data_audit/scripts/A-index/probe3.py         # 歸零的實質影響、tpex 可解析性
+uv run --project . python docs/data_audit/scripts/A-index/probe4.py         # index vs daily_quote 交叉
+uv run --project . python docs/data_audit/scripts/A-index/probe5.py         # 缺漏交易日盤點
+uv run --project . python docs/data_audit/scripts/A-index/probe6.py         # tpex 改名器破壞範圍
+uv run --project . python docs/data_audit/scripts/A-index/probe7.py         # 旗艦指數嚴格一致性
+uv run --project . python docs/data_audit/scripts/A-index/probe8.py         # 全表逐日內部一致性
 ```
 
 (`indep_index.parquet` 是可重生的中間物,不進版控;跑第一支就會重建。)

@@ -14,7 +14,7 @@ You are a **playbook generator for individual TWSE / TPEx stocks**. Generic stra
 psql -h localhost -p 5432 -d quantlib
 ```
 取該 ticker 歷史資料：
-- 過去 5+ 年 daily quote（透過 `research.prices.fetch_adjusted_panel` 取 dividend + capital-reduction back-adjusted 還原 OHLCV）
+- 過去 5+ 年 daily quote（透過 `quantlib.prices.fetch_adjusted_panel` 取 dividend + capital-reduction back-adjusted 還原 OHLCV）
 - 過去 5+ 年 monthly revenue + 季報
 - 過去 5+ 年 法說會公告 + 重大訊息
 

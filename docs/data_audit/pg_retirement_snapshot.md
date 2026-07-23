@@ -1,7 +1,7 @@
 # PostgreSQL 退役快照(2026-07-23)
 
-拔 PG 前 cache 最終狀態記錄。cache 由 research/crawl/rebuild.py 從 data/ raw 封存重建、
-research.crawl.update 增量更新;PG 為 buggy 舊源(cache 校正後更正確、raw 為真源可重建),
+拔 PG 前 cache 最終狀態記錄。cache 由 src/quantlib/crawl/rebuild.py 從 data/ raw 封存重建、
+quantlib.crawl.update 增量更新;PG 為 buggy 舊源(cache 校正後更正確、raw 為真源可重建),
 拔除不損失任何可信資料。verify_vs_pg 全綠 + FC1 修復完成後執行。
 
 | cache 表 | 列數 |

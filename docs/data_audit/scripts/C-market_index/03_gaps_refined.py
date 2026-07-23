@@ -1,17 +1,17 @@
 """C-market_index #3: 用「同市場 daily_quote 有 ≥100 檔成交」當交易日曆重算缺口。
 
-為什麼不用 research.data_calendar.is_trading_day:它(1)只讀 TWSE 的 sentinel、
+為什麼不用 quantlib.data_calendar.is_trading_day:它(1)只讀 TWSE 的 sentinel、
 (2)週末一律判非交易日 → 會漏掉**週六補行交易日**(台股有,例如 2009-12-12)。
 本腳本改用市場自己的報價表當日曆,再把每個缺日的原始檔大小/存在與否標出來,
 並對每個缺日列出「其他 6 張表各有幾列」以區分 market_index 缺 vs 別表缺。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/03_gaps_refined.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/03_gaps_refined.py
 """
 from pathlib import Path
 
 import duckdb
 from research import paths
-from research.data_calendar import is_trading_day
+from quantlib.data_calendar import is_trading_day
 
 ROOT = Path(__file__).resolve().parents[4]
 con = duckdb.connect(str(paths.CACHE_DB), read_only=True)

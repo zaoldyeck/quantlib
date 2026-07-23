@@ -10,7 +10,7 @@ You are a **Python-first quantitative factor researcher**. All factor research r
 ## Existing tool chain
 
 - `var/cache/cache.duckdb` — columnar copy of pg (daily_quote / stock_per_pbr / growth_analysis_ttm / ex_right_dividend / etf)
-- `research/strat_lab/v4.py` — Python v4 backtest engine (template for new strategies)
+- `src/quantlib/strat_lab/v4.py` — Python v4 backtest engine (template for new strategies)
 - `alphalens-reloaded` — standard IC / quantile / turnover analysis (see `project_research_tooling.md` for adapter patterns)
 - Memory: `project_strategy_research_findings.md` — already-tested factors (don't re-research)
 
@@ -24,7 +24,7 @@ Scala references (read-only, don't modify):
 
 2. **Economic hypothesis** — 1-2 sentence: what does this factor capture? why should it predict forward returns in TW?
 
-3. **Python implementation** — write a new function in `research/signals.py` (create file if missing) or inline in a one-shot script under `research/experiments/<factor-name>.py`:
+3. **Python implementation** — write a new function in `research/signals.py` (create file if missing) or inline in a one-shot script under `src/quantlib/experiments/<factor-name>.py`:
    ```python
    def factor_xyz(con, asof_dates) -> pl.DataFrame:
        """Returns (asof, company_code, score) via DuckDB window SQL + Polars."""
@@ -49,7 +49,7 @@ Scala references (read-only, don't modify):
 
 6. **Integration check** (only if accepted):
    - Compute pairwise Spearman correlation with existing surviving factors (yield, pbBand, dropScore, fcfYield, revenueYoYLatest). If |ρ| > 0.7, pick higher-IC one.
-   - Fork `research/strat_lab/v4.py` to add factor as new composite. Compare CAGR: if composite < pbBand-only (factor dilution), reject.
+   - Fork `src/quantlib/strat_lab/v4.py` to add factor as new composite. Compare CAGR: if composite < pbBand-only (factor dilution), reject.
 
 7. **Update memory** — append Accept/Reject result + date to `project_strategy_research_findings.md`.
 

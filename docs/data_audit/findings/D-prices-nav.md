@@ -2,7 +2,7 @@
 
 **Verdict: OK**(核心 NAV/DRIP/成本數學全部符合學理;範圍內無 BUG,只有數個保守方向的 minor SUSPECT + 一個文件寫反的傳播風險)
 
-範圍:`research/prices.py` 的 `daily_returns`/DRIP + Python 端每日 NAV walk(`v4.py`、
+範圍:`src/quantlib/prices.py` 的 `daily_returns`/DRIP + Python 端每日 NAV walk(`v4.py`、
 `apex/engine.py`、`serenity/engine.py`)+ 手續費/稅成本(`constants.py` 及各引擎)。
 Scala `Backtester.scala` 已由 **D-backtester-scala** 稽核(該處抓到減資 BUG);
 本單位聚焦 Python 正典路徑。
@@ -146,7 +146,7 @@ bought_frac×COMMISSION`,穩態維持 `sold_frac×(SELL_TAX+2×COMMISSION)`。
 **學理定義**:換手成本 ∝ **實際交易比例** = 非重疊比例 `1 − |prev∩cur|/TOPN`。
 
 **文件實作**:CLAUDE.md 寫 `Per-rebal turnover cost = |prev ∩ cur| / TOPN × (SELL_TAX + 2×COMMISSION)`
-並附「match research/strat_lab/v4.py formula」。`|prev∩cur|/TOPN` 是 **交集(保留)比例**,
+並附「match src/quantlib/strat_lab/v4.py formula」。`|prev∩cur|/TOPN` 是 **交集(保留)比例**,
 與程式 `sold_frac=(size−overlap)/size` 恰為互補(反向)。
 
 **偏差證據**:依文件公式,持股完全不變(overlap=TOPN)→ 扣滿 round-trip;持股全換(overlap=0)

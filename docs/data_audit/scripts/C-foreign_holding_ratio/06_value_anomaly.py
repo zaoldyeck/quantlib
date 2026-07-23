@@ -8,7 +8,7 @@
   D = 尚可投資比率 = B/A*100      → foreign_remaining_ratio
   E = 持股比率     = C/A*100      → foreign_held_ratio
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/06_value_anomaly.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/06_value_anomaly.py
 """
 from __future__ import annotations
 

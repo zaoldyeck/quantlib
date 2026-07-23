@@ -259,7 +259,7 @@ data-shaped rows dropped by the size filter: {'tpex': 1}
 
 全部在 2007-07-02 ~ 2011-11-11 的上櫃,且成交量都是 0——是舊版 TPEx CSV 對
 「當日無成交」直接寫 `0.00`(原始檔實例:`"4801","碼斯特","0.00","--- ","0.00",…`),
-2011-11-14 起才改用 `---`。解析忠實照抄。`research/prices.py:129-130` 已有
+2011-11-14 起才改用 `---`。解析忠實照抄。`src/quantlib/prices.py:129-130` 已有
 `closing_price > 0 AND opening_price > 0` 護欄,官方定價路徑不受影響。
 (此項 `C-daily_quote` 已完整記載,本單位確認來源端寫法。)
 
@@ -287,7 +287,7 @@ values.size match {
 第一條記載的形態。TWSE 側目前是幸運:新欄若加在最後,`.init` 剛好吸收掉。
 
 **修法**:改成 `case 15 => … case 17 => … case n => throw`(fail loud)。對照組:
-Python 側 `research/crawl/sources/daily_quote.py:65-72` 的 `_guard()` 已經在做
+Python 側 `src/quantlib/crawl/sources/daily_quote.py:65-72` 的 `_guard()` 已經在做
 「標頭位置對不上就丟 `SchemaDrift`」,Scala 側該補上同樣的守護。
 (附帶:該 `_guard` 的 `_TPEX_GUARD` 只寫得出 17 欄版型的位置,套到 15 欄舊檔會誤報,
 但它只抓當日資料,實務上不觸發。)

@@ -54,7 +54,7 @@ Classify found news into event types:
 
 ### Step 5: Cluster with similar past spikes
 
-Query `research/experiments/spike_dataset.parquet`:
+Query `src/quantlib/experiments/spike_dataset.parquet`:
 - 過濾同產業的其他 spikes in last 5 years
 - 找 10 個 pre-event features 最相似的 case（歐氏距離或 cosine）
 - 這些類比案例 peak 後的平均報酬 = 本案的 reference 參考

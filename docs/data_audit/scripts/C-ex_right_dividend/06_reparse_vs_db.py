@@ -7,7 +7,7 @@
 小數)時,PG 永遠停在第一次匯入的舊值。本腳本用「現在磁碟上的檔案」當真值重算,
 把停在舊值的列全部抓出來。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/06_reparse_vs_db.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/06_reparse_vs_db.py
 """
 from __future__ import annotations
 

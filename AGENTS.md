@@ -17,7 +17,7 @@ repository.
   repository. Reusable operations should live in package-manager commands,
   scripts, `.claude/skills/`, or `.codex/agents/`, not in Claude command files.
 - Durable project facts belong in repository artifacts such as `docs/`,
-  `research/trading/strategy_registry.py`, and `var/out/strat_lab/`.
+  `src/quantlib/trading/strategy_registry.py`, and `var/out/strat_lab/`.
 - External Codex memory is read-only context unless the user explicitly asks to
   remember something. Do not write or reference non-existent `project_*.md`
   memory files as the source of truth.
@@ -40,7 +40,7 @@ or an explicit user request to force-refresh.
 Standard refresh（Python 爬蟲直寫 cache,一步到位取代舊 Scala Main update + cache_tables）:
 
 ```bash
-uv run --project research python -m research.crawl.update
+uv run --project . python -m quantlib.crawl.update
 ```
 
 Do not publish rankings or backtest conclusions from stale cached data.
@@ -68,7 +68,7 @@ Research and backtests must be implemented with production-grade performance in
 mind:
 
 - Prefer vectorized Polars/DuckDB operations over Python row loops.
-- Prefer local DuckDB cache reads (`research.db.connect()`) over repeated remote fetches.
+- Prefer local DuckDB cache reads (`quantlib.db.connect()`) over repeated remote fetches.
 - Use cache tables and reusable intermediate artifacts when iterations are
   expensive.
 - Use DuckDB threading / local columnar execution for broad scans.
@@ -90,7 +90,7 @@ the final solution unless explicitly documented as the correct long-term design.
 ## Price And Return Semantics
 
 All equity or ETF performance analysis must use total-return-equivalent adjusted
-prices through `research/prices.py` unless the task explicitly asks for raw price
+prices through `src/quantlib/prices.py` unless the task explicitly asks for raw price
 behavior. Do not run NAV simulations directly on raw `daily_quote.closing_price`
 because that omits dividends and distorts CAGR.
 
@@ -98,14 +98,14 @@ because that omits dividends and distorts CAGR.
 
 The active broker integration for quote, account, and order automation is
 Fubon Neo API through the official `fubon-neo` SDK wheels vendored under
-`research/vendor/fubon_neo/`.
+`vendor/fubon_neo/`.
 
-- Manage the SDK through `uv` and `research/pyproject.toml`; do not install it
+- Manage the SDK through `uv` and `pyproject.toml(repo 根)`; do not install it
   globally.
 - Keep both supported wheels available: macOS arm64 for the local machine and
   manylinux x86_64 for future cloud deployment.
-- Store broker credentials only in ignored local files such as `research/.env`
-  and `research/secrets/`.
+- Store broker credentials only in ignored local files such as `.env`
+  and `secrets/`.
 - Never commit API keys, person IDs, certificate passwords, `.p12`, or `.pfx`
   files.
 - Use read-only smoke tests first. Do not place, modify, or cancel orders unless
@@ -129,7 +129,7 @@ but broker order planning requires `execution_ready`. Large unattended capital
 requires `production_scaled`.
 
 By default, "the strongest strategy" means the highest-stage strategy registered
-in `research/trading/strategy_registry.py`. For current holdings or automated
+in `src/quantlib/trading/strategy_registry.py`. For current holdings or automated
 trading targets, only use strategies at `execution_ready` or above. If the best
 available strategy is only `backtest_validated`, say that clearly and do not use
 it to drive live broker orders.
@@ -141,7 +141,7 @@ registered strategy. Do not blend multiple strategies, add discretionary picks,
 or use lower-ranked backup strategies unless the user explicitly asks for that
 design.
 
-`research/trading/auto_trader.py` must remain fail-closed:
+`src/quantlib/trading/auto_trader.py` must remain fail-closed:
 
 - status and smoke-test commands may run read-only broker checks;
 - daily trading must block when no `execution_ready` strategy exists;

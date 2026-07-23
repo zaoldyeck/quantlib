@@ -43,7 +43,7 @@
     "PG etf 基本盤:228 列 / 228 distinct code / listing 2003-06-30~2026-07-15 / region tw=144 foreign=84(foreign 恰等於 foreign.json 84 檔全中,tw=82 domestic + 62 default)",
     "雙幣別漏收驗證:daily_quote 確認 00625K/00636K/00643K/00657K/00668K 皆實際交易證券(2121~2419 筆),etf 表 0 檔 K 版",
     "region 誤標驗證:62 檔 default-tw 中 00633L/00637L/00670L 等約 40 檔標的指數為海外指數;三檔已驗 daily_quote 實際交易",
-    "消費者盤點:Universe.scala:65 僅 company_code NOT IN etf(且 ^[1-9][0-9]{3}$ 正則已排除全部 0 開頭 ETF,此排除多餘);Constant.ETFs/DEBTs(Constant.scala:14-22)全庫無呼叫者=死碼;research/analyses/taiwan_equity_etf_ranking.py:94-95 直讀原始 JSON 非 PG 表;cache_tables.py:56 與 db.py:144 只複製 company_code 單欄",
+    "消費者盤點:Universe.scala:65 僅 company_code NOT IN etf(且 ^[1-9][0-9]{3}$ 正則已排除全部 0 開頭 ETF,此排除多餘);Constant.ETFs/DEBTs(Constant.scala:14-22)全庫無呼叫者=死碼;src/quantlib/analyses/taiwan_equity_etf_ranking.py:94-95 直讀原始 JSON 非 PG 表;cache_tables.py:56 與 db.py:144 只複製 company_code 單欄",
     "寫入者盤點:grep TableQuery[ETF] 僅 Task.scala:36(createTables)與 FinancialReader:403/453(唯一寫入,append-only,無 upsert)",
     "編碼:raw JSON 與 PG 皆 UTF-8,中文欄比對相符無亂碼;日期西元非民國,無檔名/內容日期不符(all.json 無獨立內容日期欄,上市日期即欄值)",
     "抽取陷阱記錄:psql COPY FORMAT csv 會把空字串渲染成 '\"\"'(兩個雙引號),導致首版誤報 24 個 index 假差異;改用 psql -tAF '\\t' 後消失,真差異僅 00981A 一筆"

@@ -54,13 +54,13 @@
 `dealers_proprietary` / `*_total_buy` / `foreign_dealers` 在 `research/` 與 `docs/` 下
 **零命中**——目前沒有任何消費者需要它們,是刻意的取捨,不是漏欄。
 
-**pg-attach 模式無漂移**:`research/db.py:126-130` 的 view 定義與
+**pg-attach 模式無漂移**:`src/quantlib/db.py:126-130` 的 view 定義與
 `research/cache_tables.py:45` 的 SELECT **逐字同構**(同 7 欄、同改名),兩種存取
 模式不會給出不同的欄位集合。
 
 **唯一結構性落差**:PG 有 `idx_DailyTradingDetails_market_date_companyCode` UNIQUE,
 cache 只有非唯一的 `idx_dtd_code_date(company_code, date)`(`CREATE TABLE AS` 不帶
-約束)。實測目前重複主鍵 **0 筆**,但保護是靠寫入端自律(`research/crawl/sink.py:35-59`
+約束)。實測目前重複主鍵 **0 筆**,但保護是靠寫入端自律(`src/quantlib/crawl/sink.py:35-59`
 的「刪整日 + 插」),不是靠資料庫。
 
 ---
@@ -75,7 +75,7 @@ cache 只有非唯一的 `idx_dtd_code_date(company_code, date)`(`CREATE TABLE A
 腳本:`docs/data_audit/scripts/C-daily_trading_details/02_gaps.py`
 
 **方法 B(從原始檔側)**:找「原始檔是空回應(TWSE 2 bytes 的 CRLF / TPEx 只有
-表頭的 512 bytes)**且** `research.data_calendar.is_trading_day` 為真 **且** DB 無列」
+表頭的 512 bytes)**且** `quantlib.data_calendar.is_trading_day` 為真 **且** DB 無列」
 的日子。全 4,008 個空檔裡只有 7 個中標。
 腳本:`docs/data_audit/scripts/C-daily_trading_details/05_empty_on_trading_day.py`
 
@@ -99,12 +99,12 @@ cache 只有非唯一的 `idx_dtd_code_date(company_code, date)`(`CREATE TABLE A
   的 `getDatesOfExistFiles` 只要「檔案存在 + 開頭不是 `<html>`」就把該日算進
   existFiles;`src/main/scala/Task.scala:576` 的
   `startDate.datesUntil(endExclusive).toScala(Seq).filterNot(existFiles)` 於是永久跳過。
-- **Python 路徑**:`research/crawl/update.py:30-41` 的 `_missing_days` 從
+- **Python 路徑**:`src/quantlib/crawl/update.py:30-41` 的 `_missing_days` 從
   `max(date) + 1` 起往前走,**只前進不回頭**,歷史的洞看不到。
 
 **這 7 天為什麼要緊**:全部落在 2023 年之後,現役 Serenity 事件引擎的驗證窗
 (train 2022-07~2025-07)與實盤期都在裡面。引擎讀的正是這張表——
-`research/serenity/engine.py:971-981` 取 `total_difference` 做 20 日 rolling sum
+`src/quantlib/serenity/engine.py:971-981` 取 `total_difference` 做 20 日 rolling sum
 (`inst_20d`),缺一天等於那支股票的 20 日法人淨額實際涵蓋了 21 個交易日的歷史,
 而 `inst_neg` 出場閘門就是看這個數字。
 
@@ -159,12 +159,12 @@ post-2015 那 2 列是 int32 溢位:
 ## 四、cache 最新那天沒有原始檔可核,而寫它的解析器會漏列(🔴 BUG)
 
 cache 的 2026-07-20 只存在於 cache(PG 全表 max(date) = 2026-07-17),由
-`research/crawl/`(Python 直寫 DuckDB)寫入,**不落原始檔**。所以那一天無法用
+`src/quantlib/crawl/`(Python 直寫 DuckDB)寫入,**不落原始檔**。所以那一天無法用
 A 維的方法(原始檔逐欄核 DB)驗證。
 
 那就退一步問:同一支解析器在**有原始檔可核的日子**表現如何?
 
-拿 `research.crawl.sources.daily_trading_details._parse` 重解析全部 4,132 個有原始檔
+拿 `quantlib.crawl.sources.daily_trading_details._parse` 重解析全部 4,132 個有原始檔
 且解析器吃得下的日子(已排除第三節那 31 個內容重放日),和 cache 該日列數比:
 
 ```
@@ -176,7 +176,7 @@ A 維的方法(原始檔逐欄核 DB)驗證。
 2025 年 14 / **2026 年 13**。單日最多少寫 54 列。最近一次可核的例子:
 **twse 2026-07-08,python=1,322 vs cache=1,336,少 14 列**。
 
-**原因**:`research/crawl/sources/daily_trading_details.py:69` 的
+**原因**:`src/quantlib/crawl/sources/daily_trading_details.py:69` 的
 `if len(r) < need: continue`(twse `need=19`)把 TWSE 現行檔案裡合法的 17 欄資料列
 整列丟掉。Scala reader 有 `case 17` 分支正確處理,Python 沒有。
 
@@ -199,11 +199,11 @@ Overflow in addition of INT32 (-778928308 + -1946343918)!
 ```
 
 全表**有 1 列**會觸發(twse 2026-05-13 00403A)。目前的消費者
-(`research/strat_lab/iter_32_first_principles.py:216-218` 把三欄相加、
-`research/futures/strategies.py:159-162` 全市場加總)只要碰到那一天就會中止。
+(`src/quantlib/strat_lab/iter_32_first_principles.py:216-218` 把三欄相加、
+`src/quantlib/futures/strategies.py:159-162` 全市場加總)只要碰到那一天就會中止。
 
 **(b) 寫端會炸。** Python 解析器宣告的是 `pl.Int64`
-(`research/crawl/sources/daily_trading_details.py:29-31`),寫進 INTEGER 欄位時
+(`src/quantlib/crawl/sources/daily_trading_details.py:29-31`),寫進 INTEGER 欄位時
 DuckDB 會嘗試轉型;實測超過 int32 就丟
 
 ```
@@ -272,7 +272,7 @@ tpex daily_quote 的 2007-07-02 還早,不構成缺口。
 
 ## 八、順帶記錄:表間日期錯位仍在(🟡 SUSPECT,與 C-daily_quote 同一件事)
 
-實測 `research.data_calendar`:
+實測 `quantlib.data_calendar`:
 
 ```
 latest_complete_trading_day() = 2026-07-21
@@ -295,11 +295,11 @@ Python 直寫覆蓋的 3 張表到 07-20,只有 Scala 路徑的 4 張表停在 0
 cd /Users/zaoldyeck/Documents/scala/quantlib
 export PYTHONPATH=/Users/zaoldyeck/Documents/scala/quantlib
 S=docs/data_audit/scripts/C-daily_trading_details
-uv run --project research python $S/01_parity.py              # cache vs PG 全史逐欄
-uv run --project research python $S/02_gaps.py                # 缺口(證人表投票)
-uv run --project research python $S/03_sample_and_anomaly.py  # 抽樣 + 異常值
-uv run --project research python $S/04_python_writer_drop.py  # Python 直寫路徑漏列(~8 分鐘)
-uv run --project research python $S/05_empty_on_trading_day.py # 缺口(原始檔側獨立確認)
+uv run --project . python $S/01_parity.py              # cache vs PG 全史逐欄
+uv run --project . python $S/02_gaps.py                # 缺口(證人表投票)
+uv run --project . python $S/03_sample_and_anomaly.py  # 抽樣 + 異常值
+uv run --project . python $S/04_python_writer_drop.py  # Python 直寫路徑漏列(~8 分鐘)
+uv run --project . python $S/05_empty_on_trading_day.py # 缺口(原始檔側獨立確認)
 ```
 
 依賴:`var/cache/cache.duckdb` 為當前世代(mtime 2026-07-21 08:16)、

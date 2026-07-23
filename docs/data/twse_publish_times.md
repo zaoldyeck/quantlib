@@ -2,7 +2,7 @@
 
 調查日:2026-07-15(TWSE 官方 / TPEx 官方 / MOPS+集保 / 本地爬蟲實證,四路平行查證)。
 用途:**決定每日「唯一一次完整更新」的排程時點**。本檔是唯一事實來源;
-`Task.scala` 的 publishAfter、`research/data_calendar.py` 的常數都必須指回這裡。
+`Task.scala` 的 publishAfter、`src/quantlib/data_calendar.py` 的常數都必須指回這裡。
 
 ---
 
@@ -114,7 +114,7 @@ TPEx 同一份資料的對應頁 `https://www.tpex.org.tw/zh-tw/mainboard/tradin
 ## sentinel(無資料日)規則
 
 爬蟲把「乾淨的無資料回應」寫成 0-byte sentinel,代表「該日無交易」——它同時是我們的
-**休市日曆**(`research/data_calendar.py` 的 `is_trading_day` 讀它)。為了不把「還沒發布」
+**休市日曆**(`src/quantlib/data_calendar.py` 的 `is_trading_day` 讀它)。為了不把「還沒發布」
 誤記成「休市」:
 
 > **只有在「已過該日的齊備時刻(D+1 00:30)」之後,才允許為 D 寫 sentinel;

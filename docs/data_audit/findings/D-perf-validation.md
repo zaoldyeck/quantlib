@@ -1,8 +1,8 @@
 # D-perf-validation — 策略驗證統計稽核（walk-forward / MC / DSR / PBO / bootstrap）
 
-範圍：`research/apex/validate.py` + `research/serenity/validate.py` +
-`research/strat_lab/validator.py`（含其共用核心 `research/strat_lab/validate_hybrid.py`
-與 `research/strat_lab/evaluation.py`）。
+範圍：`src/quantlib/apex/validate.py` + `src/quantlib/serenity/validate.py` +
+`src/quantlib/strat_lab/validator.py`（含其共用核心 `src/quantlib/strat_lab/validate_hybrid.py`
+與 `src/quantlib/strat_lab/evaluation.py`）。
 
 ## 一句話結論（白話）
 
@@ -27,9 +27,9 @@ DSR 偏樂觀**，其餘指標可用但 Sharpe/Sortino 有系統性偏移。
 
 ## BUG 1 — `validate_hybrid.pbo_cscv` 不是 PBO/CSCV，是 ≈0.5 的噪音
 
-- 檔案：`research/strat_lab/validate_hybrid.py:146-162`
-- 消費者（money-path）：`research/serenity/validate.py:135`、
-  `research/strat_lab/validator.py:95`、`validate_hybrid.validate_hybrid():244`、
+- 檔案：`src/quantlib/strat_lab/validate_hybrid.py:146-162`
+- 消費者（money-path）：`src/quantlib/serenity/validate.py:135`、
+  `src/quantlib/strat_lab/validator.py:95`、`validate_hybrid.validate_hybrid():244`、
   以及 `evaluation.robust_growth_score`（把 pbo 當排序因子，`evaluation.py:184`）。
 
 **學理定義（Bailey, Borwein, López de Prado & Zhu 2015, "The Probability of
@@ -60,9 +60,9 @@ P(rank<中位)。Serenity / strat_lab 需先蒐集「同一campaign 各候選設
 
 ## BUG 2 — `validate_hybrid.deflated_sharpe` 的多重測試變異數用錯量（DSR 系統性偏高）
 
-- 檔案：`research/strat_lab/validate_hybrid.py:88-105`（`sigma_sr` :101、
+- 檔案：`src/quantlib/strat_lab/validate_hybrid.py:88-105`（`sigma_sr` :101、
   `e_max*sigma_sr` 當 SR0 :104）
-- 消費者：`research/serenity/validate.py:140`、`research/strat_lab/validator.py:90-94`。
+- 消費者：`src/quantlib/serenity/validate.py:140`、`src/quantlib/strat_lab/validator.py:90-94`。
 
 **學理定義（Bailey & López de Prado 2014, "The Deflated Sharpe Ratio"）**：
 DSR = PSR(SR₀) = Z[ (ŜR − SR₀)·√(n−1) / √(1 − γ₃·ŜR + (γ₄−1)/4·ŜR²) ]，其中
@@ -95,7 +95,7 @@ Sharpe，而非 CAGR 基礎。
 
 ## BUG 3 — `serenity/validate.py` bootstrap 結果被 key 名不符靜默丟成 NaN
 
-- 檔案：`research/serenity/validate.py:136-139`（取 boot）、`:153-154`（讀 key）；
+- 檔案：`src/quantlib/serenity/validate.py:136-139`（取 boot）、`:153-154`（讀 key）；
   來源 `validate_hybrid.bootstrap_ci` 回傳 key 在 `validate_hybrid.py:139-142`。
 
 **問題**：`years >= 4` 時走 `bootstrap_ci(rets, dates)`，其回傳 key 為
@@ -123,8 +123,8 @@ serenity 讀 `cagr_lb95` → NaN。實測 `var/out/strat_lab/` 下 130 支
 
 ## SUSPECT 1 — Sharpe 用幾何 CAGR 而非 mean/std（並與同檔 Lo 檢定自相矛盾）
 
-- 檔案：`research/strat_lab/validate_hybrid.py:58`、`research/strat_lab/evaluation.py:135`、
-  `research/strat_lab/validate_full_v6.py:62`（同一份模板複製三處＝缺陷類）。
+- 檔案：`src/quantlib/strat_lab/validate_hybrid.py:58`、`src/quantlib/strat_lab/evaluation.py:135`、
+  `src/quantlib/strat_lab/validate_full_v6.py:62`（同一份模板複製三處＝缺陷類）。
 
 **學理定義**：Sharpe = E[Rₚ − R_f]/σₚ；年化 = (mean/std)·√252（算術平均）。
 **程式實作**：`sharpe = (cagr − RF)/vol`，分子用幾何 CAGR、分母用年化 σ。幾何 <
@@ -141,8 +141,8 @@ serenity 讀 `cagr_lb95` → NaN。實測 `var/out/strat_lab/` 下 130 支
 
 ## SUSPECT 2 — Sortino 下行標準差非教科書定義
 
-- 檔案：`research/strat_lab/validate_hybrid.py:57,59`、`research/strat_lab/evaluation.py:120,134`、
-  `research/strat_lab/validate_full_v6.py:58-59`（同模板複製＝缺陷類）。
+- 檔案：`src/quantlib/strat_lab/validate_hybrid.py:57,59`、`src/quantlib/strat_lab/evaluation.py:120,134`、
+  `src/quantlib/strat_lab/validate_full_v6.py:58-59`（同模板複製＝缺陷類）。
 
 **學理定義（Sortino & Price 1994）**：目標下行離差 TDD =
 √( (1/N)·Σ min(Rᵢ − MAR, 0)² )，對 **MAR（通常 0 或 rf）**取平方、分母是**全期數 N**。
@@ -158,7 +158,7 @@ serenity 讀 `cagr_lb95` → NaN。實測 `var/out/strat_lab/` 下 130 支
 
 ## SUSPECT 3 — 置換檢定 p 值缺 +1 有限樣本修正（會報出 p=0.000）
 
-- 檔案：`research/serenity/validate.py:266`。
+- 檔案：`src/quantlib/serenity/validate.py:266`。
 
 **學理定義（Phipson & Smyth 2010, "Permutation P-values Should Never Be Zero"）**：
 有限次置換的無偏 p = (1 + #{置換統計 ≥ 觀測})/(1 + n_perm)。

@@ -1,7 +1,7 @@
 # Serenity 事件驅動引擎 v1 — 可回測性研究與驗證報告
 
 - 研究日期:2026-07-06;資料 cutoff:`daily_quote` 2026-07-03(當日已跑 `Main update` + `cache_tables.py`)
-- 程式:`research/serenity/engine.py`(引擎)、`serenity_event_engine_v1_validate.py`(驗證)
+- 程式:`src/quantlib/serenity/engine.py`(引擎)、`serenity_event_engine_v1_validate.py`(驗證)
 - 基底:fork `serenity_industry_first_replay_2025.py`(沿用 PIT 載入器、計分器、論點註冊表),把月度輪動改為**每日監控的事件引擎**
 - 成本:手續費 0.0285% + 賣出稅 0.3% + 5bps 單邊滑價(與 replay 一致;非富邦 realistic execution,與 Iter9x 排行不可直接比較)
 

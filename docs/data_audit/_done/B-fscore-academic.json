@@ -18,13 +18,13 @@
       "severity": "BUG",
       "what": "兩套 F-Score 實作互不一致:逐格完全相同僅 27.3%,相關 0.646,「≥5」閘門判定不一致 23.4%",
       "evidence": "2012-2025 TWSE 共同 52,581 個 (code,year,quarter)。PG: SELECT company_code,year,quarter,f_score FROM growth_analysis_ttm WHERE year BETWEEN 2012 AND 2025;Python: research/raw_quarterly.parquet 的 f_score_raw。mean 5.47 vs 5.01;PG 過而 Python 不過 8,600 格,反向 3,692 格。違反 CLAUDE.md『引擎唯一真源鐵律』",
-      "fix": "只留 research/strat_lab/raw_quarterly.py 一份,PG view 欄位 deprecate"
+      "fix": "只留 src/quantlib/strat_lab/raw_quarterly.py 一份,PG view 欄位 deprecate"
     },
     {
       "id": "BUG-7",
       "severity": "BUG",
       "what": "raw_quarterly.py 九項全部 .otherwise(0):缺資料給 0 分不是 NULL。cash_flows_progressive 最早 2009 → 第 2/4 項在 2005-2009 全體 100% 為 0,f_score_raw 2006 平均 0.00 / 2007 0.03 / 2008 1.16 / 2009 2.06 / 2010 3.43,而 2016+ 為 5.0-5.5。『F-Score 逐年上升』是資料補齊軌跡不是品質改善",
-      "evidence": "research/strat_lab/raw_quarterly.py:243-259。psql -c \"SELECT year,count(distinct company_code) FROM cash_flows_progressive GROUP BY year ORDER BY year\" → 最早 2009。逐年 f_score_raw>=4 通過率:2006 0.0% / 2007 0.0% / 2008 0.2% / 2009 14.9% / 2010 53.1% / 2016+ 79-85%。受污染的回測:research/apex/experiments/q02_pure_financial_books.py:27 SIM_START='2007-07-02'(全史品質書 Q 含 f_score 幾何 rank);iter_98_magic_formula_piot.py:57 START=2010-01-04 前兩年畸變",
+      "evidence": "src/quantlib/strat_lab/raw_quarterly.py:243-259。psql -c \"SELECT year,count(distinct company_code) FROM cash_flows_progressive GROUP BY year ORDER BY year\" → 最早 2009。逐年 f_score_raw>=4 通過率:2006 0.0% / 2007 0.0% / 2008 0.2% / 2009 14.9% / 2010 53.1% / 2016+ 79-85%。受污染的回測:src/quantlib/apex/experiments/q02_pure_financial_books.py:27 SIM_START='2007-07-02'(全史品質書 Q 含 f_score 幾何 rank);iter_98_magic_formula_piot.py:57 START=2010-01-04 前兩年畸變",
       "fix": "九項改 .otherwise(None),新增 f_score_n_valid;消費端要求 n_valid==9;docstring 明寫『2011 年以前不可用』;q02 全史結論要重跑"
     },
     {
@@ -38,7 +38,7 @@
       "id": "BUG-6",
       "severity": "BUG",
       "what": "「F-Score ≥ N」的閘門被寫成「歷史上曾經 ≥ N」:WHERE 在 DISTINCT ON 之前,沒有收斂到最新一季。Scala 與 Python 各一處(同一缺陷類)",
-      "evidence": "src/main/scala/strategy/QualityFilter.scala:29-39 完全沒有 DISTINCT ON(ORDER BY 因此無作用),但註解第 24 行寫『Uses the latest snapshot』、第 38 行寫『distinct collapses to one』。兄弟實作 Signals.scala:150 與 ValueRevertStrategy.scala:65 都正確用了 DISTINCT ON。research/strat_lab/v4.py:78-92 的 drop_safe CTE 同型。實測通過家數(TWSE,raw_quarterly):2018-01-02 878 vs 757(+16%);2021-07-01 951 vs 841;2025-01-02 1024 vs 883(+16%)",
+      "evidence": "src/main/scala/strategy/QualityFilter.scala:29-39 完全沒有 DISTINCT ON(ORDER BY 因此無作用),但註解第 24 行寫『Uses the latest snapshot』、第 38 行寫『distinct collapses to one』。兄弟實作 Signals.scala:150 與 ValueRevertStrategy.scala:65 都正確用了 DISTINCT ON。src/quantlib/strat_lab/v4.py:78-92 的 drop_safe CTE 同型。實測通過家數(TWSE,raw_quarterly):2018-01-02 878 vs 757(+16%);2021-07-01 951 vs 841;2025-01-02 1024 vs 883(+16%)",
       "fix": "QualityFilter 補 DISTINCT ON (company_code);v4.py 把 f_score_raw>=4 移到 DISTINCT ON 之後的外層。修完 v4 基準線 CAGR 會變,quantlib-data-refresh 的 2pp 迴歸門檻要重新標定"
     },
     {
@@ -73,28 +73,28 @@
       "id": "BUG-8",
       "severity": "BUG",
       "what": "Python 版 ROA / 資產周轉率 / 槓桿比率的分母用『期末』總資產,Piotroski 用『年初』(LEVER 用平均);38.2% 的格子因此得到不同分數",
-      "evidence": "research/strat_lab/raw_quarterly.py:200-213。用同一份輸入依論文定義重算(分母改年初、LEVER 改平均),2013-2025 共 88,467 列:逐格相同 61.8%;平均 5.021 → 4.734;逐項翻轉率 f9 24.9%、f3 12.6%、f5 11.7%、f1 4.4%、f4 4.3%;『≥5』閘門判定不一致 11.0%",
+      "evidence": "src/quantlib/strat_lab/raw_quarterly.py:200-213。用同一份輸入依論文定義重算(分母改年初、LEVER 改平均),2013-2025 共 88,467 列:逐格相同 61.8%;平均 5.021 → 4.734;逐項翻轉率 f9 24.9%、f3 12.6%、f5 11.7%、f1 4.4%、f4 4.3%;『≥5』閘門判定不一致 11.0%",
       "fix": "分母改 total_assets.shift(4)(年初)與 (TA_t+TA_{t-4})/2(平均);當成因子改版處理,先跑舊 vs 新 IC 對照再採用"
     },
     {
       "id": "BUG-9",
       "severity": "BUG",
       "what": "rolling_sum(4) / shift(4) 是按實體列移動,不是日曆對齊;季別缺口時 TTM 跨超過 4 個日曆季、『去年同季』不是去年同季",
-      "evidence": "research/strat_lab/raw_quarterly.py:162-163, 226-237。實測 117,512 列中:6,423 列(5.47%)TTM 視窗跨 >4 日曆季;6,563 列(5.58%)shift(4) 不是正好 4 季;2018 年後仍有 479 列。實例 1591(tpex)2023 缺 Q2:rev_q[2023Q3]=33,404 實為 Q2+Q3 合計(原始 YTD 2023Q1=19,573 → 2023Q3=52,977),rev_ttm[2023Q3]=353,795 涵蓋 2022Q3-2023Q3 共 5 季",
+      "evidence": "src/quantlib/strat_lab/raw_quarterly.py:162-163, 226-237。實測 117,512 列中:6,423 列(5.47%)TTM 視窗跨 >4 日曆季;6,563 列(5.58%)shift(4) 不是正好 4 季;2018 年後仍有 479 列。實例 1591(tpex)2023 缺 Q2:rev_q[2023Q3]=33,404 實為 Q2+Q3 合計(原始 YTD 2023Q1=19,573 → 2023Q3=52,977),rev_ttm[2023Q3]=353,795 涵蓋 2022Q3-2023Q3 共 5 季",
       "fix": "以 year*4+quarter 為鍵做日曆對齊 join,或加『窗口跨季數==4』守護欄並在不成立時輸出 NULL"
     },
     {
       "id": "BUG-10",
       "severity": "BUG",
       "what": "科目樞紐用 MAX(value) FILTER,同一格有兩個候選科目時挑數字大的那個 — 系統性挑對自己有利的數,且哪個較大會隨季別變動 → Δ毛利率被灌雜訊",
-      "evidence": "research/strat_lab/raw_quarterly.py:85。2013 年起 89,006 個 (公司,季):87,326 格同時有『本期淨利（淨損）』與『繼續營業單位本期淨利（淨損）』,其中 1,168 格不同,最大差 12,069,803 千元;86,553 格同時有『營業毛利（毛損）』與『營業毛利（毛損）淨額』,3,800 格不同,差距達營收 ±2.1%(6177 2024Q4 = 0.0211)。Piotroski 明定用『除非常項目前淨利』",
+      "evidence": "src/quantlib/strat_lab/raw_quarterly.py:85。2013 年起 89,006 個 (公司,季):87,326 格同時有『本期淨利（淨損）』與『繼續營業單位本期淨利（淨損）』,其中 1,168 格不同,最大差 12,069,803 千元;86,553 格同時有『營業毛利（毛損）』與『營業毛利（毛損）淨額』,3,800 格不同,差距達營收 ±2.1%(6177 2024Q4 = 0.0211)。Piotroski 明定用『除非常項目前淨利』",
       "fix": "改成固定優先序 COALESCE(繼續營業單位本期淨利, 本期淨利)、COALESCE(營業毛利淨額, 營業毛利)"
     },
     {
       "id": "BUG-12",
       "severity": "SUSPECT",
       "what": "第 7 項(未增發股本)在台股語境不成立:盈餘/資本公積轉增資(股票股利)會讓股本增加但不是募資,兩套實作都因此扣分;raw_quarterly 的容忍值 <=1(千元)是無出處的魔術數字",
-      "evidence": "research/strat_lab/raw_quarterly.py:254-255(註解只寫 'small epsilon to allow rounding',無量測出處);5_growth_analysis_ttm.sql:17-22 用 total_capital_stock <= lag。2330 2024Q4 股本從 259,320,710 → 259,327,332(+6,622 千元)被判 f7=0",
+      "evidence": "src/quantlib/strat_lab/raw_quarterly.py:254-255(註解只寫 'small epsilon to allow rounding',無量測出處);5_growth_analysis_ttm.sql:17-22 用 total_capital_stock <= lag。2330 2024Q4 股本從 259,320,710 → 259,327,332(+6,622 千元)被判 f7=0",
       "fix": "改用 MOPS 現金增資事件,或用普通股股數扣除無償配股;epsilon 若保留須附量測出處"
     },
     {
@@ -115,7 +115,7 @@
       "id": "SEC-3",
       "severity": "SUSPECT",
       "what": "PIT 慣例兩套不一致且都沒有量測出處:v4.py 用法定期限 +7 天緩衝(5/22、8/21、11/21、次年 4/7),apex/assemble.py 用法定期限本身(5/15、8/14、11/14、次年 3/31)且 join_asof 含等號 → 公告日盤後才送件時有最多 1 天前視",
-      "evidence": "research/strat_lab/v4.py:76(CASE q WHEN 1 THEN make_date(y,5,22) ...);research/apex/assemble.py:118-126(pl.date(year,5,15) ... 次年 3/31)+ :157 join_asof strategy='backward'(含等號);src/main/scala/strategy/PublicationLag.asOfQuarter 為第三套",
+      "evidence": "src/quantlib/strat_lab/v4.py:76(CASE q WHEN 1 THEN make_date(y,5,22) ...);src/quantlib/apex/assemble.py:118-126(pl.date(year,5,15) ... 次年 3/31)+ :157 join_asof strategy='backward'(含等號);src/main/scala/strategy/PublicationLag.asOfQuarter 為第三套",
       "fix": "統一到一支 PIT 模組,緩衝天數用實際公告時間戳量測出來(MOPS 有申報時間),不憑感覺"
     },
     {
@@ -150,7 +150,7 @@
       "id": "OK-3",
       "severity": "OK",
       "what": "累計制差分(Python 端):台股損益表/現金流量表為當年累計數,raw_quarterly.py 的 quarter==1 ? value : value - shift(1) 且按 (company_code, year) 分區,跨年邊界處理正確",
-      "evidence": "research/strat_lab/raw_quarterly.py:127-148, 176-180。驗證 2330 2024Q4 單季營收 = 2,894,307,699 - 2,025,846,521 = 868,461,178,與 panel rev_q 一致",
+      "evidence": "src/quantlib/strat_lab/raw_quarterly.py:127-148, 176-180。驗證 2330 2024Q4 單季營收 = 2,894,307,699 - 2,025,846,521 = 868,461,178,與 panel rev_q 一致",
       "fix": ""
     },
     {
@@ -164,7 +164,7 @@
       "id": "OK-5",
       "severity": "OK",
       "what": "F-Score 不在現役實盤資金路徑上:Serenity ev_v3_wf 與 apex strategy_s 都沒有引用",
-      "evidence": "grep f_score 於 research/serenity/*.py 只命中 valuation_replay_2025.py(研究用估值重放);research/apex/strategy_s.py 零命中。受影響的是研究結論與 v4 基準線,不是實盤下單",
+      "evidence": "grep f_score 於 src/quantlib/serenity/*.py 只命中 valuation_replay_2025.py(研究用估值重放);src/quantlib/apex/strategy_s.py 零命中。受影響的是研究結論與 v4 基準線,不是實盤下單",
       "fix": ""
     },
     {
@@ -179,9 +179,9 @@
     "精讀 src/main/resources/sql/view/5_growth_analysis_ttm.sql(684 行,f_score/growth_score/drop_score 全部算式)",
     "精讀 src/main/resources/sql/view/4_financial_index_ttm.sql(206 行,roa/roic/gross_margin/total_assets_turnover/current_ratio/cash_ratio/equity_multiplier 定義)",
     "精讀 materialized_view/{1_concise_balance_sheet_individual,3_cash_flows_individual,5_concise_income_statement_individual,6_concise_financial_statement_with_titles}.sql(累計制差分與科目對映)",
-    "精讀 research/strat_lab/raw_quarterly.py(321 行)+ research/db.py 的 is/bs/cf raw view 定義",
+    "精讀 src/quantlib/strat_lab/raw_quarterly.py(321 行)+ src/quantlib/db.py 的 is/bs/cf raw view 定義",
     "精讀 src/main/scala/strategy/{QualityFilter,ValueRevertStrategy,MagicFormulaPiotStrategy,Signals.latestQuarterField,PublicationLag.asOfQuarter}.scala",
-    "精讀 research/strat_lab/v4.py 的 qfor/drop_safe CTE 與 research/apex/assemble.py 的 q_avail join_asof",
+    "精讀 src/quantlib/strat_lab/v4.py 的 qfor/drop_safe CTE 與 src/quantlib/apex/assemble.py 的 q_avail join_asof",
     "盤點全部 f_score/piotroski 提及點(35 檔),確認只有兩套實作,確認現役 Serenity/apex-S 未使用",
     "手算 2330 FY2024 全九項(NI/CFO/營收/毛利/年初資產/流動比/股本)並與兩套實作逐項對帳",
     "量化 PG view vs Python 一致率(52,581 格,exact 27.3% / corr 0.646 / ≥5 閘門一致 76.6%)",

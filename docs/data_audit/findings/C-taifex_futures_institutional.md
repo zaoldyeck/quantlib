@@ -65,7 +65,7 @@ rows in PG not in CACHE (all 16 cols): 0
   `2026/04/29` / `2025/08/15`（不是民國），`iconv -f BIG5` 解碼後可見。
 - `taifex_futures_daily` 同日各有 2,341 / 2,287 列（完整期貨交易日）。
 - TAIEX 加權指數當天有公告真實收盤:24,334.48 (+96.38) / 39,303.50 (-218.23) → 市場確實開盤。
-- 但 `research/data_calendar.py::is_trading_day` 對這兩天回 False（讀 twse 0-byte sentinel）。
+- 但 `src/quantlib/data_calendar.py::is_trading_day` 對這兩天回 False（讀 twse 0-byte sentinel）。
 
 → institutional 這張表**獨立佐證了 C-daily_quote 的 sentinel 誤標 bug**。它在窗內唯二的
 「額外日」正是那兩個被誤殺的真交易日，兩天它都正確收錄。窗內另外兩個誤標日
@@ -120,6 +120,6 @@ reader 忠實照收官方的「淨額」欄（`readTaifexFuturesInstitutional`,T
 ```bash
 sbt "runMain Main pull taifex"    # 抓 futContractsDateDown 滾動三年窗（同時含 daily/institutional/settlement）
 sbt "runMain Main read taifex"    # reader insert（不刪舊），補上 2026-05-22 起的尾端
-uv run --project research python research/cache_tables.py   # 重建 cache 帶入新列
+uv run --project . python research/cache_tables.py   # 重建 cache 帶入新列
 ```
 端點:`https://www.taifex.com.tw/cht/3/futContractsDateDown`（三大法人-區分各期貨契約-依日期，免費滾動三年）。

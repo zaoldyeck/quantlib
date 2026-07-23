@@ -35,7 +35,7 @@
 | NULL / NaN / Inf | 六欄皆 0 筆 |
 | 重複鍵 (year,quarter,code,title) | 0 筆 |
 | schema | PG 7 欄 → cache 6 欄,只少 `id`(自增代理鍵);`character varying→VARCHAR`、`integer→INTEGER`、`double precision→DOUBLE` 逐一對應,**無型別降級** |
-| `research/db.py:190` 的 pg-attach view | 與 `research/cache_tables.py:92-94` 的建表 SQL 逐字相同,parity 成立 |
+| `src/quantlib/db.py:190` 的 pg-attach view | 與 `research/cache_tables.py:92-94` 的建表 SQL 逐字相同,parity 成立 |
 
 `market` 欄在 PG 只有 `'tw'` 一個值(reader 硬寫,見 `FinancialReader.readFinancialStatements`),
 所以 cache_tables 的 `WHERE market='tw'` 是 no-op,不是過濾造成的差異。
@@ -145,7 +145,7 @@ URL 為 `.../FileDownLoad?step=9&filePath=/home/html/nas/ifrs/<YYYY>/&fileName=t
 
 ## 4. 缺一季不是留空,是把下一季灌成兩季(🔴 BUG,下游)
 
-`research/strat_lab/raw_quarterly.py:176-182`:
+`src/quantlib/strat_lab/raw_quarterly.py:176-182`:
 
 ```python
 cf_q = cf_ytd.with_columns(
@@ -194,8 +194,8 @@ cache 裡的累計營業現金流(`cf_progressive_raw`):
 
 `cfo_ttm` 直接進 Piotroski:`raw_quarterly.py:245` F2「CFO > 0」、`:249` F4「CFO > NI」,
 以及 `:216` 的 `cfo_ni_ratio_ttm`。`research/raw_quarterly.parquet` 的消費者含
-`research/serenity/engine.py`(現役策略引擎)、`research/apex/data.py`、
-`research/strat_lab/v4.py` 等 20+ 支。
+`src/quantlib/serenity/engine.py`(現役策略引擎)、`src/quantlib/apex/data.py`、
+`src/quantlib/strat_lab/v4.py` 等 20+ 支。
 
 ---
 
@@ -330,22 +330,22 @@ post-2013 為 4,150 個組合、只有 191 個 singleton。這是 IFRS 前現金
 
 ```bash
 # 1. cache vs PG 逐季 checksum + schema + NULL/重複鍵
-uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/parity.py
+uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/parity.py
 
 # 2. 逐季覆蓋 + CFO 科目別名覆蓋率 + 科目字典
-uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/coverage.py
+uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/coverage.py
 
 # 3. 會計恆等式 + 值域 + 單位尺度 + 代碼格式
-uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/anomaly.py
+uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/anomaly.py
 
 # 4. 季序列缺口 + 公司內部空洞 + 是否可交易 + 2026Q1 缺料名單
-uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/gaps.py
+uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/gaps.py
 
 # 5. 亂數抽樣逐欄比對(seed 20260722)
-uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/sample.py
+uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/sample.py
 
 # 6. lag-diff 灌水規模量化
-uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/downstream.py
+uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/downstream.py
 
 # 下載日 vs 完整度對照表
 for d in data/financial_statements/*/; do \

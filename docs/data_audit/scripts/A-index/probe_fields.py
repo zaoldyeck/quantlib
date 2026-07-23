@@ -1,5 +1,5 @@
 """A-index:欄位語意探針 —— sign 取值、"--"/空值強制歸零、被丟棄的特殊處理註記、檔名 vs 內容日期。
-run: uv run --project research python docs/data_audit/scripts/A-index/probe_fields.py
+run: uv run --project . python docs/data_audit/scripts/A-index/probe_fields.py
 """
 import polars as pl, re, csv, io
 from pathlib import Path

@@ -14,7 +14,7 @@
     },
     {
       "severity": "BUG",
-      "what": "ETF 配息自 2024-06-20(twse)/ 2026-04-17(tpex)之後全數缺漏。twse ETF 列數 2023 年 143、2024 年 86(全在上半年)、2025 年 0、2026 年 0;目前仍在交易的 233 檔上市 ETF 沒有一檔有 2024-07 之後的配息紀錄。0050 最後一筆 2024-01-17、0056 2024-04-18、00878 2024-05-17、00919 2024-03-18、006208 2023-11-16。直接汙染 research/prices.py::total_return_series 的 0050 基準(124 個 research 呼叫點使用 prices.py,含 research/tri/pnl_dashboard.py 實盤損益看板)與所有 ETF 排名文件。",
+      "what": "ETF 配息自 2024-06-20(twse)/ 2026-04-17(tpex)之後全數缺漏。twse ETF 列數 2023 年 143、2024 年 86(全在上半年)、2025 年 0、2026 年 0;目前仍在交易的 233 檔上市 ETF 沒有一檔有 2024-07 之後的配息紀錄。0050 最後一筆 2024-01-17、0056 2024-04-18、00878 2024-05-17、00919 2024-03-18、006208 2023-11-16。直接汙染 src/quantlib/prices.py::total_return_series 的 0050 基準(124 個 research 呼叫點使用 prices.py,含 src/quantlib/tri/pnl_dashboard.py 實盤損益看板)與所有 ETF 排名文件。",
       "evidence": "12_etf_gap.py:『ETF(代號 00 開頭)配息列數逐年 x market』→ twse 2019:58 / 2020:65 / 2021:76 / 2022:93 / 2023:143 / 2024:86 / **2025:0 / 2026:0**;tpex 2024:379 / 2025:540 / 2026:163(全落在 1~4 月)。『ETF 配息最後一筆日期』→ twse 2024-06-20、tpex 2026-04-17。『仍在交易但配息紀錄斷掉』→ twse 233 檔 ETF 現仍有報價(last_px >= 2026-07-01),其中 167 檔從來沒有任何配息紀錄、66 檔停在 2024-07 之前。13_final_tally.py 的『公司列 vs ETF 列』把公司列與 ETF 列分開後,twse 公司列 2025 年恢復正常(945)而 ETF 列仍為 0 → 證明這是獨立於缺口 1 的第二個洞。根因:MOPS t108sb27 是『上市/上櫃公司除權息公告』,體制上不含 ETF 受益憑證的收益分配(src/main/resources/application.conf:105-111 的端點說明 + 04 腳本重解析 MOPS 檔案:全部檔案零筆 00 開頭代號);legacy 的交易所除權息計算結果表才有 ETF。docs/active_etf_analysis.md:311 早記過『2024-07 之後 0050 配息可能 missing → CAGR 估低 ~0.5pp』,本次確認範圍遠大於該記載(全部 ETF、兩個市場、且每月持續擴大)。",
       "fix": "MOPS 沒有 ETF,必須另接來源。動手前先查官方文件確認 ETF 收益分配的 bulk endpoint;同時重測一次 TWSE legacy 除權息計算結果表(TWT49U)是否真的永久失效——TPEx 的對應端點活到 2026-04、twse 2024-06 就死,不排除是參數或反爬問題而非下架。補完要把『ETF 配息連續 N 個月為 0』寫成每日 loop 的健康檢查(這個洞靜靜開了兩年)。"
     },
@@ -22,18 +22,18 @@
       "severity": "BUG",
       "what": "換 MOPS 之後股票股利(除權)完全沒有被還原:219 筆事件(twse 187 = 2024:72 / 2025:85 / 2026:30;tpex 32 = 2024:3 / 2025:3 / 2026:26)。純配股列 cash_dividend=0 被 prices.py:143 的 cash_dividend > 0 整列丟掉;配權息列只還原現金部分。中位稀釋 −4.8%,最大 −54.6%(1808 潤隆 2024-09-26 配股 12 元)。近期仍在發生:tpex 5386 2026-07-20 配股 5 元(稀釋 −33.3%)、tpex 2755 2026-07-16 配股 2.46 元(−19.8%)。",
       "evidence": "07_semantic_drift.py:(1) 全史驗證 legacy 列的 cash_dividend 等於 pre_close − ref_px —— 息 20,273 筆最大絕對誤差 0.01、權息 5,120 筆 0.06、權 2,245 筆 0.54,即 legacy 存的是 CSV 的『權值+息值』欄(twse values(5)、tpex values(7)),餵進 prices.py 的 factor=(pre_close−cash_div)/pre_close 剛好等於 參考價/前收盤 = 正確的現金+配股合併還原因子;(2) TradingReader.scala:364-396 parseMopsRows 存的是純現金股利(r(7)+r(8)+r(9)=盈餘分配+法定盈餘公積+特別股),股票股利另開 cash_dividend=0 的一列 → 語義在 2024-07(twse)/2026-05(tpex)換源時斷裂。09_gap_impact.py『B. 換 MOPS 後有股票股利卻沒被還原的事件數』給出 219 筆與逐年分佈。逐筆對得上實際價格:twse 1342 八貫 2024-07-17 配股 1.0 元、無現金股利,daily_quote 收盤 115.5 → 103.0(−10.8%),隱含稀釋 −9.09%,DB cash_dividend=0 → 整列被 prices.py 丟掉;twse 6625 2024-07-18 配股 1.0 + 現金 3.5,收盤 99.9 → 90.4,實際持有人總報酬 (1.1×90.4+3.5)/99.9−1 = +3.0%,prices.py 用 factor=(99.9−3.5)/99.9 算出 −6.2%,單日差 9.2pp。prices.py:340-395 的 _detect_stock_splits 只認『3~14 天停牌 + 因子 ≥2.5x 或 ≤0.4x』,5%~30% 的配股稀釋一律漏網,確認沒有其他路徑補救。原始檔證據:iconv -f big5-hkscs data/ex_right_dividend/tpex/2025/2025_7_29.csv | grep 7734 → 前收 1360、參考價 1065.08、權值 273.20、息值 21.716504、權值+息值 294.919243、現金股利 21.71650400。",
-      "fix": "MOPS 原始檔已有『股票股利-盈餘轉增資』r(4) 與『資本公積轉增資』r(5) 兩欄,parseMopsRows 目前只拿來決定要不要開一列『權』。新增 stock_dividend 欄位存進 Slick table + PG + cache,prices.py 的因子改成 factor = (pre_close − cash_div) / (pre_close × (1 + stock_div/10));同時把 legacy 的『權值+息值』改存到獨立欄位、別再叫 cash_dividend,讓兩個時代走同一條語義。改完必跑 research/tests/test_prices.py 的 10 項 parity 套件。"
+      "fix": "MOPS 原始檔已有『股票股利-盈餘轉增資』r(4) 與『資本公積轉增資』r(5) 兩欄,parseMopsRows 目前只拿來決定要不要開一列『權』。新增 stock_dividend 欄位存進 Slick table + PG + cache,prices.py 的因子改成 factor = (pre_close − cash_div) / (pre_close × (1 + stock_div/10));同時把 legacy 的『權值+息值』改存到獨立欄位、別再叫 cash_dividend,讓兩個時代走同一條語義。改完必跑 src/quantlib/tests/test_prices.py 的 10 項 parity 套件。"
     },
     {
       "severity": "BUG",
       "what": "PG 對『事後更正的公告』永遠不更新,停在第一次匯入的舊值。目前抓到 1 筆:tpex 6185 幃翔 2026-07-02,PG 記 0.39,原始檔寫 0.39261977(cache 是對的 0.39261977)。這是機制性缺陷,會隨時間累積——MOPS 常見先報整數股利、再依參加分派股數調整成小數。",
-      "evidence": "05_value_parity.py『共同鍵的 cash_dividend 差異』→ shared 30,060 / diff 1,唯一那筆是 tpex 2026-07-02 6185(cache 0.39262 vs PG 0.39)。原始檔:iconv -f big5-hkscs data/ex_right_dividend/tpex/2026/2026_6.csv | grep '\"6185\"' → \"6185\",\"幃翔\",\"114年\",\"2026/07/10\",\"\",\"\",\"\",0.39261977,...,\"2026/07/02\",...,\"2026/06/24\" → 檔案值 0.39261977。psql 查 PG 該列 cash_dividend = 0.39 且價格欄全 0(= MOPS 來源指紋)。根因兩層跳過疊加:Task.scala:359-375 monthDone『檔案存在就不重抓』(僅當月例外)+ TradingReader.scala:302-303 與 350 的 filterNot(dataAlreadyInDB.contains(...))『鍵已在 DB 就不寫』。Python 爬蟲 research/crawl/sources/ex_right_dividend.py 有 sink.upsert 且每次重抓最近 3 個月(_REFRESH_MONTHS=3),所以 cache 反而是對的。06_reparse_vs_db.py 把磁碟上全部 MOPS 月報重新解析後與 PG 對帳,同 key 差異清單也只列出這一類。",
+      "evidence": "05_value_parity.py『共同鍵的 cash_dividend 差異』→ shared 30,060 / diff 1,唯一那筆是 tpex 2026-07-02 6185(cache 0.39262 vs PG 0.39)。原始檔:iconv -f big5-hkscs data/ex_right_dividend/tpex/2026/2026_6.csv | grep '\"6185\"' → \"6185\",\"幃翔\",\"114年\",\"2026/07/10\",\"\",\"\",\"\",0.39261977,...,\"2026/07/02\",...,\"2026/06/24\" → 檔案值 0.39261977。psql 查 PG 該列 cash_dividend = 0.39 且價格欄全 0(= MOPS 來源指紋)。根因兩層跳過疊加:Task.scala:359-375 monthDone『檔案存在就不重抓』(僅當月例外)+ TradingReader.scala:302-303 與 350 的 filterNot(dataAlreadyInDB.contains(...))『鍵已在 DB 就不寫』。Python 爬蟲 src/quantlib/crawl/sources/ex_right_dividend.py 有 sink.upsert 且每次重抓最近 3 個月(_REFRESH_MONTHS=3),所以 cache 反而是對的。06_reparse_vs_db.py 把磁碟上全部 MOPS 月報重新解析後與 PG 對帳,同 key 差異清單也只列出這一類。",
       "fix": "readExRightDividend 的『鍵已在 DB 就跳過』改成 upsert(以 (market,date,company_code) 為鍵更新);Task 對最近 N 個月無條件重抓(對齊 Python 側的 3 個月)。"
     },
     {
       "severity": "SUSPECT",
       "what": "同一張表有兩條寫入路徑,目前 cache 領先 PG 36 列(27 列是 PG 完全沒有的未來事件、最遠 2026-09-07;9 列是 cash_dividend=0 的純除權列,依同步條件本來不該進 cache),而且唯一正確的 6185 值只存在 cache。照 CLAUDE.md 的 Step 2 跑一次 research/cache_tables.py,這 36 列會被無聲抹掉、6185 也會退回錯的 0.39。與 C-operating_revenue / C-stock_per_pbr 查到的是同一個結構病。",
-      "evidence": "05_value_parity.py:cache_only 36 / pg_only 0;明細顯示 9 列在 PG 存在但 cash_dividend=0(pg_kind='權')、27 列 PG 完全沒有(2026-07-30 起至 2026-09-07)。01_counts.py 逐日差異表:tpex 2026-08-04(cache 7 / PG 0)、tpex 2026-08-13、tpex 2026-09-07 等只在 cache。cache max(date) 2026-09-07 vs PG max(date) 2026-08-27。程式碼:research/cache_tables.py:22-23 os.remove(DB_PATH) 後第 42 行從 pg.public.ex_right_dividend 全砍重建;另一條 research/crawl/sources/ex_right_dividend.py::refresh → research/crawl/sink.py::upsert 直寫 cache.duckdb,完全不經 PG。兩條路徑的呼叫點:research/serenity/daily.py(sbt Main update → cache_tables.py)vs research/crawl/update.py:75-81(ex_right_dividend.refresh)。",
+      "evidence": "05_value_parity.py:cache_only 36 / pg_only 0;明細顯示 9 列在 PG 存在但 cash_dividend=0(pg_kind='權')、27 列 PG 完全沒有(2026-07-30 起至 2026-09-07)。01_counts.py 逐日差異表:tpex 2026-08-04(cache 7 / PG 0)、tpex 2026-08-13、tpex 2026-09-07 等只在 cache。cache max(date) 2026-09-07 vs PG max(date) 2026-08-27。程式碼:research/cache_tables.py:22-23 os.remove(DB_PATH) 後第 42 行從 pg.public.ex_right_dividend 全砍重建;另一條 src/quantlib/crawl/sources/ex_right_dividend.py::refresh → src/quantlib/crawl/sink.py::upsert 直寫 cache.duckdb,完全不經 PG。兩條路徑的呼叫點:src/quantlib/serenity/daily.py(sbt Main update → cache_tables.py)vs src/quantlib/crawl/update.py:75-81(ex_right_dividend.refresh)。",
       "fix": "cache_tables.py 全砍重建前檢查『PG 是否已涵蓋 cache 現有鍵集合』,不涵蓋就拒跑並提示先跑 Scala 端更新;或對這張表改成 merge 不 drop。長期應收斂成單一 writer。"
     },
     {
@@ -45,7 +45,7 @@
     {
       "severity": "OK",
       "what": "cache 與 PostgreSQL 的一致性沒有問題:schema 無漏欄無型別降級、逐年筆數除 2026 外完全相同、全表逐鍵逐欄比對只有 1 列不同(且是 PG 錯 cache 對)、PG 獨有鍵 0 筆、指定隨機抽樣 15/15 相同。",
-      "evidence": "schema:psql \\d ex_right_dividend → 13 欄(id / market / date / company_code / company_name / closing_price_before_ex_right_ex_dividend / ex_right_ex_dividend_reference_price / cash_dividend / right_or_dividend / limit_up / limit_down / opening_reference_price / ex_dividend_reference_price,唯一索引 (market,date,company_code));DuckDB DESCRIBE ex_right_dividend → market VARCHAR / date DATE / company_code VARCHAR / cash_dividend DOUBLE。同步 SQL research/cache_tables.py:42 與 pg-attach 對照 view research/db.py:115-117 逐字相同(欄位、順序、WHERE 條件皆同),parity 沒破。01_counts.py:cache 30,096 / PG 全量 30,153 / PG 過濾後 30,060;逐年 x market 只有 2026 有差(tpex +16、twse +20,全部是 Python 爬蟲寫的未來事件)。05_value_parity.py:雙向 EXCEPT → cache_only 36 / pg_only 0;共同 30,060 鍵的 cash_dividend IS DISTINCT FROM 計數 = 1。抽樣(seed 20260722):2021-09-02 / 2018-07-05 / 2006-08-03 各 5 檔,15/15 相同。",
+      "evidence": "schema:psql \\d ex_right_dividend → 13 欄(id / market / date / company_code / company_name / closing_price_before_ex_right_ex_dividend / ex_right_ex_dividend_reference_price / cash_dividend / right_or_dividend / limit_up / limit_down / opening_reference_price / ex_dividend_reference_price,唯一索引 (market,date,company_code));DuckDB DESCRIBE ex_right_dividend → market VARCHAR / date DATE / company_code VARCHAR / cash_dividend DOUBLE。同步 SQL research/cache_tables.py:42 與 pg-attach 對照 view src/quantlib/db.py:115-117 逐字相同(欄位、順序、WHERE 條件皆同),parity 沒破。01_counts.py:cache 30,096 / PG 全量 30,153 / PG 過濾後 30,060;逐年 x market 只有 2026 有差(tpex +16、twse +20,全部是 Python 爬蟲寫的未來事件)。05_value_parity.py:雙向 EXCEPT → cache_only 36 / pg_only 0;共同 30,060 鍵的 cash_dividend IS DISTINCT FROM 計數 = 1。抽樣(seed 20260722):2021-09-02 / 2018-07-05 / 2006-08-03 各 5 檔,15/15 相同。",
       "fix": ""
     },
     {
@@ -57,7 +57,7 @@
     {
       "severity": "REAL",
       "what": "除權息日落在颱風休市日是真的,而且不影響還原價。共 17 個休市日有除權息紀錄(2008-07-28 鳳凰、2009-08-07 莫拉克、2012-08-02 蘇拉、2013-08-21 潭美、2014-07-23 麥德姆、2015-07-10 昌鴻、2016-07-08 尼伯特、2016-09-28 梅姬、2019-08-09 利奇馬、2019-09-30 米塔、2023-08-03 卡努、2024-07-24/25 凱米、2024-10-02/03 山陀兒、2024-10-31 康芮、2026-07-10)。",
-      "evidence": "08_coverage_and_anomaly.py 檢查 (a):列出所有『除權息日不在 daily_quote 交易日集合』的日期,再用 research/data_calendar.py::is_trading_day(讀 0-byte sentinel 休市日曆,能認颱風假)逐日複核 → 上述 17 天全部判為『休市』。不影響還原的證明:prices.py:278-296 的 _build_factor_table 用 probe = ex_date − 1 做 asof-backward 取前收盤,factor 套用在『ex_date 之前的所有日期』(_apply_back_adjustment 用 probe=date+1 forward),而實際跳空落在下一個交易日;休市日與實際除權息日之間沒有交易日夾著,所以累積效果正確。另外 2003 年的 96 個日期找不到報價是因為 daily_quote twse 起於 2004-02-11(tpex 2007-07-02);twse 2021-08-18 / 2025-08-15 / 2026-04-29 / 2026-05-28 找不到報價是 docs/data_audit/_done/C-daily_quote.json 已記錄的 BUG,與本表無關。",
+      "evidence": "08_coverage_and_anomaly.py 檢查 (a):列出所有『除權息日不在 daily_quote 交易日集合』的日期,再用 src/quantlib/data_calendar.py::is_trading_day(讀 0-byte sentinel 休市日曆,能認颱風假)逐日複核 → 上述 17 天全部判為『休市』。不影響還原的證明:prices.py:278-296 的 _build_factor_table 用 probe = ex_date − 1 做 asof-backward 取前收盤,factor 套用在『ex_date 之前的所有日期』(_apply_back_adjustment 用 probe=date+1 forward),而實際跳空落在下一個交易日;休市日與實際除權息日之間沒有交易日夾著,所以累積效果正確。另外 2003 年的 96 個日期找不到報價是因為 daily_quote twse 起於 2004-02-11(tpex 2007-07-02);twse 2021-08-18 / 2025-08-15 / 2026-04-29 / 2026-05-28 找不到報價是 docs/data_audit/_done/C-daily_quote.json 已記錄的 BUG,與本表無關。",
       "fix": ""
     },
     {
@@ -68,7 +68,7 @@
     }
   ],
   "checked": [
-    "schema 對照:psql \\d ex_right_dividend(13 欄)vs DuckDB DESCRIBE ex_right_dividend(4 欄)+ research/cache_tables.py:42 的同步 SQL + research/db.py:115-117 的 pg-attach 對照 view(逐字相同)",
+    "schema 對照:psql \\d ex_right_dividend(13 欄)vs DuckDB DESCRIBE ex_right_dividend(4 欄)+ research/cache_tables.py:42 的同步 SQL + src/quantlib/db.py:115-117 的 pg-attach 對照 view(逐字相同)",
     "整表/逐年/逐日筆數:cache 30,096 vs PG 30,153(全量)/ 30,060(過濾後),逐 (market,year) 與 (market,date) 全比對(01_counts.py)",
     "全表逐鍵逐欄值比對(非抽樣):30,060 個共同鍵的 cash_dividend IS DISTINCT FROM 計數 + 雙向 EXCEPT 找獨有鍵(05_value_parity.py)",
     "指定隨機抽樣:seed 20260722,3 個日期 x 5 檔共 15 組逐欄比對(05_value_parity.py)",
@@ -77,14 +77,14 @@
     "檔案 vs DB 對帳:把 MOPS 月報重新解析成 3,554 列與 PG / cache 逐鍵比值(06_reparse_vs_db.py)",
     "語義漂移驗證:legacy 列 cash_dividend == pre_close − ref_px 的全史檢定 + 換源後股票股利事件盤點與 daily_quote 實際價格落差(07_semantic_drift.py)",
     "季節性缺口偵測:逐年 x 逐月矩陣、旺季(6~9 月)合計、每月相對同月歷史中位數比值 <0.6、整月零筆清單(02_monthly_profile.py)",
-    "覆蓋缺口:除權息日不在 daily_quote 交易日集合的全部日期 + research/data_calendar.py::is_trading_day 逐日複核(含颱風假)(08_coverage_and_anomaly.py)",
+    "覆蓋缺口:除權息日不在 daily_quote 交易日集合的全部日期 + src/quantlib/data_calendar.py::is_trading_day 逐日複核(含颱風假)(08_coverage_and_anomaly.py)",
     "跨年出現度缺漏偵測 + 兩組對照(2023 缺失、2025 缺失)當基準漏失率(08_coverage_and_anomaly.py)",
     "缺漏的獨立佐證:用 stock_per_pbr 殖利率 x 收盤價重建每股股利階梯,驗證 309 家在 2024 年確實宣告過股利(11_recover_missing_from_bwibbu.py);另做超額報酬對照組(10_gap_evidence_excess.py,結論:被 2024-08-05 股災汙染,不採為主證據)",
     "ETF 缺口:代號 00 開頭的配息列逐年逐月、各 ETF 最後一筆配息 vs 最新報價、仍在交易但配息斷掉的檔數(12_etf_gap.py)",
     "異常值掃描:負值 / 零值 / NULL / 未來日期 / 重複鍵 / 代號格式 / >100 極端值 / cash_dividend >= 前收盤價(08_coverage_and_anomaly.py)",
     "極端值回原始檔驗證:tpex 7734(2025_7_29.csv legacy 欄序)、tpex 6185(2026_6.csv MOPS)、twse 2024_7.csv 表頭",
-    "程式碼(codebase-memory-mcp + 精讀):src/main/scala/reader/TradingReader.scala::readExRightDividend(300-358)與 parseMopsRows(364-396)、src/main/scala/Task.scala::pullExRightDividend(354-385)、src/main/scala/setting/ExRightDividendSetting.scala、src/main/scala/db/table/ExRightDividend.scala、src/main/resources/application.conf:105-111、research/cache_tables.py、research/db.py、research/prices.py(fetch_adjusted_panel / _build_factor_table / _detect_stock_splits)、research/crawl/sources/ex_right_dividend.py、research/crawl/update.py、research/crawl/sink.py",
-    "消費端盤點:research/prices.py:142(唯一還原價入口,124 個 research 呼叫點)、research/tri/pnl_dashboard.py:159-164(實盤看板的 0050 基準)、research/futures/research_tx.py:144-145、research/apex/data.py:142、research/analyses/active_etf_metrics.py:34、research/audits/01_find_spikes.py:58、research/audits/02_anomaly_scan.py:51、research/tests/test_prices.py:53",
+    "程式碼(codebase-memory-mcp + 精讀):src/main/scala/reader/TradingReader.scala::readExRightDividend(300-358)與 parseMopsRows(364-396)、src/main/scala/Task.scala::pullExRightDividend(354-385)、src/main/scala/setting/ExRightDividendSetting.scala、src/main/scala/db/table/ExRightDividend.scala、src/main/resources/application.conf:105-111、research/cache_tables.py、src/quantlib/db.py、src/quantlib/prices.py(fetch_adjusted_panel / _build_factor_table / _detect_stock_splits)、src/quantlib/crawl/sources/ex_right_dividend.py、src/quantlib/crawl/update.py、src/quantlib/crawl/sink.py",
+    "消費端盤點:src/quantlib/prices.py:142(唯一還原價入口,124 個 research 呼叫點)、src/quantlib/tri/pnl_dashboard.py:159-164(實盤看板的 0050 基準)、src/quantlib/futures/research_tx.py:144-145、src/quantlib/apex/data.py:142、src/quantlib/analyses/active_etf_metrics.py:34、src/quantlib/audits/01_find_spikes.py:58、src/quantlib/audits/02_anomaly_scan.py:51、src/quantlib/tests/test_prices.py:53",
     "與其他稽核單位/文件交叉:docs/data_audit/_done/C-daily_quote.json(2021-08-18 等 4 個報價空白日互為佐證)、docs/data_audit/findings/A-stock_per_pbr_dividend_yield.md:160-164(legacy cash_dividend 含權益調整,獨立發現)、docs/active_etf_analysis.md:311/591(0050 配息 2024-07 後可能 missing 的既有記載)、docs/data/data_quality_incidents.md(無本表相關紀錄)"
   ]
 }

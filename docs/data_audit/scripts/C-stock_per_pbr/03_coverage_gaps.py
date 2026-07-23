@@ -3,10 +3,10 @@
 三種比對:
 1. cache 的 stock_per_pbr 日期 vs cache 的 daily_quote 日期(同市場;daily_quote
    是本專案事實上的交易日母體)。
-2. 對 `research.data_calendar.is_trading_day`(sentinel 休市日曆)逐日檢查。
+2. 對 `quantlib.data_calendar.is_trading_day`(sentinel 休市日曆)逐日檢查。
 3. 每日列數異常低的日子(可能是部分公告)。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/03_coverage_gaps.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/03_coverage_gaps.py
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import duckdb  # noqa: E402
 from research import paths  # noqa: E402
-from research.data_calendar import is_trading_day  # noqa: E402
+from quantlib.data_calendar import is_trading_day  # noqa: E402
 
 
 def main() -> None:

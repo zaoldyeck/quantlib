@@ -1,17 +1,17 @@
 {
   "unit": "D-evergreen-live",
   "title": "Evergreen 計分引擎(LIVE)",
-  "scope": "research/evergreen/engine.py 的 score_expr/scores/replay_nav(含其委派的 refit / walk-forward / DRIP 還原路徑)",
+  "scope": "src/quantlib/evergreen/engine.py 的 score_expr/scores/replay_nav(含其委派的 refit / walk-forward / DRIP 還原路徑)",
   "focus": "計分因子定義、NAV 重放的 DRIP 與還原、refit 的樣本內外切割、walk-forward 有無洩漏",
   "verdict": "SUSPECT",
   "summary": "現役 Evergreen 引擎的『錢路』——計分因子、除權息還原(DRIP)、樣本內外切割、走查有無偷看未來——四項全部學理正確、可以信:報酬曲線用的是 total-return 還原價(股利/減資/分割都折進價格),持有固定股數乘還原收盤 = 含息總報酬,不會像讀原始收盤那樣少算股利;每一段走查用的參數只由『該段之前』的資料選出,滾動擴張窗、沒有前視;因子(52 週高點距離、Donchian 突破、法人 5 日淨買、營收年增加速)都用『當下已知』的資料算、營收還嚴格延到次月 10 號才可見,沒有偷看。要提醒的三件事都不影響現役選型與 NAV:(1) 走查用的統計函式 kpis_full 裡的 Sortino 下行風險公式寫錯(用『下跌日的標準差』而非學理的『全期對 0 的下行差』,會把 Sortino 高估約一成)——但 refit 只讀它的 p5、根本沒用到這個 Sortino,live config 不受污染;(2) 那個 p5 名字叫『5% 下界』其實是 bootstrap 的 2.5 百分位(= 雙尾 95% 信賴區間下界,正好對上 CLAUDE.md 的驗收口徑,算對了、只是綽號取得鬆);(3) 走查『誠實線』的彙總 CAGR 把第一年『樣本內』那段也算進去了,會讓那條線的年化看起來比真正的樣本外好一點——但這段有 in_sample 旗標、儀表板畫成虛線標明,只有 _wf_report 這支診斷列印沒扣掉。另有兩處是刻意且一致的代理選擇(52 週高點用收盤而非盤中最高、adv20 用中位數而非平均),不是錯。",
   "findings": [
     {
       "severity": "OK",
-      "metric": "DRIP / 除權息還原 —— replay_nav→replay→simulate(engine.py:164-186)委派的還原價 panel(research/prices.py:24-41、research/apex/data.py:49-94 load_panel)",
+      "metric": "DRIP / 除權息還原 —— replay_nav→replay→simulate(engine.py:164-186)委派的還原價 panel(src/quantlib/prices.py:24-41、src/quantlib/apex/data.py:49-94 load_panel)",
       "textbook_def": "含息總報酬(total return)需把現金股利再投入:買 t 賣 T 的報酬應等於 ∏_{t<s≤T}(close_s + cash_div_s)/close_{s-1} − 1。標準做法 = Yahoo 式後復權(back-adjustment):現金股利因子 (close_pre−div)/close_pre、減資因子 post_ref/close_pre、分割因子 post/pre,adj_factor(t)=∏ 除息日>t 的因子,adj_close=raw_close×adj_factor;持有固定股數 × 還原收盤即為總報酬。",
       "implementation": "replay_nav 的 NAV 全由 simulate 在 d.panel 上走。d.panel 來自 data.load_panel = prices.fetch_adjusted_panel,回傳的 open/close/high/low 全部用同一 adj_factor 後復權(prices.py:33『Same factor applied to open/high/low』),trade_value/volume 保留原始(股利不改股數/成交金額,對流動性指標正確)。simulate 以還原收盤 mark 部位(apex/engine.py:159,403-406),持有股數固定 → invested = shares × 還原收盤 = 含息總報酬。除息日原始收盤跳水已被因子抵銷,不會產生幽靈崩跌。",
-      "evidence": "prices.py:38-41 明列不變式 adj[T]/adj[t]−1 == cumprod((close+div)/prev_close),並有 research/tests/test_prices.py 十項 parity(含跨實作對照 active_etf_metrics.py)鎖死。2026-07-23 FC1 修正後改用交易所公告『除權息前收盤/參考價』一次涵蓋配息+配股,對純配息與舊 cash 法實測僅差 4e-5(20,273 筆)。open/close 同因子 → simulate 的 next_open 成交價與 close mark 在還原空間一致,無混用。",
+      "evidence": "prices.py:38-41 明列不變式 adj[T]/adj[t]−1 == cumprod((close+div)/prev_close),並有 src/quantlib/tests/test_prices.py 十項 parity(含跨實作對照 active_etf_metrics.py)鎖死。2026-07-23 FC1 修正後改用交易所公告『除權息前收盤/參考價』一次涵蓋配息+配股,對純配息與舊 cash 法實測僅差 4e-5(20,273 筆)。open/close 同因子 → simulate 的 next_open 成交價與 close mark 在還原空間一致,無混用。",
       "fix": ""
     },
     {
@@ -40,7 +40,7 @@
     },
     {
       "severity": "SUSPECT",
-      "metric": "kpis_full 的 Sortino 下行風險公式(refit 途經,但被丟棄)—— research/evergreen/ev36_walkforward.py:84-86",
+      "metric": "kpis_full 的 Sortino 下行風險公式(refit 途經,但被丟棄)—— src/quantlib/evergreen/ev36_walkforward.py:84-86",
       "textbook_def": "Sortino(Sortino & Price 1994)/ empyrical.downside_risk:下行差 = sqrt( (1/N_total)·Σ min(0, r−MAR)² ),對『全部 N 期』取平均、以 MAR(此處 0)為錨;分子 = E[r−MAR],年化 ×√252。",
       "implementation": "dstd = dn.std(ddof=1),dn = ret[ret<0](只取下跌日);sortino = ret.mean()/max(dstd,1e-9)*sqrt(252)。分子 ret.mean() 對全期取平均、MAR=0(正確);但分母是『下跌報酬自身的樣本標準差』——對下跌報酬自己的均值取離差(非以 MAR=0 為錨)、且 ÷(n_downside−1)(非 ÷N_total),與學理下行差不符,系統性偏小 → Sortino 高估。",
       "evidence": "此即 D-metrics-scala 已編錄的 Sortino class-bug 的第 5 個實例(其清單未含 ev36_walkforward.py):同型公式(np.std(neg,ddof=1)、MAR=下跌均值)在該單位 seed=42 合成序列上實測 0.5954 vs empyrical 學理 0.5239,高估 +13.7%。**關鍵限縮**:engine.py:208 的 refit 只讀 kpis_full(...)['p5'],Sortino 欄位在 Evergreen 選型被丟棄(其餘 evergreen/apex 呼叫者亦僅讀 ['p5']),故此偏差不進 live_config、不影響任何上場決策或 NAV。",
@@ -48,7 +48,7 @@
     },
     {
       "severity": "SUSPECT",
-      "metric": "p5『5% 下界』實為 2.5 百分位 —— refit 讀取(engine.py:208)委派的 block_bootstrap_cagr(research/apex/validate.py:23-41)",
+      "metric": "p5『5% 下界』實為 2.5 百分位 —— refit 讀取(engine.py:208)委派的 block_bootstrap_cagr(src/quantlib/apex/validate.py:23-41)",
       "textbook_def": "『bootstrap 95% 信賴區間下界』(CLAUDE.md 驗收口徑『Bootstrap 95% CI lower bound > 10% CAGR』)雙尾解讀 = 分佈第 2.5 百分位;若指『單尾 95% 下限』則為第 5 百分位。兩者名實需一致。",
       "implementation": "block_bootstrap_cagr 回傳 ci_lo = np.percentile(cagr, 2.5);kpis_full 將其命名為 p5、engine.py 註解與 live_config 稱『bootstrap 5% 下界 / P5』。circular moving-block bootstrap 本身正確(block=21、growth^(252/t)−1、保留自相關,D-metrics-scala 已驗 OK)。",
       "evidence": "validate.py:37 明碼 np.percentile(cagr, 2.5);即『雙尾 95% CI 下界』——與 CLAUDE.md 的『95% CI lower bound』口徑一致(算對了)。爭議僅在綽號:『p5 / 5% 下界』字面暗示第 5 百分位,實為第 2.5。refit 以 max p5 選型,對所有 cfg 一致取同一百分位 → 是單調一致的選擇尺,cfg 間排序不受名實不符影響;live_config p5=1.505 即一個 bootstrap ci_lo。",

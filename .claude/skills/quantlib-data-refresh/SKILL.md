@@ -31,7 +31,7 @@ cd /Users/zaoldyeck/Documents/scala/quantlib && \
 
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python research/cache_tables.py
+  uv run --project . python research/cache_tables.py
 ```
 
 - Takes 3-5 min (pulls ~30M rows)
@@ -65,7 +65,7 @@ cd /Users/zaoldyeck/Documents/scala/quantlib && \
 Run v4 backtest; compare against memory baseline (`project_v4_baseline.md`):
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python research/strat_lab/v4.py \
+  uv run --project . python src/quantlib/strat_lab/v4.py \
     --start 2018-01-02 --end 2026-04-17 --capital 1000000
 ```
 

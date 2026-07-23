@@ -18,7 +18,7 @@ TPEx 原始檔的標頭 20 欄全史零漂移(見 01_header_scan.py),但**資料
 旁證(不必信使用率式子也能判死):era B 有 65,821 / 135,679 列(48.5%)出現
 「券餘額 > 券限額」——餘額不可能超過自己的限額。era A 與 2009+ 皆為 0 / 0.25%。
 
-run: uv run --project research python docs/data_audit/scripts/A-margin_transactions/04_tpex_tail_eras.py
+run: uv run --project . python docs/data_audit/scripts/A-margin_transactions/04_tpex_tail_eras.py
 不依賴 cache.duckdb。
 """
 

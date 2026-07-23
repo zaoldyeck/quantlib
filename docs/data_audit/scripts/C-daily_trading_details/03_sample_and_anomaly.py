@@ -4,7 +4,7 @@
 (2) 異常值:對 cache 全表掃「不可能的值」——重複主鍵、未來日期、代號格式、
     三大法人恆等式破裂、int32 邊界、全零列、正負號分布。
 
-用法:PYTHONPATH=<repo> uv run --project research python \
+用法:PYTHONPATH=<repo> uv run --project . python \
       docs/data_audit/scripts/C-daily_trading_details/03_sample_and_anomaly.py
 """
 from __future__ import annotations

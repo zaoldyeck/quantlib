@@ -7,7 +7,7 @@
    → TWSE 靜默 fallback 的幽靈日(A 維 BUG#1 的 cache 端獨立重現)。
 ④ 語意一致性:|close_t − close_(t−1) − change_t| > 0.02 的比例。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/04_sample_and_anomaly.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/04_sample_and_anomaly.py
 """
 import os
 import duckdb

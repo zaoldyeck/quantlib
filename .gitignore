@@ -114,17 +114,17 @@ project/plugins/project/
 /.claude/memory/
 
 # Python research — virtual env / local cache / ad-hoc outputs not version-controlled
-/research/cache.duckdb
-/research/.venv/
-/research/__pycache__/
-/research/out/
-/research/research/
+/src/quantlib/cache.duckdb
+/src/quantlib/.venv/
+/src/quantlib/__pycache__/
+/src/quantlib/out/
+/src/quantlib/src/quantlib/
 # Backtest output (regenerable from iter_*.py / validate_*.py)
-/research/strat_lab/results/
-# Factor panel snapshot (regenerable from research/strat_lab/raw_quarterly.py)
-/research/raw_quarterly.parquet
+/src/quantlib/strat_lab/results/
+# Factor panel snapshot (regenerable from src/quantlib/strat_lab/raw_quarterly.py)
+# raw_quarterly 已移 var/cache(由 /var/ 涵蓋)
 # Experiment intermediate outputs (ad-hoc)
-/research/experiments/out/
+/src/quantlib/experiments/out/
 *.pyc
 
 # Feature-planning artifacts not part of main project source
@@ -138,13 +138,13 @@ project/plugins/project/
 /.playwright-mcp/
 
 # S 策略 live 執行期產物(每日計劃/成交 log,非源碼)
-research/trading/live/state/
+src/quantlib/trading/live/state/
 
-# 日內 1 分 K 原始資料(可由 Shioaji 重抓,不進版控;程式碼在 research/intraday/)
-/research/data/intraday/
+# 日內 1 分 K 原始資料(可由 Shioaji 重抓,不進版控;程式碼在 src/quantlib/intraday/)
+/src/quantlib/data/intraday/
 
 # 券商憑證/私鑰:任何位置都不得進版控(2026-07-21 事件:憑證被放到 repo 根目錄,
-# 當時只有 research/.gitignore 有 *.pfx 規則,根目錄完全無防護 → 補全域規則)。
+# 當時只有 src/quantlib/.gitignore 有 *.pfx 規則,根目錄完全無防護 → 補全域規則)。
 *.pfx
 *.p12
 *.pem
@@ -162,17 +162,18 @@ research/trading/live/state/
 
 # 本地資料快照與 runtime state(可重生,不進版控)
 
-# research/data/ 混住兩種東西,規則必須分開下:
+# src/quantlib/data/ 混住兩種東西,規則必須分開下:
 #   ✗ intraday/ = 可重下載的原始 1 分 K(194 MB)→ 不進版控
 #   ✓ revenue_first_seen / confcall_events / news_aliases = **不可重生的觀測紀錄**
 #     (「我們哪一天第一次看到這筆營收揭露」無法從資料庫回推,它正是 S 事件驅動
 #      進場的時間真相)+ 人工策展的別名表 → 必須進版控
 
-# ── 三種生命週期,三條規則(2026-07-22 Phase 2 結構重整;唯一真源 research/paths.py)
+# ── 三種生命週期,三條規則(2026-07-22 Phase 2 結構重整;唯一真源 src/quantlib/paths.py)
 # var/ = 可重生產物(cache / 回測輸出 / 報告 / log / runtime state)。**整包忽略,
 #        一行搞定** —— 舊做法靠人工維護一長串規則,規則永遠跟不上目錄演進,
 #        於是 952 個檔卡在 git status 裡讓人視而不見(2026-07-22 事故根因)。
 /var/
 # data/ = 原始封存(爬回來的 CSV 與 1 分 K)。不可重生、但 51 GB 不進 git。
 /data/
-research/market_data.db
+src/quantlib/market_data.db
+.venv

@@ -2,7 +2,7 @@
   "id": "D-apex-s-live",
   "dim": "D",
   "title": "S 策略六因子(LIVE money-path)",
-  "scope": "research/apex/strategy_s.py + research/apex/assemble.py",
+  "scope": "src/quantlib/apex/strategy_s.py + src/quantlib/apex/assemble.py",
   "unit": "D-apex-s-live",
   "verdict": "SUSPECT",
   "summary": "S 策略這條真金白銀的選股線可以信:六個因子逐一對照學理定義都對得上,PIT 對齊乾淨、沒有偷看未來,幾何排名的做法也是穩健的。四個因子做了逐格重算驗證(高52週距、6月動能對 2330 共 2872 列零差;產業相對加速對全市場 5,067,841 列零差;產業別 PIT 前視 0 列),兩個營收因子的定義忠實實作。唯一要補的一顆螺絲:三月序列動能 rev_seq 在『前三個月營收合計為 0』時會除以零變成 +inf(計分池 343,866 列裡有 6 列),而 polars 的 rank 會把 inf(乃至更糟的 0/0→NaN)排到接近或絕對最頂——這幾檔多半是建設股這種認列跳動的產業。因為分數靠 rank/len 收斂,總分不會爆掉,實際汙染只有 6 列、對選股影響可忽略,所以不是會讓結論失真的 BUG,但學理上『未定義的成長率』該 null 掉而非給最高名次,值得順手加個和 close_pos_20 同款的護欄。除此之外,無風險利率近似 0、年化 252 日、還原價跑動能都符合台股語境,money-path 無定義性錯誤。",

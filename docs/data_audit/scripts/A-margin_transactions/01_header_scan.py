@@ -10,7 +10,7 @@
 → 標頭本身不會漂,但「標頭不漂 ≠ 資料不漂」:見 04_tpex_tail_eras.py,
   TPEx 2007-06~2008-09 標頭仍寫「券限額」,實際資料卻換成了「資券相抵」。
 
-run: uv run --project research python docs/data_audit/scripts/A-margin_transactions/01_header_scan.py
+run: uv run --project . python docs/data_audit/scripts/A-margin_transactions/01_header_scan.py
 不依賴 cache.duckdb。
 """
 

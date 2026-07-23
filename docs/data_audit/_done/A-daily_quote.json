@@ -13,7 +13,7 @@
       "severity": "BUG",
       "what": "data/daily_quote/tpex/2017/2017_4_17.csv 是下載到一半就斷的檔案,導致 8923 時報~9962 有益共 21 檔上櫃股票在 2017-04-17 整天沒有報價。DB 該日 713 列,前後交易日 734/734。TradingReader.scala:133 的 filter(_.size >= 15) 把那條半截列靜靜丟掉,後面 20 檔根本沒下載到;程式沒有任何『檔案完不完整』的檢查。更麻煩的是 TradingReader.scala:92-94 以『(market, 檔名日期) 已在 DB』當跳過條件,原始檔就算重抓正確,重跑 Main read 也不會重新匯入。",
       "evidence": "iconv -f BIG5-HKSCS -t UTF-8 data/daily_quote/tpex/2017/2017_4_17.csv | tail -1 → '\"8923\",\"時報\",\" ----\",\"--- \",\"----\",\"----\",\"----\",\"0\",\"0\",\"0\",\"17.05\",'(列在此中斷,且全檔沒有 TPEx 必有的『共N筆』結尾)。SQL:SELECT date,count(*) FROM daily_quote WHERE market='tpex' AND date BETWEEN '2017-04-14' AND '2017-04-18' GROUP BY 1 → 04-14:734、04-17:713、04-18:734。全史唯一性佐證三條:(a) 4,924 個有資料的 TPEx 檔中只有這 1 個缺『共N筆』,其餘 4,923 檔自報筆數與實際解析列數 0 個不符(docs/data_audit/scripts/A-daily_quote/trunc.py、scan3.py);(b) 每日 max(company_code):tpex 4,678 天都是 9962,只有 2017-04-17 是 8921;twse 5,519 天只有 9945→9955→9958 三段乾淨更迭;(c) 列數低於前後 5 日均值 98% 的只有 2 天,另一天 2010-07-13 自報『共1152筆』與實際相符。缺的 21 檔(對 2017-04-18 名單):8923 時報、8924 大田、8927 北基、8928 鉅明、8929 富堡、8930 青鋼、8931 大汽電、8932 宏大、8933 愛地雅、8934 衡平、8935 邦泰、8936 國統、8937 合騏、8938 明安、8941 關中、8942 森鉅、9949 琉園、9950 萬國通、9951 皇田、9960 邁達康、9962 有益。偵測腳本:docs/data_audit/scripts/A-daily_quote/dropcheck.py 對全史掃描,唯一命中就是這一列。",
-      "fix": "① 重抓 https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&o=csv&se=EW&d=106/04/17;② 先 DELETE FROM daily_quote WHERE market='tpex' AND date='2017-04-17'(PG 與 var/cache/cache.duckdb 兩邊)再重讀,否則 readDailyQuote 的 dataAlreadyInDB 會跳過;③ 根因守護:TPEx 落檔前驗『共N筆』存在且等於解析列數,不符即 [deferred] 刪檔重抓(TWSE 側改驗『備註區存在』或與前一交易日列數落差門檻);④ 這條守護應同時補進 research/crawl/sources/daily_quote.py,兩條寫入路徑都要擋。"
+      "fix": "① 重抓 https://www.tpex.org.tw/web/stock/aftertrading/otc_quotes_no1430/stk_wn1430_result.php?l=zh-tw&o=csv&se=EW&d=106/04/17;② 先 DELETE FROM daily_quote WHERE market='tpex' AND date='2017-04-17'(PG 與 var/cache/cache.duckdb 兩邊)再重讀,否則 readDailyQuote 的 dataAlreadyInDB 會跳過;③ 根因守護:TPEx 落檔前驗『共N筆』存在且等於解析列數,不符即 [deferred] 刪檔重抓(TWSE 側改驗『備註區存在』或與前一交易日列數落差門檻);④ 這條守護應同時補進 src/quantlib/crawl/sources/daily_quote.py,兩條寫入路徑都要擋。"
     },
     {
       "severity": "BUG",
@@ -30,7 +30,7 @@
     {
       "severity": "SUSPECT",
       "what": "TPEx 版型判斷用 case _ 兜底,是 CLAUDE.md『Known Bug Patterns』第一條(TWSE CSV schema drift + case fall-through)的活體。TradingReader.scala:145-148 只寫 case 15 與 case _,而 case _ 的取值位置是寫死給 17 欄用的;filter(_.size >= 15) 又會照收任何 ≥15 欄的列。TPEx 已經在 2020-04-30 無聲從 15 欄加到 17 欄過一次,下次再變成 16 或 18 欄時,買賣價/量會整組錯位而且完全不出聲。目前未觸發(全史只有 15 與 17 兩種)。",
-      "evidence": "全史標頭欄數掃描(docs/data_audit/scripts/A-daily_quote/,依日期排序):15 欄 3,168 檔(2007-07-02 起)、17 欄 1,756 檔(2020-04-30 起,新增『最後買量(千股)』『最後賣量(千股)』;2024 起改名為『最後買量(張數)』),轉換點乾淨無交錯。TWSE 側 5,519 檔全部 17 欄(16 欄 + 結尾逗號),2004-02-11 起零漂移。對照組:Python 側 research/crawl/sources/daily_quote.py:65-72 的 _guard() 已經在做『標頭位置對不上就丟 SchemaDrift』的 fail-loud,Scala 側沒有。附帶:該 _TPEX_GUARD(第 40-41 行)寫的是 17 欄版型的位置(12:'最後賣價'),套到 15 欄舊檔會誤報,但它只抓當日資料,實務上不觸發。",
+      "evidence": "全史標頭欄數掃描(docs/data_audit/scripts/A-daily_quote/,依日期排序):15 欄 3,168 檔(2007-07-02 起)、17 欄 1,756 檔(2020-04-30 起,新增『最後買量(千股)』『最後賣量(千股)』;2024 起改名為『最後買量(張數)』),轉換點乾淨無交錯。TWSE 側 5,519 檔全部 17 欄(16 欄 + 結尾逗號),2004-02-11 起零漂移。對照組:Python 側 src/quantlib/crawl/sources/daily_quote.py:65-72 的 _guard() 已經在做『標頭位置對不上就丟 SchemaDrift』的 fail-loud,Scala 側沒有。附帶:該 _TPEX_GUARD(第 40-41 行)寫的是 17 欄版型的位置(12:'最後賣價'),套到 15 欄舊檔會誤報,但它只抓當日資料,實務上不觸發。",
       "fix": "TradingReader 改成 case 15 => … case 17 => … case n => throw new IllegalStateException(s\"TPEx daily_quote 未知欄數 $n\"),並在 header 就驗欄名位置(比照 Python 側 _guard)。同時把 filter(_.size >= 15) 改成等值判斷,避免半截列被靜靜吞掉(那正是第一條 BUG 的放大器)。"
     },
     {
@@ -48,7 +48,7 @@
     {
       "severity": "REAL",
       "what": "上櫃 closing_price = 0 共 119,680 列(全部落在 2007-07-02~2011-11-11、成交量皆為 0),是舊版 TPEx CSV 對『當日無成交』直接寫 0.00 的來源端寫法,不是解析錯;2011-11-14 起改用 '---'(解析成 NULL)。C-daily_quote 已完整記載,本單位確認來源端原文。另外 tpex 的 price_earning_ratio 全部 3,866,376 列為 NULL、last_best_bid/ask_volume 有 2,473,019 列為 NULL,都是因為來源檔沒有該欄。",
-      "evidence": "原始檔原文:data/daily_quote/tpex/2007/2007_7_2.csv → '\"4801\",\"碼斯特\",\"0.00\",\"--- \",\"0.00\",\"0.00\",\"0.00\",\"0\",\"0\",\"0\",\"0.00\",\"19.90\",\"46,347,952\",\"21.25\",\"18.55\"'。SQL:SELECT extract(year from date),count(*) FROM daily_quote WHERE market='tpex' AND closing_price=0 GROUP BY 1 → 2007:6701、2008:32427、2009:23300、2010:54590、2011:2662(2012 起 0)。護欄已存在:research/prices.py:129-130 的 AND closing_price > 0 AND opening_price > 0。NULL 統計:SELECT count(*) FILTER (WHERE price_earning_ratio IS NULL), count(*) FILTER (WHERE last_best_bid_volume IS NULL) FROM daily_quote WHERE market='tpex' → 3866376 / 2473019。",
+      "evidence": "原始檔原文:data/daily_quote/tpex/2007/2007_7_2.csv → '\"4801\",\"碼斯特\",\"0.00\",\"--- \",\"0.00\",\"0.00\",\"0.00\",\"0\",\"0\",\"0\",\"0.00\",\"19.90\",\"46,347,952\",\"21.25\",\"18.55\"'。SQL:SELECT extract(year from date),count(*) FROM daily_quote WHERE market='tpex' AND closing_price=0 GROUP BY 1 → 2007:6701、2008:32427、2009:23300、2010:54590、2011:2662(2012 起 0)。護欄已存在:src/quantlib/prices.py:129-130 的 AND closing_price > 0 AND opening_price > 0。NULL 統計:SELECT count(*) FILTER (WHERE price_earning_ratio IS NULL), count(*) FILTER (WHERE last_best_bid_volume IS NULL) FROM daily_quote WHERE market='tpex' → 3866376 / 2473019。",
       "fix": ""
     },
     {

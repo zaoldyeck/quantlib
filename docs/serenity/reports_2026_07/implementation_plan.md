@@ -16,7 +16,7 @@
 
 ## Proposed Changes
 
-### [MODIFY] [serenity_us_valuation.py](file:///Users/zaoldyeck/Documents/scala/quantlib/research/analyses/serenity_us_valuation.py)
+### [MODIFY] [serenity_us_valuation.py](file:///Users/zaoldyeck/Documents/scala/quantlib/src/quantlib/analyses/serenity_us_valuation.py)
 我將在 Python 腳本中加入強制性的**技術面均線查核 (Moving Average Check)**：
 1.  **抓取均線數據：** 透過 `yfinance` 抓取 `fiftyDayAverage` (季線/50日均線) 與 `twoHundredDayAverage` (年線/200日均線)。
 2.  **動能死刑判定：** 若 `目前股價 < 50日均線`，代表短期動能已被破壞；若 `目前股價 < 200日均線`，代表長期趨勢步入空頭。

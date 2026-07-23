@@ -4,10 +4,10 @@
 輸出:
   1. 雙向 EXCEPT 找獨有鍵(cache_only / pg_only)。
   2. 共同鍵的 cash_dividend 值差異筆數(IS DISTINCT FROM)。
-  3. cache_only 列的來歷判定(是否為 Python 爬蟲 research/crawl 直寫 cache 的新資料)。
+  3. cache_only 列的來歷判定(是否為 Python 爬蟲 src/quantlib/crawl 直寫 cache 的新資料)。
   4. 指定抽樣:3 個日期 x 5 檔,逐欄印出兩邊的值。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/05_value_parity.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/05_value_parity.py
 """
 from __future__ import annotations
 

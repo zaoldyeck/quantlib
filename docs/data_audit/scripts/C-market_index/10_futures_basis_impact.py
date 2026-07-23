@@ -1,12 +1,12 @@
 """C-market_index #10: 幽靈日的 TAIEX 進一步汙染 cache 內的衍生表 taifex_futures_daily_factors。
 
-research/futures/taifex.py:216-217 用 market_index 的 TAIEX 收盤算期貨基差:
+src/quantlib/futures/taifex.py:216-217 用 market_index 的 TAIEX 收盤算期貨基差:
     tx_spot_basis      = COALESCE(settlement, final_settlement, close) - taiex_close
     tx_spot_basis_pct  = COALESCE(...)/taiex_close - 1.0        # 小數,非百分比
 TAIEX 錯 → 基差跟著錯,而且錯到不合物理(近月台指期對現貨溢價 7% 不可能)。
 
 真值來源同 #9(TWSE FMTQIK 月報,2026-07-22 實抓)。
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/10_futures_basis_impact.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/10_futures_basis_impact.py
 """
 import duckdb
 from research import paths

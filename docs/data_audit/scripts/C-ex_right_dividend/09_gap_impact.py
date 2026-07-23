@@ -11,7 +11,7 @@
 
 本腳本用 daily_quote 的實際價格落差當「事件真的發生過」的獨立證據。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/09_gap_impact.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/09_gap_impact.py
 """
 from __future__ import annotations
 

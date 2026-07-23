@@ -1,13 +1,13 @@
 """C-daily_trading_details / 步驟 4:Python 直寫路徑會少寫幾列?
 
-cache 的最新一天只存在於 cache(由 research/crawl/ 直寫,不經 PG、不落原始檔),
+cache 的最新一天只存在於 cache(由 src/quantlib/crawl/ 直寫,不經 PG、不落原始檔),
 所以「那一天的 cache 可不可信」只能靠同一支解析器在**有原始檔的日子**上的表現來推。
 
-做法:對每個有原始檔的 twse/tpex 日,用 research.crawl.sources.daily_trading_details._parse
+做法:對每個有原始檔的 twse/tpex 日,用 quantlib.crawl.sources.daily_trading_details._parse
 重解析,和 cache 該日的列數比。排除 A 維已認定的 23 個「整日內容被複製自別天」的
 污染日(那些日子 cache 本來就不是原始檔的內容,比了沒意義)。
 
-用法:PYTHONPATH=<repo> uv run --project research python \
+用法:PYTHONPATH=<repo> uv run --project . python \
       docs/data_audit/scripts/C-daily_trading_details/04_python_writer_drop.py
 """
 from __future__ import annotations
@@ -19,7 +19,7 @@ from pathlib import Path
 import duckdb
 
 from research import paths
-from research.crawl.sources import daily_trading_details as dtd
+from quantlib.crawl.sources import daily_trading_details as dtd
 
 _REPLAY_SQL = """
 WITH agg AS (

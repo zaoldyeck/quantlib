@@ -1,8 +1,8 @@
 # D-valuation — 估值模型(DCF / PEG / 五線譜 / valuation view)學理稽核
 
 範圍:`src/main/resources/sql/view/8_valuation.sql` + `9_valuation_1q.sql` +
-research 端估值程式(`research/apex/experiments/v01_valuation_factors.py`、
-`research/evergreen/ev18_make_packs.py`)。
+research 端估值程式(`src/quantlib/apex/experiments/v01_valuation_factors.py`、
+`src/quantlib/evergreen/ev18_make_packs.py`)。
 
 ## 一句話結論
 

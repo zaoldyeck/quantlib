@@ -14,7 +14,7 @@
 ## 這張表是什麼(先講清楚,才知道稽核在查什麼)
 
 `taifex_futures_continuous` **不是**從 PostgreSQL 直接同步過來的表,PG 裡根本沒有
-這張表。它是在 cache 內部由 `research/futures/taifex.py::build_taifex_futures_tables`
+這張表。它是在 cache 內部由 `src/quantlib/futures/taifex.py::build_taifex_futures_tables`
 用 cache 的 `taifex_futures_daily`(這張才是 PG→cache 同步的)加工出來的「報酬接軌
 連續期貨序列」:每天取最近月合約(front month),換月時用新合約自己的報酬接軌,
 避免把新舊合約的價差灌進研究資料。涵蓋 5 個商品:TX(台指)、MTX(小台)、
@@ -59,7 +59,7 @@ TE(電子)、TF(金融)、TMF(微台),共 26,645 列,1998-07-21 ~ 2026-05-21。
 > 202603 這個真實合約自己跨越缺口的真實漲幅(29,119→35,238);但它被表達成「單日
 > +21%」,本質是 2 個月報酬被貼上「一天」的標籤。所以水準勉強能用、日報酬絕對不能用。
 
-**演算法出處**:`research/futures/taifex.py:75-78`(`lag(...) OVER (PARTITION BY
+**演算法出處**:`src/quantlib/futures/taifex.py:75-78`(`lag(...) OVER (PARTITION BY
 product, contract_month ORDER BY date)`)只看「這個合約上一次出現」,不檢查那是不是
 「前一個交易日」;`:98-107` 再把它累乘成連續指數。缺口未被守護,所以跨缺口的
 「上一次」直接被當成「昨天」。
@@ -100,7 +100,7 @@ product, contract_month ORDER BY date)`)只看「這個合約上一次出現」,
 - `taifex_futures_daily`:cache **5,780,185** 筆 == PG **5,780,185** 筆,日期範圍與
   distinct dates(6,877)完全相同。
 - `taifex_futures_final_settlement`:cache **3,152** == PG **3,152**。
-- **無 drift**:用現行 committed 的 `research/futures/taifex.py` 就地把連續表重算一遍,
+- **無 drift**:用現行 committed 的 `src/quantlib/futures/taifex.py` 就地把連續表重算一遍,
   與 cache 物化的 26,645 列做雙向 `EXCEPT`,兩邊差異都是 **0**。cache 物化的內容 =
   現行程式碼的產物,沒有舊版殘留。
 
@@ -144,10 +144,10 @@ psql -h localhost -p 5432 -d quantlib -c \
   "SELECT COUNT(*) FROM taifex_futures_daily WHERE date BETWEEN '2026-01-01' AND '2026-02-26';"  # 0
 
 # 接縫假報酬
-uv run --project research python -c "import duckdb; from research import paths; \
+uv run --project . python -c "import duckdb; from research import paths; \
 c=duckdb.connect(str(paths.CACHE_DB),read_only=True); \
 print(c.execute(\"SELECT product,date,daily_return FROM taifex_futures_continuous WHERE date='2026-03-02'\").fetchall())"
 
 # drift 驗證(rebuild vs materialized 逐列 EXCEPT = 0):
-#   scratchpad/verify_continuous.py(PYTHONPATH=<repo> uv run --project research python ...)
+#   scratchpad/verify_continuous.py(PYTHONPATH=<repo> uv run --project . python ...)
 ```

@@ -3,7 +3,7 @@
 兩種缺口各用互相獨立的方法認定,避免單一日曆源自己就是錯的:
 
 - **缺日**:margin 沒有該 (market,date),但其他 6 張日頻表有(證人投票),再用
-  `research.data_calendar.is_trading_day`(讀 0-byte sentinel)複核。**注意日曆本身
+  `quantlib.data_calendar.is_trading_day`(讀 0-byte sentinel)複核。**注意日曆本身
   有毒**:C-daily_quote 已查出 twse 2021-08-18 / 2025-08-15 / 2026-04-29 /
   2026-05-28 四天是真交易日卻留了假 sentinel,故此處以「證人數」為主判據、
   `is_trading_day` 僅作旁證。
@@ -11,7 +11,7 @@
   **必須限縮在 daily_quote 該市場自己有覆蓋的區間內**(twse daily_quote 起
   2004-02-11、tpex 起 2007-07-02),否則報價表自己的起點會被誤判成幾百個幽靈日。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-margin_transactions/02_gaps.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-margin_transactions/02_gaps.py
 依賴:var/cache/cache.duckdb(唯讀)、data/daily_quote/twse/*/ 的 sentinel 檔。
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ from collections import Counter
 import duckdb
 
 from research import paths
-from research.data_calendar import (is_trading_day, latest_complete_trading_day,
+from quantlib.data_calendar import (is_trading_day, latest_complete_trading_day,
                                     stale_tables)
 
 WITNESS = ["daily_quote", "daily_trading_details", "stock_per_pbr",

@@ -12,7 +12,7 @@ The loop has three layers with a strict division of labor:
 
 **07:20 機械段**(一鍵或 launchd 排程):
 ```bash
-uv run --project research python -m research.serenity.daily run
+uv run --project . python -m quantlib.serenity.daily run
 ```
 流程:昨收資料入庫+cache 重建(壞資料保險絲:cutoff 落後 >4 天拒絕出單)→ 引擎重算
 (候選+guard 狀態;book 日期 != cutoff 拒絕出單)→ 券商庫存 reconcile 進 live ledger
@@ -48,30 +48,30 @@ uv run --project research python -m research.serenity.daily run
 #    等 09:00 開盤後執行(買腿 balanced 完成語意;賣腿一律 urgency=exit:
 #    結構錨整場撈當日相對高點,收盤未竟→盤後掛收盤價收尾(=回測出場價,
 #    語義精確對齊;護欄 -3%);唯一例外 override 事實級利空 → stop 急殺)
-uv run --project research python -m research.serenity.daily run --execute        # dry-run 模擬
-uv run --project research python -m research.serenity.daily run --execute-live   # 真實(FUBON_DRY_RUN=false,使用者武裝)
+uv run --project . python -m quantlib.serenity.daily run --execute        # dry-run 模擬
+uv run --project . python -m quantlib.serenity.daily run --execute-live   # 真實(FUBON_DRY_RUN=false,使用者武裝)
 
 # B. 手動派工盤中執行器(v3 預設 price-first:掛跨日+盤中結構位撈低點/高點;
 #    盤前/盤中啟動皆可,自動等開盤;買賣混合一行用 execution.trade --buy/--sell)
-uv run --project research python -m research.trading.execution.buy  --plan <plan.json>
-uv run --project research python -m research.trading.execution.sell --code XXXX --qty N [--urgency stop]
+uv run --project . python -m quantlib.trading.execution.buy  --plan <plan.json>
+uv run --project . python -m quantlib.trading.execution.sell --code XXXX --qty N [--urgency stop]
 
 # C. 傳統一次性送單(LimitUp 保證成交,不擇價)
-uv run --project research python -m research.trading.auto_trader submit-plan <plan.json>
+uv run --project . python -m quantlib.trading.auto_trader submit-plan <plan.json>
 ```
 安全:賣出前庫存夾緊(live 以券商 inventories 為準)、今日已成交防重複、
 kill switch `var/state/trading/HALT`、TCA 日誌。細節見
-`research/trading/execution/README.md`。
+`src/quantlib/trading/execution/README.md`。
 
 **14:35 盤後(每個交易日)**:補存當日 1 分 K(執行器跨日結構的資料源;
 富邦只給當日、漏日補不回;可掛 launchd 自動——見 execution/README §9):
 ```bash
-uv run --project research python -m research.trading.execution.archive_candles
+uv run --project . python -m quantlib.trading.execution.archive_candles
 ```
 
 **14:30 盤後(有送單日)**:成交對帳回寫管理帳本:
 ```bash
-uv run --project research python -m research.trading.auto_trader reconcile-plan <plan.json> --write
+uv run --project . python -m quantlib.trading.auto_trader reconcile-plan <plan.json> --write
 ```
 對帳是紀律:管理帳本 vs 券商庫存不一致 → 隔日機械段的 delta 會錯,必須當天修。
 
@@ -79,7 +79,7 @@ uv run --project research python -m research.trading.auto_trader reconcile-plan 
 
 - **每月 1-15 日 = 營收公布窗(事件驅動,2026-07-07 升級)**:爬蟲每天重抓上月彙總、
   引擎以 `--live-revenue` 每日滾動計分——**公司一公布營收,隔天就進決策**,不等 10 日;
-  首見日寫入 `research/records/revenue_first_seen.parquet`(未來回測用)。11-14 日仍是
+  首見日寫入 `src/quantlib/records/revenue_first_seen.parquet`(未來回測用)。11-14 日仍是
   傳統換股高峰(多數公司集中壓線公布),換手保險絲在此窗自動放寬;判斷層多花時間核名單
 - **每週(週末)**:`sbt "runMain Main pull tdcc"` + `pull buyback`(週頻資料);skill 上游同步 `update_from_upstream.sh`;檢視 overrides.json 是否有已生效可清除的條目
 - **每季**:註冊表全表複審(`review_by` 到期強制降級)、regime kill-switch 基本面四指標(hyperscaler capex/TSM 展望/記憶體價格/光學 backlog)人工判定

@@ -1,6 +1,6 @@
 """C-foreign_holding_ratio 稽核 01:schema 對照 + cache vs PG 整表/逐年/逐日筆數。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/01_counts.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/01_counts.py
 需要 cache.duckdb(paths.CACHE_DB)與本機 PostgreSQL(唯讀 attach)。
 """
 from __future__ import annotations

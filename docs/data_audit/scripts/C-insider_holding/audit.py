@@ -1,6 +1,6 @@
 """C-insider_holding cache audit — reproducible evidence.
 
-Run:  PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-insider_holding/audit.py
+Run:  PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-insider_holding/audit.py
 Needs: research/cache_tables.py current (cache built 2026-07-21); PostgreSQL up.
 
 Answers dim-C questions for table `insider_holding`:

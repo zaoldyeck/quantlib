@@ -16,7 +16,7 @@ One strategy, no allocator. Full research trail:
 ## Architecture (curation × discipline)
 
 - **Curation layer (the alpha)**: human/LLM-maintained thesis registry
-  (`research/serenity/registry/thesis_registry_2025.csv`, v2 schema
+  (`src/quantlib/serenity/registry/thesis_registry_2025.csv`, v2 schema
   with evidence_date / evidence_url / invalidation_criteria / review_by).
   Admission = bottleneck signature, theme-agnostic, bottleneck duration ≥ 12
   months (see curation SOP). Proven: pool-level alpha ~140% CAGR in 2025-26
@@ -34,20 +34,20 @@ One strategy, no allocator. Full research trail:
 
 ```bash
 # backtest / signal check (registry mode)
-uv run --project research python research/serenity/engine.py \
+uv run --project . python src/quantlib/serenity/engine.py \
     --start 2025-01-01
 # realistic-execution road test
-uv run --project research python research/serenity/engine.py \
+uv run --project . python src/quantlib/serenity/engine.py \
     --start 2025-01-01 --emit-book ev_v2_thesis_inst --live-revenue
-uv run --project research python research/serenity/execution_test.py \
+uv run --project . python src/quantlib/serenity/execution_test.py \
     --variant ev_v2_thesis_inst
 # validation battery
-uv run --project research python research/serenity/validate.py \
+uv run --project . python src/quantlib/serenity/validate.py \
     --variant ev_v2_thesis_inst
 # diagnostics (battle 11-13): ablate a score component / retune pe_pen
-uv run --project research python research/serenity/engine.py \
+uv run --project . python src/quantlib/serenity/engine.py \
     --start 2025-01-01 --ablate inst          # leave-one-out a component
-uv run --project research python research/serenity/engine.py \
+uv run --project . python src/quantlib/serenity/engine.py \
     --start 2025-01-01 --pe-pen-mode extreme  # pe_pen schedule variant
 ```
 
@@ -103,7 +103,7 @@ monotonic attribution gradient (owner win-rate 62-69% > enabler 54-62% >
 beneficiary 41-56%); owner-only over-purity rejected (0/3 vs no-beneficiary —
 enablers are positive contributors); admission now requires the SOP §1.5
 member-level three-test + role label in
-`research/serenity/registry/member_roles.csv`. **Scoring is now
+`src/quantlib/serenity/registry/member_roles.csv`. **Scoring is now
 component-validated (battles 11-13):
 leave-one-out proved 8 components earn their place (momentum/conviction/revenue/
 adv/inst/pe_pen/pb_pen + the hard filters — filters ARE backtest-supported,

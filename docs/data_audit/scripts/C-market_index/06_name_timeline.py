@@ -5,7 +5,7 @@
 就是**前視汙染**(該日在真實世界還不存在的指數,在庫裡有值)。
 同理檢查半殘日 twse 2026-02-26 / 2026-03-11 到底是「truncate」還是「換了一組指數」。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/06_name_timeline.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/06_name_timeline.py
 """
 import duckdb
 from research import paths

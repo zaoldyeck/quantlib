@@ -8,7 +8,7 @@
     「盈餘分配 + 法定盈餘公積 + 特別股」= **純現金股利**,股票股利另開一列
     且 cash_dividend = 0。
 
-research/prices.py:25 的還原公式 factor = (close_pre − cash_div)/close_pre:
+src/quantlib/prices.py:25 的還原公式 factor = (close_pre − cash_div)/close_pre:
   * 餵 legacy 值 → factor = 參考價/前收盤 = 正確的「現金+配股」合併還原因子。
   * 餵 MOPS 值 → 只還原現金部分,**配股完全沒還原**(而且純配股列因
     prices.py:143 的 cash_dividend > 0 被整列丟掉)。
@@ -17,7 +17,7 @@ research/prices.py:25 的還原公式 factor = (close_pre − cash_div)/close_pr
   (1) 全史驗證 legacy 列的 cash_dividend == pre_close − ref_px(證明語義是「權值+息值」);
   (2) 盤點換源後有股票股利的事件(= 被漏還原的),並用 daily_quote 實際價格落差量化。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/07_semantic_drift.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/07_semantic_drift.py
 """
 from __future__ import annotations
 

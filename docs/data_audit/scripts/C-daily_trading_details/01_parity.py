@@ -4,7 +4,7 @@
 三個指紋,再 FULL JOIN 比對。雜湊和抓數值差異、XOR 抓順序無關的集合差異、
 count 抓筆數差異——三者同時相等才算逐位一致(非抽樣,是全體)。
 
-用法:uv run --project research python docs/data_audit/scripts/C-daily_trading_details/01_parity.py
+用法:uv run --project . python docs/data_audit/scripts/C-daily_trading_details/01_parity.py
 依賴:var/cache/cache.duckdb 為當前世代;PostgreSQL localhost:5432/quantlib。
 """
 from __future__ import annotations

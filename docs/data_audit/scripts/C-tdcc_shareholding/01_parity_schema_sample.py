@@ -13,7 +13,7 @@
 cache 依賴:需 var/cache/cache.duckdb 為最新(research/cache_tables.py 建);
            PG 需在 localhost:5432/quantlib。
 
-執行:uv run --project research python docs/data_audit/scripts/C-tdcc_shareholding/01_parity_schema_sample.py
+執行:uv run --project . python docs/data_audit/scripts/C-tdcc_shareholding/01_parity_schema_sample.py
 """
 from __future__ import annotations
 

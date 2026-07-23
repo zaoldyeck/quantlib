@@ -4,7 +4,7 @@
   B. 真的漏抓(0-byte sentinel 蓋在真交易日上,或整個檔案不存在):同上。
   C. 附帶量化:跨市場重複 (date, company_code) 有幾對落在錯日上、缺漏日的估計列數。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-sbl_borrowing/06_actionables.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-sbl_borrowing/06_actionables.py
 """
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ import duckdb
 import pandas as pd
 
 from research import paths
-from research.data_calendar import is_trading_day
+from quantlib.data_calendar import is_trading_day
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))))

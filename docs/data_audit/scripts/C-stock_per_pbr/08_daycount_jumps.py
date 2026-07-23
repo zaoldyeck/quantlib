@@ -3,7 +3,7 @@
 檔名≠內容(04)只抓得到「標題日期不符」的錯位;若某日內容雖是當日、卻只公告一半,
 標題會是對的。本腳本用「相對前一交易日列數變動 > 10%」當偵測器補這個死角。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/08_daycount_jumps.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/08_daycount_jumps.py
 """
 from __future__ import annotations
 

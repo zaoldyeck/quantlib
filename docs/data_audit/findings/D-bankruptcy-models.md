@@ -1,8 +1,8 @@
 # D-bankruptcy-models — 破產/財務危機模型 + DuPont + 品質因子 學理稽核
 
-**範圍**:`research/apex/experiments/q01_financial_scores.py`（Altman Z''、Ohlson O、
+**範圍**:`src/quantlib/apex/experiments/q01_financial_scores.py`（Altman Z''、Ohlson O、
 DuPont、GPOA、accruals 的 IC 廣篩)+ `q02_pure_financial_books.py` / `q03_stability_graft.py`
-（品質/穩定書)+ 欄位源 `research/strat_lab/raw_quarterly.py`。
+（品質/穩定書)+ 欄位源 `src/quantlib/strat_lab/raw_quarterly.py`。
 
 **結論(白話)**:上線用的品質因子(GPOA、accruals、cfo/資產、獲利波動)定義都對、可信。
 但只出現在 q01 研究廣篩、沒進生產策略的兩個破產分數有真 bug:Altman Z'' 把「保留盈餘」

@@ -87,7 +87,7 @@
    而 idx17 = **104**。DB `short_quota = 104`、`short_balance_of_the_day = 17,052`。
 
 **影響**:`short_quota` 有進 DuckDB cache(`cache_tables.py:47`),
-`research/apex/data.py:180`、`research/db.py:138` 都會拉。目前現役策略回測窗都在 2018 年之後,
+`src/quantlib/apex/data.py:180`、`src/quantlib/db.py:138` 都會拉。目前現役策略回測窗都在 2018 年之後,
 沒有實際踩到;但任何做長史籌碼研究的人只要碰 2007-2008 的 `short_quota` 就是拿垃圾在算。
 
 ---

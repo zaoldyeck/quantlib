@@ -8,7 +8,7 @@
       "metric": "Sortino 下行標準差(Scala)· src/main/scala/strategy/Metrics.scala:69-72",
       "textbook_def": "Sortino(Sortino & Price 1994)分母 = target downside deviation = sqrt( Σ min(r-MAR,0)^2 / N ),N 為全部期數,非只有下跌日數。",
       "implementation": "downside = dailyRets.filter(_ < 0);downVol = sqrt(Σ_{r<0} r^2 / downside.size) * sqrt(242) — 分母用下跌日數 n_downside,不是總期數 N。",
-      "evidence": "可重現:日報酬 [.02,-.01,.03,-.02,0,.015,-.005,-.03,.01,0](N=10,下跌 4 天)→ textbook 下行標準差 0.011937 vs Scala 0.018875(膨脹 x1.581)→ Sortino 被低估 36.8%。Python 對照 research/apex/metrics.py:23 用 np.sqrt(np.mean(np.minimum(rets,0)**2)) 即 ÷N,Python 正確。off-live:Metrics.scala 只被凍結 Scala Backtester 使用,無 live 路徑。",
+      "evidence": "可重現:日報酬 [.02,-.01,.03,-.02,0,.015,-.005,-.03,.01,0](N=10,下跌 4 天)→ textbook 下行標準差 0.011937 vs Scala 0.018875(膨脹 x1.581)→ Sortino 被低估 36.8%。Python 對照 src/quantlib/apex/metrics.py:23 用 np.sqrt(np.mean(np.minimum(rets,0)**2)) 即 ÷N,Python 正確。off-live:Metrics.scala 只被凍結 Scala Backtester 使用,無 live 路徑。",
       "fix": "分母改總期數:sqrt(downside.map(r=>r*r).sum / dailyRets.size) * sqrt(242)(下跌日平方和不變,除以全體 N)。"
     },
     {
@@ -16,14 +16,14 @@
       "metric": "Sharpe 分子用幾何 CAGR(Scala)· src/main/scala/strategy/Metrics.scala:67",
       "textbook_def": "Sharpe = (E[Rp]-Rf)/σp,分子為算術平均超額報酬(年化)。",
       "implementation": "sharpe = (cagr - 0.01) / vol — 分子用幾何 CAGR、rf=1%;年化 vol 用 sqrt(242)。",
-      "evidence": "Python research/apex/metrics.py:32 用 mean/std*sqrt(252)、rf=0 = 教科書算術形態。幾何 CAGR ≈ 算術平均 - σ²/2,Scala Sharpe 系統性略低,屬公認 practitioner 變體、偏差溫和。年化 242(Scala)vs 252(Python)差 ~2%,Scala 有註解「TWSE ~242」屬刻意有據=OK。台股 rf≈0 可接受。off-live。",
+      "evidence": "Python src/quantlib/apex/metrics.py:32 用 mean/std*sqrt(252)、rf=0 = 教科書算術形態。幾何 CAGR ≈ 算術平均 - σ²/2,Scala Sharpe 系統性略低,屬公認 practitioner 變體、偏差溫和。年化 242(Scala)vs 252(Python)差 ~2%,Scala 有註解「TWSE ~242」屬刻意有據=OK。台股 rf≈0 可接受。off-live。",
       "fix": "若求教科書一致,分子改『日報酬年化算術平均 − rf』;否則明註為幾何 Sharpe 變體。"
     },
     {
       "severity": "SUSPECT",
       "metric": "價格/報酬因子用原始收盤價未還原(Scala)· Signals.scala momentum12m1m:239 / relativeStrength:80 / priceReturn:202 / rsi14 / bollinger / lowVol / rsv120d",
-      "textbook_def": "動量/報酬類因子應建在總報酬(除權息還原)價上;台股股利/減資大,原始價在除息日跳空會低估真實報酬(專案自訂鐵律 research/prices.py 亦明文)。",
-      "implementation": "Scala 全讀 daily_quote.closing_price(raw);Python research/apex/assemble.py:61-84 的 close 來自 data.load_panel→prices.fetch_adjusted_panel(data.py:62)=還原價。J-T 12-1 動量本身定義正確(skip≈1月前/base≈12月前,(p1-p0)/p0)。",
+      "textbook_def": "動量/報酬類因子應建在總報酬(除權息還原)價上;台股股利/減資大,原始價在除息日跳空會低估真實報酬(專案自訂鐵律 src/quantlib/prices.py 亦明文)。",
+      "implementation": "Scala 全讀 daily_quote.closing_price(raw);Python src/quantlib/apex/assemble.py:61-84 的 close 來自 data.load_panel→prices.fetch_adjusted_panel(data.py:62)=還原價。J-T 12-1 動量本身定義正確(skip≈1月前/base≈12月前,(p1-p0)/p0)。",
       "evidence": "定義層:同一高股息股跨除息日,raw-close 動量 < 還原價動量;Python 正確、Scala 偏差。實務衝擊近零——momentum12m1m/relativeStrength/rsi14/bollinger 無任何 Scala 策略消費(死碼),被接的僅供凍結 MFPiot/value 策略。off-live。",
       "fix": "Scala 若復用,價格面板改接還原價來源;否則標註『凍結:未還原,勿用於現役驗證』。"
     },
@@ -61,7 +61,7 @@
     },
     {
       "severity": "OK",
-      "metric": "IC / 前瞻報酬 · research/apex/factors.py:25-101",
+      "metric": "IC / 前瞻報酬 · src/quantlib/apex/factors.py:25-101",
       "textbook_def": "IC = 截面 Spearman(因子, 前瞻報酬);前瞻報酬 T+1 起算、零 look-ahead;IC t-stat = IR·sqrt(n)。",
       "implementation": "每日 rank(value)、rank(fwd) 後 pl.corr(=Spearman);forward_returns = close.shift(-(1+k))/close.shift(-1)-1(T+1 基期);t = mean_ic/std_ic*sqrt(n)。",
       "evidence": "定義逐項符合。t_adj=t/sqrt(k)(重疊樣本粗校正)、pooled-decile × 252/k 線性年化 = 有 docstring 註明的刻意近似,非偏差。",
@@ -79,7 +79,7 @@
       "severity": "OK",
       "metric": "結構/headline:無任何 Scala 因子/指標在 live 路徑",
       "textbook_def": "凍結引擎的定義偏差只有在被 live 路徑引用時才是 live bug。",
-      "implementation": "live = research/serenity/launchd/com.quantlib.serenity-daily.plist → python -m research.serenity.daily;serenity/engine.py 不 import Scala 亦不 import apex/evergreen 因子。",
+      "implementation": "live = src/quantlib/serenity/launchd/com.quantlib.serenity-daily.plist → python -m quantlib.serenity.daily;serenity/engine.py 不 import Scala 亦不 import apex/evergreen 因子。",
       "evidence": "grep 'runMain Main strategy' 全 repo 僅命中 Main.scala(人工 CLI)與一個 agent 說明 toml,無 shell/plist/cron。Scala strategy 整包凍結(CLAUDE.md 明文),momentum12m1m/relativeStrength/rsi14/bollingerPosition/revenueAccel 於 Scala 策略層零消費者(死碼)。結論:F1 的 BUG 與 F2-F6 偏差全數 off-live,非 live bug。",
       "fix": ""
     }

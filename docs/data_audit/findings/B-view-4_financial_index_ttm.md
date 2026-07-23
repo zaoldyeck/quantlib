@@ -33,7 +33,7 @@
    之間飄)。上游的重複列讓「往前數三列」數到不同的列。
 
 **目前的爆炸半徑**:現役實盤(Serenity `ev_v3_wf`、apex `strategy_s`)與 Python
-研究線都不碰這張表——它不在 DuckDB cache 裡,`research/strat_lab/raw_quarterly.py`
+研究線都不碰這張表——它不在 DuckDB cache 裡,`src/quantlib/strat_lab/raw_quarterly.py`
 開頭就明文寫「我們刻意不用 financial_index_ttm」。**還在用的是**:Scala 策略層
 (`Signals.financialIndexField`、`MagicFormulaPiotStrategy` 的 `fcf_per_share > 0`、
 `Main.scala:357-360` 把 `cbs`/`gross_margin`/`operating_margin` 當因子送進 IC 掃描)、
@@ -437,9 +437,9 @@ view 沒有公告日欄位,PIT 全靠消費者。`Signals.scala:144-158` 的
 
 ### 22. 爆炸半徑:不在現役實盤與 Python 研究路徑上
 
-- **不在 DuckDB cache**:實測 `research/paths.py::CACHE_DB` 的 24 張表無此表。
-- `research/strat_lab/raw_quarterly.py:8-12` 明文「We DELIBERATELY do NOT use…
-  `financial_index_ttm` (VIEW)」;`research/db.py:42/107` 亦已移除同類 view。
+- **不在 DuckDB cache**:實測 `src/quantlib/paths.py::CACHE_DB` 的 24 張表無此表。
+- `src/quantlib/strat_lab/raw_quarterly.py:8-12` 明文「We DELIBERATELY do NOT use…
+  `financial_index_ttm` (VIEW)」;`src/quantlib/db.py:42/107` 亦已移除同類 view。
 - 現役實盤 Serenity `ev_v3_wf` 與 apex `strategy_s` 都不碰。
 
 **仍在用的**:

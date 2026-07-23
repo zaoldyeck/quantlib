@@ -16,7 +16,7 @@
 
 下游已經吃到這個洞:`research/raw_quarterly.parquet` 的 2026Q1 只有 539 家。
 好消息是**現役的 Serenity 實盤引擎沒有用這份季報資料**
-(`research/serenity/engine.py:918` 明寫 `register_raw_quarterly=False`),
+(`src/quantlib/serenity/engine.py:918` 明寫 `register_raw_quarterly=False`),
 所以今天的下單沒被影響;受影響的是所有做基本面因子的回測與研究。
 
 ---
@@ -276,7 +276,7 @@ rm data/balance_sheet/tpex/2026/2026_1_a_c_*.csv
 # (3) 重抓 + 重讀 + 重建 cache
 sbt "runMain Main pull balance_sheet"
 sbt "runMain Main read balance_sheet"
-uv run --project research python research/cache_tables.py
+uv run --project . python research/cache_tables.py
 ```
 
 端點就是現有的 MOPS `t163sb05`(`TYPEK=sii` / `otc`,設定在

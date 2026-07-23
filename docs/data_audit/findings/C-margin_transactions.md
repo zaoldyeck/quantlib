@@ -102,7 +102,7 @@
 
 ### 🟡 repo 自己的融資融券體檢是一道死掉的守護
 
-`research/audits/03_full_data_audit.py` 檢查的是「融資餘額 > 融資限額的 **100 倍**」
+`src/quantlib/audits/03_full_data_audit.py` 檢查的是「融資餘額 > 融資限額的 **100 倍**」
 且「一天要超過 5 筆才報告」。全史 834 萬列裡,滿足前者的**只有 1 列**——這個檢查
 從來沒有、也永遠不可能亮紅燈。它既看不到 84,057 列「限額 0 但仍有餘額」,
 也完全沒有檢查融券那一側(上面那 33,001 列物理不可能的組合)。
@@ -158,27 +158,27 @@
 
 ```bash
 # ① cache vs PG 全史逐欄一致性(含 schema 對照、逐年列數、索引)
-PYTHONPATH=$PWD uv run --project research python \
+PYTHONPATH=$PWD uv run --project . python \
   docs/data_audit/scripts/C-margin_transactions/01_parity.py
 
 # ② 覆蓋缺口(缺日 / 幽靈日,證人投票 + 交易日曆)
-PYTHONPATH=$PWD uv run --project research python \
+PYTHONPATH=$PWD uv run --project . python \
   docs/data_audit/scripts/C-margin_transactions/02_gaps.py
 
 # ③ 抽樣逐欄比對 + 異常值掃描 + 整日內容指紋撞號
-PYTHONPATH=$PWD uv run --project research python \
+PYTHONPATH=$PWD uv run --project . python \
   docs/data_audit/scripts/C-margin_transactions/03_sample_and_anomaly.py
 
 # ④ 列數形狀健檢(vs daily_quote、單日異常低、逐年全 0 占比)
-PYTHONPATH=$PWD uv run --project research python \
+PYTHONPATH=$PWD uv run --project . python \
   docs/data_audit/scripts/C-margin_transactions/04_rowcount_shape.py
 
 # ⑤ 純日期序列連續性(涵蓋 2001-2004 無證人區間)
-PYTHONPATH=$PWD uv run --project research python \
+PYTHONPATH=$PWD uv run --project . python \
   docs/data_audit/scripts/C-margin_transactions/05_calendar_gaps.py
 
 # ⑥ 用原始檔的「無資料回應形態」分辨休市 vs 漏抓
-PYTHONPATH=$PWD uv run --project research python \
+PYTHONPATH=$PWD uv run --project . python \
   docs/data_audit/scripts/C-margin_transactions/06_empty_file_classify.py
 ```
 

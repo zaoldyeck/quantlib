@@ -43,7 +43,7 @@
     }
   ],
   "checked": [
-    "research/paths.py:確認 cache 位置 var/cache/cache.duckdb(CACHE_DB)",
+    "src/quantlib/paths.py:確認 cache 位置 var/cache/cache.duckdb(CACHE_DB)",
     "research/cache_tables.py:66:treasury_stock_buyback 同步 SQL = 無 WHERE 整表 SELECT 11 欄(排除合成主鍵 id),line 131 建 idx_tsb_code_date;確認無漏欄/漏表/型別降級",
     "PG \\d treasury_stock_buyback:12 欄(含 id) + unique idx (market,announce_date,company_code)",
     "cache PRAGMA table_info:11 欄,型別與 PG 對應(bigint→BIGINT/double→DOUBLE/date→DATE/varchar→VARCHAR)",

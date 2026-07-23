@@ -8,19 +8,19 @@ registry_v3 → 重跑 tri)。**單月成本約 15–20 萬 token**;多月 backf
 
 ## 鐵律(違者停止並回報使用者)
 
-1. 標記提示詞**逐字取自凍結檔** `research/evergreen/PROMPT_ev28_labeling.md`
+1. 標記提示詞**逐字取自凍結檔** `src/quantlib/evergreen/PROMPT_ev28_labeling.md`
    (由配套腳本組裝)。任何改動提示詞的需求 = 停下,由使用者裁決。
 2. PIT 紀律:agent 只准使用站位日(含)之前的資訊;搜尋材料必須落檔。
 3. 驗收不過**不落盤**;registry_v3 落盤前自動備份。
 4. 已入冊月份不重標,除非使用者明示覆蓋。
-5. agent 原始輸出必須存 `research/evergreen/data/label_runs/{month}.json`
+5. agent 原始輸出必須存 `src/quantlib/evergreen/data/label_runs/{month}.json`
    (零 token 重放資產)。
 
 ## 執行流程
 
 ```bash
 # ① 組提示詞 + 確認站位日(站位日未到的月份即停)
-uv run --project research python -m research.evergreen.label_monthly prompt <月份...>
+uv run --project . python -m quantlib.evergreen.label_monthly prompt <月份...>
 ```
 
 ② 以 Workflow 發標記 agent(command 觸發即為使用者授權;1 月 = 1 agent,
@@ -43,11 +43,11 @@ return out.filter(Boolean)
 ③ 每月結果存檔 + 驗收 + 落盤 + 確認:
 
 ```bash
-# agent 輸出寫入 research/evergreen/data/label_runs/{month}.json 後:
-uv run --project research python -m research.evergreen.label_monthly validate --input research/evergreen/data/label_runs/{month}.json
-uv run --project research python -m research.evergreen.label_monthly merge    --input research/evergreen/data/label_runs/{month}.json
+# agent 輸出寫入 src/quantlib/evergreen/data/label_runs/{month}.json 後:
+uv run --project . python -m quantlib.evergreen.label_monthly validate --input src/quantlib/evergreen/data/label_runs/{month}.json
+uv run --project . python -m quantlib.evergreen.label_monthly merge    --input src/quantlib/evergreen/data/label_runs/{month}.json
 # 重跑三策略日檢,確認 Evergreen 池已更新(標記月滾動)
-uv run --project research python -m research.tri.daily
+uv run --project . python -m quantlib.tri.daily
 ```
 
 ④ 回報使用者:各月入冊筆數與代號、驗收警示(PIT 可疑項要列出)、

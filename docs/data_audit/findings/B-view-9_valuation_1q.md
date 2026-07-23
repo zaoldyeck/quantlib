@@ -19,7 +19,7 @@
   **偷看了同年後面幾季的未來資料**(look-ahead)。
 
 **殺傷範圍**:目前**沒有任何實盤或回測程式讀這張 view**——apex 直接讀
-`stock_per_pbr` 資料表(`research/apex/data.py:204`),Serenity / 引擎都不碰它,
+`stock_per_pbr` 資料表(`src/quantlib/apex/data.py:204`),Serenity / 引擎都不碰它,
 cache 也沒有它。全庫搜尋 `valuation_1q` 只有前一位稽核員的筆記引用到。
 所以它是一張「手動查表 / BI 分析用」的 view,錯的數字不會直接汙染下單決策,
 但只要有人拿 DCF 欄位排序選股,排最前面的一定是這些爆掉的垃圾值。

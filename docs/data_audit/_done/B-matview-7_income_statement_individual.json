@@ -13,7 +13,7 @@
       "severity": "BUG",
       "what": "缺一季時 lag 跳到不相鄰期別（與 view #5 BUG 2、cash_flows_individual 同類，本檔獨立復現）：第 8-11 行只判斷 quarter=1，沒有檢查前一筆是不是 (同年, 本季−1)。缺季時橫跨多季的差額被貼上「單季」標籤，產出看起來正常的錯數字（缺 Q3→H2 貼成 Q4 約 2 倍高估；缺 Q1→半年累計減去年全年→巨額負值）。",
       "evidence": "檔案：src/main/resources/sql/materialized_view/7_income_statement_individual.sql:8-11。\n缺季 lag 落點分佈（僅 title='營業收入合計'，可重跑）：\nWITH w AS (SELECT market,year,quarter,company_code,value, lag(value) OVER win pv, lag(year) OVER win py, lag(quarter) OVER win pq FROM income_statement_progressive WHERE title='營業收入合計' WINDOW win AS (PARTITION BY market,company_code ORDER BY year,quarter)) SELECT quarter, (py=year), pq, count(*) FROM w WHERE quarter<>1 AND pv IS NOT NULL AND NOT (py=year AND pq=quarter-1) GROUP BY 1,2,3 ORDER BY 4 DESC;\n→ Q4←同年Q2 2,992 / Q2←去年Q4 2,970 / Q2←去年Q2 435 / Q3←同年Q1 222 / Q4←去年Q4 153 / 其他 ~28（單一科目約 6,760 列受污染）。\n輸出端指紋（income_statement_individual, title='營業收入合計', 共 112,006 列）：3,217 列單季營收為負、2,669 列為 NULL。負值主要來自「缺 Q1、Q2 減去年 Q4」那 2,970 列。這只是 1,914 個 title 中的一個，全表污染量級遠大於此。",
-      "fix": "比照 view #5 修法加缺季守衛：case when quarter=1 then value when lag(year) over w=year and lag(quarter) over w=quarter-1 then value-lag(value) over w else null end。同類掃描：3_cash_flows_individual.sql:8-12（完全同型）、research/strat_lab/raw_quarterly.py（現役研究路徑，位移一列≠位移一季，缺季同 bug）。本 view 是這一類的第三個樣本。"
+      "fix": "比照 view #5 修法加缺季守衛：case when quarter=1 then value when lag(year) over w=year and lag(quarter) over w=quarter-1 then value-lag(value) over w else null end。同類掃描：3_cash_flows_individual.sql:8-12（完全同型）、src/quantlib/strat_lab/raw_quarterly.py（現役研究路徑，位移一列≠位移一季，缺季同 bug）。本 view 是這一類的第三個樣本。"
     },
     {
       "severity": "BUG",

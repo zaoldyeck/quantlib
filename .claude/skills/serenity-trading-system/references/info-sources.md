@@ -22,7 +22,7 @@ the 5-60 trading-day validation window, not with haste.
   OTHER companies' calls for supplier read-throughs — e.g. POET's AGM revealed
   Lumentum sold out into 2029.
 - **TW 法說會全內容鏈(2026-07-07 定案)**:行事曆+簡報 PDF 已自動進每日 brief
-  (`research/serenity/daily.py`,MOPS t100sb02_1)。簡報之外的內容層:
+  (`src/quantlib/serenity/daily.py`,MOPS t100sb02_1)。簡報之外的內容層:
   **AlphaMemo**(alphamemo.ai/free-transcripts — 台股法說逐字稿+摘要;登入牆
   → 用使用者的 Chrome)與 **富果法說會備忘錄**(blog.fugle.tw/topic/earnings-call-memo
   — 圖解財報+營運展望+法說 QA 筆記,旺季近乎日更,**覆蓋中小型股**——正是

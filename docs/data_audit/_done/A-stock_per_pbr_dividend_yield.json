@@ -13,7 +13,7 @@
       "severity": "BUG",
       "what": "19 個 TWSE 日期存的是別天的資料,共 16,447 列。TWSE bwibbu_d 端點在某些請求下會回一份固定的 2017-12-18 快照(標題就印『106年12月18日』),爬蟲照收、reader 用檔名當日期寫庫。10 個是真交易日整天被污染(2008-03-03、2008-03-06、2008-12-04、2012-08-07、2013-05-13、2014-12-16、2016-10-06、2018-12-13、2025-08-12、2026-02-25),其中 7 個是未來資料寫進過去的前視;另 9 個(2009-08-02 日、2011-07-10 日、2012-03-31 六、2012-10-21 日、2012-11-11 日、2012-11-25 日、2014-10-12 日、2017-04-03 清明連假、2026-04-12 日)根本不是交易日,是憑空多出的假交易日。",
       "evidence": "檔名 vs 內容日期全檔比對(docs/data_audit/scripts/A-stock_per_pbr_dividend_yield/03_filename_vs_content_date.py)命中 19 檔;內容指紋去重同時把它們歸成 7 組(例:2008-03-03/2009-08-02/2011-07-10/2012-03-31/2012-08-07/2013-05-13/2016-10-06/2017-04-03/2018-12-13 與真正的 2017-12-18 同一份 payload)。原始檔佐證:head -2 data/stock_per_pbr_dividend_yield/twse/2026/2026_2_25.csv → '\"106年12月18日 個股日本益比、殖利率及股價淨值比\"' 後接 9 欄新版標頭。DB 實值:psql -c \"SELECT date,price_to_earning_ratio,price_book_ratio,dividend_yield FROM stock_per_pbr_dividend_yield WHERE market='twse' AND company_code='2330' AND date IN ('2026-02-24','2026-02-25','2026-02-26','2017-12-18')\" → 02-24: 32.11/10.20/1.12;02-25: 17.11/4.11/3.08(= 2017-12-18 的 17.11/4.11/3.08);02-26: 30.12/9.55/1.10。收盤價對照 daily_quote:2026-02-25 為 2015 元、2017-12-18 為 227 元。列數:SELECT count(*) … WHERE market='twse' AND date IN (那 19 天) → 16,447。非交易日確認:那 9 天 daily_quote 列數皆為 0。",
-      "fix": "① 刪掉這 19 天的 16,447 列(PG 與 var/cache/cache.duckdb 兩邊),10 個真交易日重抓、9 個非交易日改寫 0-byte sentinel;② 守護要兩道 —— (a) 落檔前比對標題民國日期是否等於請求日期(這 19 檔全部會被攔下),(b) 整日內容指紋去重(TWSE 有時會把請求日期原樣回聲,只驗標題會漏,daily_quote 的 2009-12-12 就是這樣躲過的);③ 兩道守護要同時補進 Scala 爬蟲與 research/crawl 的 Python 路徑。"
+      "fix": "① 刪掉這 19 天的 16,447 列(PG 與 var/cache/cache.duckdb 兩邊),10 個真交易日重抓、9 個非交易日改寫 0-byte sentinel;② 守護要兩道 —— (a) 落檔前比對標題民國日期是否等於請求日期(這 19 檔全部會被攔下),(b) 整日內容指紋去重(TWSE 有時會把請求日期原樣回聲,只驗標題會漏,daily_quote 的 2009-12-12 就是這樣躲過的);③ 兩道守護要同時補進 Scala 爬蟲與 src/quantlib/crawl 的 Python 路徑。"
     },
     {
       "severity": "BUG",
@@ -25,7 +25,7 @@
       "severity": "BUG",
       "what": "13 個真交易日整天沒有估值資料。TWSE 11 天(2008-08-26、2009-12-12、2014-05-07、2016-09-09、2016-11-01、2016-12-21、2017-02-13、2017-02-24、2020-02-06、2025-08-05、2026-04-01)的原始檔是 2 bytes 的空回應(\\r\\n),被當成休市永久留檔、不會重試;TPEx 2 天(2010-11-22、2016-08-31)檔案根本不存在。這些日子 daily_quote 都有數百至千餘檔報價,確定是交易日。缺估值會讓任何以 stock_per_pbr 當閘門的策略在該日 fail-closed 把候選砍光(與 2026-07-15 Evergreen『濾後候選 0』同一機制)。",
       "evidence": "SQL:WITH q AS (SELECT DISTINCT market,date FROM daily_quote), s AS (SELECT DISTINCT market,date FROM stock_per_pbr_dividend_yield) SELECT q.market,q.date FROM q LEFT JOIN s USING (market,date) WHERE s.date IS NULL AND ((q.market='twse' AND q.date>=DATE '2005-09-02') OR (q.market='tpex' AND q.date>=DATE '2007-01-02')) → 13 列(另有 390 個 twse 日期落在資料源起始日 2005-09-02 之前,屬正常)。檔案狀態:stat -f%z data/stock_per_pbr_dividend_yield/twse/2026/2026_4_1.csv → 2(其餘 10 個 TWSE 日期同為 2 bytes);data/stock_per_pbr_dividend_yield/tpex/2010/2010_11_22.csv 與 tpex/2016/2016_8_31.csv 不存在。全庫另有 2,465 個 2-byte 檔與 29 個 0-byte 檔,絕大多數是真休市日。",
-      "fix": "① 2-byte 空回應不得當成休市(休市 sentinel 規則是 0-byte,見 docs/data_ops/twse_publish_times.md);落檔前用 research/data_calendar.py::is_trading_day 判斷,是交易日卻拿到空回應就 [deferred] 刪檔重抓;② 補抓這 13 天;③ 因為去重是看『日期是否已在庫』,補抓後這些日期本來就不在庫,可直接重跑 Main read stock_per_pbr。"
+      "fix": "① 2-byte 空回應不得當成休市(休市 sentinel 規則是 0-byte,見 docs/data_ops/twse_publish_times.md);落檔前用 src/quantlib/data_calendar.py::is_trading_day 判斷,是交易日卻拿到空回應就 [deferred] 刪檔重抓;② 補抓這 13 天;③ 因為去重是看『日期是否已在庫』,補抓後這些日期本來就不在庫,可直接重跑 Main read stock_per_pbr。"
     },
     {
       "severity": "SUSPECT",

@@ -77,7 +77,7 @@
     "重複列:任一檔內是否有重複代號 → 全 16,468 檔 0 件",
     "漏欄盤點:TWSE 註記、TPEx 備註/資屬證金/券屬證金/資使用率/券使用率 六欄未接;非空比例抽樣量測",
     "cache 一致性:research/cache_tables.py:47 為純投影(無運算),抽測 DuckDB 與 PG 同值 → BUG#1/#4 原封傳到 research 端",
-    "消費端影響盤點:research/apex/data.py:180、research/db.py:138 會拉 short_quota;research/evergreen/ev48_chip_axes.py、research/strat_lab/iter_52_ownership_flow_alpha.py、research/evergreen/make_tables_chips.py 只用 margin_balance/short_balance(這兩欄全史正確)",
+    "消費端影響盤點:src/quantlib/apex/data.py:180、src/quantlib/db.py:138 會拉 short_quota;src/quantlib/evergreen/ev48_chip_axes.py、src/quantlib/strat_lab/iter_52_ownership_flow_alpha.py、src/quantlib/evergreen/make_tables_chips.py 只用 margin_balance/short_balance(這兩欄全史正確)",
     "排除已知真實現象:TWSE 週六補班日、concise_* 無 market 欄、金融業負營收等清單皆與本表無關;TWSE 檔頭彙總與個股加總在 2015-01-05 的 3,399 張落差屬檔內自述差異(彙總區未入庫),不影響 reader 解析"
   ]
 }

@@ -6,7 +6,7 @@
   分辨「週六補行交易日」與「真的少抓」。
 - 尾端新鮮度:margin 覆蓋到哪一天、離齊備日差幾個交易日。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-margin_transactions/04_rowcount_shape.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-margin_transactions/04_rowcount_shape.py
 """
 from __future__ import annotations
 

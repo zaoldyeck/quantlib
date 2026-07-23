@@ -13,7 +13,7 @@
       "severity": "BUG",
       "what": "缺一季時 lag 跳到不相鄰期別：第 19-22 行只判斷 quarter=1，沒有檢查前一筆是不是 (同年, 本季−1)。橫跨多季的差額被貼上「單季」標籤，產出看起來正常的錯數字。",
       "evidence": "檔案：src/main/resources/sql/materialized_view/5_concise_income_statement_individual.sql:19-22。\n\nlag 落點分佈（title='營業收入'，非首筆的非-Q1 列中前一筆不相鄰者，共 3,212 筆）：\nQ2←去年Q4 1,447 筆（半年累計 − 去年全年累計 → 巨額負值）\nQ4←同年Q2 1,256 筆（H2 貼成 Q4，約 2 倍高估）\nQ4←去年Q4   231 筆\nQ3←同年Q1   217 筆（Q2+Q3 貼成 Q3）\nQ3←去年Q4    52 筆；其他 9 筆\n\n重跑 SQL：\nWITH d AS (SELECT DISTINCT ON (market,year,quarter,company_code,title) market,year,quarter,company_code,title,value,type FROM concise_income_statement_progressive WHERE title='營業收入' ORDER BY market,year,quarter,company_code,title,type),\n f AS (SELECT * FROM d WHERE market IN ('twse','tpex')),\n w AS (SELECT *, lag(value) OVER w pv, lag(year) OVER w py, lag(quarter) OVER w pq FROM f WINDOW w AS (PARTITION BY company_code,title ORDER BY year,quarter))\nSELECT quarter, py=year, pq, count(*) FROM w WHERE quarter<>1 AND pv IS NOT NULL AND NOT (py=year AND pq=quarter-1) GROUP BY 1,2,3 ORDER BY 4 DESC;\n\n輸出端指紋：concise_income_statement_individual 有 1,975 列單季營收為負，歸因缺季 1,464 列(74%)、type 換基 484 列(25%)、無法解釋 80 列(4%)。逐年：2006 196、2007 361、2008-2017 每年 88-163、2018 後個位數~40。\n\n（同型 bug 已於 docs/data_audit/findings/B-view-3_financial_index_quarterly.md BUG 3 以現金流量表記載；本單位以損益表獨立復現並補上 lag 落點分佈。）",
-      "fix": "改成 `case when quarter = 1 then value when lag(year) over w = year and lag(quarter) over w = quarter - 1 then value - lag(value) over w else null end`，缺季給 NULL。同類掃描：3_cash_flows_individual.sql:8-12、7_income_statement_individual.sql:8-11 完全同型；research/strat_lab/raw_quarterly.py:127-148,176-180 雖有年分區但仍是「位移一列」不是「位移一季」，缺季時同 bug，且那條是現役研究路徑。"
+      "fix": "改成 `case when quarter = 1 then value when lag(year) over w = year and lag(quarter) over w = quarter - 1 then value - lag(value) over w else null end`，缺季給 NULL。同類掃描：3_cash_flows_individual.sql:8-12、7_income_statement_individual.sql:8-11 完全同型；src/quantlib/strat_lab/raw_quarterly.py:127-148,176-180 雖有年分區但仍是「位移一列」不是「位移一季」，缺季時同 bug，且那條是現役研究路徑。"
     },
     {
       "severity": "BUG",
@@ -72,7 +72,7 @@
     "驗證 matview 鍵唯一性（0 重複）、market 值域（僅 twse/tpex）、幣別單位（2330 FY2024 = NT$2.894 兆）",
     "驗證 EPS 差分破裂指紋（單季 EPS vs 單季淨利符號矛盾率 1.46% / 1.10%）",
     "trace 消費者鏈：matview → 6_concise_financial_statement_with_titles.sql:34,41,46,50,61,73,82 → financial_index_ttm/growth_analysis_ttm → Scala 策略層（ValueRevertStrategy:66、MultiFactorStrategy:78、QualityFilter:31、DividendYieldStrategy:49、ValueMomentumStrategy:70、Signals:139,142,531,549）；refresh 掛在 FinancialReader.scala:161",
-    "確認現役 Python 路徑不受 BUG 1 影響：research/cache_tables.py:84-87 已鎖 type='consolidated'；research/strat_lab/raw_quarterly.py 直讀 progressive 不經本 view",
+    "確認現役 Python 路徑不受 BUG 1 影響：research/cache_tables.py:84-87 已鎖 type='consolidated'；src/quantlib/strat_lab/raw_quarterly.py 直讀 progressive 不經本 view",
     "讀 src/main/scala/strategy/PublicationLag.scala:33-39 確認 PIT 由下游負責（法定期限 +7 天緩衝）",
     "交叉比對既有稽核 B-view-3_financial_index_quarterly.md、B-view-4_financial_index_ttm.md、B-fscore-academic.md，避免重複並更正其中一項誤判",
     "排除台股已知真實邊界：金融業負營收（本 view 僅減法、非該情境）、營建業零營收、週六補行交易日、concise_* 無 market 欄（本表實際有 market 欄）"

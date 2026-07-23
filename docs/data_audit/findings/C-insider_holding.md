@@ -6,7 +6,7 @@
 - **判定**：BUG
 - **cache 檔**：`var/cache/cache.duckdb`(建於 2026-07-21)
 - **重現腳本**：`docs/data_audit/scripts/C-insider_holding/audit.py`
-  （`PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-insider_holding/audit.py`)
+  （`PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-insider_holding/audit.py`)
 
 ---
 

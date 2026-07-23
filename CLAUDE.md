@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - **🔴 原始檔封存鐵律(不可違反)**:任何爬蟲抓下來的資料,一律**先把原始檔原樣
   原子落地 `data/`,才 parse 進 cache**——絕不「抓完直接 parse、raw 丟掉」。
   `data/`(paths.RAW)是**不可重生的事實地基**,cache 只是其衍生查詢層、隨時可從
-  原始檔重建;出任何意外靠原始檔復原全部歷史。用 `research/crawl/archive.py`
+  原始檔重建;出任何意外靠原始檔復原全部歷史。用 `src/quantlib/crawl/archive.py`
   (`save_raw`/`save_sentinel`,tmp→os.replace);路徑一律
   `data/<source>/<market>/<year>/<year>_<m>_<d>.<ext>`。
 
@@ -18,31 +18,31 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **架構(2026-07-23 全 Python 化)**:零 Scala/JVM/PostgreSQL 執行期依賴。舊 Scala
 > 爬蟲 + 策略引擎已封存於 `legacy/scala/`(不再維護,見該目錄 README);PostgreSQL
-> 已 `dropdb`。所有指令走 `uv`(專案根 `research/pyproject.toml`),從 repo 根執行。
+> 已 `dropdb`。所有指令走 `uv`(專案根 `pyproject.toml(repo 根)`),從 repo 根執行。
 
 ### Run & Test
 ```bash
 # 模組一律 -m 形式,從 repo 根跑
-uv run --project research python -m research.crawl.update          # 每日增量更新 cache
-uv run --project research python -m research.serenity.daily run    # Serenity 每日 loop(送單為人工步驟)
+uv run --project . python -m quantlib.crawl.update          # 每日增量更新 cache
+uv run --project . python -m quantlib.serenity.daily run    # Serenity 每日 loop(送單為人工步驟)
 
 # 全測試套件(per-package tests/,設定在 repo 根 pytest.ini)
-uv run --project research python -m pytest -q
+uv run --project . python -m pytest -q
 ```
 
 ### Dependency Management
 ```bash
-# 依賴宣告於 research/pyproject.toml
-uv add --project research <pkg>
-uv sync --project research
+# 依賴宣告於 pyproject.toml(repo 根)
+uv add --project . <pkg>
+uv sync --project .
 ```
 
 ### Data store(cache.duckdb = 唯一結構化真源)
 ```bash
 # 從 data/ raw 封存全量重建 cache(7 日源 + 季頻特殊源;PG 退役後的重建路徑)
-uv run --project research python -m research.crawl.rebuild --all
+uv run --project . python -m quantlib.crawl.rebuild --all
 # 財報鏈(bs/is/cf)+ raw_quarterly(F-Score/cfo_ni 閘門源)
-uv run --project research python -m research.crawl.rebuild_financials
+uv run --project . python -m quantlib.crawl.rebuild_financials
 ```
 
 ### Data Refresh Workflow (MANDATORY order)
@@ -63,76 +63,76 @@ uv run --project research python -m research.crawl.rebuild_financials
 靜靜砍光(2026-07-15 事故:報價 7/14、法人 7/13 → Evergreen「濾後候選 0」)。
 各源官方發布時刻(quote/index 15:30、T86 16:00、stock_per_pbr 18:30、margin/foreign
 21:30、sbl **22:30**、insider 22:00)只用來**避免白跑的請求**,不是正確性的來源;
-正確性靠 `research.data_calendar` 的 D+1 齊備政策(`latest_complete_trading_day()`)。
+正確性靠 `quantlib.data_calendar` 的 D+1 齊備政策(`latest_complete_trading_day()`)。
 
 **sentinel(休市日)規則**:只有「已過該日齊備時刻(D+1 00:30)」之後收到的乾淨無資料
 才寫 0-byte sentinel;之前一律 `[deferred]` 刪檔重抓。sentinel 同時是我們的**休市日曆**
-(`research/data_calendar.py::is_trading_day` 讀它)——颱風假無法從星期幾推得
+(`src/quantlib/data_calendar.py::is_trading_day` 讀它)——颱風假無法從星期幾推得
 (2026-07-10 即是颱風休市,平日 ≠ 交易日)。
 
-**Python 側入口**:`research/data_calendar.py`(`latest_complete_trading_day()` /
-`stale_tables()`);`research.tri.daily` 已內建齊備自檢——不齊備才跑一次完整更新。
+**Python 側入口**:`src/quantlib/data_calendar.py`(`latest_complete_trading_day()` /
+`stale_tables()`);`quantlib.tri.daily` 已內建齊備自檢——不齊備才跑一次完整更新。
 
 Whenever Taiwan-market data needs to be up-to-date (daily routine, before
 starting a research session, after a long break), run **one** step:
 
 ```bash
 # Python 爬蟲抓已齊備交易日的新資料,增量 upsert 直寫 cache.duckdb
-uv run --project research python -m research.crawl.update
+uv run --project . python -m quantlib.crawl.update
 ```
 
-`research.crawl.update`(PG 退役後取代舊「Scala Main update → PG → cache_tables」兩段):
+`quantlib.crawl.update`(PG 退役後取代舊「Scala Main update → PG → cache_tables」兩段):
 
 - 日頻 8 源(daily_quote/dtd/stock_per_pbr + margin/foreign/sbl/index/insider)+
   月頻(operating_revenue〔重算 industry_taxonomy_pit〕/ex_right/capital_reduction/
   treasury)一次抓齊、直寫 cache——**無 PG 中繼、無二次 sync**。
-- 財報 bs/is/cf(季頻,stale-tolerant)由 `research.crawl.rebuild_financials` 另跑
+- 財報 bs/is/cf(季頻,stale-tolerant)由 `quantlib.crawl.rebuild_financials` 另跑
   (季度一次),不在每日路徑。
-- 齊備語義沿用 `research.data_calendar`(D 的資料 D+1 00:30 後才齊備);TWSE 回無
+- 齊備語義沿用 `quantlib.data_calendar`(D 的資料 D+1 00:30 後才齊備);TWSE 回無
   資料寫 0-byte sentinel 當休市日曆。
 
-**Rule**: any new research script under `research/` **MUST** document at
-the top whether it needs the cache to be current (且用 `research.db.connect()`
+**Rule**: any new research script under `src/quantlib/` **MUST** document at
+the top whether it needs the cache to be current (且用 `quantlib.db.connect()`
 讀 cache——不要再自建 PG 連線,PG 已退役)。
 
 **Rule(研發代碼永久留存,2026-07-10;上位通則見全域 CLAUDE.md §2.4
 「有價值的工作產出必須落地 repo」)**: 本專案的具體化——策略研發程式碼
-(回測、表生成、驗證、對比分析、引擎收割)一律先寫成 `research/<campaign>/`
+(回測、表生成、驗證、對比分析、引擎收割)一律先寫成 `src/quantlib/<campaign>/`
 下的正式檔案(docstring 註明用途、run 指令、是否依賴 cache)再以
-`uv run --project research python -m ...` 執行;**完成即 commit(含負結果
+`uv run --project . python -m ...` 執行;**完成即 commit(含負結果
 harness——負結果是防重複試錯的資產)**。**禁止 Bash heredoc 一次性執行
 研發邏輯**——heredoc 只准 ≤10 行的即拋查詢(查 schema、看幾筆資料)。
 教訓(2026-07):apex/EV 系大量實驗曾以 heredoc 執行未落檔,592 筆 trial
-代碼事後靠對話 transcript 逐字搶救(`research/apex/rebuild/recovered/`);
+代碼事後靠對話 transcript 逐字搶救(`src/quantlib/apex/rebuild/recovered/`);
 transcript 復原是最後保險,不是流程。LLM 標記產出依同等規格留存:標記
 原始輸出 `label_runs/{month}.json`、搜尋材料 `ev28_news/{month}/`(邊搜
 邊存 jsonl)、提示詞 `prompts/{month}.txt`——全部零 token 可重放。
 
 ### Research Scripts (Python + Polars + DuckDB)
 
-Fast iteration harness under `research/`. Reads from local DuckDB cache for
+Fast iteration harness under `src/quantlib/`. Reads from local DuckDB cache for
 ms-level queries.
 
 ```bash
 # Prerequisite: ensure cache is fresh (see "Data Refresh Workflow" above)
 
 # Find stocks with N-day >X% price surges
-uv run python research/audits/01_find_spikes.py --min-gain 0.80 --window 60
+uv run python src/quantlib/audits/01_find_spikes.py --min-gain 0.80 --window 60
 
 # Detect market-wide data anomalies (row counts, extreme values)
-uv run python research/audits/02_anomaly_scan.py --min-stocks 20
+uv run python src/quantlib/audits/02_anomaly_scan.py --min-stocks 20
 
 # Full data-integrity audit across all tables
-uv run python research/audits/03_full_data_audit.py
+uv run python src/quantlib/audits/03_full_data_audit.py
 
 # Verify filename-date matches CSV content-date
-uv run python research/audits/04_cross_verify.py
+uv run python src/quantlib/audits/04_cross_verify.py
 
 # Audit operating_revenue for zero/negative/extreme-YoY rows
-uv run python research/audits/05_revenue_audit.py
+uv run python src/quantlib/audits/05_revenue_audit.py
 
 # Python port of v4 RegimeAwareStrategy (~5s vs Scala ~10-15 min)
-uv run python research/strat_lab/v4.py
+uv run python src/quantlib/strat_lab/v4.py
 ```
 
 Speed comparison (2018-2026 v4 backtest):
@@ -145,10 +145,10 @@ Speed comparison (2018-2026 v4 backtest):
 
 Python 是**唯一**研究 + 生產引擎(Scala `strategy/` 已封存於 `legacy/scala/`)。
 每支策略的回測/計分只准一份 canonical engine(見下方「引擎唯一真源鐵律」),
-生產與研究路徑一律 `import` 它;精確的逐筆成本會計走 `research/execsim`
+生產與研究路徑一律 `import` 它;精確的逐筆成本會計走 `src/quantlib/execsim`
 (broker_fee 費率唯一真源)。
 
-## Research Tooling (Python ecosystem under `research/`)
+## Research Tooling (Python ecosystem under `src/quantlib/`)
 
 Detailed usage + adapters in memory file `project_research_tooling.md`. Quick picker:
 
@@ -250,7 +250,7 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 ### Bash & JVM
 
 - **Bash tool `cd` persists between calls** — always use absolute paths, e.g. `cd /Users/zaoldyeck/Documents/scala/quantlib/research && ...`.
-- **Run Python research from repo root**: `uv run --project research python -m research.strat_lab.v4` (模組形式;避免 `cd research && python v4.py`).
+- **Run Python research from repo root**: `uv run --project . python -m quantlib.strat_lab.v4` (模組形式;避免 `cd research && python v4.py`).
 - **長任務一律背景跑**(cache rebuild / 回測 / 完整測試套件可達數分鐘):丟背景執行、
   靠完成通知接手,不阻塞主 session(見全域 CLAUDE.md §0)。舊 Scala JVM 慢啟動 +
   ForkJoinPool 掛留(需 `sys.exit(0)`)問題隨 Scala 封存一併消失。
@@ -264,12 +264,12 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 (b) `tri.advisors` 手寫「最近 N 月」池籍,比驗證引擎少疊一個月。
 
 **唯一真源清單(要改策略邏輯只准動這幾支,別處一律 import)**:
-- Evergreen:`research/evergreen/engine.py`(`EvergreenData` + `scores`/`replay_nav`/
+- Evergreen:`src/quantlib/evergreen/engine.py`(`EvergreenData` + `scores`/`replay_nav`/
   `refit`/`walkforward_nav`;特徵/計分再抽成 `feat_cols()`/`score_expr()` 供 advisor 共用)。
-- apex_revcycle_S:`research/apex/strategy_s.py`(`prep`/`run_s`;**不准**再放回畫圖實驗檔)。
-- Serenity:`research/serenity/engine.py`。
+- apex_revcycle_S:`src/quantlib/apex/strategy_s.py`(`prep`/`run_s`;**不准**再放回畫圖實驗檔)。
+- Serenity:`src/quantlib/serenity/engine.py`。
 
-**防復發守護**:`research/evergreen/tests/test_engine_parity.py` 鎖死「引擎必須逐位
+**防復發守護**:`src/quantlib/evergreen/tests/test_engine_parity.py` 鎖死「引擎必須逐位
 重現 `live_config` 記錄的 KPI」——任何漂移即紅燈。**新增或改動策略引擎接線後必跑一次;
 改 advisor 這類 money-path 者,另做 before/after 輸出 diff 必須逐字一致才算安全。**
 
@@ -280,18 +280,18 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 ### Cache Schema Contract(cache.duckdb;Slick/PostgreSQL 已退役 2026-07-23)
 
-- **cache.duckdb 是唯一結構化真源**,由 `research/crawl/rebuild.py` 從 `data/` raw
-  封存重建、`research.crawl.update` 增量更新。表結構由各 source parser 的輸出決定
-  (`research/crawl/sources/*.py`)——不再有 Slick `Table[Tuple]` 或 PG DDL/matview。
+- **cache.duckdb 是唯一結構化真源**,由 `src/quantlib/crawl/rebuild.py` 從 `data/` raw
+  封存重建、`quantlib.crawl.update` 增量更新。表結構由各 source parser 的輸出決定
+  (`src/quantlib/crawl/sources/*.py`)——不再有 Slick `Table[Tuple]` 或 PG DDL/matview。
 - **新增資料源**:
-  1. 寫 `research/crawl/sources/<x>.py`——`fetch_day(market, day)` 或 `refresh(sink, upto)`
+  1. 寫 `src/quantlib/crawl/sources/<x>.py`——`fetch_day(market, day)` 或 `refresh(sink, upto)`
      + parser(標頭判世代、逐欄映射);先 `archive.save_raw` 原子落地 raw 才 parse。
-  2. 加進 `research/crawl/update.py`(日頻 → `DAILY_SOURCES`;月頻 → `_refresh_monthly`)。
-  3. 加進 `research/crawl/rebuild.py` 的 rebuild 函式(從 raw 全量重建)。
+  2. 加進 `src/quantlib/crawl/update.py`(日頻 → `DAILY_SOURCES`;月頻 → `_refresh_monthly`)。
+  3. 加進 `src/quantlib/crawl/rebuild.py` 的 rebuild 函式(從 raw 全量重建)。
 - **寫入端不得瘦身丟欄**(2026-07-23 FC1 教訓):rebuild 曾用舊 cache schema 過濾掉
   參考價欄 → prices.py 退回 cash-only fallback → 純配股幽靈崩跌回歸。parser 輸出的欄
   即 cache 表的欄,消費者需要的欄一律寫入。
-- **讀取一律 `research.db.connect()`**(cache-only,PG 已無 fallback);查詢自帶
+- **讀取一律 `quantlib.db.connect()`**(cache-only,PG 已無 fallback);查詢自帶
   `WHERE market='twse'|'tpex'`(cache 含雙市場)。
 
 ### Data Judgement Rules (NOT bugs)
@@ -300,7 +300,7 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 - **Zero `monthly_revenue` for construction stocks** is real — revenue recognized on project handover (completed-project basis).
 - **Saturday sessions with <50% row count** are real TWSE makeup trading days, not partial CSV.
 - **`concise_*` tables have no `market` column** — filter via `company_code` prefix or join with a table that has market.
-- **產業別一律用 `industry_taxonomy_pit`(2026-07-10 鐵律)** — 正規化 + PIT 的官方產業分類(修歷史舊名、記錄生效日防前視;`research/industry_taxonomy.py` 為建表源)。查詢模式:`asof` 取 `effective_date <= 觀察日` 的最新一筆。**禁止**直接用 `operating_revenue.industry`(舊檔含 legacy 名稱且無 PIT 語義)。
+- **產業別一律用 `industry_taxonomy_pit`(2026-07-10 鐵律)** — 正規化 + PIT 的官方產業分類(修歷史舊名、記錄生效日防前視;`src/quantlib/industry_taxonomy.py` 為建表源)。查詢模式:`asof` 取 `effective_date <= 觀察日` 的最新一筆。**禁止**直接用 `operating_revenue.industry`(舊檔含 legacy 名稱且無 PIT 語義)。
 
 ### 執行紀律事故記錄(永不再犯)
 
@@ -315,20 +315,20 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 - **TWSE CSV schema drift** — columns get added silently. Readers with `case _` fall-through will silently misalign new-format rows; always use explicit `case 7 / case 8 / ...` dispatch.
 - **TWSE partial/stale daily publish** — cross-date close-ratio > 2 or < 0.5 with no corporate-action = stale CSV. Fix: delete local CSV + DB row, re-curl, re-read.
-- **Crawler filename-content date mismatch** — run `research/04_cross_verify.py` after any crawler change.
-- **Quarterly partial import** — after `research.crawl.rebuild_financials`, sanity-check `SELECT year, quarter, COUNT(DISTINCT company_code) FROM bs_concise_raw GROUP BY year, quarter` against ~1800 expected(季報存活者偏誤:重抓舊季勿刪下市公司)。
+- **Crawler filename-content date mismatch** — run `src/quantlib/04_cross_verify.py` after any crawler change.
+- **Quarterly partial import** — after `quantlib.crawl.rebuild_financials`, sanity-check `SELECT year, quarter, COUNT(DISTINCT company_code) FROM bs_concise_raw GROUP BY year, quarter` against ~1800 expected(季報存活者偏誤:重抓舊季勿刪下市公司)。
 - **`Crawler.downloadFile` regex** stays `^\d{4}_.*\.csv$` — daily (YYYY_M_D.csv) AND quarterly (YYYY_Q_a_c_idx.csv) both need year-subdir routing.
 
 ### Exit Semantics Contract(2026-07-16 定調)
 
-- **出場一律逐日重放價格路徑,禁止今日快照評估**(`research/trading/exit_replay.py`)。
+- **出場一律逐日重放價格路徑,禁止今日快照評估**(`src/quantlib/trading/exit_replay.py`)。
   回測逐交易日評估、觸發當天出場;live 只看「今天的價格 vs 今天的止損線」會把
   「沒跑報告那幾天已觸發的出場」變成沒發生——**只在最沒紀律的時候放寬規則**。
   使用者定調:「我就算延遲了,該賣還是得賣,不能過時間了就當作沒發生」。
 - **峰值(trailing 錨)由價格歷史重算**,不得用「跑報告時才更新」的增量 state
   (漏跑 → 峰值偏低 → 止損線偏低 → 該賣的沒賣)。峰值下限 = 該筆成交價
   (回測 `peak_close = entry_close` 的忠實對應)。
-- **成本是帳戶的屬性,不是策略的屬性**(`research/trading/cost_basis.py` 單一
+- **成本是帳戶的屬性,不是策略的屬性**(`src/quantlib/trading/cost_basis.py` 單一
   來源):富邦 inventories 無成本欄位、filled_history 全回空 → 跨日成交價只能靠
   成交當天自己記帳(執行器 TCA jsonl 必須永久保存)。收養部位的「成本」是收養日
   收盤的**代理值**,報告必須標示 `(收養價)` 而非假裝是真成本。
@@ -338,13 +338,13 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 ### Strategy Semantics Contract
 
-- **現役交易策略(live,使用者指定單一策略)= Serenity 事件引擎 `ev_v3_wf`(2026-07-17 戰役十八換帥:walk-forward 驗證〔train 2022-07~2025-07 凍結 → OOS 四方對決乾淨勝 Evergreen P5 274.5% vs 172.2%〕+ EV43 式 refit 上場參數 = fresh12_nofilt 計分 × tp40/trail25/abs15/td30 × inst_neg × 10 席等權;血統審計 `research/serenity/data/live_config.json`;下次 refit 2027-01/07)。前任 `ev_v2_thesis_inst`** — 論點註冊表策展 × 事件紀律(止盈 +60% 回收 / trail -20% / abs -15% / time50 / **法人分佈出場** / 營收論點停損 + 雙 regime guard + live-book 收養協定)。驗證(cutoff 2026-07-06,計分經戰役十一~十三逐項消融驗證=8 成分全背書):lag0 CAGR 253.3% / MDD -18.0% / Sharpe 6.84 / Lo-t 4.29;置換檢定 p=0.000、DSR 1.00、bootstrap 5% 下界 +102.5%;富邦 realistic CAGR 271.6% / MDD -17.2% / 成交率 96.9%(摩擦 ~0.25% 名目)。**2026-07-14 戰役十五 role purity**:成員層三測試入法(SOP §1.5),beneficiary 14 檔除名(池 58→44,`member_roles.csv` 為姊妹檔);新池重驗證(cutoff 07-14):lag0 288.8% / MDD -16.9% / 置換 p=0.000 / DSR 1.00 / bootstrap 5% 下界 +111.4%;**PBO lag0 0.526(fold 稀疏 caveat 未解,回溯標記先導評估中)**;82 預註冊 trials;live OOS 對照帳 `docs/serenity/serenity_forward_track.md` 月結。文件:skill `serenity-trading-system`(`references/daily-ops.md` = 每日營運、`tw-event-engine.md` = 策略規格)+ `docs/serenity/serenity_event_engine_v1.md`。**鐵律:任何引擎變更必須先在 `docs/serenity/serenity_engine_trials_ledger.md` 預註冊假設與判準再跑**;策展維護依 `serenity_curation_sop.md`(註冊表是 alpha 源頭)。每日營運入口:`uv run --project research python -m research.serenity.daily run`(送單永遠是使用者的人工步驟)。**架構主權(血統原則,2026-07-07)**:Serenity 需求與 quantlib 舊慣例衝突時,一律改造專案服務 Serenity,不反向遷就(先例:事件驅動營收爬蟲、`research/serenity/` 獨立家);文字/質性資訊 fetch-on-demand 當下抓當下判斷(WebFetch → 使用者 Chrome),只存首見時間戳+策展蒸餾+量化資料,不建原文語料庫。
+- **現役交易策略(live,使用者指定單一策略)= Serenity 事件引擎 `ev_v3_wf`(2026-07-17 戰役十八換帥:walk-forward 驗證〔train 2022-07~2025-07 凍結 → OOS 四方對決乾淨勝 Evergreen P5 274.5% vs 172.2%〕+ EV43 式 refit 上場參數 = fresh12_nofilt 計分 × tp40/trail25/abs15/td30 × inst_neg × 10 席等權;血統審計 `src/quantlib/serenity/data/live_config.json`;下次 refit 2027-01/07)。前任 `ev_v2_thesis_inst`** — 論點註冊表策展 × 事件紀律(止盈 +60% 回收 / trail -20% / abs -15% / time50 / **法人分佈出場** / 營收論點停損 + 雙 regime guard + live-book 收養協定)。驗證(cutoff 2026-07-06,計分經戰役十一~十三逐項消融驗證=8 成分全背書):lag0 CAGR 253.3% / MDD -18.0% / Sharpe 6.84 / Lo-t 4.29;置換檢定 p=0.000、DSR 1.00、bootstrap 5% 下界 +102.5%;富邦 realistic CAGR 271.6% / MDD -17.2% / 成交率 96.9%(摩擦 ~0.25% 名目)。**2026-07-14 戰役十五 role purity**:成員層三測試入法(SOP §1.5),beneficiary 14 檔除名(池 58→44,`member_roles.csv` 為姊妹檔);新池重驗證(cutoff 07-14):lag0 288.8% / MDD -16.9% / 置換 p=0.000 / DSR 1.00 / bootstrap 5% 下界 +111.4%;**PBO lag0 0.526(fold 稀疏 caveat 未解,回溯標記先導評估中)**;82 預註冊 trials;live OOS 對照帳 `docs/serenity/serenity_forward_track.md` 月結。文件:skill `serenity-trading-system`(`references/daily-ops.md` = 每日營運、`tw-event-engine.md` = 策略規格)+ `docs/serenity/serenity_event_engine_v1.md`。**鐵律:任何引擎變更必須先在 `docs/serenity/serenity_engine_trials_ledger.md` 預註冊假設與判準再跑**;策展維護依 `serenity_curation_sop.md`(註冊表是 alpha 源頭)。每日營運入口:`uv run --project . python -m quantlib.serenity.daily run`(送單永遠是使用者的人工步驟)。**架構主權(血統原則,2026-07-07)**:Serenity 需求與 quantlib 舊慣例衝突時,一律改造專案服務 Serenity,不反向遷就(先例:事件驅動營收爬蟲、`src/quantlib/serenity/` 獨立家);文字/質性資訊 fetch-on-demand 當下抓當下判斷(WebFetch → 使用者 Chrome),只存首見時間戳+策展蒸餾+量化資料,不建原文語料庫。
 - **純量化冠軍(參考)= Iter95** — see [`docs/strategy_ranking.md`](docs/strategy_ranking.md)(同窗 2018-26 realistic 70.8% / MDD -22.1%;2026-07 純量化戰役確認無挑戰者勝出,見 `quant_campaign_ledger.md`)。歷代 ship 策略(Quality+Catalyst Hybrid 等)退役為歷史參考。
-- **Canonical pricing module (`research/prices.py`, 2026-04-30+)** — ALL NAV simulation MUST go through `prices.fetch_adjusted_panel` (or helpers `daily_returns_from_panel` / `fetch_daily_returns` / `total_return_series`). Reading raw `daily_quote.closing_price` and running daily NAV systematically under-counts cash dividend reinvestment and ignores capital reduction reference resets — historical bug that under-stated iter_20 / iter_24 NAV ~3-6pp CAGR over 21y. See `feedback_canonical_prices_module.md` memory and `research/tests/test_prices.py` for the 10-test parity suite (incl. cross-implementation check vs `research/analyses/active_etf_metrics.py`).
-- **Python is the canonical research engine** (`research/strat_lab/v4.py` + `vectorbt` + `alphalens`). Scala `strategy/` package 已**封存 `legacy/scala/`**(2026-07-23 退役)——no new strategies, no factor research, no backtesting there.
+- **Canonical pricing module (`src/quantlib/prices.py`, 2026-04-30+)** — ALL NAV simulation MUST go through `prices.fetch_adjusted_panel` (or helpers `daily_returns_from_panel` / `fetch_daily_returns` / `total_return_series`). Reading raw `daily_quote.closing_price` and running daily NAV systematically under-counts cash dividend reinvestment and ignores capital reduction reference resets — historical bug that under-stated iter_20 / iter_24 NAV ~3-6pp CAGR over 21y. See `feedback_canonical_prices_module.md` memory and `src/quantlib/tests/test_prices.py` for the 10-test parity suite (incl. cross-implementation check vs `src/quantlib/analyses/active_etf_metrics.py`).
+- **Python is the canonical research engine** (`src/quantlib/strat_lab/v4.py` + `vectorbt` + `alphalens`). Scala `strategy/` package 已**封存 `legacy/scala/`**(2026-07-23 退役)——no new strategies, no factor research, no backtesting there.
 - **Month-start rebalance** (`minDay=1`) is **v4 legacy only**. New strategies應該傾向 **event-driven daily**（見下一節）。月頻只在證明比事件驅動好時才用。
-- **Commission 0.0285%** (2-折 e-trading via 國泰/富邦/永豐), **sell tax 0.3%** — hardcoded in `research/strat_lab/v4.py`; copy these constants to any new strategy. 若用 vectorbt，symmetric-baked `fees=0.001785` per side（round-trip = 0.00357）。
-- **Per-rebal turnover cost** = `|prev ∩ cur| / TOPN × (SELL_TAX + 2 × COMMISSION)` — avoid flat 100% turnover assumption; match research/strat_lab/v4.py formula.
+- **Commission 0.0285%** (2-折 e-trading via 國泰/富邦/永豐), **sell tax 0.3%** — hardcoded in `src/quantlib/strat_lab/v4.py`; copy these constants to any new strategy. 若用 vectorbt，symmetric-baked `fees=0.001785` per side（round-trip = 0.00357）。
+- **Per-rebal turnover cost** = `|prev ∩ cur| / TOPN × (SELL_TAX + 2 × COMMISSION)` — avoid flat 100% turnover assumption; match src/quantlib/strat_lab/v4.py formula.
 - **Asof-join +1 day shift**: new picks effective T+1, not T (trade at today's close). Any Python backtest doing monthly rebalance must offset the pick assignment by +1 trading day.
 - **Speed over bit-exact accuracy** — 5-second iterations are worth >1pp CAGR approximation noise. Do not add Python-side complexity to shave final % points.
 
@@ -380,7 +380,7 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 
 #### TPEx cache 覆蓋 — 已修復（2026-07-16 查證定案，舊「pipeline gap」記載作廢）
 
-**cache 為全市場**：`research/crawl/rebuild.py` 從 raw 重建雙市場(daily_quote TPEx
+**cache 為全市場**：`src/quantlib/crawl/rebuild.py` 從 raw 重建雙市場(daily_quote TPEx
 3.86M rows）、stock_per_pbr、operating_revenue、ex_right_dividend、daily_trading_details
 等全表 TWSE + TPEx 俱備、毫秒級。**規則**：research 腳本自行下顯式 `WHERE market=...`
 選市場;`prices.fetch_adjusted_panel` 以 `market='twse'|'tpex'` 分拉再 concat。
@@ -404,34 +404,34 @@ Agents are on-demand subagents, use Claude Code subscription (zero API cost vs T
 **Sprint B 啟動條件**：Sprint A 的 TDCC + SBL 數據回測證明籌碼面訊號有效（longest-window CAGR ≥ 22%，beat 0050 by ≥ 3pp），才投入 MOPS anti-bot 爬蟲。
 
 **2026-04-29 Sprint B 階段成果**：
-- 庫藏股 working — `treasury_stock_buyback`(Python 爬取 `research/crawl/sources/treasury_stock_buyback.py`,已接入 `update.py` 月頻 + `rebuild.py`)全 done
+- 庫藏股 working — `treasury_stock_buyback`(Python 爬取 `src/quantlib/crawl/sources/treasury_stock_buyback.py`,已接入 `update.py` 月頻 + `rebuild.py`)全 done
 - 內部人 / 現增 — 全套 code 寫好（Setting / Table / Reader / Crawler / CLI）但 endpoint server 對 IP/TLS fingerprint 直接 close，需 Playwright 階段
-- 法說會 (Task #86/87) — **2026-07-07 翻案(部分)**:行事曆+簡報連結已接入 Serenity 每日 loop(MOPS t100sb02_1,`research/serenity/daily.py`;事件庫 `research/records/confcall_events.parquet` 累積首見日供未來 event study);逐字稿 NLP 因子維持不做(舊結論仍成立:無截面排名價值),內容解讀走策展層 read-through + on-demand `twstock-confcall-analyzer`
+- 法說會 (Task #86/87) — **2026-07-07 翻案(部分)**:行事曆+簡報連結已接入 Serenity 每日 loop(MOPS t100sb02_1,`src/quantlib/serenity/daily.py`;事件庫 `src/quantlib/records/confcall_events.parquet` 累積首見日供未來 event study);逐字稿 NLP 因子維持不做(舊結論仍成立:無截面排名價值),內容解讀走策展層 read-through + on-demand `twstock-confcall-analyzer`
 
-補資料時務必**三處齊加**:`research/crawl/sources/<x>.py`(爬取+parser)、
-`research/crawl/update.py`(增量編排)、`research/crawl/rebuild.py`(從 raw 全量重建),
+補資料時務必**三處齊加**:`src/quantlib/crawl/sources/<x>.py`(爬取+parser)、
+`src/quantlib/crawl/update.py`(增量編排)、`src/quantlib/crawl/rebuild.py`(從 raw 全量重建),
 cache 才會帶入。PG/pg-attach 已退役,無需再維護 view。
 
-#### 新資料的 Python 爬取(tdcc / sbl 等已 port 到 research/crawl/sources)
+#### 新資料的 Python 爬取(tdcc / sbl 等已 port 到 src/quantlib/crawl/sources)
 
 ```bash
 # 每日/每週增量(含 tdcc weekly、sbl daily)一律走統一入口:
-uv run --project research python -m research.crawl.update
+uv run --project . python -m quantlib.crawl.update
 # 歷史回補走從 raw 全量重建(舊 Scala Main pull/read CLI 已退役):
-uv run --project research python -m research.crawl.rebuild --all
+uv run --project . python -m quantlib.crawl.rebuild --all
 ```
 
 ## Architecture Overview
 
-台股資料爬取 + 量化研究 + 實盤系統,**全 Python**(uv 專案 `research/`)。舊 Scala
+台股資料爬取 + 量化研究 + 實盤系統,**全 Python**(uv 專案 `src/quantlib/`)。舊 Scala
 分層爬蟲/reader/策略引擎已封存 `legacy/scala/`(2026-07-23 退役,見該目錄 README)。
 資料流唯一形態:
 
 ```
-Python 爬蟲(research/crawl)→ data/ raw 原子封存 → parser → cache.duckdb → 研究 + 實盤
+Python 爬蟲(src/quantlib/crawl)→ data/ raw 原子封存 → parser → cache.duckdb → 研究 + 實盤
 ```
 
-### 1. 爬取層(`research/crawl/`)
+### 1. 爬取層(`src/quantlib/crawl/`)
 - **sources/**:每源一個 adapter——`fetch_day(market, day)`(日頻)或
   `refresh(sink, upto)`(月頻)+ parser(標頭判世代、逐欄映射,無 fallthrough)。
   15+ 源:日頻(daily_quote/dtd/stock_per_pbr/margin/foreign/sbl/index/insider)、
@@ -441,33 +441,33 @@ Python 爬蟲(research/crawl)→ data/ raw 原子封存 → parser → cache.duc
 - **update.py**:每日增量編排(齊備自檢 → 逐源 fetch/upsert;取代 Scala Main update)。
 - **rebuild.py** / **rebuild_financials.py**:從 raw 全量重建 cache(PG 退役後的重建路徑)。
 
-### 2. 資料層(`research/db.py` + `research/prices.py`)
+### 2. 資料層(`src/quantlib/db.py` + `src/quantlib/prices.py`)
 - **db.connect()**:cache-only DuckDB 連線(毫秒查詢),自動註冊 raw_quarterly +
   industry_taxonomy_pit view。**無 PG fallback**。
 - **prices.py**:canonical 還原價面板(`fetch_adjusted_panel`;DRIP + 除權息參考價
   FC1 + 減資參考價還原)——所有 NAV 模擬必經此。
 
 ### 3. 策略引擎(canonical,唯一真源見上方「引擎唯一真源鐵律」)
-- **research/apex/**:apex_revcycle_S(純量化冠軍,GCP 實盤)。
-- **research/serenity/**:Serenity 事件引擎(現役)。
-- **research/evergreen/**:Evergreen(參考)。
-- **research/strat_lab/**:因子研究 + 回測 harness(vectorbt / alphalens)。
+- **src/quantlib/apex/**:apex_revcycle_S(純量化冠軍,GCP 實盤)。
+- **src/quantlib/serenity/**:Serenity 事件引擎(現役)。
+- **src/quantlib/evergreen/**:Evergreen(參考)。
+- **src/quantlib/strat_lab/**:因子研究 + 回測 harness(vectorbt / alphalens)。
 
-### 4. 執行層(`research/trading/`)
+### 4. 執行層(`src/quantlib/trading/`)
 - **execution/**:實盤下單引擎(富邦 fubon_neo;買 1 股/賣全部原生支援)。
 - **execsim/**:回測成交模擬(broker_fee 費率唯一真源)。
 - **live/**:S 雲端 headless 編排(premarket / execute)。
 
 ## 專案結構(2026-07-22 Phase 2 定案)
 
-**三種生命週期,三個根,規則各不相同**——唯一真源 `research/paths.py`,
-**任何新程式一律從那裡取路徑,禁止再寫字面值**(守護:`research/tests/test_no_hardcoded_paths.py`):
+**三種生命週期,三個根,規則各不相同**——唯一真源 `src/quantlib/paths.py`,
+**任何新程式一律從那裡取路徑,禁止再寫字面值**(守護:`src/quantlib/tests/test_no_hardcoded_paths.py`):
 
 | 根 | 內容 | 規則 |
 |---|---|---|
 | `data/` | **原始封存**:爬回來的 CSV、1 分 K | 不可重生(重爬要數週、部分歷史端點已停供)、不進 git(51 GB)、比程式碼還珍貴 |
 | `var/` | **可重生產物**:cache / 回測輸出 / 報告 / log / runtime state | 整包 gitignore(一行 `/var/`),刪掉只是重算 |
-| repo | **源碼與策展紀錄** | 進 git;`research/records/` 放不可重生的觀測紀錄(營收首見日等) |
+| repo | **源碼與策展紀錄** | 進 git;`src/quantlib/records/` 放不可重生的觀測紀錄(營收首見日等) |
 
 為什麼要這樣分:三者混在一起時,`.gitignore` 得靠人工維護一長串規則,規則永遠
 跟不上目錄演進 → 952 個檔卡在 `git status` 讓人視而不見 → 每日重生的 5 MB HTML
@@ -478,11 +478,11 @@ Python 爬蟲(research/crawl)→ data/ raw 原子封存 → parser → cache.duc
 `paths.REVENUE_FIRST_SEEN`。
 
 **測試**:一律與被測程式碼同居(per-package `tests/`),設定在 repo 根的
-`pytest.ini`(放 `research/pyproject.toml` 讀不到——pytest 只往 cwd 的父層找)。
-跑法:`uv run --project research python -m pytest -q`(251 tests;PG-parity 過渡測試已隨 PG 退役)。
+`pytest.ini`(放 `pyproject.toml(repo 根)` 讀不到——pytest 只往 cwd 的父層找)。
+跑法:`uv run --project . python -m pytest -q`(251 tests;PG-parity 過渡測試已隨 PG 退役)。
 
-**同名異物已解**:`research/execsim/`(回測成交模擬,含費率唯一真源 broker_fee)
-與 `research/trading/execution/`(實盤下單引擎)過去都叫 `execution`,已更名。
+**同名異物已解**:`src/quantlib/execsim/`(回測成交模擬,含費率唯一真源 broker_fee)
+與 `src/quantlib/trading/execution/`(實盤下單引擎)過去都叫 `execution`,已更名。
 
 ## Data Organization
 
@@ -499,7 +499,7 @@ The system manages two types of data storage:
 
 ## Cache Schema(cache.duckdb 24 表;PostgreSQL/Slick 已退役 2026-07-23)
 
-24 表由 `research/crawl/rebuild.py` 從 raw 全量重建、`research.crawl.update` 增量更新:
+24 表由 `src/quantlib/crawl/rebuild.py` 從 raw 全量重建、`quantlib.crawl.update` 增量更新:
 - **日頻**:daily_quote、daily_trading_details、stock_per_pbr、margin_transactions、
   foreign_holding_ratio、sbl_borrowing、market_index、insider_holding。
 - **月頻**:operating_revenue(含 report_date,FC8 產業別 PIT 錨)、ex_right_dividend
@@ -508,32 +508,32 @@ The system manages two types of data storage:
 - **期貨**:taifex_futures_daily / institutional / final_settlement + 衍生表。
 - **衍生/策展**:industry_taxonomy_pit(PIT 產業分類,唯一真源)、tdcc_shareholding、etf。
 
-**財務品質因子**:`research/raw_quarterly.parquet`(`research/strat_lab/raw_quarterly.py`
+**財務品質因子**:`var/cache/raw_quarterly.parquet`(`src/quantlib/strat_lab/raw_quarterly.py`
 從 is/bs/cf 算 Piotroski F-Score + margin/ROA/cfo_ni_ratio_ttm 等,PIT 合規)——
 `db.connect()` 自動註冊為 `raw_quarterly` view,**取代舊 PG view**(growth_analysis_ttm /
 financial_index_ttm)。查詢一律 Plain SQL,自帶 `WHERE market=...`。
 
 ## Entry Points
 
-全 Python,一律 `uv run --project research python -m <module>`(從 repo 根):
+全 Python,一律 `uv run --project . python -m <module>`(從 repo 根):
 
 ```bash
 # 每日資料更新(Python 爬蟲直寫 cache;取代 Scala Main update)
-uv run --project research python -m research.crawl.update
+uv run --project . python -m quantlib.crawl.update
 
 # 從 raw 全量重建 cache(PG 退役後的重建路徑)
-uv run --project research python -m research.crawl.rebuild --all
-uv run --project research python -m research.crawl.rebuild_financials
+uv run --project . python -m quantlib.crawl.rebuild --all
+uv run --project . python -m quantlib.crawl.rebuild_financials
 
 # Serenity 每日 loop(選股/估值/出場/下單計畫;送單為人工步驟)
-uv run --project research python -m research.serenity.daily run
+uv run --project . python -m quantlib.serenity.daily run
 
 # S(apex_revcycle_S)雲端 headless 編排
-uv run --project research python -m research.trading.live.premarket
-uv run --project research python -m research.trading.live.execute
+uv run --project . python -m quantlib.trading.live.premarket
+uv run --project . python -m quantlib.trading.live.execute
 
 # 全測試套件
-uv run --project research python -m pytest -q
+uv run --project . python -m pytest -q
 ```
 
 ## Environment Setup
@@ -543,12 +543,12 @@ uv run --project research python -m pytest -q
 
 ### Initial Setup
 ```bash
-uv sync --project research                                   # 裝依賴(含 fubon_neo / shioaji)
+uv sync --project .                                   # 裝依賴(含 fubon_neo / shioaji)
 # cache.duckdb 由 scp 種入或從 raw 重建:
-uv run --project research python -m research.crawl.rebuild --all
+uv run --project . python -m quantlib.crawl.rebuild --all
 ```
 
 ### Key Config Files
-- `research/pyproject.toml` — Python 依賴宣告(uv 專案根)。
-- `research/paths.py` — **路徑唯一真源**(data/ raw、var/ 產物、cache、raw_quarterly)。
-- `research/.env` — 富邦 FUBON_* / 永豐 shioaji / GMAIL_* 憑證(gitignored)。
+- `pyproject.toml(repo 根)` — Python 依賴宣告(uv 專案根)。
+- `src/quantlib/paths.py` — **路徑唯一真源**(data/ raw、var/ 產物、cache、raw_quarterly)。
+- `.env` — 富邦 FUBON_* / 永豐 shioaji / GMAIL_* 憑證(gitignored)。

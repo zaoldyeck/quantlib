@@ -91,7 +91,7 @@ val future = yearToQuarter.diff(excludeYearToQuarter).filterNot(existFiles).mapI
 ### 重現
 
 ```bash
-uv run --project research python -c "
+uv run --project . python -c "
 import duckdb
 from research import paths
 con = duckdb.connect(str(paths.CACHE_DB), read_only=True)
@@ -117,7 +117,7 @@ print(con.sql('''SELECT year, quarter, COUNT(DISTINCT company_code) codes
 
 ## 🔴 BUG 2:缺一季不是留下空值,是把下一季算成兩季合併
 
-財報是**年度累計數**,`research/strat_lab/raw_quarterly.py` 用「本季累計 − 上季累計」
+財報是**年度累計數**,`src/quantlib/strat_lab/raw_quarterly.py` 用「本季累計 − 上季累計」
 還原單季。某季整列不存在時,polars 的 `shift(1)` 直接取到再上一季,於是下一季變成兩季相加。
 
 ### 證據:1590 亞德客-KY(2025Q2 缺料)
@@ -198,7 +198,7 @@ BUG 1 補抓後這條大半自動消失。但仍應在 `raw_quarterly.py` 的 la
 
 ## 🔴 BUG 4:`raw_quarterly.py` 漏收 pre-IFRS 的「營業淨利(淨損)」
 
-`research/strat_lab/raw_quarterly.py:52-53`:
+`src/quantlib/strat_lab/raw_quarterly.py:52-53`:
 
 ```python
 "op_income": ["營業利益（損失）", "營業利益（淨損）",
@@ -248,7 +248,7 @@ BUG 1 補抓後這條大半自動消失。但仍應在 `raw_quarterly.py` 的 la
 | NULL/NaN/Inf | 七欄 NULL 皆 0;value 無 NaN 無 Inf |
 | 重複鍵 | `(market,type,year,quarter,company_code,title)` 0 筆;去掉 market(下游 pivot 實際鍵)也 0 筆 |
 | market 過濾 | PG 僅 twse/tpex 兩值,過濾未丟任何列 |
-| parity | `research/db.py:182-185` 的 pg-attach view 與 `research/cache_tables.py:84-87` 建表 SQL 逐字相同 |
+| parity | `src/quantlib/db.py:182-185` 的 pg-attach view 與 `research/cache_tables.py:84-87` 建表 SQL 逐字相同 |
 
 **同步程式 `research/cache_tables.py` 本身沒有漏欄、漏表、型別降級。**
 

@@ -1,7 +1,7 @@
 {
   "id": "D-bankruptcy-models",
   "title": "破產/財務危機模型 + DuPont + 品質因子",
-  "scope": "research/apex/experiments/q01_financial_scores.py + q02/q03 + Altman/Ohlson/DuPont/GPOA/accruals 實作(欄位源 research/strat_lab/raw_quarterly.py)",
+  "scope": "src/quantlib/apex/experiments/q01_financial_scores.py + q02/q03 + Altman/Ohlson/DuPont/GPOA/accruals 實作(欄位源 src/quantlib/strat_lab/raw_quarterly.py)",
   "unit": "D-bankruptcy-models",
   "verdict": "BUG",
   "summary": "上線用的品質因子(GPOA、accruals、cfo/資產、獲利波動)學理定義都正確、可信;但只出現在 q01 研究 IC 廣篩、沒進生產策略的兩個破產分數(Altman Z''、Ohlson O)有真 bug —— Z'' 的『保留盈餘』用『權益−股本』代理,把 114 家已累虧公司的虧損訊號抹掉(中位誤差 57%),而真保留盈餘欄位其實抓得到;Ohlson 的『連兩年虧損』被寫成『連兩季虧損』,10.8% 樣本判定不同。這兩支分數在 q01 量出來的 IC 不可信,據以接受/否決它們的結論要重跑。",
@@ -12,7 +12,7 @@
       "textbook_def": "Altman (1993/1995) Z''-Score X2 = Retained Earnings / Total Assets。RE 是資產負債表『保留盈餘(累積盈虧)』科目,衡量公司累積獲利/存活年資,是 Z 系列對『年輕、累虧』公司最靈敏的鑑別項(Altman, 'Corporate Financial Distress and Bankruptcy', 3rd ed.; Altman 1968 原始論文 X2 定義)。",
       "implementation": "re_ta = (total_equity − capital_stock) / total_assets。以『權益總計 − 股本』代理保留盈餘,實際上等於 資本公積 + 保留盈餘 + 其他權益 + 非控制權益(把資本公積等 paid-in capital 全灌進來)。",
       "evidence": "cache 2023Q4 共 1,951 家(twse+tpex,同 COALESCE 口徑):中位 |proxy − 真RE|/|真RE| = 57.4%;114 家 proxy_re>0 但真保留盈餘<0 —— 累積虧損(Altman 要抓的核心訊號)被 IPO 資本公積完全遮蔽;X2 項 cross-sectional Spearman(proxy, 真值) 僅 0.758。最惡例 6854:x2_true = −8.18(嚴重危困)vs x2_proxy = +1.25(看起來健康),單一項擺盪 9.4 分,而 Z'' 危困界約 <1.1。真『保留盈餘（或累積虧損）』科目確實存在於 bs_concise_raw(已查證),此代理可避免。z_pp 僅用於 q01 rank-IC 廣篩,代理改變截面排序(非常數平移)故直接汙染量到的 IC。",
-      "fix": "在 research/strat_lab/raw_quarterly.py 的 BS_TITLES 增列 'retained_earnings': ['保留盈餘（或累積虧損）','保留盈餘'],重建 raw_quarterly.parquet;q01 改 re_ta = pos-guarded(retained_earnings) / total_assets。真保留盈餘可直接取用,不需代理。"
+      "fix": "在 src/quantlib/strat_lab/raw_quarterly.py 的 BS_TITLES 增列 'retained_earnings': ['保留盈餘（或累積虧損）','保留盈餘'],重建 raw_quarterly.parquet;q01 改 re_ta = pos-guarded(retained_earnings) / total_assets。真保留盈餘可直接取用,不需代理。"
     },
     {
       "severity": "BUG",

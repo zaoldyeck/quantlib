@@ -6,7 +6,7 @@
    恆等式(當日餘額 = 前日餘額 + 當日賣出 − 當日還券 + 當日調整)/ 限額關係 /
    單日列數異常低。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-sbl_borrowing/05_sample_and_anomaly.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-sbl_borrowing/05_sample_and_anomaly.py
 """
 from __future__ import annotations
 

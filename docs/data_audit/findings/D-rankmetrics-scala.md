@@ -17,7 +17,7 @@ IC 的數學本身沒問題:它確實是每個換股日「因子分數 vs 未來
 股利其實是配到你手上的現金——**真正的總報酬沒少,帳面報酬卻被砍掉約 4%**。於是殖利率、
 價值這類「愛挑高配息股」的因子,它們排在前面的股票在夏天的未來報酬被系統性低估,**IC 被
 壓低、跨月 IC 波動變大 → t 值被雜訊稀釋**。結論(哪個因子有 IC)在牽涉配息的因子上不能
-全信。純量化冠軍 apex 的 Python 版(`research/apex/factors.py`)已經用**還原價 + T+1 起算**
+全信。純量化冠軍 apex 的 Python 版(`src/quantlib/apex/factors.py`)已經用**還原價 + T+1 起算**
 做對了,偏偏這份 Scala 研究工具沒有,而且同一個錯在 `RankMetricsEx` 又抄了一份。
 
 至於 scope 裡說的「research 端 alphalens 使用」——**alphalens 在整個 repo 裡從沒被 import
@@ -39,7 +39,7 @@ IC 的數學本身沒問題:它確實是每個換股日「因子分數 vs 未來
   再投資後**價格算 forward return。原始價報酬(price return)只在無股利、無資本行動時才等於
   總報酬。
 - **程式實作**:`(p1 − p0)/p0`,p0/p1 皆為 `daily_quote.closing_price`(專案鐵律載明此欄為
-  **未還原原始價**,故有 `research/prices.py::fetch_adjusted_panel`)。除息日原始收盤價掉一個
+  **未還原原始價**,故有 `src/quantlib/prices.py::fetch_adjusted_panel`)。除息日原始收盤價掉一個
   股利、減資日參考價重設,`forwardReturns` 全部當成真實漲跌。
 - **可重現證據**:
   - 除權息集中度:`2023-07-04→2023-08-01`(約 21 交易日)TWSE 有 **410 / 1198 檔(34%)**
@@ -50,7 +50,7 @@ IC 的數學本身沒問題:它確實是每個換股日「因子分數 vs 未來
     完全看不到這 3 元。
   - 減資:TWSE 每年 15–31 件(2021:27、2022:31、2023:26),參考價重設(如 2323 2022-10-24
     pre 6.53 / ref 6.20)被當成 −5% 真跌。
-  - 對照組:`research/apex/factors.py:4` 明文「Forward return … **調整價**,T+1 起算,零
+  - 對照組:`src/quantlib/apex/factors.py:4` 明文「Forward return … **調整價**,T+1 起算,零
     look-ahead」——冠軍 Python 引擎已做對,Scala 這份沒有。
 - **影響**:與殖利率/價值因子相關 → 夏季月份 IC 被系統性壓低、IC std 被灌大 → mean IC 偏低、
   t 值偏保守;跨月方向不穩。血徑限縮於**凍結的 Scala 研究輸出**(`Main strategy` / `Main
@@ -131,7 +131,7 @@ IC 的數學本身沒問題:它確實是每個換股日「因子分數 vs 未來
 ### 9. OK(功能缺口,非錯)— 分位數單調性未實作;IR 未具名輸出
 
 - `RankMetrics.scala` 只算 IC + t,**沒有** decile/quantile 報酬單調性檢定。非算錯,是沒做;
-  Python `research/apex/factors.py:88-99` 已正確實作 decile spread(橫截面 rank 分 10 桶取均值)。
+  Python `src/quantlib/apex/factors.py:88-99` 已正確實作 decile spread(橫截面 rank 分 10 桶取均值)。
 - IR = mean(IC)/std(IC) 未列為具名欄位,但 tStat = IR·√n 已內含,**非偏差**。
 
 ---

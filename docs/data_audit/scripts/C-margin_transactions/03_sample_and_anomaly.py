@@ -7,7 +7,7 @@
    負值 / int32 邊界 / 餘額 > 限額(物理不可能)/ 限額為 0 卻有餘額。
 3. **整日內容指紋撞號**:cache 端獨立複驗「整天的資料被複製到別天」。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-margin_transactions/03_sample_and_anomaly.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-margin_transactions/03_sample_and_anomaly.py
 依賴:PostgreSQL(第 1 段)、var/cache/cache.duckdb(唯讀)。
 """
 from __future__ import annotations

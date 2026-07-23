@@ -7,7 +7,7 @@ expected name:
 expected change:
   twse            -> sign(values2) * |values3|;sign=="" -> 0
   tpex            -> values2 直接數值
-run: uv run --project research python docs/data_audit/scripts/A-index/cmp_aligned.py
+run: uv run --project . python docs/data_audit/scripts/A-index/cmp_aligned.py
 """
 import polars as pl
 import subprocess

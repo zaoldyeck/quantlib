@@ -2,11 +2,11 @@
 
 三路交叉:
   (1) 同市場 daily_quote 有報價、foreign_holding_ratio 沒資料的日期 → 疑似漏抓
-  (2) research/data_calendar.py::is_trading_day(0-byte sentinel 休市日曆,含颱風假)複核
+  (2) src/quantlib/data_calendar.py::is_trading_day(0-byte sentinel 休市日曆,含颱風假)複核
   (3) 反向:本表有、daily_quote 沒有的日期(幽靈日)
 另附逐年「日數 x 每日列數」概況,判斷 tpex 2010 列數異常。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/03_coverage_gaps.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/03_coverage_gaps.py
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import duckdb  # noqa: E402
 from research import paths  # noqa: E402
-from research.data_calendar import is_trading_day  # noqa: E402
+from quantlib.data_calendar import is_trading_day  # noqa: E402
 
 START = {"twse": "2005-01-03", "tpex": "2010-01-04"}  # ForeignHoldingRatioSetting 的起始日
 

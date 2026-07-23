@@ -60,7 +60,7 @@
     "0-byte sentinel:315 個 tpex 0-byte 檔 + 2 個只有標頭的 twse 檔(2009-12-12、2026-05-30,皆為週六),其中僅 1 個(tpex 2010-09-30)落在真交易日且已在 BUG 1 汙染區間內;317 個空檔零列入庫(02 腳本 EMPTY_BUT_IN_DB = 0)",
     "交易日曆對帳:twse 5,308 天 vs daily_quote(twse)5,291 天 → 缺 1 天(2009-12-12 週六補班日,交易所只發標頭)、多 18 天(農曆年前申報公告日,標頭日期與檔名一致);tpex(2011+)3,797 天 vs 3,800 天 → 缺 4 天、多 1 天(2023-06-08:fhr 內容日期 112/06/08、815 檔正確且同日 twse 有 1,194 檔報價,是 daily_quote 的 tpex 側那天 0 列 → 這張表對、報價表錯)",
     "排除誤判(逐檔比對原始檔確認為來源真值,非解析錯誤):持股比率 > 100% 共 134 列(0081 恒香港 125.20%、0057 富邦摩台、9105 泰金寶-DR、8406 F-金可,ETF 與 DR 申購買回期間受益權單位數與外資持有數錯開);法令上限 = 0 共 5,962 列(9928 中視等特許行業);發行股數 = 0 共 1 列(tpex 2018-10-23 6594 展匯科,原始檔備註『已達上限』);TWSE 農曆年前 18 個非交易日有資料(2005-02-04/05 起共 9 對,標頭日期與檔名一致、兩日間 993 檔有 8 檔異動 → 是休市窗口的申報統計公告,不是複製品)",
-    "汙染傳播範圍:var/cache/cache.duckdb 的 foreign_holding_ratio 與 PG 同值(research/cache_tables.py:55 為純投影),tpex 2010 的 361 天原封在 cache 內;消費端盤點 research/serenity/engine.py:1000、research/evergreen/{ev18_make_packs,make_tables_chips,ev48_chip_axes}.py、research/apex/data.py:188、research/futures/strategies.py:190、research/strat_lab/iter_52_ownership_flow_alpha.py 皆直接讀這張表",
+    "汙染傳播範圍:var/cache/cache.duckdb 的 foreign_holding_ratio 與 PG 同值(research/cache_tables.py:55 為純投影),tpex 2010 的 361 天原封在 cache 內;消費端盤點 src/quantlib/serenity/engine.py:1000、src/quantlib/evergreen/{ev18_make_packs,make_tables_chips,ev48_chip_axes}.py、src/quantlib/apex/data.py:188、src/quantlib/futures/strategies.py:190、src/quantlib/strat_lab/iter_52_ownership_flow_alpha.py 皆直接讀這張表",
     "端點現況實測(2026-07-22):curl 'https://www.tpex.org.tw/www/zh-tw/insti/qfii?date=099/06/15' → 內容日期 99/06/15、553 檔;date=099/12/31 → 99/12/31、561 檔 → 2010 年重抓可行,不是來源永久缺料"
   ]
 }

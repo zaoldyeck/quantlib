@@ -4,7 +4,7 @@
 少在旺季(=漏抓)還是少在淡季(=正常波動)。本腳本以 PG 為準(cache 只是它的
 子集 + Python 爬蟲增量),輸出 market x year x month 的矩陣與同月歷史中位數比。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/02_monthly_profile.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/02_monthly_profile.py
 """
 from __future__ import annotations
 

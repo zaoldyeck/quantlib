@@ -32,7 +32,7 @@ CREATE TABLE etf AS SELECT company_code FROM pg.public.etf
 「3 個日期 × 5 檔逐欄抽樣」對這張表不適用(沒有日期維、cache 只有一欄),
 因此改做**全表 228 個代號的逐一比對(100% 覆蓋,強於抽樣)**——結果位元完全一致。
 
-`research/db.py:144` 的 pg-attach 對照 view 也只選 `company_code`,所以
+`src/quantlib/db.py:144` 的 pg-attach 對照 view 也只選 `company_code`,所以
 cache-file 模式與 pg-attach 模式看到的 etf 完全相同,**兩條 Python 讀取路徑不會分岔**。
 
 ## 二、schema:cache 刻意只帶 1 欄(7 欄丟 6 欄)
@@ -91,13 +91,13 @@ cache 忠實反映 PG,無需修補。若日後需要一份**完整** ETF 清單(
 ```bash
 # 列數 + 代號全量 diff(應為 228=228、diff 全空)
 psql -h localhost -p 5432 -d quantlib -tAc "SELECT company_code FROM etf ORDER BY 1" > /tmp/pg.txt
-uv run --project research python -c "import duckdb; from research import paths; \
+uv run --project . python -c "import duckdb; from research import paths; \
   con=duckdb.connect(str(paths.CACHE_DB),read_only=True); \
   open('/tmp/cache.txt','w').write('\n'.join(r[0] for r in con.sql('SELECT company_code FROM etf ORDER BY 1').fetchall())+'\n')"
 diff /tmp/pg.txt /tmp/cache.txt   # 空 = 一致
 
 # 排除多餘性:cache etf 有幾個代號吻合四碼正則(應為 0)
-uv run --project research python -c "import duckdb; from research import paths; \
+uv run --project . python -c "import duckdb; from research import paths; \
   con=duckdb.connect(str(paths.CACHE_DB),read_only=True); \
   print(con.sql(\"SELECT COUNT(*) FROM etf WHERE regexp_matches(company_code,'^[1-9][0-9]{3}\$')\").fetchone()[0])"
 

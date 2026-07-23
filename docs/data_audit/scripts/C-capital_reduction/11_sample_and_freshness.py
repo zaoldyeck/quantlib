@@ -5,7 +5,7 @@
 3. 材料性:被 prices.py 護欄丟掉的 15 檔,在事件前的日均成交金額(ADV),
    用來判斷這些假報酬會不會真的進到策略池(Universe 門檻 ADV >= NT$50M)。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/11_sample_and_freshness.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/11_sample_and_freshness.py
 """
 from __future__ import annotations
 

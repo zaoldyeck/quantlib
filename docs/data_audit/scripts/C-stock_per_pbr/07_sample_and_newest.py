@@ -1,6 +1,6 @@
 """C-stock_per_pbr 稽核 07:隨機抽樣逐欄比對(3 日 x 5 檔)+ cache 獨有日的合理性。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/07_sample_and_newest.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/07_sample_and_newest.py
 """
 from __future__ import annotations
 

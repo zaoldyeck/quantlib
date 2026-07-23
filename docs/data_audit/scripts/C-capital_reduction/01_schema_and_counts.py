@@ -1,6 +1,6 @@
 """C-capital_reduction 稽核 01:schema 對照 + cache vs PG 全表逐欄逐鍵比對。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/01_schema_and_counts.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/01_schema_and_counts.py
 需要 cache.duckdb 與本機 PostgreSQL(唯讀 attach)。
 """
 from __future__ import annotations

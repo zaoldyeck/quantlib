@@ -1,6 +1,6 @@
 ---
 name: twstock-forward-predictor
-description: Use this agent to **predict forward 1-year return for a TWSE/TPEx stock** using the trained LightGBM multi-factor model (e.g. "預測 2330 未來 1 年報酬", "forward CAGR for 6488", "model 看 2454 接下來怎樣"). Calls `research/strat_lab/multi_factor_quality.py` to load latest factors + apply walk-forward model. Outputs predicted return + percentile within universe + feature contribution breakdown.
+description: Use this agent to **predict forward 1-year return for a TWSE/TPEx stock** using the trained LightGBM multi-factor model (e.g. "預測 2330 未來 1 年報酬", "forward CAGR for 6488", "model 看 2454 接下來怎樣"). Calls `src/quantlib/strat_lab/multi_factor_quality.py` to load latest factors + apply walk-forward model. Outputs predicted return + percentile within universe + feature contribution breakdown.
 tools: Bash, Read, Grep, Glob
 model: sonnet
 ---
@@ -14,7 +14,7 @@ The underlying model:
 - Walk-forward 5y train / 1y test, 16 OOS folds
 - Features: log_mcap, ROA median, GM median, CFO/NI ratio, F-score, ROA trend, GM trend, current ratio, debt ratio, asset turnover, ROA volatility, 5y revenue CAGR, 5y NI CAGR, 5y mcap CAGR, log_adv60, etc.
 - Target: forward 1-year total return (含配息再投入)
-- Reference: `research/strat_lab/multi_factor_quality.py`
+- Reference: `src/quantlib/strat_lab/multi_factor_quality.py`
 
 ⚠️ Caveat: Model OOS Sortino only **0.529** (排除 2330 訓練) / **0.574** (含 2330)，比 mcap rank 弱很多。**這個 model 學到的「forward return prediction」只能當參考，不可作為唯一決策依據**。
 
@@ -22,7 +22,7 @@ The underlying model:
 
 ### Step 1: Load latest factors for ticker
 ```bash
-uv run --project research python -c "
+uv run --project . python -c "
 import sys; sys.path.insert(0, 'research')
 from strat_lab.multi_factor_quality import build_factor_year
 from db import connect

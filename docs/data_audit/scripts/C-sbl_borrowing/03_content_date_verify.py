@@ -3,13 +3,13 @@
 為什麼要查:`TradingReader.readSblBorrowing`(src/main/scala/reader/TradingReader.scala:834)
 的日期**只從檔名解析**(`LocalDate.of(y,m,d)`),完全不看檔案自己的日期欄——
 所以只要交易所在某次請求回了別天的資料,那筆資料就會被靜靜掛到錯誤的日期上。
-`research/audits/04_cross_verify.py` 只掃 `data/index`,從未掃過 sbl。
+`src/quantlib/audits/04_cross_verify.py` 只掃 `data/index`,從未掃過 sbl。
 
 判讀:
   * TWSE CSV(Big5)第一列 `"105年04月06日 信用額度總量管制餘額表"` → 民國日期。
   * TPEx JSON 頂層 `"date":"20230608"` 與 tables[0].date `"112/06/08"` → 兩者都取。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-sbl_borrowing/03_content_date_verify.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-sbl_borrowing/03_content_date_verify.py
 """
 from __future__ import annotations
 

@@ -1,6 +1,6 @@
 """C-cf_progressive_raw: coverage / gaps / title-vocabulary / anomaly scan.
 
-Run: uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/coverage.py
+Run: uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/coverage.py
 Reads var/cache/cache.duckdb read-only.
 """
 import duckdb, sys, pathlib

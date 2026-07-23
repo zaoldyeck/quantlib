@@ -11,7 +11,7 @@
   * TPEx `totalCount` vs 實際資料列數
   * 備註欄(schema 沒接)的非空比例與取值分佈
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/A-sbl_borrowing/02_recon.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/A-sbl_borrowing/02_recon.py
 依賴:PostgreSQL 在跑(唯讀);不依賴 cache。
 """
 from __future__ import annotations

@@ -26,10 +26,10 @@
 | # | 位置 | 名稱 | 誰在用 |
 |---|---|---|---|
 | 1 | `src/main/resources/sql/view/5_growth_analysis_ttm.sql:3-37` | `growth_analysis_ttm.f_score` | Scala 端:`QualityFilter.scala`、`MagicFormulaPiotStrategy.scala:69`、`Main.scala:348` 因子掃描 |
-| 2 | `research/strat_lab/raw_quarterly.py:240-265` | `f_score_raw` | Python 端全部:`v4.py:92`、`iter_98`、`apex/experiments/{f02,q01,q02,b12,g04c}`、`quant_event_engine_v1.py`、`spike_factor_analysis.py`、`serenity/valuation_replay_2025.py` |
+| 2 | `src/quantlib/strat_lab/raw_quarterly.py:240-265` | `f_score_raw` | Python 端全部:`v4.py:92`、`iter_98`、`apex/experiments/{f02,q01,q02,b12,g04c}`、`quant_event_engine_v1.py`、`spike_factor_analysis.py`、`serenity/valuation_replay_2025.py` |
 
 現役交易策略(Serenity `ev_v3_wf`)**沒有**用到 F-Score——查過
-`research/serenity/engine.py` 與 `research/apex/strategy_s.py`,零命中。所以這批
+`src/quantlib/serenity/engine.py` 與 `src/quantlib/apex/strategy_s.py`,零命中。所以這批
 問題不在實盤資金路徑上,但在**研究結論與 v4 基準線**上。
 
 ---
@@ -168,7 +168,7 @@ one」)。兄弟實作 `Signals.latestQuarterField`(`Signals.scala:150`)與
 `ValueRevertStrategy.dropScoreFilter`(第 65 行)都正確用了 `DISTINCT ON` ——證明
 這是失誤不是設計。
 
-**同類缺陷散在 Python 端**:`research/strat_lab/v4.py:78-92` 的 `drop_safe` CTE
+**同類缺陷散在 Python 端**:`src/quantlib/strat_lab/v4.py:78-92` 的 `drop_safe` CTE
 一模一樣(WHERE 在 DISTINCT ON 之前)。實測通過家數:
 
 | 換股日 | 「曾經 ≥4」 | 「最新一季 ≥4」 | 多放行 |
@@ -200,7 +200,7 @@ one」)。兄弟實作 `Signals.latestQuarterField`(`Signals.scala:150`)與
 
 **「F-Score 逐年上升」是資料補齊的軌跡,不是台股品質變好。** 任何橫跨 2011 年
 以前的 F-Score 因子檢定或回測都被污染。已知受影響:
-`research/apex/experiments/q02_pure_financial_books.py:27`(`SIM_START = 2007-07-02`
+`src/quantlib/apex/experiments/q02_pure_financial_books.py:27`(`SIM_START = 2007-07-02`
 「全史」,品質書 Q = `f_score × gpoa × …` 幾何 rank)。
 `iter_98`(`START = 2010-01-04`)前兩年也在畸變區。
 apex F02/Q01/B12(2012-01-02 起)不受此項影響。
@@ -355,7 +355,7 @@ PG 端的同一段(`5_concise_income_statement_individual.sql:19-22`)**沒有按
    `industry_taxonomy_pit` 的 PIT 產業別做 `f_score_raw = NULL`,而不是讓它們
    靜靜落在 3 分。
 9. **第 7 項改用現金增資事件**而非股本金額(BUG-12);epsilon 若保留,要附量測出處。
-10. **加防復發守護**:一支 `research/tests/test_fscore_piotroski.py`,鎖死
+10. **加防復發守護**:一支 `src/quantlib/tests/test_fscore_piotroski.py`,鎖死
     「台積電 FY2024 = 8/9,逐項旗標 1,1,1,1,1,1,0,1,1」這個手算錨,再加
     「2011 年以前的 `f_score_raw` 必須為 NULL」的斷言。先紅後綠。
 
@@ -366,7 +366,7 @@ PG 端的同一段(`5_concise_income_statement_individual.sql:19-22`)**沒有按
 - 精讀 `5_growth_analysis_ttm.sql`(684 行)、`4_financial_index_ttm.sql`(206 行)、
   `6_concise_financial_statement_with_titles.sql`、`5_concise_income_statement_individual.sql`、
   `3_cash_flows_individual.sql`、`1_concise_balance_sheet_individual.sql`
-- 精讀 `research/strat_lab/raw_quarterly.py`(321 行)、`research/db.py`、
+- 精讀 `src/quantlib/strat_lab/raw_quarterly.py`(321 行)、`src/quantlib/db.py`、
   `QualityFilter.scala`、`Signals.latestQuarterField`、`ValueRevertStrategy`、
   `PublicationLag.asOfQuarter`、`v4.py` 的 `qfor`/`drop_safe`、`apex/assemble.py` 的 `q_avail`
 - 盤點全部 f_score 提及點(35 個檔),確認只有兩套實作,現役 Serenity 策略未使用

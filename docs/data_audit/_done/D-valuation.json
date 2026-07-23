@@ -8,7 +8,7 @@
       "metric": "樂活五線譜通道寬度(標準差口徑)｜src/main/resources/sql/view/8_valuation.sql:41-49；9_valuation_1q.sql:42-50",
       "textbook_def": "線性迴歸通道 / 樂活五線譜(薛兆亨、tivo168《五線譜投資術》)：中心線=OLS 趨勢線 slope·t+intercept,上下 ±1σ、±2σ 的 σ 是『價格對趨勢線的殘差標準差』(Excel 原版用 STEYX=sqrt(SSE/(n-2)),即估計標準誤),量的是價格偏離趨勢的典型幅度。數學上 σ_resid²=σ_price²·(1−R²)。",
       "implementation": "channel 用 stddev(closing_price)(Postgres=stddev_samp,除以 n-1)當 σ,再 slope·x+intercept ± σ、±2σ 畫五線;σ 取的是『原始收盤價』的標準差,不是殘差。中心線卻是迴歸趨勢線 → 中心=去趨勢、頻寬=含趨勢,兩者口徑不一致。evaluation(-2/-1/0/1/2)與 price_err 全建在這條通道上。",
-      "evidence": "σ_price 除了殘差還包含趨勢本身造成的變異,恆有 σ_price ≥ σ_resid,通道被系統性撐寬,倍數=1/√(1−R²)。全市場實測(cache daily_quote,twse,最近 3.5 年、n≥600 的 1198 檔,以 regr_r2(close, epoch(date)) 估 R²):中位 R²=0.392→頻寬 1.28×;p75 R²=0.651→1.69×;p90 R²=0.819→2.35×;p95→2.89×。58.1% 的股票通道至少寬 1.2 倍、35.3% ≥1.5 倍、16.4% ≥2.0 倍。趨勢越乾淨(R² 越高)撐得越兇,而通道正是給趨勢股用的 → 穩步上漲的股票幾乎永遠踩不到過寬的上軌,evaluation 恆為 0、price_err 失真。反證:本 repo 自己的 research/apex/experiments/v01_valuation_factors.py:92-111 fiveline_z_neg 就用對數價 OLS『殘差』標準化 z,是正確口徑,兩份實作互相打臉。次要:SQL 用線性價、research 用對數價(多年期報酬應取對數才線性)。",
+      "evidence": "σ_price 除了殘差還包含趨勢本身造成的變異,恆有 σ_price ≥ σ_resid,通道被系統性撐寬,倍數=1/√(1−R²)。全市場實測(cache daily_quote,twse,最近 3.5 年、n≥600 的 1198 檔,以 regr_r2(close, epoch(date)) 估 R²):中位 R²=0.392→頻寬 1.28×;p75 R²=0.651→1.69×;p90 R²=0.819→2.35×;p95→2.89×。58.1% 的股票通道至少寬 1.2 倍、35.3% ≥1.5 倍、16.4% ≥2.0 倍。趨勢越乾淨(R² 越高)撐得越兇,而通道正是給趨勢股用的 → 穩步上漲的股票幾乎永遠踩不到過寬的上軌,evaluation 恆為 0、price_err 失真。反證:本 repo 自己的 src/quantlib/apex/experiments/v01_valuation_factors.py:92-111 fiveline_z_neg 就用對數價 OLS『殘差』標準化 z,是正確口徑,兩份實作互相打臉。次要:SQL 用線性價、research 用對數價(多年期報酬應取對數才線性)。",
       "fix": "把 σ 改成殘差標準差:在同一 3.5 年 RANGE 窗上,σ_resid = sqrt( var_samp(close) − slope²·var_samp(x) )(等價 Var(y)−b²·Var(x));或用 regr_sxy/regr_sxx/regr_syy 併出 SSE 再 /(n-2) 對齊 STEYX。中心線與頻寬統一在『去趨勢』口徑;建議同步改用對數價(ln close)與對數殘差,和 fiveline_z_neg 對齊成單一真源。"
     },
     {
@@ -45,7 +45,7 @@
     },
     {
       "severity": "SUSPECT",
-      "metric": "peg_inv 的成長率口徑:營收成長 vs 盈餘成長｜research/apex/experiments/v01_valuation_factors.py:62,87-88",
+      "metric": "peg_inv 的成長率口徑:營收成長 vs 盈餘成長｜src/quantlib/apex/experiments/v01_valuation_factors.py:62,87-88",
       "textbook_def": "PEG(Peter Lynch)= (P/E) / (盈餘成長率×100),g 是『每股盈餘/盈餘』的年成長率;其倒數(越大越便宜)= (E/P)×g_earnings。",
       "implementation": "peg_inv = (ni_ttm/mcap_k)×g_yoy,分子是盈餘殖利率(E/P)沒錯,但 g_yoy = rev_ttm/rev_ttm.shift(4)−1 是『營收』YoY,不是盈餘成長。gated g_yoy>0(g≤0 域外,合理)。",
       "evidence": "PEG 的 g 學理上是盈餘成長,這裡用營收成長替代,營收成長≠盈餘成長(毛利/費用槓桿會脫鉤)。docstring 已誠實註明『E/P×營收成長』,屬有聲明的近似;但 ledger batches.md:1809 又把它寫成『EP×NI 成長』,文件內部自相矛盾(實際碼是營收)。此因子已被 IC 篩掉(factors.jsonl:peg_inv h63 mean_ic −0.017、spread −12%,判死),不進生產。常數 100 對截面 rank 無影響,可忽略。",
@@ -53,7 +53,7 @@
     },
     {
       "severity": "SUSPECT",
-      "metric": "ev_ebit_inv 的 EV 口徑:總負債 vs 淨負債｜research/apex/experiments/v01_valuation_factors.py:58,86",
+      "metric": "ev_ebit_inv 的 EV 口徑:總負債 vs 淨負債｜src/quantlib/apex/experiments/v01_valuation_factors.py:58,86",
       "textbook_def": "企業價值 EV = 市值 + 附息負債 − 現金及約當現金(+少數股權+特別股),即市值加『淨負債』;EV/EBIT 以此為分母。",
       "implementation": "ev_ebit_inv = ebit_ttm/(mcap_k + tl),tl = current_liabilities + non_current_liab = 『總負債』(含應付帳款、預收、遞延等非附息營業負債),且未扣現金。docstring 明寫『EV=市值+總負債,無現金扣除聲明』。",
       "evidence": "用總負債取代淨負債會把 EV 顯著灌大,對營運負債/金融負債龐大的公司(銀行、壽險、大量預收的營建)尤其失真——例如銀行的存款是負債,EV 會被灌到荒謬、ev_ebit_inv 趨近 0。屬有聲明的近似,僅供截面 rank 的估值 IC 篩選,不作為上線估值。名稱叫 ev_ebit 但非教科書 EV,故列 SUSPECT。",
@@ -61,7 +61,7 @@
     },
     {
       "severity": "OK",
-      "metric": "研究端五線譜 fiveline_z_neg(對數價 OLS 殘差標準化 z)｜research/apex/experiments/v01_valuation_factors.py:92-111",
+      "metric": "研究端五線譜 fiveline_z_neg(對數價 OLS 殘差標準化 z)｜src/quantlib/apex/experiments/v01_valuation_factors.py:92-111",
       "textbook_def": "線性迴歸通道的標準化偏離 = 殘差/殘差標準差:z=(y_t − ŷ_t)/σ_resid,σ_resid=sqrt(Var(y)−b²·Var(t)),y 用對數價。",
       "implementation": "400 日滾動閉式 OLS:slope=cov_ty/var_t(var_t=(W²−1)/12 為等距整數 t 的變異,常數);殘差=y−my−slope·(W−1)/2;分母=sqrt(vy−slope²·var_t)=殘差標準差;z=殘差/σ_resid,fiveline_z_neg=−z。",
       "evidence": "逐項推導核對:當期在窗內 t=最新,ŷ=my+b·(W−1)/2,故殘差=y−my−b·(W−1)/2 ✓;Var(resid)=Var(y)−b²·Var(t) ✓;var_t 用連續整數封閉式正確 ✓。這正是 8_valuation 五線譜『該有』的殘差口徑,是本 repo 內部正解、可當修 SQL 的參照。",
@@ -69,7 +69,7 @@
     },
     {
       "severity": "OK",
-      "metric": "研究端 dcf_proxy 兩階段(Gordon 永續+幾何 CAGR)｜research/apex/experiments/v01_valuation_factors.py:81-90",
+      "metric": "研究端 dcf_proxy 兩階段(Gordon 永續+幾何 CAGR)｜src/quantlib/apex/experiments/v01_valuation_factors.py:81-90",
       "textbook_def": "兩階段 DCF:第一段有限年成長、第二段 Gordon 永續 CF_N(1+g_t)/(r−g_t) 折現回現值;成長率用幾何 CAGR。",
       "implementation": "G1=clip(3y 營收 CAGR,0,0.25);_dcf_pv=Σ_{t=1}^{5}(1+G1)^t/1.10^t + (1+G1)^5·1.02/(0.10−0.02)/1.10^5;dcf_proxy=cfo_ttm·_dcf_pv/mcap。第一段 5 年 + 正確 Gordon 永續終值,g 用幾何 CAGR。",
       "evidence": "終值 (1+G1)^5·(1+g_t)/(r−g_t)/1.10^5 為教科書 Gordon 形式 ✓;g 幾何 CAGR ✓;用 CFO 而非 EPS 較接近可分配現金 ✓。caveat(皆有聲明、僅供截面 IC):把營收 CAGR 套在 CFO 基準上、r=10% 與 g=2% 為全市場常數、CFO 未扣 capex(非嚴格 FCF)。作為 rank 因子屬合理近似。",
@@ -77,7 +77,7 @@
     },
     {
       "severity": "OK",
-      "metric": "生產用 Evergreen 估值:PE/PB 三年百分位(PIT)｜research/evergreen/ev18_make_packs.py:108-125",
+      "metric": "生產用 Evergreen 估值:PE/PB 三年百分位(PIT)｜src/quantlib/evergreen/ev18_make_packs.py:108-125",
       "textbook_def": "相對估值分位 = 當前值在過去 N 年分佈的經驗百分位;PIT 要求只用觀察日『之前』的資料。PE/PB 越低分位越便宜。",
       "implementation": "取 date < t0 的最近 756 筆(≈3 年交易日),PE三年分位% = 100·count(pe≤cur)/count(pe),PB 同法;當前值取窗內最新一筆。",
       "evidence": "date < t0 嚴格排除觀察日,無前視 ✓;756≈252×3 對齊 3 年 ✓;經驗百分位含等於(≤)為標準定義 ✓。這是實際上線 Evergreen packs 的估值特徵,方法學正確。PE/PB/殖利率原值直接取自 stock_per_pbr(TWSE 官方每日公告 trailing 值),PIT 天然成立。",

@@ -100,7 +100,7 @@
     "精讀 3_financial_index_quarterly.sql(173 行)全部 19 個比率算式 + CBS 評分",
     "精讀 4_financial_index_ttm.sql(206 行)全部 TTM 比率算式 + CBS 評分",
     "精讀底層 matview 6_concise_financial_statement_with_titles / 2_balance_sheet_with_titles / 4_cash_flows_with_titles 的科目對映(確認 profit=本期稅後淨利、net_operating_income=營業利益、符號慣例)",
-    "對照 research/strat_lab/raw_quarterly.py 已修版本(ROA/週轉率用期初、槓桿用平均、缺料傳 NULL 的定義)",
+    "對照 src/quantlib/strat_lab/raw_quarterly.py 已修版本(ROA/週轉率用期初、槓桿用平均、缺料傳 NULL 的定義)",
     "數字驗證 total_assets_turnover 的 lag5 off-by-one(2330 2024Q4:0.47540 vs 應為 0.47353)",
     "數字驗證 cash_ratio 的分母:2330/2317/1301/2412/2603 的 cash/TA vs cash/CL 尺度差 ~5×",
     "量化 ROIC 分子敏感度:淨利/營業利益跨產業 0.858(國泰金)~1.071(大立光)",

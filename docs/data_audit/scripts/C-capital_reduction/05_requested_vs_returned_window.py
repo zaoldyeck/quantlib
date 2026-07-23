@@ -4,7 +4,7 @@ Task.pullCapitalReduction 的請求區間 = (既有檔名最大值 + 1, 昨天),
 所以「請求 strDate」可由排序後的前一個檔名日期 + 1 重建。把它和回應標題回報的區間
 並排,就能看出交易所有沒有忠實回覆整段區間。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/05_requested_vs_returned_window.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/05_requested_vs_returned_window.py
 """
 from __future__ import annotations
 

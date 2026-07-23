@@ -10,7 +10,7 @@
       "severity": "SUSPECT",
       "what": "時間序列尾端落後約 2 個月:最後一筆結算日 2026-05-20,今天 2026-07-23,中間的每週結算(5/27 起)與月結算(6/17、7/15)都還沒進來。但 cache 與 PG 一樣停在 2026-05-20(兩邊一致),所以不是 cache 同步或讀檔漏抓,而是這張表被刻意排除在每日 update 之外、要靠手動 pull taifex 才更新,而手動更新從 2026-05-21 之後就沒跑過。",
       "evidence": "psql: SELECT MAX(date) → 2026-05-20;原始檔 data/taifex/futures_final_settlement/2026/2026.html 最後修改時間 2026-05-21 18:20,檔內最新日期字串 2026/05/20(grep 驗證);Job.scala:49-50 註解明寫『TAIFEX futures are target-driven (pull/read taifex) ... should not surprise equity updates』,readAllData()/pullAllData() 不含 taifex;故每日 Main update 不會碰這張表。",
-      "fix": "需要近期期貨結算價時,手動跑 sbt \"runMain Main pull taifex_futures_final_settlement\" 再 sbt \"runMain Main read taifex_futures_final_settlement\",最後 uv run --project research python research/cache_tables.py 重建 cache。endpoint = https://www.taifex.com.tw/cht/5/futIndxFSP(每年一頁 HTML,重抓當年即涵蓋新結算日)。不需改程式:這是設計如此的手動刷新,不是 bug。"
+      "fix": "需要近期期貨結算價時,手動跑 sbt \"runMain Main pull taifex_futures_final_settlement\" 再 sbt \"runMain Main read taifex_futures_final_settlement\",最後 uv run --project . python research/cache_tables.py 重建 cache。endpoint = https://www.taifex.com.tw/cht/5/futIndxFSP(每年一頁 HTML,重抓當年即涵蓋新結算日)。不需改程式:這是設計如此的手動刷新,不是 bug。"
     },
     {
       "severity": "REAL",

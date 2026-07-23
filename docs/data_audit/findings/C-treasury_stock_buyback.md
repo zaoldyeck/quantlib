@@ -27,7 +27,7 @@
 
 重跑指令(可重現):
 ```bash
-uv run --project research python -c "
+uv run --project . python -c "
 import duckdb, os; from research import paths
 con=duckdb.connect(str(paths.CACHE_DB), read_only=True)
 con.sql('INSTALL postgres; LOAD postgres;')

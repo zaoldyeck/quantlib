@@ -5,11 +5,11 @@
 這個因子壞了**:程式挑「下個月合約」時,常常挑到台指期的「跨月價差組合單」,害 `tx_next_term_spread_pct`
 在 6875 天裡有 515 天(7.5%)算成 ≈ −100% 的垃圾值。**直接拿這個因子當訊號的策略會中招。**
 
-- **表定位**:cache-only 衍生表,無 PG 對應。由 `research/futures/taifex.py::build_taifex_futures_tables`
+- **表定位**:cache-only 衍生表,無 PG 對應。由 `src/quantlib/futures/taifex.py::build_taifex_futures_tables`
   從三張原料表算出:`taifex_futures_contract_rank`(←`taifex_futures_daily`+`_final_settlement`)、
   `market_index`(大盤現貨)、`taifex_futures_institutional`(三大法人)。
 - **範圍**:1998-07-21(台指期上市日)..2026-05-21,6875 列,一天一列(grain 乾淨)。
-- **重跑**:`PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-taifex_futures_daily_factors/audit{,2,3}.py`
+- **重跑**:`PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-taifex_futures_daily_factors/audit{,2,3}.py`
 
 ---
 
@@ -54,7 +54,7 @@ stored 該列:`tx_next_contract_month=202409/202410`、`tx_next_term_spread=-223
 - 前月本身**沒被污染**:`tx_contract_month` 6875 列全是純月合約(價差單字串排在月合約之後,搶不到 rank1),
   所以 `tx_close`/`tx_settlement`/基差都正確。壞的只有次月那幾欄。
 
-**根因程式**:`research/futures/taifex.py:56`
+**根因程式**:`src/quantlib/futures/taifex.py:56`
 `AND regexp_matches(d.contract_month, '^\d{6}')` — 只要求「開頭 6 碼」,價差單(`YYYYMM/YYYYMM`)與週合約
 (`YYYYMMWn`)都通過。
 

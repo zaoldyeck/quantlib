@@ -108,7 +108,7 @@ CSV 檔,把內容的「資料年月」(民國)轉西元後對檔名比對,**MISM
 鄰月月營收都在 6-9 百萬仟元量級,**同月的個別(HTML)檔卻是正常的 6,389,013**。
 所以這是來源合併 CSV 自己的錯,reader 逐位照抄(原始 = PG),不是解析錯。
 但這是下游地雷:任何用合併月營收算聯發科 2007-7 的策略會看到 1000 倍暴衝。
-本專案的 `research/audits/05_revenue_audit.py`(極端 YoY 掃描)本該抓到它,但該腳本目前
+本專案的 `src/quantlib/audits/05_revenue_audit.py`(極端 YoY 掃描)本該抓到它,但該腳本目前
 一跑就爆(見 C-operating_revenue),所以沒被攔下。
 
 ### F2 — 720 筆百分比欄是來源哨兵 999999.99,原數照存(SUSPECT:忠實但下游有風險)
@@ -138,7 +138,7 @@ Slick 表也無此欄。備註多半是「-」/「無」,但抽樣 2020+2024 見
 
 ## 修法建議(供主流程裁決;稽核不改碼)
 
-- **F1/F2**:修好並接回每日健檢 `research/audits/05_revenue_audit.py`(它現在會 crash,
+- **F1/F2**:修好並接回每日健檢 `src/quantlib/audits/05_revenue_audit.py`(它現在會 crash,
   見 C-operating_revenue),讓極端值/哨兵能被例行攔下;或在 reader 端把 999999.99 這類
   已知哨兵映射成 NULL(需先確認是否所有消費端都想要 NULL)。
 - **F3**:單格來源毀損,建議在 `docs/data/data_quality_incidents.md` 記一筆即可,不需改碼。

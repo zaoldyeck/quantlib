@@ -1,6 +1,6 @@
 """C-cf_progressive_raw: random-sample column-by-column cache vs PG comparison.
 
-Run: uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/sample.py
+Run: uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/sample.py
 Deterministic (seed 20260722): 3 random quarters x 5 random companies each,
 every column compared with pandas.DataFrame.equals.
 """

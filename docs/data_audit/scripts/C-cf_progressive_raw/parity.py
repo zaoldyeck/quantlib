@@ -1,6 +1,6 @@
 """C-cf_progressive_raw: DuckDB cache vs PostgreSQL parity + integrity.
 
-Run: uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/parity.py
+Run: uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/parity.py
 Needs: var/cache/cache.duckdb current (research/cache_tables.py); PG `quantlib` up.
 Read-only on both sides. Compares every (year,quarter) bucket with count /
 distinct-code / distinct-title / SUM / MIN / MAX / row-content BIT_XOR(HASH).

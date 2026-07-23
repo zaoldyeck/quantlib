@@ -5,7 +5,7 @@
 margin_transactions/daily_trading_details/stock_per_pbr/taifex_futures_daily
 七個來源中**至少 2 個**有資料,就算交易日。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/09_missing_trading_days.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/09_missing_trading_days.py
 """
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[4]))
 
 import duckdb  # noqa: E402
 from research import paths  # noqa: E402
-from research.data_calendar import is_trading_day  # noqa: E402
+from quantlib.data_calendar import is_trading_day  # noqa: E402
 
 CONSENSUS = """
 CREATE OR REPLACE TEMP VIEW cal AS

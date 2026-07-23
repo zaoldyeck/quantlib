@@ -23,7 +23,7 @@ Read FIRST:
 
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python research/audits/01_find_spikes.py \
+  uv run --project . python src/quantlib/audits/01_find_spikes.py \
     --min-gain 0.80 --window 60 --start 2005-01-01 --end 2026-12-31
 ```
 
@@ -37,10 +37,10 @@ Parameters:
 
 ```bash
 cd /Users/zaoldyeck/Documents/scala/quantlib && \
-  uv run --project research python research/experiments/build_spike_dataset.py
+  uv run --project . python src/quantlib/experiments/build_spike_dataset.py
 ```
 
-Output: `research/experiments/spike_dataset.parquet` with dual anchors:
+Output: `src/quantlib/experiments/spike_dataset.parquet` with dual anchors:
 - `start_date` (rally entry) + pre-window features (for predictive analysis)
 - `peak_date` (= start + 60 trading days) + post-peak returns (for continuation analysis)
 
@@ -87,7 +87,7 @@ Respond in **Traditional Chinese**:
 4. **Post-peak verdict**: 追漲 alpha 是否存在（依 mean/win_rate 判斷）
 5. **Proposed next**:
    - (a) 若找到 pattern → 建 ML classifier (Phase 2)
-   - (b) 若 post-peak 有 alpha → 跑 chase backtest (`research/experiments/chase_trailing_stop.py`)
+   - (b) 若 post-peak 有 alpha → 跑 chase backtest (`src/quantlib/experiments/chase_trailing_stop.py`)
    - (c) 若都沒 → 建議補資料（MOPS 公告、集保大戶、TPEx 擴展）
 
 **Append**:

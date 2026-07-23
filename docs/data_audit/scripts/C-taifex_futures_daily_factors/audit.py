@@ -1,7 +1,7 @@
 """Data-correctness audit for cache-only derived table `taifex_futures_daily_factors`.
 
 This table has NO PostgreSQL counterpart — it is COMPUTED in-cache by
-`research/futures/taifex.py::build_taifex_futures_tables` from three cached base
+`src/quantlib/futures/taifex.py::build_taifex_futures_tables` from three cached base
 tables: taifex_futures_contract_rank (<- taifex_futures_daily + _final_settlement),
 market_index (TAIEX spot), taifex_futures_institutional.
 
@@ -11,7 +11,7 @@ So "cache vs PG consistency" is reframed as:
   (2) coverage gaps vs the TWSE trading calendar (inherited from base);
   (3) anomaly scan on the derived numeric columns.
 
-Run:  uv run --project research python docs/data_audit/scripts/C-taifex_futures_daily_factors/audit.py
+Run:  uv run --project . python docs/data_audit/scripts/C-taifex_futures_daily_factors/audit.py
 Needs: var/cache/cache.duckdb fresh (research/cache_tables.py). Read-only.
 """
 from __future__ import annotations

@@ -76,7 +76,7 @@
       "severity": "SUSPECT",
       "what": "view 本身沒有公告日欄位,PIT 全靠消費者自律,而消費者漏了兩處。(a) QualityFilter.scala:31-37 的 WHERE 只寫 (year < Y or (year = Y and quarter <= Q)) 就 toSet,沒有收斂到最新一季 → 只要「歷史上任何一季」符合 drop_score < 10 and f_score >= 5 就通過,而行 23-24 的註解卻寫 Uses the latest growth_analysis_ttm quarterly snapshot available on D。(b) .claude/agents/twstock-fundamental-analyst.md:14 與 twstock-bear-researcher.md:13 直接叫 agent 查這張 view,沒有任何 PIT 或資料年代的約束說明。相對地,PublicationLag.scala 本身是對的(Q1→5/22、Q2→8/21、Q3→11/21、Q4→次年 4/7,含 7 天緩衝),QualityFilter.scala:26 也確實呼叫了它。",
       "evidence": "程式碼:src/main/scala/strategy/QualityFilter.scala:29-38 的 sql 只有 ORDER BY company_code, year DESC, quarter DESC 而沒有 DISTINCT ON,行 39 註解 Each company may match several rows across quarters; distinct collapses to one 明白承認會取到多列卻只做 Set 去重(去重的是 company_code,不是收斂到最新一季)。註解與實作矛盾:行 23-24 vs 行 31-37。行 20 另有「8 binary factors」但 view 行 3-37 加總 9 項。B-fscore-academic 已將同型缺陷歸類為「歷史上曾經 >= N」,並指出 Scala 與 Python 各一處(同一缺陷類)。",
-      "fix": "QualityFilter 的查詢改成 SELECT DISTINCT ON (company_code) company_code, drop_score, f_score FROM growth_analysis_ttm WHERE ... ORDER BY company_code, year DESC, quarter DESC,再於外層過濾分數;同時修行 20 與行 23-24 的註解。兩支 agent 文件加註「本 view 2006-2012 不可信、2010 前 f_score 封頂 6 分」,或直接改指向 research/strat_lab/raw_quarterly.py 的 first-principles 版本。"
+      "fix": "QualityFilter 的查詢改成 SELECT DISTINCT ON (company_code) company_code, drop_score, f_score FROM growth_analysis_ttm WHERE ... ORDER BY company_code, year DESC, quarter DESC,再於外層過濾分數;同時修行 20 與行 23-24 的註解。兩支 agent 文件加註「本 view 2006-2012 不可信、2010 前 f_score 封頂 6 分」,或直接改指向 src/quantlib/strat_lab/raw_quarterly.py 的 first-principles 版本。"
     },
     {
       "severity": "SUSPECT",
@@ -111,8 +111,8 @@
     {
       "severity": "OK",
       "what": "不在現役實盤資金路徑上,爆炸半徑有限——但 copilot agent 仍在用,那是使用者會直接看到的判斷。研究側早已明文棄用本 view。",
-      "evidence": "棄用證據:research/cache_tables.py:39 註解 REMOVED: growth_analysis_ttm (was a PG VIEW with hand-written F-Score derivation we couldn't fully verify);research/db.py:107 NOTE: growth_analysis_ttm view removed ... we don't trust;research/strat_lab/raw_quarterly.py:9 We DELIBERATELY do NOT use。實測 cache:var/cache/cache.duckdb 的 24 張表(bs_concise_raw / cf_progressive_raw / daily_quote / ... / treasury_stock_buyback)裡沒有它。現役 Serenity ev_v3_wf 與 apex strategy_s 皆不引用。仍在用的消費者(grep -rn growth_analysis_ttm):Scala strategy 套件(已凍結,QualityFilter.scala:31、MultiFactorStrategy.scala:78、ValueRevertStrategy.scala:66、ValueMomentumStrategy.scala:70、DividendYieldStrategy.scala:49、Signals.scala:139)、PG 下游 view(8_valuation.sql:93、9_valuation_1q.sql:95、6_cbs_ttm_5y_over75.sql:63-71)、Main.scala:347-353 的因子 IC 掃描,以及 .claude/agents/twstock-fundamental-analyst.md:14 與 twstock-bear-researcher.md:13。",
-      "fix": "最乾淨的解是把本 view 標成 deprecated,兩支 agent 文件改指向 research/strat_lab/raw_quarterly.py 的 first-principles 版本,避免長期維護兩套定義不同的「F-Score」。"
+      "evidence": "棄用證據:research/cache_tables.py:39 註解 REMOVED: growth_analysis_ttm (was a PG VIEW with hand-written F-Score derivation we couldn't fully verify);src/quantlib/db.py:107 NOTE: growth_analysis_ttm view removed ... we don't trust;src/quantlib/strat_lab/raw_quarterly.py:9 We DELIBERATELY do NOT use。實測 cache:var/cache/cache.duckdb 的 24 張表(bs_concise_raw / cf_progressive_raw / daily_quote / ... / treasury_stock_buyback)裡沒有它。現役 Serenity ev_v3_wf 與 apex strategy_s 皆不引用。仍在用的消費者(grep -rn growth_analysis_ttm):Scala strategy 套件(已凍結,QualityFilter.scala:31、MultiFactorStrategy.scala:78、ValueRevertStrategy.scala:66、ValueMomentumStrategy.scala:70、DividendYieldStrategy.scala:49、Signals.scala:139)、PG 下游 view(8_valuation.sql:93、9_valuation_1q.sql:95、6_cbs_ttm_5y_over75.sql:63-71)、Main.scala:347-353 的因子 IC 掃描,以及 .claude/agents/twstock-fundamental-analyst.md:14 與 twstock-bear-researcher.md:13。",
+      "fix": "最乾淨的解是把本 view 標成 deprecated,兩支 agent 文件改指向 src/quantlib/strat_lab/raw_quarterly.py 的 first-principles 版本,避免長期維護兩套定義不同的「F-Score」。"
     },
     {
       "severity": "OK",

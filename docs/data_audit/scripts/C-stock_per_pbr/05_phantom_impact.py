@@ -4,7 +4,7 @@
 資料逐欄比對——若逐欄相同即證明 DB 內存的是別日的值。同時標出哪些錯位日
 本身是交易日(daily_quote 有該日)→ 實際會被策略取用。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/05_phantom_impact.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/05_phantom_impact.py
 """
 from __future__ import annotations
 

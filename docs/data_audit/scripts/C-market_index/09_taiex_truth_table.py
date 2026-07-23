@@ -6,7 +6,7 @@
 本腳本把 8 個幽靈日的真值寫死(附抓取日期),與 cache 內容對照,算出
 「用 cache 算日報酬」相對「用真值算日報酬」的誤差。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/09_taiex_truth_table.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/09_taiex_truth_table.py
 """
 import duckdb
 from research import paths

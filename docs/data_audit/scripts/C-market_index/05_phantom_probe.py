@@ -5,7 +5,7 @@
 (來源日與汙染日的指數清單不同)。這裡改成:兩個日期在**共同指數名**上的
 (close, change) 全部相同且共同名稱數 ≥ 50 → 判撞號。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/05_phantom_probe.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/05_phantom_probe.py
 """
 import duckdb
 from research import paths

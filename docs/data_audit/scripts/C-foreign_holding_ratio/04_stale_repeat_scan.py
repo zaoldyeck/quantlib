@@ -9,7 +9,7 @@ outstanding_shares / foreign_held_shares / foreign_held_ratio 三欄,
 「三欄全同」的機率極低,只有複製才會發生。因此同時輸出 identical_ratio 分佈
 供判讀,而非只看 1.0。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/04_stale_repeat_scan.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/04_stale_repeat_scan.py
 """
 from __future__ import annotations
 

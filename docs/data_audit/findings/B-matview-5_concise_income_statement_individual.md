@@ -149,7 +149,7 @@ WHERE q_correct IS NOT NULL AND q_mv IS NOT NULL AND c.quarter<>1 GROUP BY 1,2;
  "WHERE market IN ('twse','tpex') AND type='consolidated'"),   # ← 明確鎖死合併
 ```
 
-Serenity / apex / Evergreen 走 `research/strat_lab/raw_quarterly.py`，
+Serenity / apex / Evergreen 走 `src/quantlib/strat_lab/raw_quarterly.py`，
 直接讀 `concise_income_statement_progressive` 且已鎖 `type='consolidated'`。
 **中彈的是 Scala 凍結策略層那條鏈**（見下方「消費者」）。
 
@@ -341,7 +341,7 @@ concise_income_statement_progressive  (raw, 累計)
    缺季就給 NULL，不要生一個看起來正常的錯數字。
    **同類掃描**：`3_cash_flows_individual.sql:8-12`、
    `7_income_statement_individual.sql:8-11` 完全同型；
-   `research/strat_lab/raw_quarterly.py:127-148,176-180` 雖有年分區但仍是
+   `src/quantlib/strat_lab/raw_quarterly.py:127-148,176-180` 雖有年分區但仍是
    「位移一列」不是「位移一季」，**缺季時同 bug**，而那條是現役研究路徑。
 
 3. **非加總型科目白名單**（BUG 3）：`換算匯率` / `換算匯率參考依據` 這類水準值
@@ -353,7 +353,7 @@ concise_income_statement_progressive  (raw, 累計)
    累計數是連續的、且無同季碰撞）。
 
 5. **防復發守護**（先紅後綠）：一支
-   `research/tests/test_concise_income_individual.py`，鎖死三個斷言——
+   `src/quantlib/tests/test_concise_income_individual.py`，鎖死三個斷言——
    (a) 台積電 2024 四季單季營收 = 592,644,201 / 673,510,177 / 759,692,143 / 868,461,178；
    (b) 任一 (company_code, title) 序列內 `type` 不得變動；
    (c) `營業收入` 單季為負的列數必須為 0（扣除 80 列已審查的真實負值白名單）。

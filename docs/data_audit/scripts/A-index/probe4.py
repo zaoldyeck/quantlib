@@ -1,7 +1,7 @@
 """A-index 探針 4:落地後的可信度交叉檢查
  (a) index 有資料但 daily_quote 當日無交易 -> 疑似 TWSE 假回應 / daily_quote 缺料
  (b) 旗艦指數 close 與「前日 close + 當日 change」不符 -> 檔案內容與宣稱日期不符(stale publish)
-run: uv run --project research python docs/data_audit/scripts/A-index/probe4.py
+run: uv run --project . python docs/data_audit/scripts/A-index/probe4.py
 """
 import polars as pl, subprocess
 

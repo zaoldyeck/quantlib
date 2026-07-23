@@ -8,7 +8,7 @@
       "metric": "forwardReturns 未來報酬(RankMetrics.scala:149;同缺陷複本 FactorResearch.scala:178)",
       "textbook_def": "因子 IC 的 forward return 應為總報酬(含現金股利再投資、對減資/分割還原參考價)。Grinold-Kahn: IC=corr(score, realized active return);Alphalens get_clean_factor_and_forward_returns 對還原/再投資後價格算報酬。原始價報酬(price return)僅在無股利、無資本行動時等於總報酬。",
       "implementation": "(p1-p0)/p0,p0/p1 皆取 daily_quote.closing_price(專案鐵律載明此欄為未還原原始價,故有 prices.fetch_adjusted_panel)。除息日原始收盤價掉一個股利、減資日參考價重設,全部被當成真實漲跌計入報酬。RankMetrics 與 RankMetricsEx 兩份複本同錯。",
-      "evidence": "2023-07-04→08-01(約21交易日)TWSE 410/1198 檔(34%)除權息,平均參考價下修 -3.99%、最大 -28.86%(SELECT count(*),avg((pre-ref)/pre) FROM ex_right_dividend WHERE market='twse' AND date>'2023-07-03' AND date<='2023-08-01')。2330 2023-09-14 除息配 3 元:ex_right_dividend pre=541→ref=538,daily_quote 09-13 收 541、09-14 收 550,原始價把配掉的 3 元隱形吃掉。減資 TWSE 15-31 件/年(2022:31、2023:26)參考價重設被當真跌。對照:research/apex/factors.py:4 明文『調整價,T+1 起算,零 look-ahead』——冠軍 Python 引擎已做對。",
+      "evidence": "2023-07-04→08-01(約21交易日)TWSE 410/1198 檔(34%)除權息,平均參考價下修 -3.99%、最大 -28.86%(SELECT count(*),avg((pre-ref)/pre) FROM ex_right_dividend WHERE market='twse' AND date>'2023-07-03' AND date<='2023-08-01')。2330 2023-09-14 除息配 3 元:ex_right_dividend pre=541→ref=538,daily_quote 09-13 收 541、09-14 收 550,原始價把配掉的 3 元隱形吃掉。減資 TWSE 15-31 件/年(2022:31、2023:26)參考價重設被當真跌。對照:src/quantlib/apex/factors.py:4 明文『調整價,T+1 起算,零 look-ahead』——冠軍 Python 引擎已做對。",
       "fix": "forward return 改用還原價:除息以 ex_right_ex_dividend_reference_price/closing_price_before_ex_right_ex_dividend、減資以 post_reduction_reference_price/closing_price_on_the_last_trading_date 的比例接續調整(即 prices.fetch_adjusted_panel 的 Scala 對應),或讓 Scala 研究命令退役統一走 Python prices.py。兩份複本一起修。"
     },
     {

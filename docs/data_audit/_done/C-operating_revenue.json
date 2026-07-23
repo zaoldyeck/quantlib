@@ -14,8 +14,8 @@
     },
     {
       "severity": "BUG",
-      "what": "同一張表有兩條會互相覆蓋的寫入路徑,內容取決於今天先跑了哪一條,回測不可重現。Python 爬蟲 research/crawl/sources/operating_revenue.py::refresh 每次重抓最近 3 個月、經 Sink.upsert 直寫 cache.duckdb(不經 PG);research/cache_tables.py 則 os.remove 後從 PG 全砍重建。目前 cache 領先 PG(獨有 63 列、缺 10 列、24 列值不同),一旦跑 CLAUDE.md 規定的 Step 2 就會退回 PG 的殘缺版(1081→1062)。",
-      "evidence": "cache 481,582 列 vs PG 481,529 列;逐 (market,type,year,month) 差異只在 2026-04/05/06(twse +19/+16/+9、tpex +5/+3/+1)。research/cache_tables.py:20-23 `if os.path.exists(DB_PATH): os.remove(DB_PATH)` + 第 44 行 `CREATE TABLE operating_revenue AS SELECT ... FROM pg.public.operating_revenue`;research/crawl/sink.py:37-60 upsert 為「DELETE 該 key 全部 + INSERT」;research/crawl/sources/operating_revenue.py:30 `_REFRESH_MONTHS = 3`。呼叫點:research/serenity/daily.py:242 的 live 每日 loop 會跑 cache_tables.py。消費端(money path):research/serenity/daily.py:135 讀 monthly_revenue_yoy、research/apex/data.py:223。",
+      "what": "同一張表有兩條會互相覆蓋的寫入路徑,內容取決於今天先跑了哪一條,回測不可重現。Python 爬蟲 src/quantlib/crawl/sources/operating_revenue.py::refresh 每次重抓最近 3 個月、經 Sink.upsert 直寫 cache.duckdb(不經 PG);research/cache_tables.py 則 os.remove 後從 PG 全砍重建。目前 cache 領先 PG(獨有 63 列、缺 10 列、24 列值不同),一旦跑 CLAUDE.md 規定的 Step 2 就會退回 PG 的殘缺版(1081→1062)。",
+      "evidence": "cache 481,582 列 vs PG 481,529 列;逐 (market,type,year,month) 差異只在 2026-04/05/06(twse +19/+16/+9、tpex +5/+3/+1)。research/cache_tables.py:20-23 `if os.path.exists(DB_PATH): os.remove(DB_PATH)` + 第 44 行 `CREATE TABLE operating_revenue AS SELECT ... FROM pg.public.operating_revenue`;src/quantlib/crawl/sink.py:37-60 upsert 為「DELETE 該 key 全部 + INSERT」;src/quantlib/crawl/sources/operating_revenue.py:30 `_REFRESH_MONTHS = 3`。呼叫點:src/quantlib/serenity/daily.py:242 的 live 每日 loop 會跑 cache_tables.py。消費端(money path):src/quantlib/serenity/daily.py:135 讀 monthly_revenue_yoy、src/quantlib/apex/data.py:223。",
       "fix": "選一個唯一寫入者:要嘛 Python 爬蟲同時回寫 PG,要嘛 cache_tables.py 對 operating_revenue 改成 merge(不 drop 既有列)。並加守護測試:對每個 (market,type,year,month),cache 列數必須 >= PG 且代號集合為超集,否則紅燈。"
     },
     {
@@ -27,7 +27,7 @@
     {
       "severity": "BUG",
       "what": "6 碼 TDR(存託憑證)被 Python 爬蟲的代號正則吃掉,912000 晨訊科-DR / 910069 / 912398 的月營收在被 Python 重寫過的月份整列消失。",
-      "evidence": "research/crawl/sources/operating_revenue.py:36 `_CODE = re.compile(r\"^\\d{4}[0-9A-Z]?$\")`(最多 5 碼),第 62-64 行 `if not _CODE.match(code): continue`。實測 _CODE.match('912000') → None。cache:912000 只有 2026-01/02/03(那是從 PG 重建來的),04/05/06 不存在;PG 三個月都有(且 912000 daily_quote 最後交易日 2026-07-20,公司仍在市)。",
+      "evidence": "src/quantlib/crawl/sources/operating_revenue.py:36 `_CODE = re.compile(r\"^\\d{4}[0-9A-Z]?$\")`(最多 5 碼),第 62-64 行 `if not _CODE.match(code): continue`。實測 _CODE.match('912000') → None。cache:912000 只有 2026-01/02/03(那是從 PG 重建來的),04/05/06 不存在;PG 三個月都有(且 912000 daily_quote 最後交易日 2026-07-20,公司仍在市)。",
       "fix": "正則放寬為 ^\\d{4,6}[0-9A-Z]?$,並對「本次解析出的列數明顯少於上次」fail-loud(現在是靜默 continue)。"
     },
     {
@@ -38,8 +38,8 @@
     },
     {
       "severity": "BUG",
-      "what": "這張表唯一的稽核腳本 research/audits/05_revenue_audit.py 一跑就爆,所以沒人在稽核它——這是上面的洞能安靜躺三個月的直接原因。CLAUDE.md 仍把它列為可跑指令。",
-      "evidence": "uv run --project research python research/audits/05_revenue_audit.py → `_duckdb.BinderException: Binder Error: Catalog \"pg\" does not exist!`(05_revenue_audit.py:23 查 pg.public.operating_revenue,但 research/db.py:68-87 connect() 預設 use_cache=True,cache 存在就回 cache 連線)。",
+      "what": "這張表唯一的稽核腳本 src/quantlib/audits/05_revenue_audit.py 一跑就爆,所以沒人在稽核它——這是上面的洞能安靜躺三個月的直接原因。CLAUDE.md 仍把它列為可跑指令。",
+      "evidence": "uv run --project . python src/quantlib/audits/05_revenue_audit.py → `_duckdb.BinderException: Binder Error: Catalog \"pg\" does not exist!`(05_revenue_audit.py:23 查 pg.public.operating_revenue,但 src/quantlib/db.py:68-87 connect() 預設 use_cache=True,cache 存在就回 cache 連線)。",
       "fix": "改用 connect(use_cache=False),或把查詢改成 cache 可用的欄位;並把它接進每日 loop 的健康檢查。"
     },
     {
@@ -75,13 +75,13 @@
     {
       "severity": "OK",
       "what": "2013 年前 individual 與 consolidated 併存,不篩 type 的查詢在 2005-2012 會重複計算(27,917 組)。現有 money-path 消費端已檢查,無實害。",
-      "evidence": "cache:SELECT year,month,company_code,COUNT(*) FROM operating_revenue GROUP BY ALL HAVING COUNT(*)>1 → 27,917 組,max(year)=2012。research/apex/data.py:218-228 用 ROW_NUMBER() ORDER BY CASE type WHEN 'consolidated' THEN 0 ELSE 1 END 正確去重;research/serenity/daily.py:135 未篩 type,但只讀近月(2013+ 只有 consolidated)故無實害。",
+      "evidence": "cache:SELECT year,month,company_code,COUNT(*) FROM operating_revenue GROUP BY ALL HAVING COUNT(*)>1 → 27,917 組,max(year)=2012。src/quantlib/apex/data.py:218-228 用 ROW_NUMBER() ORDER BY CASE type WHEN 'consolidated' THEN 0 ELSE 1 END 正確去重;src/quantlib/serenity/daily.py:135 未篩 type,但只讀近月(2013+ 只有 consolidated)故無實害。",
       "fix": ""
     },
     {
       "severity": "OK",
-      "what": "research/records/revenue_first_seen.parquet(S 事件驅動進場的時間真相)未被 cache 內容翻覆污染。",
-      "evidence": "1,962 列、全為 2026-06;first_seen 分佈 07-07(325)/07-09(882)/07-13(547)/07-14(203)/07-17(5)。research/serenity/daily.py 用 parquet 自身的 known 集合做記憶,代號被移除後再出現不會產生第二筆 first_seen。金控 first_seen:2892/5880=07-14,2882/2886/2887/2891=07-17(晚於 Scala 的 15 號窗,證實這些列只由 Python 爬蟲進 cache)。",
+      "what": "src/quantlib/records/revenue_first_seen.parquet(S 事件驅動進場的時間真相)未被 cache 內容翻覆污染。",
+      "evidence": "1,962 列、全為 2026-06;first_seen 分佈 07-07(325)/07-09(882)/07-13(547)/07-14(203)/07-17(5)。src/quantlib/serenity/daily.py 用 parquet 自身的 known 集合做記憶,代號被移除後再出現不會產生第二筆 first_seen。金控 first_seen:2892/5880=07-14,2882/2886/2887/2891=07-17(晚於 Scala 的 15 號窗,證實這些列只由 Python 爬蟲進 cache)。",
       "fix": ""
     }
   ],
@@ -97,10 +97,10 @@
     "異常值:null/負/零 monthly_revenue、負值的產業分佈、非金融負值清單、零值的產業分佈、極端 YoY、未來年月、壞年月、重複鍵、company_code 格式",
     "原始檔對帳:grep 2905/6901/8942/4950/3426/4987/6806/2881/912000 於 data/operating_revenue/{twse,tpex}/ 的對應 CSV,含備註欄",
     "檔案盤點:data/operating_revenue/{twse,tpex}/ 逐年檔案清單與 mtime(定位重整視窗行為)",
-    "程式碼:src/main/scala/Task.scala::pullOperatingRevenue、src/main/scala/reader/FinancialReader.scala::readOperatingRevenue、src/main/scala/setting/OperatingRevenueSetting.scala、research/cache_tables.py、research/crawl/update.py、research/crawl/sink.py、research/crawl/sources/operating_revenue.py、research/db.py::connect",
-    "消費端盤點:research/apex/data.py、research/serenity/daily.py、research/tri/daily.py、research/serenity/discovery_funnel.py 的 type 篩選與欄位使用",
-    "既有稽核腳本:實跑 research/audits/05_revenue_audit.py(失敗)",
+    "程式碼:src/main/scala/Task.scala::pullOperatingRevenue、src/main/scala/reader/FinancialReader.scala::readOperatingRevenue、src/main/scala/setting/OperatingRevenueSetting.scala、research/cache_tables.py、src/quantlib/crawl/update.py、src/quantlib/crawl/sink.py、src/quantlib/crawl/sources/operating_revenue.py、src/quantlib/db.py::connect",
+    "消費端盤點:src/quantlib/apex/data.py、src/quantlib/serenity/daily.py、src/quantlib/tri/daily.py、src/quantlib/serenity/discovery_funnel.py 的 type 篩選與欄位使用",
+    "既有稽核腳本:實跑 src/quantlib/audits/05_revenue_audit.py(失敗)",
     "PG id 序列分佈(逐月 min/max/count)用以判定是否曾發生刪除與重灌",
-    "research/records/revenue_first_seen.parquet 的 first_seen 分佈與金控代號"
+    "src/quantlib/records/revenue_first_seen.parquet 的 first_seen 分佈與金控代號"
   ]
 }

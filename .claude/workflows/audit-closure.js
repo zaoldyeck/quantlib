@@ -35,7 +35,7 @@ const UNITS = [
     files: ['src/main/resources/sql/view/3_financial_index_quarterly.sql', 'src/main/resources/sql/view/4_financial_index_ttm.sql'],
     focus: 'TTM 版總資產週轉率平均資產分母錯用 5 季前(同檔 ROA 是 4 季前的打字錯,應 4 季前=年初);兩張表現金比率分母用總資產(教科書該用流動負債);ROIC 分子用稅後淨利(該 NOPAT);負權益公司排名反轉成最佳(加 guard)。' },
   { key: 'q01-bankruptcy', audit: 'D-bankruptcy-models',
-    files: ['research/apex/experiments/q01_financial_scores.py', 'research/strat_lab/raw_quarterly.py'],
+    files: ['src/quantlib/apex/experiments/q01_financial_scores.py', 'src/quantlib/strat_lab/raw_quarterly.py'],
     focus: 'Altman Z\'\' X2 保留盈餘用「權益−股本」代理(把 114 家累虧訊號抹掉)→ raw_quarterly BS_TITLES 增 retained_earnings,q01 改用真保留盈餘;Ohlson INTWO「連兩年虧損」寫成「連兩季」(shift 1 應 shift 4)、CHIN lag 同錯;Z\'\' X3 EBIT 用營業利益(可加回利息);DuPont 週轉率年初 vs leverage/roe 期末口徑不一致;含 NCI 口徑註明。raw_quarterly.py 是共享 canonical,只做「新增科目 title」這種加法式改動,不動既有欄。' },
 ]
 
@@ -89,7 +89,7 @@ ${u.focus}
      (逾時/資源不足就在 \`verify\` 註記「compile 未跑,edits 經逐行語法自審」,**不要卡住**)。
      整合編譯由主 agent 在主工作區統一做,你不必為編譯成功與否負全責,但 edits 必須語法正確。
    - SQL(view .sql):人工核對改後 SQL 的邏輯與語法(欄位、GROUP BY、視窗、除零 guard),寫清楚為何正確。
-   - Python(q01):跑 \`uv run --project research python\` 實際 parse/計算一筆對照學理手算值(如 2330 某季),寫進 \`verify\`。
+   - Python(q01):跑 \`uv run --project . python\` 實際 parse/計算一筆對照學理手算值(如 2330 某季),寫進 \`verify\`。
 4. 回傳**精確 edits**(對 HEAD 現況檔可乾淨套用的 old_string/new_string):主 agent 會統一套用到主工作區並做整合編譯。**old_string 必須是 HEAD 現況檔的逐字原文**(不是你改後的版本)、含足夠上下文在檔內唯一;多個 edit 依「對原始檔依序套用」設計、彼此不重疊。
 
 ## 鐵律

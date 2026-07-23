@@ -1,6 +1,6 @@
 """C-foreign_holding_ratio 稽核 07:隨機抽樣逐欄比對(3 日 x 5 檔 x 2 market)+ 最新日健檢。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/07_sample_parity.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/07_sample_parity.py
 """
 from __future__ import annotations
 

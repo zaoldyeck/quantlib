@@ -1,0 +1,49 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "quantlib"
+version = "0.1.0"
+description = "Taiwan-stock quant research + live trading — all-Python (Polars + DuckDB)"
+requires-python = ">=3.12"
+dependencies = [
+    "polars>=1.14.0",
+    "duckdb>=1.1.0",
+    "pyarrow>=17.0.0",
+    "typer>=0.12.0",
+    "numpy>=2.4.4",
+    "requests>=2.31.0",
+    "alphalens-reloaded>=0.4.6",
+    "pyfolio-reloaded>=0.9.9",
+    "empyrical-reloaded>=0.5.12",
+    "vectorbt>=1.0.0",
+    "stockstats>=0.6.8",
+    "pyqlib>=0.9.7",
+    "xgboost>=3.2.0",
+    "catboost>=1.2.10",
+    "fubon-neo ; (platform_machine == 'arm64' and sys_platform == 'darwin') or (platform_machine == 'x86_64' and sys_platform == 'linux')",
+    "yfinance>=1.5.1",
+    "shioaji>=1.7.0",
+    "lxml>=6.1.1",
+    "cssselect>=1.4.0",
+    "beautifulsoup4>=4.12",
+]
+
+[tool.uv]
+managed = true
+
+[tool.uv.sources]
+fubon-neo = [
+    { path = "vendor/fubon_neo/fubon_neo-2.2.8-cp37-abi3-macosx_11_0_arm64.whl", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { path = "vendor/fubon_neo/fubon_neo-2.2.8-cp37-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", marker = "platform_machine == 'x86_64' and sys_platform == 'linux'" },
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/quantlib"]
+

@@ -227,7 +227,7 @@ NULL→Double Slick 彈。
 
 **同類掃描**（此 bug 是一整類）：`3_cash_flows_individual.sql:8-12`（現金流量表，完全同型）、
 `5_concise_income_statement_individual.sql:19-22`（已判 BUG）、
-`research/strat_lab/raw_quarterly.py`（現役研究路徑，雖有年分區但「位移一列 ≠ 位移一季」，
+`src/quantlib/strat_lab/raw_quarterly.py`（現役研究路徑，雖有年分區但「位移一列 ≠ 位移一季」，
 缺季時同 bug——見 `C-is_progressive_raw` BUG 2）。**本 view 是這一類的第三個樣本。**
 
 ---

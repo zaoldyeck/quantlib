@@ -23,5 +23,5 @@
 | 文件 | 用途 |
 |---|---|
 | [`../AGENTS.md`](../AGENTS.md) | Codex / agent 在本 repo 的操作規範與不可違反原則。 |
-| [`../research/README.md`](../research/README.md) | Python research 目錄結構與常用命令。 |
-| [`../research/trading/README.md`](../research/trading/README.md) | 自動交易與 broker integration 說明。 |
+| [`../src/quantlib/README.md`](../src/quantlib/README.md) | Python research 目錄結構與常用命令。 |
+| [`../src/quantlib/trading/README.md`](../src/quantlib/trading/README.md) | 自動交易與 broker integration 說明。 |

@@ -1,8 +1,8 @@
 # D-metrics-scala:績效指標(CAGR / Sharpe / Sortino / MDD / Martin)學理稽核
 
 **範圍**:`src/main/scala/strategy/Metrics.scala` + research 端 empyrical/pyfolio 對應使用
-（`research/strat_lab/evaluation.py`、`research/serenity/replay_2025.py`〔=live〕、
-`research/tri/pnl_dashboard.py`、`research/apex/validate.py`）
+（`src/quantlib/strat_lab/evaluation.py`、`src/quantlib/serenity/replay_2025.py`〔=live〕、
+`src/quantlib/tri/pnl_dashboard.py`、`src/quantlib/apex/validate.py`）
 
 **總判定:BUG**
 

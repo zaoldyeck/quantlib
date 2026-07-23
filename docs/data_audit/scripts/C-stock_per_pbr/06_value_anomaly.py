@@ -3,7 +3,7 @@
 檢查:負/零 PB、負 PE、極端 PE/PB、殖利率 > 30%、未來日期、重複鍵、
 company_code 格式、全 NULL 列。並列出「有報價卻無 per_pbr」的缺漏日(含星期)。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/06_value_anomaly.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/06_value_anomaly.py
 """
 from __future__ import annotations
 

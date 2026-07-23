@@ -7,7 +7,7 @@ MOPS 月報把「除權息前收盤價 / 參考價 / 漲跌停 / 開盤參考價
 
 用途:2024 年 twse 筆數腰斬要先確認是「legacy 端點死掉、MOPS 沒補齊」還是別的原因。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/03_source_signature.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/03_source_signature.py
 """
 from __future__ import annotations
 

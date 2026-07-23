@@ -59,7 +59,7 @@ const COMMON = `
 ## 環境
 - repo /Users/zaoldyeck/Documents/scala/quantlib(指令從根跑)
 - cache: paths.CACHE_DB;PG: psql -h localhost -p 5432 -d quantlib
-- 可跑 Python 驗證:uv run --project research python -c "..."
+- 可跑 Python 驗證:uv run --project . python -c "..."
 
 ## 產出(不可省)
 docs/data_audit/_done/<unit_id>.json + docs/data_audit/findings/<unit_id>.md,再回傳同一份 JSON。

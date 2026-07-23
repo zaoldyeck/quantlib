@@ -1,13 +1,13 @@
 """C-market_index #8: cache 新鮮度、索引/唯一性、以及 TAIEX 線的實害量化。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/08_freshness_and_index.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/08_freshness_and_index.py
 """
 import os
 from datetime import date
 
 import duckdb
 from research import paths
-from research.data_calendar import latest_complete_trading_day, stale_tables
+from quantlib.data_calendar import latest_complete_trading_day, stale_tables
 
 con = duckdb.connect(str(paths.CACHE_DB), read_only=True)
 

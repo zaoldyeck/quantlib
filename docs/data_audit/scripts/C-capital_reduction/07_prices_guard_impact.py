@@ -1,13 +1,13 @@
 """C-capital_reduction 稽核 07:prices.py 的 0.05<f<5 護欄丟掉的減資事件實測衝擊。
 
-research/prices.py::_build_factor_table 對減資因子 f = post_ref / pre_close 加了
+src/quantlib/prices.py::_build_factor_table 對減資因子 f = post_ref / pre_close 加了
 `0.05 < f < 5.0` 的「資料品質護欄」。台股「彌補虧損」型減資的換股率可以到 1:40
 (減資 97.5%),f 就會遠大於 5 → 因子被丟掉 → 還原價完全沒調整 → canonical
 報酬序列在事件當天出現幾十倍的假報酬。
 
 本腳本對每個被丟掉的事件,實跑 prices.fetch_daily_returns 看當天報酬。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/07_prices_guard_impact.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/07_prices_guard_impact.py
 """
 from __future__ import annotations
 

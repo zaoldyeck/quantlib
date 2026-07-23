@@ -4,12 +4,12 @@
   A. 證人投票:同一 (market, date) 其他日頻表(daily_quote / daily_trading_details /
      stock_per_pbr / market_index / margin_transactions / foreign_holding_ratio)
      有資料,而 sbl 沒有。
-  B. 純日曆:`research.data_calendar.is_trading_day`(讀 daily_quote 的 0-byte
+  B. 純日曆:`quantlib.data_calendar.is_trading_day`(讀 daily_quote 的 0-byte
      sentinel,颱風假才判得出來)說是交易日,而 sbl 沒有。
   C. 原始檔形態:`data/sbl_borrowing/<market>/<year>/` 底下該日檔案的大小/內容——
      交易所親口回「無資料」 vs 抓失敗留下的殘檔,大小分布不同。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-sbl_borrowing/02_gaps.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-sbl_borrowing/02_gaps.py
 依賴:var/cache/cache.duckdb 為最新(cache_tables.py)。
 """
 from __future__ import annotations
@@ -21,7 +21,7 @@ import duckdb
 import pandas as pd
 
 from research import paths
-from research.data_calendar import is_trading_day
+from quantlib.data_calendar import is_trading_day
 
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.dirname(os.path.abspath(__file__))))))

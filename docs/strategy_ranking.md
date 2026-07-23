@@ -2,7 +2,7 @@
 
 最後更新：2026-05-19
 
-資料刷新：2026-05-18 20:48 CST 已執行 `sbt "runMain Main update"` 與 `uv run --project research python research/cache_tables.py`。
+資料刷新：2026-05-18 20:48 CST 已執行 `sbt "runMain Main update"` 與 `uv run --project . python research/cache_tables.py`。
 
 資料截止日：價格表 `daily_quote` 到 2026-05-18；PER / 三大法人 / 融資券來源表到 2026-05-15。
 
@@ -95,7 +95,7 @@ Iter93 的結論是：**沒有找到全勝現有全部策略的候選**。`ALL_W
 
 Iter93 artifacts：
 
-- `research/strat_lab/iter_93_unconstrained_all_win_search.py`
+- `src/quantlib/strat_lab/iter_93_unconstrained_all_win_search.py`
 - `var/out/strat_lab/iter_93_unconstrained_all_win_search/sleeve_universe.csv`
 - `var/out/strat_lab/iter_93_unconstrained_all_win_search/selected_sleeves.csv`
 - `var/out/strat_lab/iter_93_unconstrained_all_win_search/quick_summary.csv`
@@ -191,7 +191,7 @@ Iter95 的 OOS CAGR、OOS Sortino、OOS MDD 與最近一年 CAGR 都明顯優於
 
 Iter95 可重跑腳本：
 
-- `research/strat_lab/iter_95_global_exit_aware_search.py`
+- `src/quantlib/strat_lab/iter_95_global_exit_aware_search.py`
 
 Iter95 主要結果：
 
@@ -205,7 +205,7 @@ Iter95 主要結果：
 
 Iter92 可重跑腳本：
 
-- `research/strat_lab/iter_92_execution_meta_switch.py`
+- `src/quantlib/strat_lab/iter_92_execution_meta_switch.py`
 
 Iter92 主要結果：
 

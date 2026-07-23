@@ -10,7 +10,7 @@ Three raw formats exist (detected by filename, matching the reader):
   - legacy TPEx  YYYY_M_D.csv : 21/22-col, date '109/07/15', cash<-col7(權值+息值)
   - MOPS monthly YYYY_M.csv   : t108sb27, price cols unavailable -> reader stores 0
 
-Run:  uv run --project research python \
+Run:  uv run --project . python \
         docs/data_audit/scripts/A-ex_right_dividend/01_reparse_parity.py
 Needs: PostgreSQL (authoritative reader output). Does NOT need the DuckDB cache.
 """

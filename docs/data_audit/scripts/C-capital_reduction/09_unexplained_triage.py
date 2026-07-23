@@ -6,7 +6,7 @@
   (c) 真的漏抓的減資。
 本腳本對每一筆做 ±30 天的減資紀錄比對,並標出 ETF 代號,把 (c) 篩出來。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/09_unexplained_triage.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/09_unexplained_triage.py
 """
 from __future__ import annotations
 

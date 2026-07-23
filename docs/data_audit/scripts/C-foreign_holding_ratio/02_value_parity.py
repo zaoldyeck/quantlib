@@ -3,7 +3,7 @@
 鍵 = (market, date, company_code)(PG 唯一索引 idx_ForeignHoldingRatio_market_date_code)。
 雙向 EXCEPT 找獨有鍵,共用鍵逐欄 IS DISTINCT FROM 計數。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/02_value_parity.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/02_value_parity.py
 """
 from __future__ import annotations
 

@@ -345,8 +345,8 @@ NULL。觀測域：`f_score` 0-9、`growth_score` 0-30、`drop_score` 0-20。
 
 ### OK 3 — 不在現役實盤資金路徑上
 
-- `research/cache_tables.py:39` 明文移除本 view；`research/db.py:107` 註明不信任；
-  `research/strat_lab/raw_quarterly.py:9` 寫 "We DELIBERATELY do NOT use"。
+- `research/cache_tables.py:39` 明文移除本 view；`src/quantlib/db.py:107` 註明不信任；
+  `src/quantlib/strat_lab/raw_quarterly.py:9` 寫 "We DELIBERATELY do NOT use"。
 - 實測 `var/cache/cache.duckdb` 的 24 張表裡沒有它。
 - 現役 Serenity `ev_v3_wf` 與 apex `strategy_s` 都不引用。
 
@@ -392,7 +392,7 @@ view 內含約 100 個 window function，且 `WHERE` 推不進去：全表掃 5.
 9. **SUSPECT 5**：`QualityFilter.scala:31-37` 加 `DISTINCT ON (company_code) …
    ORDER BY company_code, year DESC, quarter DESC` 收斂到最新一季；順手修
    行 20 的 "8 binary factors" 註解。
-10. **SUSPECT 3 / 定位**：既然 `research/strat_lab/raw_quarterly.py` 已經是
+10. **SUSPECT 3 / 定位**：既然 `src/quantlib/strat_lab/raw_quarterly.py` 已經是
     first-principles 的替代品，最乾淨的解是把這張 view 標成 deprecated、
     把兩支 agent 文件改指向 `raw_quarterly`，而不是繼續維護兩套定義不同的
     「F-Score」。若要保留，至少把欄位改名為 `quality_score_qoq` 之類、

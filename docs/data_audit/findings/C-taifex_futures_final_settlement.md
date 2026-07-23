@@ -92,7 +92,7 @@ sbt "runMain Main pull taifex_futures_final_settlement"
 # 2. 讀進 PostgreSQL
 sbt "runMain Main read taifex_futures_final_settlement"
 # 3. 重建 DuckDB cache
-uv run --project research python research/cache_tables.py
+uv run --project . python research/cache_tables.py
 ```
 
 官方來源:`https://www.taifex.com.tw/cht/5/futIndxFSP`(見 `db/table/TaifexFuturesFinalSettlement.scala` 註解)。

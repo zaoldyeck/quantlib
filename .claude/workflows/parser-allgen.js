@@ -32,7 +32,7 @@ const RESULT = {
     generations: { type: 'string', description: '這個源有哪幾個歷史格式世代(欄數/日期範圍/差異),逐一列' },
     edits: {
       type: 'array',
-      description: '對 HEAD 現況 research/crawl/sources/<source>.py 可乾淨套用的精確編輯',
+      description: '對 HEAD 現況 src/quantlib/crawl/sources/<source>.py 可乾淨套用的精確編輯',
       items: {
         type: 'object', required: ['file', 'old_string', 'new_string', 'why'],
         properties: {
@@ -59,7 +59,7 @@ cache」對歷史資料完全失效。你要把「${u.source}」的 parser **擴
    - ${REPO}/docs/data_audit/_done/A-${u.source}.json(解析層 bug + 世代)
    - ${REPO}/docs/data_audit/_done/C-*${u.source}* 或相關 C-*.json(一致性/汙染/錯日)
    - ${REPO}/docs/data_audit/findings/*${u.source}*.md
-2. **現行 Python parser**:${REPO}/research/crawl/sources/${u.source}.py(只吃現行格式)。
+2. **現行 Python parser**:${REPO}/src/quantlib/crawl/sources/${u.source}.py(只吃現行格式)。
 3. **Scala reader(全世代參考)**:src/main/scala/reader/ 對應函式——它**原本就處理所有世代**
    (含 IFRS 前後、欄數變遷、市場分流),是你擴充的權威參考;但**它有稽核記載的 bug**
    (欄位錯位、Int32、name-strip 傷文字欄、日期只認檔名…),你要移植它的世代處理、**同時修掉
@@ -83,7 +83,7 @@ cache」對歷史資料完全失效。你要把「${u.source}」的 parser **擴
 - **只認可重現證據**:verify 要有實際 parse 列數 + 已知值核對數字,不空口「已支援全世代」。
 - **絕不 drop/靜默跳過任何世代**:舊世代不是「跳過」,是「用對的欄位對映解析」。若某世代真的
   無法解析(格式資訊不足)→ status=PARTIAL 並列出是哪個世代、卡在哪,不假裝完成。
-- **只改 research/crawl/sources/${u.source}.py**(不碰別源、不碰 Scala、不碰 cache)。
+- **只改 src/quantlib/crawl/sources/${u.source}.py**(不碰別源、不碰 Scala、不碰 cache)。
 - **忠實 = 對 raw 內容**:不無中生有、不「修正」真實的來源錯(如 2832 EPS 源頭錯位要忠實搬),
   但要修**解析層**的 bug(欄位對位、型別、編碼)。
 

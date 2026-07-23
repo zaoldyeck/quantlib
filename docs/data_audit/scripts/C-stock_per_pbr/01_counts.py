@@ -1,6 +1,6 @@
 """C-stock_per_pbr 稽核 01:cache vs PG 的整表/逐年/逐日筆數對照。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/01_counts.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/01_counts.py
 需要 cache.duckdb 與本機 PostgreSQL(唯讀 attach)。
 """
 from __future__ import annotations

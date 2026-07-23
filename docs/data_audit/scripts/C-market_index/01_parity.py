@@ -3,7 +3,7 @@
 不抽樣:對每個 (market, date) 分組計算三重指紋(列數 + sum(hash) + bit_xor(hash)),
 兩邊必須逐格相等。PG 側套用與 research/cache_tables.py:46 完全相同的投影/改名。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/01_parity.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/01_parity.py
 需要:PostgreSQL 在跑 + var/cache/cache.duckdb 存在(不依賴 cache 新鮮度)。
 """
 import os
@@ -102,7 +102,7 @@ print("\n== 5. 投影 SQL 字面比對(cache_tables.py vs db.py) ==")
 import re
 root = paths.REPO_ROOT if hasattr(paths, "REPO_ROOT") else "."
 ct = open(f"{root}/research/cache_tables.py").read()
-dbp = open(f"{root}/research/db.py").read()
+dbp = open(f"{root}/src/quantlib/db.py").read()
 norm = lambda s: re.sub(r"\s+", " ", s).strip()
 m1 = re.search(r"\(\"market_index\",\s*(.*?)\),\n", ct, re.S)
 ct_sql = norm(m1.group(1).strip().strip("'"))

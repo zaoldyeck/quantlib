@@ -2,7 +2,7 @@
  (a) contract-format classes of the FRONT columns (is the front ever a spread/weekly?)
  (b) quantify the true-vs-stored next-term spread error on corrupted rows
  (c) the +7.32% spot-basis outlier on 2016-05-26 (market_index root or spot-CTE mis-pick?)
-Run: PYTHONPATH=<repo> uv run --project research python .../audit2.py  (read-only)
+Run: PYTHONPATH=<repo> uv run --project . python .../audit2.py  (read-only)
 """
 from __future__ import annotations
 

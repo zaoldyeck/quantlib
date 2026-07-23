@@ -220,7 +220,7 @@ concise_balance_sheet_individual / concise_income_statement_individual  (上游,
 - **現役 Python 路徑（Serenity `ev_v3_wf` / apex / Evergreen）完全不經此表**——
   它們直讀 `concise_income_statement_progressive` 且鎖 `type='consolidated'`
   （`research/cache_tables.py`）。`financial_index_quarterly` 已從 cache 移除
-  （`cache_tables.py:86`）、`research/db.py:42` 明文取代 PG views。
+  （`cache_tables.py:86`）、`src/quantlib/db.py:42` 明文取代 PG views。
 - refresh 掛在 `src/main/scala/reader/FinancialReader.scala:161`。
 
 **白話**：實盤沒中彈。但 `financial_index_ttm` 讀的就是這張表，Scala 凍結策略層

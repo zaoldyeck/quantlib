@@ -1,6 +1,6 @@
 """A-index 稽核:獨立解析 data/index/**/*.csv(不呼叫 Scala parser),輸出 parquet 供與 PG `index` 表逐欄比對。
 
-run: uv run --project research python docs/data_audit/scripts/A-index/indep_index.py
+run: uv run --project . python docs/data_audit/scripts/A-index/indep_index.py
 不依賴 cache.duckdb。
 """
 import csv, io, re, sys, os

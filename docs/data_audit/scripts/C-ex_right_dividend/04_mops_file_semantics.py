@@ -6,7 +6,7 @@ firstMonth=7)會不會造成永久缺口:若月份 = 公告日期,則「6 月公
 
 同時輸出每個檔案「解析後應產生幾列」,供與 PG 實際列數對帳。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/04_mops_file_semantics.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/04_mops_file_semantics.py
 """
 from __future__ import annotations
 

@@ -5,7 +5,7 @@
   shares_drop_ratio = shares[t] / shares[t-1] < 0.9  且不是換股/合併
 先用 666 筆已知減資校準,再掃 capital_reduction 覆蓋起點之前的區間,估出缺口規模。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/10_shares_outstanding_probe.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/10_shares_outstanding_probe.py
 """
 from __future__ import annotations
 

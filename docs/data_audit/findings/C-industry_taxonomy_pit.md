@@ -10,7 +10,7 @@
 是我們自己算的,不是這個標籤真正被人類知道的日子。
 
 一句話的影響:**任何「同業相對」的計算,在 2019 年以前都用到了當時還不知道的
-分類。**現役 S 策略(`research/apex/strategy_s.py`)的特徵起點是 2014-10-31,
+分類。**現役 S 策略(`src/quantlib/apex/strategy_s.py`)的特徵起點是 2014-10-31,
 它的營收加速度要減掉「同業中位數」——同業是誰,用的就是這張表。
 
 除了這個之外,這張表其他方面都很乾淨:月份序列零缺口、日期公式零誤差、
@@ -24,15 +24,15 @@
 `industry_taxonomy_pit` 是 **cache 專屬的衍生表**,PG 的 23 張表裡沒有它
 (`psql -c "\d industry_taxonomy_pit"` → `Did not find any relation`)。
 
-它由 `research/industry_taxonomy.py::build_industry_taxonomy_pit` 從
+它由 `src/quantlib/industry_taxonomy.py::build_industry_taxonomy_pit` 從
 **cache 裡的 `operating_revenue`** 現算。兩條路徑都 import 同一支 builder,
 沒有重寫、沒有漂移:
 
 | 路徑 | 位置 | 行為 |
 |---|---|---|
 | 全量重建 | `research/cache_tables.py:103-105` | `CREATE TABLE ... AS` |
-| 每日增量 | `research/crawl/sources/operating_revenue.py:107-118` | `DROP TABLE` + `CREATE TABLE` |
-| pg-attach parity | `research/db.py:53-66` | 沒有實體表時即時建 TEMP VIEW |
+| 每日增量 | `src/quantlib/crawl/sources/operating_revenue.py:107-118` | `DROP TABLE` + `CREATE TABLE` |
+| pg-attach parity | `src/quantlib/db.py:53-66` | 沒有實體表時即時建 TEMP VIEW |
 
 所以「cache vs PG 一致性」的正確問法是:**用 PG 的 operating_revenue 重跑同一支
 builder,結果和 cache 裡那張表一不一樣?** 答案:99.98% 一樣,不一樣的部分
@@ -128,9 +128,9 @@ $ grep -m1 '"3687"' data/operating_revenue/tpex/2013/2013_12_c.csv | cut -d, -f1
 
 | 消費端 | 位置 | 用途 |
 |---|---|---|
-| S 策略唯一真源 | `research/apex/strategy_s.py:47` | `accel_rel` = 營收加速度 − 同業中位數 |
-| 每日 live 顧問 | `research/tri/advisors.py:233` | 逐日池籍 `pool_history` |
-| 池籍追溯 | `research/tri/pool_trace.py:58`、`research/tri/tests/test_pool_history.py:56` | 同上 |
+| S 策略唯一真源 | `src/quantlib/apex/strategy_s.py:47` | `accel_rel` = 營收加速度 − 同業中位數 |
+| 每日 live 顧問 | `src/quantlib/tri/advisors.py:233` | 逐日池籍 `pool_history` |
+| 池籍追溯 | `src/quantlib/tri/pool_trace.py:58`、`src/quantlib/tri/tests/test_pool_history.py:56` | 同上 |
 
 `strategy_s.py:22` 的特徵起點 `DS = "2014-10-31"`。從那天到 2019-12 為止,
 S 的「同業」定義全部來自 2020 年的分類表。
@@ -155,7 +155,7 @@ S 的「同業」定義全部來自 2020 年的分類表。
 | `is_financial` | 金融保險 11,701 + 金融業 2,060;含金控那條超長括號說明也被正確歸一 |
 | `is_special_category` | 管理股票 817 列 / 47 檔、存託憑證 173 列 / 1 檔(9105 泰金寶) |
 | PIT 語義的下界 | effective_date 是每月 13 號,晚於 MOPS 公告截止(次月 10 號)→ **公告延遲本身沒有前視** |
-| pg-attach parity | `research/db.py:53-66` 會自動即時建表,無 cache 時查詢不會炸 |
+| pg-attach parity | `src/quantlib/db.py:53-66` 會自動即時建表,無 cache 時查詢不會炸 |
 
 ### 3.2 公司層的覆蓋洞(不是休市,是來源只抓一半)
 
@@ -182,7 +182,7 @@ S 的「同業」定義全部來自 2020 年的分類表。
   MOPS 月營收)——佔比 0.15%,可接受。
 
 另外 **6 碼 TDR 被硬排除**:`COMMON_CODE_PATTERN = '^[1-9][0-9]{3}$'`
-(`research/industry_taxonomy.py:22`)只收 4 碼,912000 晨訊科-DR(3,727 個交易日)、
+(`src/quantlib/industry_taxonomy.py:22`)只收 4 碼,912000 晨訊科-DR(3,727 個交易日)、
 912398 友佳-DR、910069 新曄永遠沒有產業標籤。
 
 ### 3.3 小刺(不影響數值正確性)
@@ -224,7 +224,7 @@ SELECT * FROM duckdb_indexes() WHERE table_name='industry_taxonomy_pit'  → 0 r
    真正被知道的那天;代價是 2013-2019 的產業會變成「2020-06 以後才可用」——
    **那才是誠實的答案**。
 2. **在那之前,先在表上標風險**:加一欄 `label_vintage`(= 出表日期)或至少把
-   本報告的逐年前視天數表寫進 `research/industry_taxonomy.py` docstring,讓下一個
+   本報告的逐年前視天數表寫進 `src/quantlib/industry_taxonomy.py` docstring,讓下一個
    人不會以為 2013 年的產業是 2013 年知道的。
 3. **回補 t21sc04(個別營收)**:`https://mopsov.twse.com.tw/server-java/FileDownLoad`
    POST `step=9&functionName=show_file&filePath=/home/html/nas/t21/sii/(或 /otc/)&fileName=t21sc04_{roc}_{m}.csv`,

@@ -157,7 +157,7 @@
       "id": "OK-22",
       "severity": "OK",
       "what": "爆炸半徑有限:不在現役實盤與 Python 研究路徑上,但 copilot agent 仍在用——那是使用者會直接看到的個股判斷。",
-      "evidence": "financial_index_ttm 不在 DuckDB cache(實測 research/paths.py::CACHE_DB 的 24 張表無此表);research/strat_lab/raw_quarterly.py:8-12 明文『We DELIBERATELY do NOT use … financial_index_ttm (VIEW)』;research/db.py:42/107 亦已移除同類 view;Serenity ev_v3_wf 與 apex strategy_s 都不碰。仍在用的:src/main/scala/strategy/Signals.scala:142 / :531 / :548-565、strategy/MagicFormulaPiotStrategy.scala:72、src/main/scala/Main.scala:357-360(cbs / gross_margin / operating_margin 當因子)、src/main/resources/sql/view/5_growth_analysis_ttm.sql:477、以及 .claude/agents/twstock-fundamental-analyst.md:13、twstock-bull-researcher.md:13、twstock-bear-researcher.md:13。",
+      "evidence": "financial_index_ttm 不在 DuckDB cache(實測 src/quantlib/paths.py::CACHE_DB 的 24 張表無此表);src/quantlib/strat_lab/raw_quarterly.py:8-12 明文『We DELIBERATELY do NOT use … financial_index_ttm (VIEW)』;src/quantlib/db.py:42/107 亦已移除同類 view;Serenity ev_v3_wf 與 apex strategy_s 都不碰。仍在用的:src/main/scala/strategy/Signals.scala:142 / :531 / :548-565、strategy/MagicFormulaPiotStrategy.scala:72、src/main/scala/Main.scala:357-360(cbs / gross_margin / operating_margin 當因子)、src/main/resources/sql/view/5_growth_analysis_ttm.sql:477、以及 .claude/agents/twstock-fundamental-analyst.md:13、twstock-bull-researcher.md:13、twstock-bear-researcher.md:13。",
       "fix": ""
     }
   ],
@@ -179,7 +179,7 @@
     "金融業定義落差:2881/2882/2891 對照 1101/2330/2412 的三個 margin;查 2018 年後 gross_margin > 1(57 筆)與 < -1(209 筆)",
     "跨市場安全性:查同一 company_code 同期跨兩市場(0 筆)與跨市場遷移代號(13 個)",
     "PIT:讀 strategy/PublicationLag.scala 全文與 Signals.scala:144-158 latestQuarterField,確認法定截止日 + 7 天緩衝與 DISTINCT ON 收斂皆正確",
-    "消費者盤點:grep 全庫 financial_index_ttm(Scala / Python / SQL / md / conf),讀 Signals.scala:134-158 / :531 / :540-565、MagicFormulaPiotStrategy.scala:72、Main.scala:354-360、5_growth_analysis_ttm.sql:477;實測 DuckDB cache 24 張表無此表;讀 research/strat_lab/raw_quarterly.py:1-25 與 research/db.py:42/107 的明文拒用註記",
+    "消費者盤點:grep 全庫 financial_index_ttm(Scala / Python / SQL / md / conf),讀 Signals.scala:134-158 / :531 / :540-565、MagicFormulaPiotStrategy.scala:72、Main.scala:354-360、5_growth_analysis_ttm.sql:477;實測 DuckDB cache 24 張表無此表;讀 src/quantlib/strat_lab/raw_quarterly.py:1-25 與 src/quantlib/db.py:42/107 的明文拒用註記",
     "與姊妹單位 B-view-5_growth_analysis_ttm 的結論比對,避免重覆並補上它未涵蓋的部分(lag(5) 基期、NULL 拿滿分、應收重複計算、缺季 TTM、quick_ratio 退化、cbs 魔術數字、fcf 單位的第一手推導)",
     "全部查詢落檔為可重跑腳本 docs/data_audit/scripts/B-view-4_financial_index_ttm/checks.sql,已端到端跑過一次確認每一節都重現"
   ]

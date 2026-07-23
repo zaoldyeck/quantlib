@@ -81,10 +81,10 @@ cache 的兩個索引都不是唯一的，PG 側有 `UNIQUE (data_date, company_
 
 ```bash
 # ① cache vs PG 一致性 + schema + 抽樣
-PYTHONPATH=<repo> uv run --project research python \
+PYTHONPATH=<repo> uv run --project . python \
   docs/data_audit/scripts/C-tdcc_shareholding/01_parity_schema_sample.py
 
 # ② 週頻覆蓋缺口 + 異常值掃描
-PYTHONPATH=<repo> uv run --project research python \
+PYTHONPATH=<repo> uv run --project . python \
   docs/data_audit/scripts/C-tdcc_shareholding/02_gaps_anomaly.py
 ```

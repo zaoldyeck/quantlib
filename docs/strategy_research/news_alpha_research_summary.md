@@ -20,10 +20,10 @@
 
 ## 這輪完成的最小 Pipeline
 
-- 新增 `research/records/tw_stock_news_aliases.csv` 作為台股新聞別名與消歧義表。
-- 新增 `research/experiments/news_alpha_common.py`，讓 GDELT 與 RSS 共用 alias matching、分類、格式化與 summary 邏輯。
-- 重構 `research/experiments/gdelt_tw_news_alpha_survey.py`，改用共享 alias 表與分類規則。
-- 新增 `research/experiments/tw_news_rss_alpha_survey.py`，支援 Yahoo 個股 RSS 與 Google News RSS 的近期 metadata ingestion。
+- 新增 `src/quantlib/records/tw_stock_news_aliases.csv` 作為台股新聞別名與消歧義表。
+- 新增 `src/quantlib/experiments/news_alpha_common.py`，讓 GDELT 與 RSS 共用 alias matching、分類、格式化與 summary 邏輯。
+- 重構 `src/quantlib/experiments/gdelt_tw_news_alpha_survey.py`，改用共享 alias 表與分類規則。
+- 新增 `src/quantlib/experiments/tw_news_rss_alpha_survey.py`，支援 Yahoo 個股 RSS 與 Google News RSS 的近期 metadata ingestion。
 - 保留 GDELT historical sample 與 RSS recent sample 兩條不同語意的資料源，不混成同一個歷史回測結論。
 
 ## 已驗證資料源

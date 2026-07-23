@@ -40,9 +40,9 @@
     },
     {
       "severity": "BUG",
-      "what": "雲端 Python 爬蟲 research/crawl/sources/daily_trading_details.py 硬性要求 ≥19 欄,把 TWSE 現行檔案裡合法的 17 欄資料列整列丟掉(2018 年至今 549 列,2026 年 221 列)。該爬蟲直接寫 var/cache/cache.duckdb,會影響 live 決策。",
-      "evidence": "research/crawl/sources/daily_trading_details.py:69 `if len(r) < need: continue`(twse need=19)。不需連網重現:`uv run --project research python -c \"from pathlib import Path; from datetime import date; from research.crawl.sources import daily_trading_details as dtd; txt = Path('data/daily_trading_details/twse/2026/2026_7_8.csv').read_bytes().decode('big5hkscs'); print(dtd._parse(txt, date(2026,7,8), 'twse').height)\"` → 1322,而 cache 與 PG 同日皆 1336,被丟掉的是 0061 00669R 1721 1731 2356 2701 3010 4526 4532 5007 6215 7827 8021 8261。抽驗 2356 英業達該列:外資 -7,554,041 + 投信 5,637,196 + 自營 19,583 = 合計 -1,897,262,三項相加相符,是完全合法的資料列。cache 已含 PG 沒有的 2026-07-20,證明爬蟲確實在寫 live 路徑。",
-      "fix": "改成依列寬分派(17 與 20 兩種都支援,語意與 Scala reader 的 case 17 / case _ 一致);research/crawl/tests/test_parity.py 補一條鎖死「17 欄列不得被丟棄」的測試。"
+      "what": "雲端 Python 爬蟲 src/quantlib/crawl/sources/daily_trading_details.py 硬性要求 ≥19 欄,把 TWSE 現行檔案裡合法的 17 欄資料列整列丟掉(2018 年至今 549 列,2026 年 221 列)。該爬蟲直接寫 var/cache/cache.duckdb,會影響 live 決策。",
+      "evidence": "src/quantlib/crawl/sources/daily_trading_details.py:69 `if len(r) < need: continue`(twse need=19)。不需連網重現:`uv run --project . python -c \"from pathlib import Path; from datetime import date; from quantlib.crawl.sources import daily_trading_details as dtd; txt = Path('data/daily_trading_details/twse/2026/2026_7_8.csv').read_bytes().decode('big5hkscs'); print(dtd._parse(txt, date(2026,7,8), 'twse').height)\"` → 1322,而 cache 與 PG 同日皆 1336,被丟掉的是 0061 00669R 1721 1731 2356 2701 3010 4526 4532 5007 6215 7827 8021 8261。抽驗 2356 英業達該列:外資 -7,554,041 + 投信 5,637,196 + 自營 19,583 = 合計 -1,897,262,三項相加相符,是完全合法的資料列。cache 已含 PG 沒有的 2026-07-20,證明爬蟲確實在寫 live 路徑。",
+      "fix": "改成依列寬分派(17 與 20 兩種都支援,語意與 Scala reader 的 case 17 / case _ 一致);src/quantlib/crawl/tests/test_parity.py 補一條鎖死「17 欄列不得被丟棄」的測試。"
     },
     {
       "severity": "OK",
@@ -68,7 +68,7 @@
     "src/main/scala/db/table/DailyTradingDetails.scala(26 欄 Slick schema、型別、唯一索引)",
     "src/main/scala/setting/DailyTradingDetailsSetting.scala(validate 只檢查表頭關鍵字/最少 100 列/最少 19 欄)",
     "src/main/scala/util/QuantlibCSVReader.scala('=' 剝除、含 \"\" 行跳過的啟發式)",
-    "research/crawl/sources/daily_trading_details.py(雲端 Python 平行實作)+ research/crawl/tests/test_parity.py",
+    "src/quantlib/crawl/sources/daily_trading_details.py(雲端 Python 平行實作)+ src/quantlib/crawl/tests/test_parity.py",
     "全 12,218 個原始檔獨立重解析(Python csv + Big5-HKSCS,不呼叫受測程式),逐日逐欄與 PostgreSQL 比對列數、22 欄加總、22 欄 NULL 數",
     "跨時代抽樣逐列比對 18 個交易日:twse 2012-05-02 / 2013-06-14 / 2014-11-28 / 2014-12-01 / 2016-08-15 / 2017-12-15 / 2017-12-18 / 2021-03-04 / 2026-07-15;tpex 2007-04-23 / 2010-06-15 / 2014-11-28 / 2014-12-01 / 2016-06-15 / 2018-01-12 / 2018-01-15 / 2022-06-15 / 2026-07-15",
     "六個格式世代的表頭文字與欄序(twse 13/17/20、tpex 12/16/24),含世代交界日與混合列寬檔",
@@ -81,6 +81,6 @@
     "daily_quote 與 daily_trading_details 的交易日覆蓋交叉比對(雙向缺漏)",
     "DuckDB cache(var/cache/cache.duckdb)vs PostgreSQL 近 15 個交易日列數與污染日內容",
     "交易所官方頁尾定義(TWSE T86 與 TPEx 3itrade 的三大法人合計算式與外資自營商歸屬)",
-    "下游消費者盤點:research/cache_tables.py:45、research/db.py:129、research/apex/data.py:171、research/futures/strategies.py:161、research/strat_lab/iter_32_first_principles.py:218、research/analyses/iter95_strategy_spec_report.py:328"
+    "下游消費者盤點:research/cache_tables.py:45、src/quantlib/db.py:129、src/quantlib/apex/data.py:171、src/quantlib/futures/strategies.py:161、src/quantlib/strat_lab/iter_32_first_principles.py:218、src/quantlib/analyses/iter95_strategy_spec_report.py:328"
   ]
 }

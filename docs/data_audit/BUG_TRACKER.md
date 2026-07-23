@@ -13,7 +13,7 @@
 | 6 | A-daily_trading_details | 23 個日期存的是別天的資料,共 24,566 列。其中 5 個是真交易日(2023-06-14、2023-10-06、2025-11-12、2026-02-05、2026-0 |
 | 7 | A-daily_trading_details | 超過 int32(21.47 億)的股數會靜默變成 0。全庫掃到 5 個這種原始值,全在 00403A 主動統一升級 50,造成 2026-05-12 的 dealers_di |
 | 8 | A-daily_trading_details | TPEx 事後修正的投信數字永遠回填不進來:2024 上半年 80 個交易日、170 列的投信買/賣/買賣超與三大法人合計停在修正前的版本。 |
-| 9 | A-daily_trading_details | 雲端 Python 爬蟲 research/crawl/sources/daily_trading_details.py 硬性要求 ≥19 欄,把 TWSE 現行檔案裡合法的  |
+| 9 | A-daily_trading_details | 雲端 Python 爬蟲 src/quantlib/crawl/sources/daily_trading_details.py 硬性要求 ≥19 欄,把 TWSE 現行檔案裡合法的  |
 | 10 | A-ex_right_dividend | 2024-07 起 MOPS 月檔的純配股(除權)事件被存成整列 0(cash_dividend=0 且 closing_price_before / reference_pr |
 | 11 | A-financial_analysis | IFRS 前(_b)年度全部欄位錯位:最後 6 個指標欄(profit_before_tax_to_capital / profit_to_sales / earnings_p |
 | 12 | A-financial_analysis | earnings_per_share(NTD) 欄在所有 _b 年度(2011前)裝的是『純益率(%)』——錯指標且錯單位(百分比冒充元);真正的每股盈餘被塞到 cash_fl |
@@ -94,12 +94,12 @@
 | 87 | B-view-9_valuation_1q | eps_growth_rate_10y 視窗用 `order by year, quarter desc`(desc 只作用在 quarter),造成混向排序 → 前視偏誤(同 |
 | 88 | C-bs_concise_raw | 2026Q1 資產負債表只有 539 家公司(twse 311 / tpex 228),對照 2025Q4 的 1,950 家(twse 1069 / tpex 881),缺  |
 | 89 | C-bs_concise_raw | 同一根因造成的歷史殘留:至少 13 個季度因為『下載時間離截止日太近』而永久少了一批晚申報的公司,且永遠不會補。twse 2023Q2 少 111 家、twse 2025Q2  |
-| 90 | C-capital_reduction | research/prices.py 的減資因子護欄 0.05<f<5.0 把 15 筆真實的大比例減資(台股「彌補虧損」型可減到只剩 2.5%,因子最高 40.04)當髒資料 |
+| 90 | C-capital_reduction | src/quantlib/prices.py 的減資因子護欄 0.05<f<5.0 把 15 筆真實的大比例減資(台股「彌補虧損」型可減到只剩 2.5%,因子最高 40.04)當髒資料 |
 | 91 | C-capital_reduction | 減資表的覆蓋起點比報價晚 7 年:twse 從 2011-01-25、tpex 從 2013-01-16,但 daily_quote 從 2004-02-11 / 2007-0 |
 | 92 | C-capital_reduction | TWSE TWTAUU 端點會對『明明有事件』的區間回空(2 bytes),而爬蟲把空回應當成『那段沒事件』照樣存檔並推進游標,所以漏抓永遠不會自癒。2024-05~2025- |
 | 93 | C-cf_progressive_raw | 2026Q1 幾乎整季不見:只有 544 家公司,比 2025Q4 少 1,719 家,其中 1,410 家在 2026-01-01~06-30 有 ≥80 個交易日、成交值合 |
 | 94 | C-cf_progressive_raw | 同一病灶反覆發作,歷史上已污染 2023Q2、2024Q1、2025Q2:整批金融業(金控/銀行/證券/保險)與 KY 股缺料,因為它們的申報期限比一般公司晚,而爬蟲在期限前就 |
-| 95 | C-cf_progressive_raw | 缺一季不是留下空值,而是把下一季算成兩季合計。現金流量表是年度累計數,research/strat_lab/raw_quarterly.py:176-182 用「本季累計 −  |
+| 95 | C-cf_progressive_raw | 缺一季不是留下空值,而是把下一季算成兩季合計。現金流量表是年度累計數,src/quantlib/strat_lab/raw_quarterly.py:176-182 用「本季累計 −  |
 | 96 | C-daily_quote | 5 個真的有開市的交易日,daily_quote 一列都沒有:twse 2021-08-18、2025-08-15、2026-04-29、2026-05-28,tpex 202 |
 | 97 | C-daily_quote | twse 2009-12-12(星期六)是幽靈交易日:772 列與 2009-12-18 逐欄完全相同(TWSE 對非交易日的請求把要求的日期原樣印在標題上,卻送回另一天的內容 |
 | 98 | C-daily_quote | 69 筆 right_or_dividend='權'(純配股)的除權事件在 PG 的 ex_right_dividend 裡三個數值欄(closing_price_before |
@@ -114,15 +114,15 @@
 | 107 | C-foreign_holding_ratio | 4 個真的有開市的交易日,twse 與 tpex 兩市場都整天 0 列,而且原始檔連下載都沒下載過:2021-08-18(三)、2025-08-15(五)、2026-04-29 |
 | 108 | C-industry_taxonomy_pit | 產業標籤沒有 point-in-time 語義:MOPS 月營收彙總檔是下載當下即時渲染的,產業別用的是「渲染當下」的分類。全表 452,891 列中只有 79,766 列(1 |
 | 109 | C-industry_taxonomy_pit | 具體失真樣本:電子類分拆(半導體業/光電業/電子零組件業…)在我們的表出現在 source_ym=200606(effective_date 2006-07-13),但真正的分 |
-| 110 | C-industry_taxonomy_pit | money path 直接吃到:S 策略唯一真源 research/apex/strategy_s.py 用這張表算 accel_rel(營收加速度減同業中位數),特徵起點 D |
+| 110 | C-industry_taxonomy_pit | money path 直接吃到:S 策略唯一真源 src/quantlib/apex/strategy_s.py 用這張表算 accel_rel(營收加速度減同業中位數),特徵起點 D |
 | 111 | C-industry_taxonomy_pit | cache 與 PG 對不上 70 列,而且產業標籤本身會被來回改寫:cache 獨有 63 列、PG 獨有 7 列(全在 2026-04..06),共同鍵上 14 列的 ra |
 | 112 | C-industry_taxonomy_pit | 來源只抓 MOPS t21sc03(合併營收)、沒抓 t21sc04(個別營收),導致 2013 年 IFRS 上路後只申報個別營收的公司整片消失,分類表因此出現公司層的洞:2 |
 | 113 | C-industry_taxonomy_pit | 每日增量重算會把索引弄丟:cache_tables.py 建的兩個索引在 crawl 的 DROP TABLE + CREATE TABLE 之後永久消失,且不會自己回來。純效 |
 | 114 | C-insider_holding | transfer_shares(轉讓股數)在『同一張申報同時申報兩種轉讓方式』時,把兩個股數黏成一個不可能的天文數字。全表 3 筆:2856(2007-01-05)= 57,0 |
 | 115 | C-is_progressive_raw | 季報原始檔在申報期限前被抓一次就永久凍結,造成整批公司缺料。受害季與規模(缺料且當年可交易的家數/當年成交值):2023Q2 缺 149 家(121 家可交易,NT$6.28  |
-| 116 | C-is_progressive_raw | 缺一季不是留下空值,而是把下一季算成兩季合併值。財報是年度累計數,下游 research/strat_lab/raw_quarterly.py 用「本季累計 − 上季累計」還原 |
+| 116 | C-is_progressive_raw | 缺一季不是留下空值,而是把下一季算成兩季合併值。財報是年度累計數,下游 src/quantlib/strat_lab/raw_quarterly.py 用「本季累計 − 上季累計」還原 |
 | 117 | C-is_progressive_raw | 重抓舊季會抹掉期間已下市的公司,把存活者偏誤寫進歷史資料。2023Q1 與 2023Q4 的原始檔於 2026-04-23 被重新下載,TWSE 彙總報表只回傳「當下仍在市」的 |
-| 118 | C-is_progressive_raw | research/strat_lab/raw_quarterly.py 的 op_income 別名清單漏收 2013 年以前的舊科目名「營業淨利(淨損)」,導致 2005-2 |
+| 118 | C-is_progressive_raw | src/quantlib/strat_lab/raw_quarterly.py 的 op_income 別名清單漏收 2013 年以前的舊科目名「營業淨利(淨損)」,導致 2005-2 |
 | 119 | C-margin_transactions | 11 個真的有開市的交易日,margin_transactions 在 PG 與 cache 都一列都沒有,估計缺 8,618 列:twse 2002-10-24、2004-0 |
 | 120 | C-margin_transactions | cache 忠實複製了 PG 的兩類日期汙染,共 6,068 列:(a) 8 個非交易日有整天的資料——tpex 2012-08-02、2014-07-23、2015-07-1 |
 | 121 | C-margin_transactions | A 維查出的 short_quota 欄位錯位(tpex 2007-06-01~2008-09-29,135,679 列)原封傳進 cache,用 cache 自己的資料就能重 |
@@ -133,10 +133,10 @@
 | 126 | C-market_index | 有 4 天交易所回的是 2019-04-29 改名前的『舊名冊』,害 160 檔現行指數在 2026 的兩天各多一個洞。TWSE 在 2019-04-29 改了一批指數名(電子 |
 | 127 | C-market_index | 從 A 維原封傳進 cache 的兩件事(cache 忠實搬運,但值本身有問題):(a) 1,578 列『當天未公布』被寫成漲跌 0——close 是 NULL(正確)但 ch |
 | 128 | C-operating_revenue | PostgreSQL 永久漏掉「15 號之後才申報」的公司:twse/consolidated 金融保險業從 2026-01..03 的 32 家掉到 2026-04/05/0 |
-| 129 | C-operating_revenue | 同一張表有兩條會互相覆蓋的寫入路徑,內容取決於今天先跑了哪一條,回測不可重現。Python 爬蟲 research/crawl/sources/operating_revenu |
+| 129 | C-operating_revenue | 同一張表有兩條會互相覆蓋的寫入路徑,內容取決於今天先跑了哪一條,回測不可重現。Python 爬蟲 src/quantlib/crawl/sources/operating_revenu |
 | 130 | C-operating_revenue | 重抓舊月份會刪掉已下市公司的歷史列,製造生存者偏誤。3426 台興(最後交易 2026-06-01)、4987 科誠(2026-05-20)、6806 森崴能源(2026-06 |
 | 131 | C-operating_revenue | 6 碼 TDR(存託憑證)被 Python 爬蟲的代號正則吃掉,912000 晨訊科-DR / 910069 / 912398 的月營收在被 Python 重寫過的月份整列消失 |
-| 132 | C-operating_revenue | 這張表唯一的稽核腳本 research/audits/05_revenue_audit.py 一跑就爆,所以沒人在稽核它——這是上面的洞能安靜躺三個月的直接原因。CLAUDE. |
+| 132 | C-operating_revenue | 這張表唯一的稽核腳本 src/quantlib/audits/05_revenue_audit.py 一跑就爆,所以沒人在稽核它——這是上面的洞能安靜躺三個月的直接原因。CLAUDE. |
 | 133 | C-sbl_borrowing | 26 個 TWSE 原始檔裝的是別天的資料,共 26,354 列,而且已經進了 PG 和 cache。(a) 10 個真交易日內容是別天的(10,175 列),9 個是把未來寫 |
 | 134 | C-sbl_borrowing | 32 個 (market, date) 在真交易日整天沒有資料,估計缺 32,690 列,而且都不會自己補回來。(a) 26 天被 0-byte 空檔永久蓋住(twse 25  |
 | 135 | C-stock_per_pbr | 19 個 twse 日期存的是別天的資料,共 16,447 列;其中 10 天是真的有開市的交易日(8,605 列),7 天存的是未來的數字(前視偏誤,最遠 +9.8 年),3 |

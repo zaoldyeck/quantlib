@@ -11,7 +11,7 @@
       是否對得上(方法可信度)。
   (2) 套用到 309 檔「2023、2025 有、2024 沒有」的公司,輸出還原出的 2024 除息日與金額。
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/11_recover_missing_from_bwibbu.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/11_recover_missing_from_bwibbu.py
 """
 from __future__ import annotations
 

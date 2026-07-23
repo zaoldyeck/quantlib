@@ -9,7 +9,7 @@
   have  = 2024 有除息紀錄(應該看到同樣的超額跳空)
   never = 2022~2026 完全沒有任何除息紀錄(不配息公司;超額跳空應明顯較小)
 
-Run: uv run --project research python docs/data_audit/scripts/C-ex_right_dividend/10_gap_evidence_excess.py
+Run: uv run --project . python docs/data_audit/scripts/C-ex_right_dividend/10_gap_evidence_excess.py
 """
 from __future__ import annotations
 

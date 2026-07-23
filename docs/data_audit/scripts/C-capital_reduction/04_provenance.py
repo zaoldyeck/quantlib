@@ -5,7 +5,7 @@
 routine 增量抓取正常時 lag 應該只有幾天;lag 大到以年計 = 當時的增量抓取回空,
 資料是後來某次全量傾印才補回來的(= 增量管線壞了但無聲)。
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/04_provenance.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/04_provenance.py
 """
 from __future__ import annotations
 

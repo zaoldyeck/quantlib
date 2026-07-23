@@ -8,7 +8,7 @@ vs research 端 `apex/*`、`evergreen/engine.py` 對應實作
 ## 白話結論
 
 **live(現役)算法可以信**。現役單一策略是 Serenity Python(launchd 每日跑
-`research.serenity.daily`),參考儀表板叫 Python 的 evergreen/apex 引擎。我實測到的
+`quantlib.serenity.daily`),參考儀表板叫 Python 的 evergreen/apex 引擎。我實測到的
 Python 指標(Sharpe、Sortino、CAGR、MDD、IC、前瞻報酬、調整價)全部符合學理定義。
 
 **Scala strategy 整包是凍結歷史碼,沒有任何 live/排程路徑引用它**——只有人工手打
@@ -34,7 +34,7 @@ Python apex-S/evergreen/serenity),同名因子本來就不要求逐位一致;真
   ——分母是**下跌日數 n_downside**,不是總期數 N。
 - **證據(可重現)**: 樣本日報酬 `[.02,-.01,.03,-.02,0,.015,-.005,-.03,.01,0]`(N=10,
   下跌 4 天):textbook 下行標準差 0.011937,Scala 0.018875(膨脹 ×1.581)→ **Sortino
-  被低估 36.8%**。Python 對照 `research/apex/metrics.py:23`
+  被低估 36.8%**。Python 對照 `src/quantlib/apex/metrics.py:23`
   `np.sqrt(np.mean(np.minimum(rets,0)**2))` 用 ÷N,**Python 正確**。
 - **修法**: 分母改總期數:`sqrt(downside.map(r=>r*r).sum / dailyRets.size) * sqrt(242)`
   (下跌日平方和不變,除以全體 N)。
@@ -43,7 +43,7 @@ Python apex-S/evergreen/serenity),同名因子本來就不要求逐位一致;真
 - **檔案**: `src/main/scala/strategy/Metrics.scala:67`(rf `:12`,年化 242 `:15`)
 - **學理**: Sharpe = (E[Rp]−Rf)/σp,分子為**算術平均**超額報酬(年化)。
 - **實作**: `sharpe = (cagr − 0.01) / vol`——分子用**幾何 CAGR**、rf=1%。
-- **證據**: Python `research/apex/metrics.py:32` `mean/std*√252`、rf=0 = 教科書形態。
+- **證據**: Python `src/quantlib/apex/metrics.py:32` `mean/std*√252`、rf=0 = 教科書形態。
   幾何 CAGR ≈ 算術平均 − σ²/2,故 Scala Sharpe 系統性略低於教科書值;為公認
   practitioner 變體,偏差溫和。台股 rf≈0 可接受(Scala 取 1% 屬合理)。年化係數
   Scala 242 vs Python 252(√242 vs √252 差 ~2%)——Scala 註解「TWSE ~242」屬**刻意
@@ -55,9 +55,9 @@ Python apex-S/evergreen/serenity),同名因子本來就不要求逐位一致;真
   `priceReturn:202-231`、`distFrom52wHigh`、`rsi14`、`bollingerPosition`、
   `lowVolatility60d`、`rsv120d` 全讀 `daily_quote.closing_price`(raw)。
 - **學理**: 動量/報酬類因子應建在**總報酬(除權息還原)價**上;台股股利/減資大,原始價在
-  除息日跳空會低估真實報酬(專案自訂鐵律 `research/prices.py` 亦明文)。
-- **實作**: Scala 直接用 raw close;Python `research/apex/assemble.py:61-84` 的 `close`
-  來自 `data.load_panel`→`prices.fetch_adjusted_panel`(`research/apex/data.py:62`)=
+  除息日跳空會低估真實報酬(專案自訂鐵律 `src/quantlib/prices.py` 亦明文)。
+- **實作**: Scala 直接用 raw close;Python `src/quantlib/apex/assemble.py:61-84` 的 `close`
+  來自 `data.load_panel`→`prices.fetch_adjusted_panel`(`src/quantlib/apex/data.py:62`)=
   **還原價**。J-T 12-1 動量本身定義正確(skip_px≈1 月前 / base_px≈12 月前,`(p1-p0)/p0`)。
 - **證據**: 定義層——同一支高股息股跨除息日,raw-close 動量 < 還原價動量;**Python 正確、
   Scala 偏差**。實務衝擊近零:`momentum12m1m`/`relativeStrength`/`rsi14`/`bollinger` 無任何
@@ -108,7 +108,7 @@ Python apex-S/evergreen/serenity),同名因子本來就不要求逐位一致;真
   無選股偏差。概念同 = YoY;OK,僅記尺度差。
 
 ### F8 [OK] IC / 前瞻報酬(apex/factors.py)= 教科書
-- **檔案**: `research/apex/factors.py:25-101`
+- **檔案**: `src/quantlib/apex/factors.py:25-101`
 - **學理**: IC = 截面 Spearman(因子, 前瞻報酬);前瞻報酬 T+1 起算、零 look-ahead。
 - **實作**: 每日 `rank(value)`、`rank(fwd)` 後 `pl.corr`(= Spearman)✓;`forward_returns`
   = `close.shift(-(1+k))/close.shift(-1)-1`(T+1 基期)✓;`t = IR·√n` ✓。`t_adj=t/√k`(重疊
@@ -120,8 +120,8 @@ Python apex-S/evergreen/serenity),同名因子本來就不要求逐位一致;真
   Calmar `CAGR/|MDD|` 兩側同。全部 OK。
 
 ### F10 [OK,結構/headline] 無任何 Scala 因子/指標在 live 路徑
-- **證據**: live = `research/serenity/launchd/com.quantlib.serenity-daily.plist` → 
-  `python -m research.serenity.daily run`;`research/serenity/engine.py` 不 import Scala、
+- **證據**: live = `src/quantlib/serenity/launchd/com.quantlib.serenity-daily.plist` → 
+  `python -m quantlib.serenity.daily run`;`src/quantlib/serenity/engine.py` 不 import Scala、
   不 import apex/evergreen 因子。`grep "runMain Main strategy"` 全 repo 僅命中 `Main.scala`
   (人工 CLI 入口)與一個 agent 說明 toml,無 shell/plist/cron。Scala strategy 整包凍結
   (CLAUDE.md 明文),`momentum12m1m/relativeStrength/rsi14/bollingerPosition/revenueAccel`

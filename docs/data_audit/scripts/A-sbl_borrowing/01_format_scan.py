@@ -4,7 +4,7 @@
 的 `fields` 陣列有幾種?`tables` 會不會不只一張?每檔的欄數分佈?哪些檔是
 0-byte sentinel(休市日)或空回應?
 
-Run: uv run --project research python docs/data_audit/scripts/A-sbl_borrowing/01_format_scan.py
+Run: uv run --project . python docs/data_audit/scripts/A-sbl_borrowing/01_format_scan.py
 不依賴 cache / PG,只讀 data/sbl_borrowing/**。
 """
 from __future__ import annotations

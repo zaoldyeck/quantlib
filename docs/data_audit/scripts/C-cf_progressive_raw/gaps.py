@@ -1,6 +1,6 @@
 """C-cf_progressive_raw: per-company coverage holes + tradability cross-check.
 
-Run: uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/gaps.py
+Run: uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/gaps.py
 Reads var/cache/cache.duckdb read-only (needs daily_quote for tradability).
 """
 import duckdb, sys, pathlib

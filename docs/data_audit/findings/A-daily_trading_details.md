@@ -223,7 +223,7 @@ FROM daily_trading_details WHERE market='tpex' AND date='2024-06-13' AND company
 
 ## 七、🔴 BUG 6:雲端 Python 爬蟲會漏掉整批股票
 
-`research/crawl/sources/daily_trading_details.py:69` 寫死 `if len(r) < 19: continue`。
+`src/quantlib/crawl/sources/daily_trading_details.py:69` 寫死 `if len(r) < 19: continue`。
 但 TWSE 的現行檔案裡**混著 17 欄的資料列**(那是沒有「外資自營商」三欄的變體,
 2018 年至今共 549 列,2026 年就有 221 列)。Scala reader 靠列寬分派處理得很正確,
 Python 爬蟲則整列丟掉。
@@ -231,9 +231,9 @@ Python 爬蟲則整列丟掉。
 用本地原始檔直接餵給雲端爬蟲的解析函式,不需連網即可重現:
 
 ```bash
-uv run --project research python -c "
+uv run --project . python -c "
 from pathlib import Path; from datetime import date
-from research.crawl.sources import daily_trading_details as dtd
+from quantlib.crawl.sources import daily_trading_details as dtd
 txt = Path('data/daily_trading_details/twse/2026/2026_7_8.csv').read_bytes().decode('big5hkscs')
 print(dtd._parse(txt, date(2026,7,8), 'twse').height)"
 # 1322   ← cache / PG 都是 1336,少了 14 檔

@@ -29,7 +29,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
 ## SUSPECT(定義偏差,均非上線路徑)
 
 ### S1. Serenity `atr20_pct` 是「高−低 range」不是 ATR(漏 True Range 跳空項)
-- 檔案:`research/serenity/replay_2025.py:196-199`
+- 檔案:`src/quantlib/serenity/replay_2025.py:196-199`
 - 學理:Wilder(1978)ATR。True Range `TR = max(H−L, |H−C_prev|, |L−C_prev|)`,ATR = TR 的
   Wilder 平滑(SMMA,α=1/N)。TR 的**跳空兩項**專門捕捉隔夜/漲跌停跳空。
 - 實作:`((high-low).rolling_mean(20).shift(1) / close)` —— 只有 `H−L`,完全沒有
@@ -43,7 +43,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
   `ewm(alpha=1/20)`)。若刻意要用 range 當波動 proxy,欄位改名 `range20_pct` 別叫 ATR。
 
 ### S2. 期貨 stockstats 趨勢指標算在「未轉倉還原」的原始近月價
-- 檔案:`research/futures/strategies.py:120-148`(stockstats 用 `frame` 的 `close`=原始
+- 檔案:`src/quantlib/futures/strategies.py:120-148`(stockstats 用 `frame` 的 `close`=原始
   近月價,見 `load_product_frame` SELECT 的 `r.close`,line 201)、對照手寫趨勢用
   `continuous_close`(line 299-313)。
 - 學理:期貨連續合約做趨勢指標(MACD/RSI/EMA/BOLL)須用**還原(back-adjusted)連續價**,
@@ -60,7 +60,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
   版刻意用原始近月價、並移除「交叉驗證」宣稱。
 
 ### S3. 期貨手寫 rsi14 用「報酬的 SMA」而非「價格變動的 Wilder 平滑」
-- 檔案:`research/futures/strategies.py:378-380`(+ up_ret/down_ret 定義 273-274,
+- 檔案:`src/quantlib/futures/strategies.py:378-380`(+ up_ret/down_ret 定義 273-274,
   rolling_mean(14) 於 310-311)
 - 學理:Wilder RSI:`RS = SMMA_14(gain)/SMMA_14(loss)`,gain/loss 為**價格變動**;
   `RSI = 100 − 100/(1+RS)`。
@@ -72,7 +72,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
   宣稱與 ss_rsi 交叉驗證。
 
 ### S4. 期貨 stoch_k14 用收盤價的 min/max,非期間 high/low
-- 檔案:`research/futures/strategies.py:381-385`(low14/high14 = `continuous_close`
+- 檔案:`src/quantlib/futures/strategies.py:381-385`(low14/high14 = `continuous_close`
   的 rolling_min/max,line 304-305)
 - 學理:Stochastic %K = `100×(C − LL_n)/(HH_n − LL_n)`,`HH_n`/`LL_n` 為期間**最高高價/
   最低低價**。
@@ -83,7 +83,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
 - 修法:`LL=rolling_min(low)`、`HH=rolling_max(high)`。
 
 ### S5. 期貨 DMI/ADX 用 SMA 累加平滑且吃原始 high/low
-- 檔案:`research/futures/strategies.py:394-395`(+DI/−DI),`452-457`(ADX);DM 定義
+- 檔案:`src/quantlib/futures/strategies.py:394-395`(+DI/−DI),`452-457`(ADX);DM 定義
   278-279,rolling_sum(14) 於 318-320。
 - 學理:Wilder DMI:+DM/−DM 定義正確✓;但 +DI = `100×SMMA_14(+DM)/SMMA_14(TR)`、
   ADX = `SMMA_14(DX)`,皆 Wilder 平滑。
@@ -93,7 +93,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
 - 修法:改 Wilder 平滑(`ewm(alpha=1/14, adjust=False)`);high/low 用還原連續序列。
 
 ### S6.（低)iter100 ATR 用 SMA 非 Wilder;TPO 價值區為粗 proxy
-- 檔案:`research/strat_lab/iter100_features.py:76-77`(atr14/atr20=`true_range.rolling_mean`)、
+- 檔案:`src/quantlib/strat_lab/iter100_features.py:76-77`(atr14/atr20=`true_range.rolling_mean`)、
   `80-82`(tpo_proxy val/poc/vah=typical price 的 rolling_quantile 0.15/0.50/0.85)
 - 學理:ATR=Wilder SMMA(TR);TPO/Market Profile 的 POC/VA 定義在**價格 bin 上的成交量/
   時間分佈**(POC=量最大價位,VA=POC 兩側 70% 量的區間),需日內資料。
@@ -106,7 +106,7 @@ ATR/布林/KD/MACD/RSI 手寫處、intraday)。逐一對照學理定義。
   proxy 合理)。
 
 ### S7.（低)t02 海龜 N 用 SMA;進出場用收盤價 Donchian 非 high/low
-- 檔案:`research/apex/experiments/t02_turtle_magic.py:52`(atr20=`tr.rolling_mean(20)`)、
+- 檔案:`src/quantlib/apex/experiments/t02_turtle_magic.py:52`(atr20=`tr.rolling_mean(20)`)、
   `53-54`(hh/ll=`close.shift(1).rolling_max/min`)
 - 學理:原版海龜 `N = (19×PDN + TR)/20`(Wilder α=1/20);進場=突破 20/55 日**最高價**
   (highest high),出場=跌破**最低價**。

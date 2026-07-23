@@ -9,25 +9,25 @@
     {
       "severity": "BUG",
       "what": "產業標籤沒有 point-in-time 語義:MOPS 月營收彙總檔是下載當下即時渲染的,產業別用的是「渲染當下」的分類。全表 452,891 列中只有 79,766 列(17.6%)的標籤在宣稱的 effective_date 前後 31 天內就真的知道;177,274 列(39.1%)來自 1 年以後,95,630 列(21.1%)來自 3 年以後。2013-01..2019-12 的 137,013 列,來源檔全部渲染於 2020-05-31~2020-07-18 —— 我們根本沒有那六年的當期分類,有的是 2020 年的快照。",
-      "evidence": "原始 CSV 第一欄即檔案版本戳「出表日期」。同一家公司 3687 歐買尬,產業別 100% 由出表日期決定、與資料月無關(11 個檔 11/11):`grep -m1 '\"3687\"' data/operating_revenue/tpex/2013/2013_3_c.csv | cut -d, -f1-5` → \"109/06/01\",\"102/3\",\"3687\",\"歐買尬\",\"文化創意業\";同法 2013_2 → \"109/06/02\"+電子商務;2013_12/2014_1/2014_5 → \"109/06/09\"+電子商務;2015_1 → \"109/07/12\"+電子商務;2013_4/2013_11/2014_2/2014_3/2014_4/2014_6/2014_12/2015_2 → \"109/06/01\"+文化創意業。即 TPEx 在 2020-06-01~06-02 之間把該公司改分類,之後渲染的檔一律寫新分類。逐列量測(scratchpad/vintage2.py:解析每個產業來源檔的出表日期,2013+ 用 _c.csv、2013 前用 _i.html,再與 industry_taxonomy_pit 的 effective_date 相減):bucket ≤31天 79,766 / 1月~1年 195,851 / 1~3年 81,644 / >3年 95,630;逐年中位前視天數 2013=2501、2014=2136、2015=1771、2016=1414、2017=1046、2018=681、2019=323、2020=8、2021=5、2026=4。2013-2019 各年的 render_date 分佈全落在 2020-05-31..2020-07-18。程式碼:research/industry_taxonomy.py:130-133 把 effective_date 定義為「資料月+1月+12天」,完全不參考檔案的出表日期。",
-      "fix": "把「出表日期」變成第一等公民:FinancialReader.readOperatingRevenue 目前丟掉這一欄、PG schema 也沒有它。加進 Slick Table + cache_tables.py 的 SELECT + builder,然後 effective_date = max(資料月+1月+12天, 出表日期)。代價是 2013-2019 的產業會變成「2020-06 以後才可用」——那才是誠實的答案。在改造完成前,至少把逐年前視天數表寫進 research/industry_taxonomy.py docstring,並在 docs 標明「2020 年以前的產業標籤不可用於 PIT 推論」。"
+      "evidence": "原始 CSV 第一欄即檔案版本戳「出表日期」。同一家公司 3687 歐買尬,產業別 100% 由出表日期決定、與資料月無關(11 個檔 11/11):`grep -m1 '\"3687\"' data/operating_revenue/tpex/2013/2013_3_c.csv | cut -d, -f1-5` → \"109/06/01\",\"102/3\",\"3687\",\"歐買尬\",\"文化創意業\";同法 2013_2 → \"109/06/02\"+電子商務;2013_12/2014_1/2014_5 → \"109/06/09\"+電子商務;2015_1 → \"109/07/12\"+電子商務;2013_4/2013_11/2014_2/2014_3/2014_4/2014_6/2014_12/2015_2 → \"109/06/01\"+文化創意業。即 TPEx 在 2020-06-01~06-02 之間把該公司改分類,之後渲染的檔一律寫新分類。逐列量測(scratchpad/vintage2.py:解析每個產業來源檔的出表日期,2013+ 用 _c.csv、2013 前用 _i.html,再與 industry_taxonomy_pit 的 effective_date 相減):bucket ≤31天 79,766 / 1月~1年 195,851 / 1~3年 81,644 / >3年 95,630;逐年中位前視天數 2013=2501、2014=2136、2015=1771、2016=1414、2017=1046、2018=681、2019=323、2020=8、2021=5、2026=4。2013-2019 各年的 render_date 分佈全落在 2020-05-31..2020-07-18。程式碼:src/quantlib/industry_taxonomy.py:130-133 把 effective_date 定義為「資料月+1月+12天」,完全不參考檔案的出表日期。",
+      "fix": "把「出表日期」變成第一等公民:FinancialReader.readOperatingRevenue 目前丟掉這一欄、PG schema 也沒有它。加進 Slick Table + cache_tables.py 的 SELECT + builder,然後 effective_date = max(資料月+1月+12天, 出表日期)。代價是 2013-2019 的產業會變成「2020-06 以後才可用」——那才是誠實的答案。在改造完成前,至少把逐年前視天數表寫進 src/quantlib/industry_taxonomy.py docstring,並在 docs 標明「2020 年以前的產業標籤不可用於 PIT 推論」。"
     },
     {
       "severity": "BUG",
       "what": "具體失真樣本:電子類分拆(半導體業/光電業/電子零組件業…)在我們的表出現在 source_ym=200606(effective_date 2006-07-13),但真正的分類變更發生在 2007-06-09 與 2007-07-09 之間,提早了 13 個月。受影響 8,869 列 / 714 檔。",
       "evidence": "`iconv -f BIG5 -t UTF-8 data/operating_revenue/twse/2006/2006_5_i.html | grep -o '產業別：[^<]*' | sort -u` → 其他/航運業/水泥工業/化學生技醫療/金融保險(…),出表日期 96/06/09 = 2007-06-09,無電子子產業;同法 2006_6_i.html → 光電業/電子零組件業/電腦及週邊設備業/生技醫療業,出表日期 96/07/09 = 2007-07-09。cache 側:SELECT source_ym, COUNT(*) FILTER (WHERE raw_industry='電子工業'), COUNT(*) FILTER (WHERE raw_industry='半導體業') FROM industry_taxonomy_pit WHERE market='twse' AND source_ym BETWEEN 200601 AND 200610 GROUP BY 1 → 200605:電子工業 305/半導體 0;200606:電子工業 0/半導體 49。影響量:SELECT COUNT(*), COUNT(DISTINCT company_code) FROM industry_taxonomy_pit WHERE source_ym BETWEEN 200606 AND 200706 AND raw_industry IN ('半導體業','光電業','電子零組件業','電子通路業','電腦及週邊設備業','資訊服務業','其他電子業','通信網路業') → 8,869 列 / 714 檔。外部佐證(非結論依據):TWSE 電子類分拆為八個子產業生效日 2007-07-02,正好落在上述兩個渲染日之間。",
-      "fix": "同上;另在 research/tests/test_industry_taxonomy.py 加一條回歸測試,鎖住「電子子產業不得早於其來源檔出表日期出現」。"
+      "fix": "同上;另在 src/quantlib/tests/test_industry_taxonomy.py 加一條回歸測試,鎖住「電子子產業不得早於其來源檔出表日期出現」。"
     },
     {
       "severity": "BUG",
-      "what": "money path 直接吃到:S 策略唯一真源 research/apex/strategy_s.py 用這張表算 accel_rel(營收加速度減同業中位數),特徵起點 DS='2014-10-31' —— 從那天到 2019-12 的同業定義全部來自 2020 年的分類表;每日 live 顧問 research/tri/advisors.py 走同一條。",
-      "evidence": "research/apex/strategy_s.py:22 `DS = \"2014-10-31\"`;strategy_s.py:47-56 `SELECT company_code, effective_date, industry FROM industry_taxonomy_pit WHERE industry IS NOT NULL ORDER BY effective_date` → join_asof by company_code → ind_med = group_by([date, industry]).median() → accel_rel。research/tri/advisors.py:231-235 同一段 SQL(直接 duckdb.connect(paths.CACHE_DB) 讀);research/tri/pool_trace.py:58、research/tri/tests/test_pool_history.py:56 亦同。污染區間佔 S 全史(2014-11..2026-07,141 個月)的 62 個月 ≈ 44%。錯誤率量級:在乾淨當期區間(2021 起、排除 2023 官方大改版)每年約 12 檔改分類 ≈ 0.7%/年,故 2013 年的標籤約 5% 會錯;但電子分拆那 13 個月是整片電子股一起錯。",
+      "what": "money path 直接吃到:S 策略唯一真源 src/quantlib/apex/strategy_s.py 用這張表算 accel_rel(營收加速度減同業中位數),特徵起點 DS='2014-10-31' —— 從那天到 2019-12 的同業定義全部來自 2020 年的分類表;每日 live 顧問 src/quantlib/tri/advisors.py 走同一條。",
+      "evidence": "src/quantlib/apex/strategy_s.py:22 `DS = \"2014-10-31\"`;strategy_s.py:47-56 `SELECT company_code, effective_date, industry FROM industry_taxonomy_pit WHERE industry IS NOT NULL ORDER BY effective_date` → join_asof by company_code → ind_med = group_by([date, industry]).median() → accel_rel。src/quantlib/tri/advisors.py:231-235 同一段 SQL(直接 duckdb.connect(paths.CACHE_DB) 讀);src/quantlib/tri/pool_trace.py:58、src/quantlib/tri/tests/test_pool_history.py:56 亦同。污染區間佔 S 全史(2014-11..2026-07,141 個月)的 62 個月 ≈ 44%。錯誤率量級:在乾淨當期區間(2021 起、排除 2023 官方大改版)每年約 12 檔改分類 ≈ 0.7%/年,故 2013 年的標籤約 5% 會錯;但電子分拆那 13 個月是整片電子股一起錯。",
       "fix": "修完 effective_date 語義後,S 需重跑一次 walk-forward 驗證並和現行 live_config 的 KPI 對照,確認同業相對項的貢獻沒有被前視撐大;若差異顯著,accel_rel 這個特徵要重新評估。"
     },
     {
       "severity": "BUG",
       "what": "cache 與 PG 對不上 70 列,而且產業標籤本身會被來回改寫:cache 獨有 63 列、PG 獨有 7 列(全在 2026-04..06),共同鍵上 14 列的 raw_industry/industry 不同(全在 202604)。跑 cache_tables.py 之前跟之後,同一支回測會得到不同的池籍。",
-      "evidence": "以 PG operating_revenue 重跑 build_industry_taxonomy_pit 後與 cache 表對拆(scratchpad/parity.py):cache 452,891 vs PG 重算 452,835;cache-only 63(代號含 2881/2882/2891 等金控與 7803/7814/7819 等 2026 新掛牌)、pg-only 7(3426 台興、4987 科誠、5236 凌陽創新、6806 森崴能源)。14 筆 raw_industry 差異全在 source_ym=202604:1595 川寶 半導體業 vs 電子零組件業、2230 泰茂 居家生活 vs 電機機械、2601 益航 航運業 vs 貿易百貨、3067 全域、3131 弘塑、3313 斐成、4905、4924、5381、6125、6163、6236、7718、8932。根因兩層:(a) operating_revenue 的雙寫入者(C-operating_revenue 已立案);(b) research/crawl/sources/operating_revenue.py:30 `_REFRESH_MONTHS = 3` 每天重抓最近三個月,而 MOPS 用當下分類重新渲染 → 標籤被回溯改寫。旁證:disk 上的 data/operating_revenue/tpex/2026/2026_4_c.csv(出表日期 115/05/13,即 PG 的版本)`grep -m1 '\"1595\"'` → 電子零組件業。",
+      "evidence": "以 PG operating_revenue 重跑 build_industry_taxonomy_pit 後與 cache 表對拆(scratchpad/parity.py):cache 452,891 vs PG 重算 452,835;cache-only 63(代號含 2881/2882/2891 等金控與 7803/7814/7819 等 2026 新掛牌)、pg-only 7(3426 台興、4987 科誠、5236 凌陽創新、6806 森崴能源)。14 筆 raw_industry 差異全在 source_ym=202604:1595 川寶 半導體業 vs 電子零組件業、2230 泰茂 居家生活 vs 電機機械、2601 益航 航運業 vs 貿易百貨、3067 全域、3131 弘塑、3313 斐成、4905、4924、5381、6125、6163、6236、7718、8932。根因兩層:(a) operating_revenue 的雙寫入者(C-operating_revenue 已立案);(b) src/quantlib/crawl/sources/operating_revenue.py:30 `_REFRESH_MONTHS = 3` 每天重抓最近三個月,而 MOPS 用當下分類重新渲染 → 標籤被回溯改寫。旁證:disk 上的 data/operating_revenue/tpex/2026/2026_4_c.csv(出表日期 115/05/13,即 PG 的版本)`grep -m1 '\"1595\"'` → 電子零組件業。",
       "fix": "承 C-operating_revenue:先把 operating_revenue 收斂成單一寫入者。另外對 industry_taxonomy_pit 加 parity 測試,鎖住 cache_tables.py 與 crawl 兩條重算路徑輸出逐位一致。"
     },
     {
@@ -39,25 +39,25 @@
     {
       "severity": "BUG",
       "what": "每日增量重算會把索引弄丟:cache_tables.py 建的兩個索引在 crawl 的 DROP TABLE + CREATE TABLE 之後永久消失,且不會自己回來。純效能問題,值沒錯。",
-      "evidence": "research/cache_tables.py:133-134 建 idx_itp_code_date 與 idx_itp_market_code_date;research/crawl/sources/operating_revenue.py:112-115 `DROP TABLE IF EXISTS industry_taxonomy_pit` + `CREATE TABLE ... AS SELECT * FROM _it_new`,之後沒有重建索引。實測:SELECT * FROM duckdb_indexes() WHERE table_name='industry_taxonomy_pit' → 0 rows(其他 21 張表索引都在;operating_revenue 因走 Sink.upsert 的 DELETE+INSERT 而保留)。單點查詢實測 283 ms(全掃 452k 列),全表拉入 polars 1,169 ms。",
+      "evidence": "research/cache_tables.py:133-134 建 idx_itp_code_date 與 idx_itp_market_code_date;src/quantlib/crawl/sources/operating_revenue.py:112-115 `DROP TABLE IF EXISTS industry_taxonomy_pit` + `CREATE TABLE ... AS SELECT * FROM _it_new`,之後沒有重建索引。實測:SELECT * FROM duckdb_indexes() WHERE table_name='industry_taxonomy_pit' → 0 rows(其他 21 張表索引都在;operating_revenue 因走 Sink.upsert 的 DELETE+INSERT 而保留)。單點查詢實測 283 ms(全掃 452k 列),全表拉入 polars 1,169 ms。",
       "fix": "rebuild_industry_taxonomy 改成 DELETE + INSERT(和 Sink.upsert 一致,索引會留著),或在 CREATE TABLE 之後補建那兩個索引。"
     },
     {
       "severity": "SUSPECT",
       "what": "6 碼 TDR 被代號正則硬排除,有報價卻永遠沒有產業標籤:912000 晨訊科-DR(3,727 個交易日)、912398 友佳-DR(2,885 日)、910069 新曄(888 日)。",
-      "evidence": "research/industry_taxonomy.py:22 `COMMON_CODE_PATTERN = r\"^[1-9][0-9]{3}$\"`,builder 第 121 行 `regexp_matches(company_code, '{COMMON_CODE_PATTERN}')`。SELECT company_code, ANY_VALUE(industry), COUNT(*), (SELECT COUNT(*) FROM daily_quote d WHERE d.company_code=o.company_code) FROM operating_revenue o WHERE NOT regexp_matches(company_code,'^[1-9][0-9]{3}$') GROUP BY 1 → 三檔 TDR,industry 皆為「存託憑證」,310 列。判 SUSPECT 而非 BUG:多數策略本來就排除 DR,且 _SPECIAL 已把存託憑證歸為特殊分類。",
+      "evidence": "src/quantlib/industry_taxonomy.py:22 `COMMON_CODE_PATTERN = r\"^[1-9][0-9]{3}$\"`,builder 第 121 行 `regexp_matches(company_code, '{COMMON_CODE_PATTERN}')`。SELECT company_code, ANY_VALUE(industry), COUNT(*), (SELECT COUNT(*) FROM daily_quote d WHERE d.company_code=o.company_code) FROM operating_revenue o WHERE NOT regexp_matches(company_code,'^[1-9][0-9]{3}$') GROUP BY 1 → 三檔 TDR,industry 皆為「存託憑證」,310 列。判 SUSPECT 而非 BUG:多數策略本來就排除 DR,且 _SPECIAL 已把存託憑證歸為特殊分類。",
       "fix": "正則放寬為 ^\\d{4,6}[0-9A-Z]?$,讓 DR 至少拿得到「存託憑證」這個標籤,由消費端自行決定排不排除。"
     },
     {
       "severity": "SUSPECT",
       "what": "消費端 SQL 不篩 market,而分類表有 9 對(18 列)同 (company_code, effective_date) 的跨市場重複,其中 1 對兩邊產業不同 —— join_asof 平手時取哪一列不確定。",
-      "evidence": "SELECT COUNT(*) FROM (SELECT company_code, effective_date, COUNT(*) n FROM industry_taxonomy_pit GROUP BY 1,2 HAVING COUNT(*)>1) → 9 對 / 18 列,全部 effective_date=2010-01-13(上櫃轉上市當月兩市場並存)。衝突那對:3454 晶睿 tpex=通信網路業 vs twse=光電業。消費端:research/apex/strategy_s.py:47 與 research/tri/advisors.py:233 的 SELECT 只取 company_code/effective_date/industry,join_asof by=[company_code]。影響僅 1 檔 1 天,故列 SUSPECT。",
+      "evidence": "SELECT COUNT(*) FROM (SELECT company_code, effective_date, COUNT(*) n FROM industry_taxonomy_pit GROUP BY 1,2 HAVING COUNT(*)>1) → 9 對 / 18 列,全部 effective_date=2010-01-13(上櫃轉上市當月兩市場並存)。衝突那對:3454 晶睿 tpex=通信網路業 vs twse=光電業。消費端:src/quantlib/apex/strategy_s.py:47 與 src/quantlib/tri/advisors.py:233 的 SELECT 只取 company_code/effective_date/industry,join_asof by=[company_code]。影響僅 1 檔 1 天,故列 SUSPECT。",
       "fix": "兩處 SQL 加上 market 欄,join_asof 改 by=['market','company_code']。"
     },
     {
       "severity": "SUSPECT",
       "what": "broad_sector 有 fallback 洩漏:未映射的分類直接把 industry 原名當粗分類 —— 其他 27,401 列、綜合 49 列、水泥窯製營造 32 列。做 sector 中性化或 sector 分組統計時會多出兩個一檔/兩檔的假 sector。",
-      "evidence": "research/industry_taxonomy.py:112 `return industry`(broad_sector 的最後一行 fallback)。SELECT broad_sector, COUNT(*), COUNT(DISTINCT industry), COUNT(DISTINCT company_code) FROM industry_taxonomy_pit GROUP BY 1 ORDER BY 2 DESC → 電子 230,005/11/1324、傳產工業 72,681、特色產業 29,921、原物料能源 27,772、其他 27,401、民生消費 25,850、營建建材 24,429、金融 13,761、特殊分類 990、綜合 49(1 檔)、水泥窯製營造 32(2 檔)。另 _NORMALIZE_EXACT 裡 '水泥窯製營造': '水泥窯製營造' 是恆等映射,沒有作用。",
+      "evidence": "src/quantlib/industry_taxonomy.py:112 `return industry`(broad_sector 的最後一行 fallback)。SELECT broad_sector, COUNT(*), COUNT(DISTINCT industry), COUNT(DISTINCT company_code) FROM industry_taxonomy_pit GROUP BY 1 ORDER BY 2 DESC → 電子 230,005/11/1324、傳產工業 72,681、特色產業 29,921、原物料能源 27,772、其他 27,401、民生消費 25,850、營建建材 24,429、金融 13,761、特殊分類 990、綜合 49(1 檔)、水泥窯製營造 32(2 檔)。另 _NORMALIZE_EXACT 裡 '水泥窯製營造': '水泥窯製營造' 是恆等映射,沒有作用。",
       "fix": "為 綜合 / 水泥窯製營造 補 broad_sector 映射(或明確歸「其他」),並刪掉恆等映射項;fallback 改為 return '其他' 並記一筆 warning,讓新出現的分類會被看見而不是靜默漏出。"
     },
     {
@@ -69,7 +69,7 @@
     {
       "severity": "OK",
       "what": "PG 沒有這張表(cache 專屬衍生表),但 pg-attach 模式有 parity,且兩條重算路徑共用同一支 builder,零漂移。",
-      "evidence": "psql -h localhost -p 5432 -d quantlib -c \"\\d industry_taxonomy_pit\" → Did not find any relation;PG 共 23 張表。建表點:research/cache_tables.py:103-105(CREATE TABLE AS)、research/crawl/sources/operating_revenue.py:107-118(DROP+CREATE)、research/db.py:53-66(_register_industry_taxonomy,無實體表時建 TEMP VIEW)—— 三者都 import research.industry_taxonomy.build_industry_taxonomy_pit,無重寫。schema 14 欄型別:VARCHAR×6 + INTEGER×3 + DATE + BOOLEAN×2 + VARCHAR×2,與 builder 的 polars schema 一一對應,無降級。",
+      "evidence": "psql -h localhost -p 5432 -d quantlib -c \"\\d industry_taxonomy_pit\" → Did not find any relation;PG 共 23 張表。建表點:research/cache_tables.py:103-105(CREATE TABLE AS)、src/quantlib/crawl/sources/operating_revenue.py:107-118(DROP+CREATE)、src/quantlib/db.py:53-66(_register_industry_taxonomy,無實體表時建 TEMP VIEW)—— 三者都 import quantlib.industry_taxonomy.build_industry_taxonomy_pit,無重寫。schema 14 欄型別:VARCHAR×6 + INTEGER×3 + DATE + BOOLEAN×2 + VARCHAR×2,與 builder 的 polars schema 一一對應,無降級。",
       "fix": ""
     },
     {
@@ -87,7 +87,7 @@
     {
       "severity": "OK",
       "what": "is_financial 與 is_special_category 覆蓋正確且可達;金控那條超長括號說明被正確歸一。",
-      "evidence": "SELECT industry, is_financial, COUNT(*) FROM industry_taxonomy_pit WHERE industry LIKE '%金融%' OR '%證券%' OR '%保險%' OR '%銀行%' GROUP BY 1,2 → 金融保險 11,701(true)、金融業 2,060(true),無漏網。normalize_industry_name 的 `if value.startswith('金融保險'): return '金融保險'`(research/industry_taxonomy.py:80-81)吃掉「金融保險業（其中金控公司係控股公司…）」這條長標籤 —— 2013 年那 32 筆「變動」正是此格式改版,正規化後歸零。is_special_category:管理股票 817 列/47 檔(200106..201212)、存託憑證 173 列/1 檔(9105 泰金寶,201201..202606)。",
+      "evidence": "SELECT industry, is_financial, COUNT(*) FROM industry_taxonomy_pit WHERE industry LIKE '%金融%' OR '%證券%' OR '%保險%' OR '%銀行%' GROUP BY 1,2 → 金融保險 11,701(true)、金融業 2,060(true),無漏網。normalize_industry_name 的 `if value.startswith('金融保險'): return '金融保險'`(src/quantlib/industry_taxonomy.py:80-81)吃掉「金融保險業（其中金控公司係控股公司…）」這條長標籤 —— 2013 年那 32 筆「變動」正是此格式改版,正規化後歸零。is_special_category:管理股票 817 列/47 檔(200106..201212)、存託憑證 173 列/1 檔(9105 泰金寶,201201..202606)。",
       "fix": ""
     },
     {
@@ -99,7 +99,7 @@
   ],
   "checked": [
     "PG 是否有對應表:psql \\d industry_taxonomy_pit(不存在)+ \\dt 全 23 張表清單",
-    "建表路徑盤點:research/cache_tables.py:103-105、research/crawl/sources/operating_revenue.py:107-118、research/db.py:53-66;確認三者共用 research/industry_taxonomy.py::build_industry_taxonomy_pit,無重寫",
+    "建表路徑盤點:research/cache_tables.py:103-105、src/quantlib/crawl/sources/operating_revenue.py:107-118、src/quantlib/db.py:53-66;確認三者共用 src/quantlib/industry_taxonomy.py::build_industry_taxonomy_pit,無重寫",
     "schema:DuckDB DESCRIBE industry_taxonomy_pit(14 欄)對照 builder 的 polars schema,逐欄型別對應",
     "cache vs PG parity:ATTACH postgres 建 operating_revenue view → 重跑 builder → 以 (market, company_code, source_ym) 雙向 anti-join + 13 欄逐欄 eq_missing 比對(cache-only 63、pg-only 7、raw_industry 差異 14 的完整清單)",
     "月份覆蓋:逐 market 的 source_ym distinct count 與 200106..202606 全展開 LEFT JOIN 找缺月",
@@ -116,7 +116,7 @@
     "公司層缺口根因:1704/1902/3315/3474/3559 在 operating_revenue 的 type 與月份範圍、原始 CSV grep 驗證、逐年「有交易但整年無月營收」檔數;t21sc03 vs t21sc04 的下載設定(setting/OperatingRevenueSetting.scala:48 與 db/table/OperatingRevenue.scala:9 註解不一致)",
     "代號正則:COMMON_CODE_PATTERN 排除的 3 檔 6 碼 TDR 與其 daily_quote 交易日數",
     "索引:duckdb_indexes() 全表列舉(industry_taxonomy_pit 0 個、其他 21 表皆有);單點查詢與全表載入實測耗時",
-    "消費端盤點:research/apex/strategy_s.py:22/47-56、research/tri/advisors.py:231-235、research/tri/pool_trace.py:58、research/tri/tests/test_pool_history.py:56、research/tests/test_industry_taxonomy.py",
+    "消費端盤點:src/quantlib/apex/strategy_s.py:22/47-56、src/quantlib/tri/advisors.py:231-235、src/quantlib/tri/pool_trace.py:58、src/quantlib/tri/tests/test_pool_history.py:56、src/quantlib/tests/test_industry_taxonomy.py",
     "原始檔盤點:data/operating_revenue/{twse,tpex}/ 各年檔案清單、mtime 與檔內出表日期(定位補抓批次)"
   ]
 }

@@ -54,7 +54,7 @@ cutoff); all other markets use timestamped web quotes and filings.
 | 6. Enter / size / exit | Forward clock, sleeves/blocks, six sell triggers + mandatory stops | `references/entry-exit-sizing.md` |
 | 7. Overlays | Reflexivity discount, regime kill-switch, do-not-copy list | `references/replication-guardrails.md` |
 | 8. Execute (TW) | The validated single-strategy engine (ev_v2_thesis_inst): registry curation × event exits × regime guards, 8-component score (battles 11-13 ablation-validated), run/validate commands, live operating loop | `references/tw-event-engine.md` |
-| 9. Daily ops | The complete daily management loop: mechanical stage (`research/serenity/daily.py`), Claude judgment checklist (news → thesis health → overrides → plan review), user trigger stage, fail-closed fuses, weekly/quarterly chores | `references/daily-ops.md` |
+| 9. Daily ops | The complete daily management loop: mechanical stage (`src/quantlib/serenity/daily.py`), Claude judgment checklist (news → thesis health → overrides → plan review), user trigger stage, fail-closed fuses, weekly/quarterly chores | `references/daily-ops.md` |
 
 Provenance for any claim: `analysis/*.md` (period-by-period distillations).
 For Taiwan the philosophy is OPERATIONAL: registry curation follows
@@ -67,7 +67,7 @@ and the engine reference above is the executable strategy.
 本系統有自己的血統。當 Serenity 的需求與 quantlib 舊慣例衝突(calendar 排程、
 「只存量化資料」教條、月頻節奏、目錄習慣),**一律改造專案去服務 Serenity,
 絕不反向把 Serenity 折彎去遷就舊框架**。已執行的先例:Scala 爬蟲為公布窗
-營收改造成事件驅動;`research/serenity/` 獨立成系統自己的家;live book 以
+營收改造成事件驅動;`src/quantlib/serenity/` 獨立成系統自己的家;live book 以
 券商庫存為真相收養既有持股。文字/質性資訊採 **fetch-on-demand**:決策當下
 抓、當下判斷(WebFetch 優先,登入牆/JS 頁改用使用者已登入的 Chrome via
 claude-in-chrome——使用者已授權);永久儲存只有首見時間戳 parquet、策展

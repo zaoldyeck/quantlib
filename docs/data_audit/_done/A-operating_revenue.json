@@ -22,8 +22,8 @@
     {
       "severity": "REAL",
       "what": "聯發科 2454 合併 2007-7 月營收 = 6,932,075,206 仟元(約大 1000 倍,全表唯一 >NT$1 兆):原始檔本身壞值,reader 忠實照抄,非解析錯",
-      "evidence": "原始檔 data/operating_revenue/twse/2007/2007_7_c.csv 該列(11 欄 Big5):['=\"2454\"','聯發科','6932075206','6010229','0','115237.95','999999.99','39979216644','0','999999.99','']——月營收 6,932,075,206、上月比較增減 +115237.95%、去年同月增減 999999.99(來源溢位哨兵)、累計 39,979,216,644。鄰月月營收 6-9 百萬仟元量級(2007-6=6,010,229、2007-8=9,681,926),同月個別(HTML)檔為正常 6,389,013。psql 佐證:SELECT year,month,type,monthly_revenue FROM operating_revenue WHERE company_code='2454' AND year=2007 → 合併 7 月 6932075206 vs 個別 7 月 6389013。原始=PG 逐位相符,故解析正確;值本身是來源合併 CSV 的錯。全表 SELECT count(*) WHERE monthly_revenue>1e9 = 1(僅此列)。research/audits/05_revenue_audit.py 本該攔(極端 YoY)但現在一跑就 crash(見 C-operating_revenue)。",
-      "fix": "修好並接回每日健檢 research/audits/05_revenue_audit.py 讓極端值例行被攔;或在來源層對此格做修正/排除。屬資料品質事件,建議記入 docs/data/data_quality_incidents.md。"
+      "evidence": "原始檔 data/operating_revenue/twse/2007/2007_7_c.csv 該列(11 欄 Big5):['=\"2454\"','聯發科','6932075206','6010229','0','115237.95','999999.99','39979216644','0','999999.99','']——月營收 6,932,075,206、上月比較增減 +115237.95%、去年同月增減 999999.99(來源溢位哨兵)、累計 39,979,216,644。鄰月月營收 6-9 百萬仟元量級(2007-6=6,010,229、2007-8=9,681,926),同月個別(HTML)檔為正常 6,389,013。psql 佐證:SELECT year,month,type,monthly_revenue FROM operating_revenue WHERE company_code='2454' AND year=2007 → 合併 7 月 6932075206 vs 個別 7 月 6389013。原始=PG 逐位相符,故解析正確;值本身是來源合併 CSV 的錯。全表 SELECT count(*) WHERE monthly_revenue>1e9 = 1(僅此列)。src/quantlib/audits/05_revenue_audit.py 本該攔(極端 YoY)但現在一跑就 crash(見 C-operating_revenue)。",
+      "fix": "修好並接回每日健檢 src/quantlib/audits/05_revenue_audit.py 讓極端值例行被攔;或在來源層對此格做修正/排除。屬資料品質事件,建議記入 docs/data/data_quality_incidents.md。"
     },
     {
       "severity": "SUSPECT",

@@ -65,7 +65,7 @@
     {
       "severity": "OK",
       "what": "本 view 無任何實盤/回測程式消費者,DCF 爆值不會直接進下單決策。apex load_valuation 讀 stock_per_pbr 資料表而非本 view;cache 無此 view;Serenity/引擎不引用。屬手動查表/BI 分析用",
-      "evidence": "grep valuation_1q 全庫僅 B-view-5 findings 引用;research/apex/data.py:204 讀 stock_per_pbr 表;Main.scala:334 與 Signals.scala 命中僅註解",
+      "evidence": "grep valuation_1q 全庫僅 B-view-5 findings 引用;src/quantlib/apex/data.py:204 讀 stock_per_pbr 表;Main.scala:334 與 Signals.scala 命中僅註解",
       "fix": ""
     }
   ]

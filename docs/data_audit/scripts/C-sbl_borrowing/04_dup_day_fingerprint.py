@@ -10,7 +10,7 @@
      `daily_balance[t-1]`。大量斷裂 = 該日資料不屬於這個時序位置。
      這是判斷「這一天到底是哪一天」的最強證據,因為它不依賴任何外部日曆。
 
-Run: PYTHONPATH=<repo> uv run --project research python docs/data_audit/scripts/C-sbl_borrowing/04_dup_day_fingerprint.py
+Run: PYTHONPATH=<repo> uv run --project . python docs/data_audit/scripts/C-sbl_borrowing/04_dup_day_fingerprint.py
 """
 from __future__ import annotations
 

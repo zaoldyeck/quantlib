@@ -1,7 +1,7 @@
 """Independent re-parse of foreign_holding_ratio raw files, compared field-by-field to PostgreSQL.
 
 Deliberately does NOT import any project parsing code (the Scala reader is the unit under test).
-Run: uv run --project research python <this file>
+Run: uv run --project . python <this file>
 """
 import csv
 import io

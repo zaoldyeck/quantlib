@@ -2,11 +2,11 @@
 
 三種互相獨立的方法:
   A 證人投票:同一份 cache 裡其他 6 張日頻表在該 (market,date) 有資料,market_index 沒有。
-  B 純日曆:research.data_calendar.is_trading_day(讀 0-byte sentinel,含颱風假)為 True 的平日。
+  B 純日曆:quantlib.data_calendar.is_trading_day(讀 0-byte sentinel,含颱風假)為 True 的平日。
   C 原始檔形態:data/index/<market>/<year>/<Y>_<M>_<D>.csv 存不存在 / 幾 bytes。
 另外反向掃「幽靈日」:market_index 有資料但全市場其他表都沒有。
 
-Run: PYTHONPATH=. uv run --project research python docs/data_audit/scripts/C-market_index/02_gaps.py
+Run: PYTHONPATH=. uv run --project . python docs/data_audit/scripts/C-market_index/02_gaps.py
 需要:var/cache/cache.duckdb(只讀)+ data/ 原始檔目錄。
 """
 from datetime import date, timedelta
@@ -14,7 +14,7 @@ from pathlib import Path
 
 import duckdb
 from research import paths
-from research.data_calendar import is_trading_day
+from quantlib.data_calendar import is_trading_day
 
 ROOT = Path(__file__).resolve().parents[4]
 con = duckdb.connect(str(paths.CACHE_DB), read_only=True)

@@ -1,6 +1,6 @@
 # D-apex-s-live — S 策略六因子(LIVE money-path)算法學理稽核
 
-- **範圍**:`research/apex/strategy_s.py` + `research/apex/assemble.py`
+- **範圍**:`src/quantlib/apex/strategy_s.py` + `src/quantlib/apex/assemble.py`
 - **判定**:**SUSPECT**(定義全對、money-path 無失真性錯誤;僅一顆健壯性螺絲要補)
 - **稽核重點**:rev_yoy_accel、high_52w、close_pos_20、mom_126_5、rev_seq、accel_rel 的定義是否學理一致;幾何排名 `rank/len` 的處理;PIT 對齊有無前視
 
@@ -64,7 +64,7 @@
 ## 重現指令
 
 ```bash
-uv run --project research python -c "..."   # 見 _done/D-apex-s-live.json evidence 欄
+uv run --project . python -c "..."   # 見 _done/D-apex-s-live.json evidence 欄
 # 關鍵:prep(con, end='2026-06-30') → 重建計分池 → 檢 rev_seq inf/nan;
 #       2330 手算 high_52w/mom_126_5 vs build_features(2872 列 diff=0);
 #       accel_rel 手算 vs feat(5,067,841 列 diff=0);taxonomy 前視列=0

@@ -1,11 +1,11 @@
 # D-evergreen-live:Evergreen 計分引擎(LIVE)學理稽核
 
-**範圍**:`research/evergreen/engine.py` 的 `score_expr` / `scores` / `replay_nav`
-(含其委派的 `refit` / `walkforward` / DRIP 還原路徑:`research/apex/engine.py::simulate`、
-`research/apex/data.py::load_panel`、`research/prices.py::fetch_adjusted_panel`、
-`research/evergreen/ev36_walkforward.py::{seg_kpi,kpis_full}`、
-`research/apex/validate.py::block_bootstrap_cagr`、
-`research/evergreen/ev30_baseline.py::midmonth_membership`)
+**範圍**:`src/quantlib/evergreen/engine.py` 的 `score_expr` / `scores` / `replay_nav`
+(含其委派的 `refit` / `walkforward` / DRIP 還原路徑:`src/quantlib/apex/engine.py::simulate`、
+`src/quantlib/apex/data.py::load_panel`、`src/quantlib/prices.py::fetch_adjusted_panel`、
+`src/quantlib/evergreen/ev36_walkforward.py::{seg_kpi,kpis_full}`、
+`src/quantlib/apex/validate.py::block_bootstrap_cagr`、
+`src/quantlib/evergreen/ev30_baseline.py::midmonth_membership`)
 
 **焦點**:計分因子定義、NAV 重放的 DRIP 與還原、refit 的樣本內外切割、walk-forward 有無洩漏
 
@@ -42,7 +42,7 @@
   `shift(1).rolling_max(2)` = 前 2 日最大、**不含今日**(證 `don60` 剔今日正確);
   `rank([3,1,2,2])→[4,1,2.5,2.5]`、`rank(null)→null`(暖機列 score 為 null → `drop_nulls`
   濾除,不會誤入池)。
-- **DRIP 不變式**(prices.py:38-41 + `research/tests/test_prices.py` 十項 parity):
+- **DRIP 不變式**(prices.py:38-41 + `src/quantlib/tests/test_prices.py` 十項 parity):
   `adj[T]/adj[t]−1 == cumprod((close+div)/prev_close)`;open/close/high/low 同一 `adj_factor`
   後復權、`trade_value`/`volume` 保留原始。→ `simulate` 的 `next_open` 成交價與 `close`
   mark 在還原空間一致,除息日原始收盤跳水被因子抵銷。

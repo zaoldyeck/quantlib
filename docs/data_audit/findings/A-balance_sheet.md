@@ -98,12 +98,12 @@
 
 ```bash
 # 值保真逐欄比對(8 檔跨年代/市場/類型)
-uv run --project research python scratchpad/bs_audit.py
+uv run --project . python scratchpad/bs_audit.py
 # period 級完整性對帳 + a_c/b_c 碰撞檢查(10 期別)
-uv run --project research python scratchpad/bs_recon.py
+uv run --project . python scratchpad/bs_recon.py
 # 快取 vs PG 對帳
 psql -h localhost -p 5432 -d quantlib -tA -c \
   "SELECT COUNT(*) FROM concise_balance_sheet WHERE type='consolidated' AND market IN ('twse','tpex');"
 ```
 
-(稽核探針腳本目前在本 session scratchpad;如需長期保留,建議移入 `research/audits/`。)
+(稽核探針腳本目前在本 session scratchpad;如需長期保留,建議移入 `src/quantlib/audits/`。)

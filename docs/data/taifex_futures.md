@@ -131,32 +131,32 @@ Google Drive public folder
 
 ```bash
 # 只重新建立 manifest，不下載
-uv run --project research python -m research.futures.taifex_rpt --refresh-manifest discover
+uv run --project . python -m quantlib.futures.taifex_rpt --refresh-manifest discover
 
 # 下載完整 raw zip/rpt archive；預設跳過已存在且可驗證的檔案
-uv run --project research python -m research.futures.taifex_rpt download --workers 8
+uv run --project . python -m quantlib.futures.taifex_rpt download --workers 8
 
 # 驗證 raw archive 是否存在且 zip/RPT 可讀
-uv run --project research python -m research.futures.taifex_rpt verify-raw
+uv run --project . python -m quantlib.futures.taifex_rpt verify-raw
 
 # 看目前下載量、日期區間與缺檔數
-uv run --project research python -m research.futures.taifex_rpt summary
+uv run --project . python -m quantlib.futures.taifex_rpt summary
 ```
 
 解析 tick Parquet：
 
 ```bash
 # 只解析研究核心商品，避免把所有商品無差別膨脹到本機硬碟
-uv run --project research python -m research.futures.taifex_rpt parse-ticks --products TX,MTX,TMF,TE,TF
+uv run --project . python -m quantlib.futures.taifex_rpt parse-ticks --products TX,MTX,TMF,TE,TF
 
 # 建立研究用分 K
-uv run --project research python -m research.futures.taifex_rpt build-bars --timeframes 1m,5m,15m,30m,60m
+uv run --project . python -m quantlib.futures.taifex_rpt build-bars --timeframes 1m,5m,15m,30m,60m
 ```
 
 完整同步入口：
 
 ```bash
-uv run --project research python -m research.futures.taifex_rpt sync --workers 8 --parse-workers 6 --products TX,MTX,TMF,TE,TF --timeframes 1m,5m,15m,30m,60m --force-bars
+uv run --project . python -m quantlib.futures.taifex_rpt sync --workers 8 --parse-workers 6 --products TX,MTX,TMF,TE,TF --timeframes 1m,5m,15m,30m,60m --force-bars
 ```
 
 同步流程會依序執行 manifest、raw download、raw validation、tick Parquet parse、bar aggregation。bar cache 已存在時必須明確使用 `--force-bars` 重建，避免新舊 partition 混在一起。解析狀態會寫入：
@@ -168,13 +168,13 @@ data/taifex/rpt/parse_status/
 `parse_status` 會記錄每個 raw 檔的檔案大小、mtime、請求商品、實際輸出商品與 parquet path。這可以避免舊年份因為 `TMF` 尚未上市而在每次重跑時被誤判為未完成。若已經手動完成一次全量解析，需要補建狀態索引，可執行：
 
 ```bash
-uv run --project research python -m research.futures.taifex_rpt index-existing --products TX,MTX,TMF,TE,TF
+uv run --project . python -m quantlib.futures.taifex_rpt index-existing --products TX,MTX,TMF,TE,TF
 ```
 
 官方近 30 交易日 tick overlay：
 
 ```bash
-uv run --project research python -m research.futures.taifex_rpt parse-official-intraday --products TX,MTX,TMF,TE,TF
+uv run --project . python -m quantlib.futures.taifex_rpt parse-official-intraday --products TX,MTX,TMF,TE,TF
 ```
 
 `parse-official-intraday` 會使用 `data/taifex/intraday_raw/futures_sales/`，並以官方檔案覆蓋同日期 mirror parquet。預設 latest safe date 與 Scala 下載器一致：台北時間 `16:00:00` 前最多只解析到昨日，避免今日盤中 partial tick 進入回測。只有 live capture 或人工診斷才可加 `--allow-today`。
@@ -195,7 +195,7 @@ uv run --project research python -m research.futures.taifex_rpt parse-official-i
 本專案也可以用已打通的富邦 Neo API 做只讀日內行情捕捉：
 
 ```bash
-uv run --project research python -m research.futures.fubon_intraday_capture
+uv run --project . python -m quantlib.futures.fubon_intraday_capture
 ```
 
 預設會登入後初始化 market-data client，抓取 `TXF/MXF/TMF/EXF/FXF` 的近月與次近月：
@@ -264,7 +264,7 @@ data/fubon/futures_intraday/YYYY-MM-DD/<regular|afterhours>/
 重建 cache 後會產生：
 
 ```bash
-uv run --project research python research/cache_tables.py
+uv run --project . python research/cache_tables.py
 ```
 
 `taifex_futures_contract_rank`

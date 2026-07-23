@@ -1,6 +1,6 @@
 """C-cf_progressive_raw: accounting-identity + value-domain anomaly scan.
 
-Run: uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/anomaly.py
+Run: uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/anomaly.py
 Reads var/cache/cache.duckdb read-only.
 """
 import duckdb, sys, pathlib

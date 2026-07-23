@@ -3,7 +3,7 @@
 鍵 = (market, date, company_code)。比對 price_book_ratio / dividend_yield /
 price_to_earning_ratio 三欄,NULL 對 NULL 視為相同。
 
-Run: uv run --project research python docs/data_audit/scripts/C-stock_per_pbr/02_value_parity.py
+Run: uv run --project . python docs/data_audit/scripts/C-stock_per_pbr/02_value_parity.py
 """
 from __future__ import annotations
 

@@ -86,7 +86,7 @@
 
 ```bash
 # 一致性(掛 PG + cache 同時比):逐欄聚合 + 整日 EXCEPT + 唯一鍵去重
-uv run --project research python -c "..."   # 見 _done JSON 的 evidence 欄
+uv run --project . python -c "..."   # 見 _done JSON 的 evidence 欄
 
 # 覆蓋缺口:期貨 distinct date vs daily_quote(twse)交易日曆
 # 缺口根因:ls data/taifex/futures_daily/2026/  → 看缺哪幾個月檔

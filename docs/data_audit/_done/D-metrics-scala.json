@@ -7,7 +7,7 @@
   "findings": [
     {
       "severity": "BUG",
-      "metric": "Sortino 下行標準差(全專案 4 個實作)—— Metrics.scala:69-72、research/strat_lab/evaluation.py:120,134、research/serenity/replay_2025.py:495-500(=live)、research/tri/pnl_dashboard.py:199-205、research/serenity/valuation_replay_2025.py:432",
+      "metric": "Sortino 下行標準差(全專案 4 個實作)—— Metrics.scala:69-72、src/quantlib/strat_lab/evaluation.py:120,134、src/quantlib/serenity/replay_2025.py:495-500(=live)、src/quantlib/tri/pnl_dashboard.py:199-205、src/quantlib/serenity/valuation_replay_2025.py:432",
       "textbook_def": "Sortino & Price (1994)／empyrical.downside_risk:下行差 = sqrt( (1/N_total) · Σ min(0, r−MAR)² ),對『全部 N 期』取平均(不是只有下跌那幾天)、以 MAR 為錨(不是以下跌報酬自己的均值為錨),年化 ×√TDPY;分子的 MAR 必須與分母同一個。empyrical 實測 dsr=0.1791=textbook 手算 0.1791,證實 ÷N、MAR=0。",
       "implementation": "三種都錯且錯法不同:(a) Scala = sqrt(Σ_{r<0} r² / n_downside)×√242 —— 分母用『下跌天數 n_d』而非全期 N,把下行差灌大 √(N/n_d)≈1.44×;(b) nav_metrics/replay/tri/valuation = np.std(neg, ddof=1) 或 pandas .std() —— 對『下跌報酬自己的均值』取離差(非 MAR=0)、且 ÷(n_d−1)。分子部分:Scala/nav_metrics 用幾何 (cagr−1%),replay/tri/live 用算術 mean。",
       "evidence": "seed=42、2500 日、48% 下跌日的合成序列(scratchpad/verify_metrics.py,可重跑):empyrical Sortino=0.5239(參考)。Scala 式=0.2093(−60.0%)、nav_metrics 式=0.3364(−35.8%)、replay/tri/live 式=0.5954(+13.7%)。三者對同一序列相差約 3 倍,無一命中 0.52。downvol_scala=0.2532、downvol_navm=0.1576 vs empyrical dsr=0.1791,證明分母公式全偏。live 策略回報的 Sortino 走 replay_2025.sortino_ratio → 系統性偏高。",
@@ -15,7 +15,7 @@
     },
     {
       "severity": "BUG",
-      "metric": "Sharpe 分子用幾何 CAGR —— Metrics.scala:67(Scala)、research/strat_lab/evaluation.py:135(nav_metrics)",
+      "metric": "Sharpe 分子用幾何 CAGR —— Metrics.scala:67(Scala)、src/quantlib/strat_lab/evaluation.py:135(nav_metrics)",
       "textbook_def": "Sharpe (1994)／empyrical.sharpe_ratio:S = E[R−Rf]/σ,超額報酬取『算術平均』;年化 = √TDPY · (mean_daily − rf_daily)/std_daily,等價於 (算術年化均值 − Rf)/年化σ。分子必須是算術平均,不是幾何(CAGR)。",
       "implementation": "sharpe = (cagr − RiskFreeRate)/vol,分子是幾何 CAGR = math.pow(finalNav/initialCapital, 1/years)−1(Scala),或 exp(log_cagr)−1(nav_metrics)。因 CAGR ≈ 算術年化 − ½σ²(波動拖累),分子被系統性壓低,壓低幅度隨 σ² 增大。",
       "evidence": "同 seed=42 序列(vol=25.6%):empyrical Sharpe(rf=0)=0.3668;replay_2025 算術式=0.3668(逐位相符,證明參考正確);nav_metrics/Scala 幾何式=0.2072,低估 −43.5%(其中幾何拖累約 −37%、rf=1% 佔 −4%)。高波動策略偏差更大。",
@@ -23,7 +23,7 @@
     },
     {
       "severity": "SUSPECT",
-      "metric": "年化交易日常數 242(Scala)vs 252(Python 全線)—— Metrics.scala:15、research/strat_lab/evaluation.py:19、apex/validate.py:15、serenity/replay_2025.py TDPY、tri/pnl_dashboard.py:205",
+      "metric": "年化交易日常數 242(Scala)vs 252(Python 全線)—— Metrics.scala:15、src/quantlib/strat_lab/evaluation.py:19、apex/validate.py:15、serenity/replay_2025.py TDPY、tri/pnl_dashboard.py:205",
       "textbook_def": "年化因子應反映該市場實際交易頻率;台股非美股。vol 年化 ×√TDPY、Sharpe/Sortino ×√TDPY,對 TDPY 敏感度 = √比例。",
       "implementation": "Scala 用 242(註解『TWSE averages ~242』);Python 全部硬編 252(美股慣例)。同一策略在兩套疊代出的年化 vol/Sharpe/Sortino 不可直接比較。",
       "evidence": "cache 實測 TWSE 2015-2025 每年交易日 = [244,244,246,247,242,245,243,246,239,242,242],mean 243.6、median 244。Scala 242 ≈ 實際(誤差 <1%);Python 252 偏高,使年化 vol 與 Sharpe/Sortino 系統性高估 √(252/243.6)−1 = +1.7%。",
@@ -39,7 +39,7 @@
     },
     {
       "severity": "SUSPECT",
-      "metric": "k_ratio 命名 —— research/strat_lab/evaluation.py:56-81",
+      "metric": "k_ratio 命名 —— src/quantlib/strat_lab/evaluation.py:56-81",
       "textbook_def": "Kestner K-ratio(1996/2003/2013 三版)= 對數權益曲線斜率 / (斜率標準誤 × n 或 √n 的正規化);各版對期數正規化不同。",
       "implementation": "實作 = slope/se_slope(純斜率 t 值,無 n 正規化)。docstring 誠實標為『equity-curve slope t-stat』,但欄位鍵名為 k_ratio 且在 robust_growth_score 以 target=2.0 使用。",
       "evidence": "程式即證:line 80-81 return slope/se_slope,無 ×√n 或 ×n。與文獻任一版 Kestner K-ratio 相差一個期數正規化因子。",
@@ -55,7 +55,7 @@
     },
     {
       "severity": "OK",
-      "metric": "Sharpe 算術版(活策略回報)—— research/serenity/replay_2025.py:520、serenity live summarize_nav、apex/validate.py:49-50 sr",
+      "metric": "Sharpe 算術版(活策略回報)—— src/quantlib/serenity/replay_2025.py:520、serenity live summarize_nav、apex/validate.py:49-50 sr",
       "textbook_def": "√TDPY · mean_daily / std_daily(rf=0)= empyrical.sharpe_ratio(returns, risk_free=0)。",
       "implementation": "sharpe = √252 · returns.mean()/returns.std()(pandas ddof=1),rf=0。apex 的 DSR 用日 sr=mu/sd(ddof=1)、sr_ann=sr×√252,單位一致。",
       "evidence": "seed=42 序列:replay_2025 式 = 0.3668,與 empyrical(rf=0) 0.3668 逐位相符。這是 live 策略對外回報的 Sharpe → 正確。",
@@ -63,7 +63,7 @@
     },
     {
       "severity": "OK",
-      "metric": "CAGR —— Metrics.scala:59-61、research/serenity/replay_2025.py:484-487、evaluation.py:113-116",
+      "metric": "CAGR —— Metrics.scala:59-61、src/quantlib/serenity/replay_2025.py:484-487、evaluation.py:113-116",
       "textbook_def": "CAGR = (end/begin)^(1/years) − 1,years 用實際日曆年(日曆天/365.25,含閏年)。",
       "implementation": "Scala:pow(finalNav/initialCapital, 1/years)−1,years=(end−start).epochDay/365.25。Python:(end/start)^(365.25/days)−1;nav_metrics 用 exp(log(ratio)/yrs)−1 等價。years 以日曆天為準、n/252 只作下限保護。",
       "evidence": "seed=42:house 幾何 CAGR=0.0630 = empyrical.cagr=0.0630,逐位相符。365.25 正確處理閏年。",
@@ -71,7 +71,7 @@
     },
     {
       "severity": "OK",
-      "metric": "最大回撤 MDD —— Metrics.scala:113-123、research/serenity/replay_2025.py:490-492、evaluation.py:45-53,122",
+      "metric": "最大回撤 MDD —— Metrics.scala:113-123、src/quantlib/serenity/replay_2025.py:490-492、evaluation.py:45-53,122",
       "textbook_def": "MDD = min_t( NAV_t / cummax(NAV)_t − 1 ),回傳負值。",
       "implementation": "Scala:running peak,dd=(n−peak)/peak,取最小。Python:(nav/nav.cummax()−1).min();drawdown_series 額外以期初資本為錨(標準做法)。",
       "evidence": "seed=42:house MDD=−0.6328 = empyrical.max_drawdown=−0.6328,逐位相符。",
@@ -79,7 +79,7 @@
     },
     {
       "severity": "OK",
-      "metric": "年化波動度 —— Metrics.scala:63-66、research/strat_lab/evaluation.py:118",
+      "metric": "年化波動度 —— Metrics.scala:63-66、src/quantlib/strat_lab/evaluation.py:118",
       "textbook_def": "年化 σ = 日報酬樣本標準差(ddof=1,Bessel 修正)× √TDPY。",
       "implementation": "Scala:sqrt(Σ(r−mean)²/(n−1))×√242(樣本標準差,分母 n−1,正確)。Python:np.std(rets, ddof=1)×√252。母體 vs 樣本正確(用樣本 n−1)。",
       "evidence": "程式即證:Scala 分母 (dailyRets.size − 1)、Python ddof=1。唯一 caveat 是 √TDPY 的 242/252 常數(見對應 SUSPECT)。",
@@ -95,7 +95,7 @@
     },
     {
       "severity": "OK",
-      "metric": "Martin/UPI + Ulcer Index —— research/strat_lab/evaluation.py:123,139",
+      "metric": "Martin/UPI + Ulcer Index —— src/quantlib/strat_lab/evaluation.py:123,139",
       "textbook_def": "Ulcer Index(Martin & McCann)= sqrt( mean( drawdown² ) );Martin/UPI = (年化報酬 − rf) / Ulcer Index。",
       "implementation": "ulcer = sqrt(mean(minimum(dd,0)²))(dd 已≤0,等於 sqrt(mean(dd²)),正確);upi = (cagr − rf)/ulcer。分子用幾何 CAGR 對回撤型比率屬合理(甚至較宜)。",
       "evidence": "程式即證:Ulcer 公式與定義相符;UPI 分子分母結構符合 Martin ratio。此即本單位標題所稱『Martin』的對應實作。rf=1% caveat 見對應 SUSPECT。",
@@ -103,7 +103,7 @@
     },
     {
       "severity": "OK",
-      "metric": "DSR / block-bootstrap CAGR / PBO(CSCV)—— research/apex/validate.py:23-92",
+      "metric": "DSR / block-bootstrap CAGR / PBO(CSCV)—— src/quantlib/apex/validate.py:23-92",
       "textbook_def": "DSR:Bailey & López de Prado (2014)—— SR0 = √V[SR]·[(1−γ)Φ⁻¹(1−1/N)+γΦ⁻¹(1−1/(Ne))],z=(SR−SR0)√(T−1)/√(1−γ3·SR+(γ4−1)/4·SR²)。Bootstrap CAGR:circular moving-block,growth^(TDPY/t)−1。PBO:CSCV,P(IS 最佳者 OOS 落後中位)。",
       "implementation": "deflated_sharpe 用日 SR(未年化)、γ3/γ4 非超額峰態、√(t−1),與原論文逐項相符。block_bootstrap_cagr:circular block,growth^(252/t)−1。pbo_cscv:S 塊組合、加權合併均值/變異、rank<0.5 計數。",
       "evidence": "逐行對照 Bailey-LdP 2014/2015 公式:SR0、skew/kurt 校正標準誤、√(T−1) 全對;bootstrap 年化指數 252/t 正確;PBO rank<0.5 = logit(rank)<0 標準估計。單位一致(全程日頻 SR)。",

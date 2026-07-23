@@ -15,7 +15,7 @@
 結果(2026-07-22,每年隨機抽 6 檔):
   twse 88,577 列 × 2 條恆等式,0 不符;tpex 49,792 列 × 2 條,0 不符。
 
-run: uv run --project research python docs/data_audit/scripts/A-margin_transactions/02_identity.py
+run: uv run --project . python docs/data_audit/scripts/A-margin_transactions/02_identity.py
 不依賴 cache.duckdb。
 """
 

@@ -6,7 +6,7 @@
 TWSE 標題:「115年06月29日 至 115年07月18日 股票減資恢復買賣參考價格」
 TPEx 標題:「恢復買賣日期:102/01/02至109/07/10」
 
-Run: uv run --project research python docs/data_audit/scripts/C-capital_reduction/03_window_coverage.py
+Run: uv run --project . python docs/data_audit/scripts/C-capital_reduction/03_window_coverage.py
 """
 from __future__ import annotations
 

@@ -1,11 +1,11 @@
 """C-cf_progressive_raw: quantify lag-diff contamination caused by missing quarters.
 
-cfo_q in research/strat_lab/raw_quarterly.py is YTD_t - YTD_{t-1} with
+cfo_q in src/quantlib/strat_lab/raw_quarterly.py is YTD_t - YTD_{t-1} with
 shift(1).over(company_code, year) and NO continuity guard. A missing intermediate
 quarter therefore silently produces a MULTI-quarter value labelled as one quarter,
 and cfo_ttm (rolling_sum 4) then spans >4 calendar quarters.
 
-Run: uv run --project research python docs/data_audit/scripts/C-cf_progressive_raw/downstream.py
+Run: uv run --project . python docs/data_audit/scripts/C-cf_progressive_raw/downstream.py
 """
 import duckdb, sys, pathlib
 import pandas as pd

@@ -19,7 +19,7 @@
                      reader 的 Try(values(9)).getOrElse(values(8)) 接住了,DB 是對的
   現行 reader 會丟掉 466,788 列(tpex 2011-01-03~2014-10-30,代號有補空白)—— 見 findings BUG#3
 
-run: uv run --project research python docs/data_audit/scripts/A-margin_transactions/03_recon.py
+run: uv run --project . python docs/data_audit/scripts/A-margin_transactions/03_recon.py
 需要 PostgreSQL(psql),不需要 cache.duckdb。約 6 分鐘。
 """
 

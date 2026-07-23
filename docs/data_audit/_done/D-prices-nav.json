@@ -1,7 +1,7 @@
 {
   "unit": "D-prices-nav",
   "title": "NAV/報酬/成本會計",
-  "scope": "research/prices.py 的 daily_returns/DRIP + Backtester 每日 NAV walk（v4.py / apex/engine.py / serenity/engine.py）+ 手續費稅成本（constants.py 及各引擎）",
+  "scope": "src/quantlib/prices.py 的 daily_returns/DRIP + Backtester 每日 NAV walk（v4.py / apex/engine.py / serenity/engine.py）+ 手續費稅成本（constants.py 及各引擎）",
   "focus": "DRIP 報酬 (close_t + div_t)/close_{t-1}−1 的正確性、換手成本公式、round-trip 成本、TargetPercent 再平衡、複利計算;摩擦成本是否雙邊、賣稅 0.3% 與手續費折數",
   "verdict": "OK",
   "summary": "核心 NAV/報酬/成本會計全部符合學理,可信。DRIP 用 Yahoo/CRSP 標準乘法還原收盤價,對純現金股利與教科書加法式 (P_t+D_t)/P_{t-1}−1 實測 21 年僅差 <0.5%(中華電 15 次配息累積 −0.53%),且 Python 版還多還原了『減資』參考價重設——正是 D-backtester-scala 記為 BUG 的 Scala 漏項,同一資料 Python 端處理正確。逐日複利 NAV=資本×∏(1+r)、CAGR=(末/初)^(1/年)−1、MDD=min(NAV/歷史高−1) 皆逐字符合定義;成本手續費買賣雙邊 0.0285%(=0.1425%×2折)、證交稅只收賣方 0.3%、round-trip 0.357%,event 引擎另加單邊滑價假設,方向皆對且偏保守。範圍內無 BUG。SUSPECT 皆為保守方向小瑕疵:(1) v4 首次純買卻按 round-trip 收費,一次多扣 0.33%(CAGR −0.04pp);(2) CLAUDE.md 換手成本公式寫反(用交集當分子,程式其實用『1−交集』——程式對、文件錯,新策略照抄會反向);(3) 0050/ETF 賣出一律課 0.3% 應為 0.1%。風險調整指標 Sharpe/Sortino 的 v4/evaluation.py 幾何基礎與下行離差問題已歸屬 D-perf-validation,此處僅交叉引用。",

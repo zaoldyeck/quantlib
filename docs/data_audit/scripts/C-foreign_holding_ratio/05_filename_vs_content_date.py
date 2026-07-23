@@ -6,7 +6,7 @@
 Reader(src/main/scala/reader/TradingReader.scala:899-901)只從檔名取日期、從不讀內容日期,
 所以只要端點回了別天的快照,DB 就會把它當成請求日的資料。
 
-Run: uv run --project research python docs/data_audit/scripts/C-foreign_holding_ratio/05_filename_vs_content_date.py
+Run: uv run --project . python docs/data_audit/scripts/C-foreign_holding_ratio/05_filename_vs_content_date.py
 """
 from __future__ import annotations
 
