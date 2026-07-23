@@ -104,10 +104,10 @@ _NCELLS = 20
 
 #: jsoup `.text()` 空白集 = ASCII 空白 + U+00A0(nbsp);**不含** U+3000(全形空白保留,
 #: 對齊 Scala `.trim`)。見 insider_holding docstring #5(同一 parseMopsHtml 語義)。
-_WS = re.compile("[ \t\n\r\f ]+")
-_STRIP = " \t\n\r\f "
+_WS = re.compile("[ \t\n\r\f\u00a0]+")
+_STRIP = " \t\n\r\f\u00a0"
 #: 表頭關鍵字比對:去掉所有空白(含全形,MOPS 表頭夾雜 <br>/全形空白)再子字串比對。
-_ANY_WS = re.compile("[ \t\n\r\f 　]")
+_ANY_WS = re.compile("[ \t\n\r\f\u00a0\u3000]")
 
 #: DF / cache schema(11 欄,順序 = Slick `*` 去 id)。兩股數欄 Int64(大型股 > 2^31)。
 _SCHEMA = {
