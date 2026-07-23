@@ -103,24 +103,34 @@ def rebuild_daily_source(source: str, *, dry_run: bool = False) -> dict:
     rows = 0
     if frames and not dry_run:
         full = pl.concat(frames, how="vertical_relaxed")
-        rows = full.height
-        con = __import__("duckdb").connect(str(paths.CACHE_DB), read_only=False)
-        try:
-            con.register("_new", full)
-            con.execute(f"DROP TABLE IF EXISTS {table}")
-            con.execute(f"CREATE TABLE {table} AS SELECT * FROM _new")
-        finally:
-            con.unregister("_new")
-            con.close()
+        rows = _write(table, full)  # 帶不准縮表防護(raw 完整的日頻新≥舊自然放行)
     elif frames:
         rows = sum(f.height for f in frames)
     return {"source": source, "table": table, "rows": rows, "days": n_days,
             "empty": n_empty, "errors": n_err, "err_sample": errs}
 
 
-def _write(table: str, df: "pl.DataFrame") -> int:
+def _write(table: str, df: "pl.DataFrame", *, allow_shrink: bool = False) -> int:
+    """DROP+重建 cache 表,**帶不准縮表防護**。
+
+    防資料損毀(2026-07-24 發現):ex_right_dividend / capital_reduction 的 raw 只封存到
+    2020+,但 cache 有 2003/2011 起的歷史(舊 PG 匯入,無 raw 背書)。無防護的 DROP+重建
+    會把那段 cache-only 歷史**靜默砍光**(prices.py 的 FC1 除權息還原直接斷底)。故:新表
+    列數 < 現有 → 中止,除非 raw 已補齊歷史後顯式 allow_shrink。raw 完整的源(日頻)新≥舊
+    自然放行。根治之道是補齊歷史 raw 讓 raw 重回唯一真源,不是放寬此閘門。
+    """
     con = __import__("duckdb").connect(str(paths.CACHE_DB), read_only=False)
     try:
+        existing = 0
+        try:
+            existing = con.execute(f"SELECT count(*) FROM {table}").fetchone()[0]
+        except Exception:  # noqa: BLE001 - 表不存在 = 全新建,無縮表風險
+            existing = 0
+        if existing and df.height < existing and not allow_shrink:
+            raise RuntimeError(
+                f"rebuild 中止:{table} 從 raw 解析得 {df.height:,} 列 < 現有 cache {existing:,} 列"
+                f"——raw 歷史不全(pre-2020 無封存?),DROP+重建會砍掉 cache-only 歷史。"
+                f"先補齊歷史 raw,或確認後 allow_shrink=True 強制。")
         con.register("_new", df)
         con.execute(f"DROP TABLE IF EXISTS {table}")
         con.execute(f"CREATE TABLE {table} AS SELECT * FROM _new")

@@ -19,12 +19,13 @@
 from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
-from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
 CACHE_DB = paths.CACHE_DB
-QUOTE_DIR = REPO_ROOT / "data" / "daily_quote" / "twse"
+#: TWSE 日報 raw 目錄——0-byte sentinel 即休市日曆真源。一律經 paths(禁止自算 __file__
+#: 相對根:research→src/quantlib 改名後 parents[N] 深一層,自算會靜默指到不存在的 src/data,
+#: 令 is_trading_day 看不到任何 sentinel、把每個假日誤判成交易日)。
+QUOTE_DIR = paths.RAW / "daily_quote" / "twse"
 
 #: D 的資料自 D+1 的此時刻起視為齊備(見模組 docstring 的依據)
 DATA_COMPLETE_AFTER = time(0, 30)
