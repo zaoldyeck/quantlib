@@ -21,6 +21,8 @@ from __future__ import annotations
 import argparse
 import contextlib
 import importlib
+import os
+from concurrent.futures import ProcessPoolExecutor
 from datetime import date as Date
 
 import polars as pl
@@ -77,31 +79,62 @@ def _read_from_archive(source: str, market: str, day: Date):
         http.fetch_bytes, http.fetch_text, archive.save_raw = o_bytes, o_text, o_save
 
 
-def rebuild_daily_source(source: str, *, dry_run: bool = False, allow_shrink: bool = False) -> dict:
-    """重建一個日頻源的 cache 表。回 {rows, days, empty, errors}。
-    allow_shrink:authoritative 全量重建(cache=parser(raw))時放行縮表(移除 PG 殘留/
-    幽靈日 sentinel 後列數減少是正確的)。"""
+def _chunks(seq: list, size: int):
+    for i in range(0, len(seq), size):
+        yield seq[i:i + size]
+
+
+def _parse_chunk(job: tuple) -> tuple:
+    """worker:parse 一批 (source, market, [days]) → (concat DataFrame|None, n_empty, n_err, errs)。
+    每 worker 為獨立程序,`_read_from_archive` 的 monkeypatch 只作用於自己程序,互不干擾。
+    每 worker 回傳**已 concat** 的 DataFrame(一塊一次 pickle,避免逐檔跨程序序列化)。"""
+    source, market, days = job
+    mod = importlib.import_module(f"quantlib.crawl.sources.{source}")
+    frames, n_empty, n_err, errs = [], 0, 0, []
+    for day in days:
+        try:
+            with _read_from_archive(source, market, day):
+                df = mod.fetch_day(market, day)
+        except Exception as exc:  # noqa: BLE001 - 收集,不中斷整源
+            n_err += 1
+            if len(errs) < 5:
+                errs.append(f"{market} {day}: {type(exc).__name__}: {str(exc)[:80]}")
+            continue
+        if df is None or df.is_empty():
+            n_empty += 1
+        else:
+            frames.append(df)
+    combined = pl.concat(frames, how="vertical_relaxed") if frames else None
+    return (combined, n_empty, n_err, errs)
+
+
+def rebuild_daily_source(source: str, *, dry_run: bool = False, allow_shrink: bool = False,
+                         workers: int | None = None) -> dict:
+    """重建一個日頻源的 cache 表(**多程序並行 parse**)。回 {rows, days, empty, errors}。
+    parse 每檔獨立 = embarrassingly parallel → ProcessPool 跨核並行(單執行緒 ~13 分 → ~1-2 分)。
+    allow_shrink:authoritative 全量重建(cache=parser(raw))時放行縮表(移除 PG 殘留/幽靈 sentinel 後列數減少是正確的)。"""
     mod = importlib.import_module(f"quantlib.crawl.sources.{source}")
     table = mod.TABLE
     markets = getattr(mod, "MARKETS", ("twse", "tpex"))
-    frames: list[pl.DataFrame] = []
-    n_days = n_empty = n_err = 0
-    errs: list[str] = []
+    n_workers = workers or max(1, (os.cpu_count() or 4) - 1)
+    # 每市場的日期切成 ~n_workers*4 塊(利於負載平衡);(source, market, chunk) 為一個 job
+    jobs, n_days = [], 0
     for market in markets:
-        for day in _archived_days(source, market):
-            n_days += 1
-            try:
-                with _read_from_archive(source, market, day):
-                    df = mod.fetch_day(market, day)
-            except Exception as exc:  # noqa: BLE001 - 收集,不中斷整源
-                n_err += 1
-                if len(errs) < 20:
-                    errs.append(f"{market} {day}: {type(exc).__name__}: {str(exc)[:80]}")
-                continue
-            if df is None or df.is_empty():
-                n_empty += 1
-                continue
-            frames.append(df)
+        days = _archived_days(source, market)
+        n_days += len(days)
+        csize = max(1, len(days) // (n_workers * 4) + 1)
+        jobs.extend((source, market, ch) for ch in _chunks(days, csize))
+    frames: list[pl.DataFrame] = []
+    n_empty = n_err = 0
+    errs: list[str] = []
+    with ProcessPoolExecutor(max_workers=n_workers) as ex:
+        for combined, ne, nr, es in ex.map(_parse_chunk, jobs):
+            if combined is not None:
+                frames.append(combined)
+            n_empty += ne
+            n_err += nr
+            if len(errs) < 20:
+                errs.extend(es[:20 - len(errs)])
     rows = 0
     if frames and not dry_run:
         full = pl.concat(frames, how="vertical_relaxed")
