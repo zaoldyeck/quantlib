@@ -20,45 +20,61 @@ from research.crawl.sources import cash_flows as cf
 
 
 def rebuild_cf() -> int:
+    """逐季**串流 INSERT**(不 concat 全部,避免 118K 檔 melt 的記憶體壓力/OOM)。"""
+    import duckdb
     qdirs = sorted(glob.glob("data/financial_statements/*_*"))
     yq = []
     for d in qdirs:
         m = re.match(r"(\d+)_(\d+)$", os.path.basename(d))
         if m:
             yq.append((int(m.group(1)), int(m.group(2))))
-    print(f"[rebuild-cf] {len(yq)} 季", flush=True)
-    frames = []
-    err = 0
+    print(f"[rebuild-cf] {len(yq)} 季(逐季串流)", flush=True)
+    con = duckdb.connect(str(paths.CACHE_DB), read_only=False)
+    con.execute("DROP TABLE IF EXISTS cf_rebuild_tmp")
+    created = False
+    total = err = 0
     for i, (y, q) in enumerate(yq):
         try:
             df = cf.parse_quarter(y, q)
-            if df is not None and not df.is_empty():
-                frames.append(df)
         except Exception as exc:  # noqa: BLE001
             err += 1
             if err <= 3:
                 print(f"  ⚠ {y}Q{q}: {str(exc)[:60]}", flush=True)
-        if i % 20 == 0:
-            print(f"  ...{y}Q{q} ({i}/{len(yq)})", flush=True)
-    full = pl.concat(frames, how="vertical_relaxed").unique(
-        subset=["market", "year", "quarter", "company_code", "title"], keep="last")
-    with Sink() as s:
-        s.con.register("_x", full)
-        s.con.execute("DROP TABLE IF EXISTS cf_progressive_raw")
-        s.con.execute("CREATE TABLE cf_progressive_raw AS SELECT * FROM _x")
-        s.con.unregister("_x")
-    print(f"[rebuild] cf_progressive_raw: {full.height:,} 列({err} 錯)", flush=True)
-    return full.height
+            continue
+        if df is None or df.is_empty():
+            continue
+        con.register("_q", df)
+        if not created:
+            con.execute("CREATE TABLE cf_rebuild_tmp AS SELECT * FROM _q")
+            created = True
+        else:
+            con.execute("INSERT INTO cf_rebuild_tmp SELECT * FROM _q")
+        con.unregister("_q")
+        total += df.height
+        del df
+        if i % 10 == 0:
+            print(f"  ...{y}Q{q} ({i}/{len(yq)}) 累計 {total:,} 列", flush=True)
+    # 去重後換上正式表
+    con.execute("DROP TABLE IF EXISTS cf_progressive_raw")
+    con.execute("CREATE TABLE cf_progressive_raw AS SELECT DISTINCT * FROM cf_rebuild_tmp")
+    n = con.execute("SELECT count(*) FROM cf_progressive_raw").fetchone()[0]
+    con.execute("DROP TABLE IF EXISTS cf_rebuild_tmp")
+    con.close()
+    print(f"[rebuild] cf_progressive_raw: {n:,} 列({err} 錯)", flush=True)
+    return n
 
 
 def regen_raw_quarterly() -> None:
-    from research.db import connect
+    from research.db import RAW_QUARTERLY_PARQUET, connect
     from research.strat_lab.raw_quarterly import build_raw_quarterly
 
-    con = connect(use_cache=True)  # 用重建後的 cache
+    con = connect(use_cache=True)  # 用重建後的 cache(bs/is/cf)
     rq = build_raw_quarterly(con, date(2001, 1, 1), date(2026, 8, 1))
-    out = paths.REPO / "research" / "records" / "raw_quarterly.parquet"
-    rq.write_parquet(str(out))
+    out = RAW_QUARTERLY_PARQUET  # canonical:research/raw_quarterly.parquet(S cfo_ni 閘門讀這個)
+    # 原子換名:先寫 tmp 再 os.replace,避免中途被中止留半檔汙染 S 的 live 源
+    tmp = out + ".tmp"
+    rq.write_parquet(tmp)
+    os.replace(tmp, out)
     key = rq.filter((pl.col("company_code") == "2330") & (pl.col("year") == 2024)
                     & (pl.col("quarter") == 4))
     fs = key.select("f_score_raw").to_series().to_list() if not key.is_empty() else None
