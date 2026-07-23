@@ -23,10 +23,17 @@
 - **✅ stock_per_pbr TPEx「截值」= 誤報(已釐清)**:raw 兩版差異在**每股股利欄**(第 4 欄,
   parser docstring 明寫「刻意不接」),非殖利率;同列 PE/DY/PB 兩版**完全相同** → cache 值
   不受影響、無需 rebuild。raw 合併仍有效(統一目錄)。
-- **🟠 覆蓋缺口(初掃)**:insider_holding 僅 156 檔/771 列(19 年應 ~47,500);
-  tdcc_shareholding 僅近 3 月(歷史回補從未做);taifex 三大法人從 2023(日資料 1998 起);
-  各源最新日不齊(07-17/07-20/07-23 錯位);market_index 從 2009、capital_reduction 從 2011
-  ——待逐源對「真正最早可得日」驗證。
+- **覆蓋驗證(health harness `quantlib.verify.pipeline_health` 逐源掃描,定性)**:
+  - **✅ market_index 從 2009 = 正確(誤報排除)**:2005/2007 raw 僅 2 個 header-only probe 檔
+    (116 bytes 無資料列),該端點真資料 2009 起。重建確認 cache 2009+ 全對(0 errors)。
+  - **🟠 insider_holding 嚴重欠收**:771 列/76 交易日(2007+ 可回溯應 ~47,500)——2026-04 才加的源,
+    只收了近期幾天,2007-2026 歷史未回補。**可回補**(MOPS t56sb12 2-step ajax),但需逐日爬(~4750
+    交易日 × 2 市場,rate-limited,~數小時)→ 大型網路回補任務。
+  - **🔴→ 無法回補 tdcc_shareholding**:endpoint 只給當週快照 → 歷史**結構性無法回補**,只能往前累積
+    (現 2026-04~07)。屬端點限制、非 bug。
+  - **🟡 taifex 法人/結算停更**(institutional 2023~2026-05、settlement ~2026-05,落後 63 天):
+    不在 update.py 刷新路徑;屬期貨研究用(非股票策略),低優先 → 補進刷新 + 回補待期貨戰役。
+  - 近日 staleness(各源到 2026-07-20、缺 07-21~23)= cache 未跑今日 update,非 bug(daily loop 補)。
 - **🟡 parallel_parity.json**:pull_kbars 的平行自證 state 檔誤放 `data/intraday/`(RAW),
   應在 var/ → Phase 1 產物遷移一併處理。
 - **🟡 cash_flows 封存**:用自訂 `_archive_zip`(功能對、有原子性),未用共用 `archive.save_raw_bytes_at`
