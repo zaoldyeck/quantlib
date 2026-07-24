@@ -1,23 +1,23 @@
 {
- "refit_date": "2026-07-13",
+ "refit_date": "2026-07-24",
  "train_window": [
   "2023-07-11",
   "2026-07-09"
  ],
  "config": {
-  "gate": "inst5",
+  "gate": "none",
   "score": "xadv_inv",
-  "pool_months": 2,
-  "h120": 0.0,
+  "pool_months": 3,
+  "h120": 0.6,
   "trail": 0.4,
   "lts": 45,
   "n_slots": 5,
-  "max_new": 1
+  "max_new": 2
  },
  "train_kpi": {
-  "cagr": 2.8034948156278343,
-  "mdd": -0.4405446741641339,
-  "martin": 33.130594167440854
+  "cagr": 2.8703164702153714,
+  "mdd": -0.3239698585552927,
+  "martin": 40.34901509218494
  },
  "selection_metric": "p5(EV44 裁決,KPI v3 主尺)",
  "validation": "EV40 borderline(perm p=0.000 / PBO 0.30 ✓;bootstrap 下界 / DSR ✗)——倉位上限 25% NAV(EV41 配置)",
@@ -41,7 +41,27 @@
     "martin": 37.15230846273257
    },
    "superseded_reason": "2026-07-24 資料權威重建(raw 全量 rebuild + 錯日/幽靈/截斷清除);舊 KPI 部分建於汙染 dtd 籌碼"
+  },
+  {
+   "recorded_on": "2026-07-24",
+   "kpi": {
+    "cagr": 2.8034948156278343,
+    "mdd": -0.4405446741641339,
+    "martin": 33.130594167440854
+   },
+   "config": {
+    "gate": "inst5",
+    "score": "xadv_inv",
+    "pool_months": 2,
+    "h120": 0.0,
+    "trail": 0.4,
+    "lts": 45,
+    "n_slots": 5,
+    "max_new": 1
+   },
+   "superseded_reason": "2026-07-24 乾淨資料 refit(_ENGINE_VER ev53wf-5):舊 cfg 的 inst5 gate 為汙染 dtd 法人資料所選;乾淨 top-1 gate=none/pm=3/h120=0.6/max_new=2,MDD -44.1%→-32.4%、Martin 33.1→40.3"
   }
  ],
- "train_kpi_recorded_on": "2026-07-24"
+ "train_kpi_recorded_on": "2026-07-24",
+ "refit_reason": "資料權威重建(raw rebuild + 錯日/幽靈清除)→ 制度性重 refit(EV43 慣例);網格不變"
 }

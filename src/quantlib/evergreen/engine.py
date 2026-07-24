@@ -290,7 +290,8 @@ def walkforward_nav(con, end: Date, out_start: Date | None = None) -> pl.DataFra
 
 _WF_CACHE = Path("src/quantlib/evergreen/data/_wf_nav_cache.parquet")
 _CACHE_DB = Path(f"{paths.CACHE_DB}")
-_ENGINE_VER = "ev53wf-4"  # 遞增即強制 wf 重算(-2 last-day、-3 移除 registry 硬切、-4 初始 in-sample 段)
+_ENGINE_VER = "ev53wf-5"  # 遞增即強制 wf 重算(-2 last-day、-3 移除 registry 硬切、-4 初始 in-sample 段、
+                          #  -5 2026-07-24 資料權威重建〔raw 全量 rebuild+錯日/幽靈清除〕→ 全 fold refit 重選)
 
 
 def _wf_key(end: Date) -> str:
