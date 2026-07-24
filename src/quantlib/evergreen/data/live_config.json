@@ -1,38 +1,47 @@
 {
-  "refit_date": "2026-07-13",
-  "train_window": [
-    "2023-07-11",
-    "2026-07-09"
-  ],
-  "config": {
-    "gate": "inst5",
-    "score": "xadv_inv",
-    "pool_months": 2,
-    "h120": 0.0,
-    "trail": 0.4,
-    "lts": 45,
-    "n_slots": 5,
-    "max_new": 1
+ "refit_date": "2026-07-13",
+ "train_window": [
+  "2023-07-11",
+  "2026-07-09"
+ ],
+ "config": {
+  "gate": "inst5",
+  "score": "xadv_inv",
+  "pool_months": 2,
+  "h120": 0.0,
+  "trail": 0.4,
+  "lts": 45,
+  "n_slots": 5,
+  "max_new": 1
+ },
+ "train_kpi": {
+  "cagr": 2.8034948156278343,
+  "mdd": -0.4405446741641339,
+  "martin": 33.130594167440854
+ },
+ "selection_metric": "p5(EV44 裁決,KPI v3 主尺)",
+ "validation": "EV40 borderline(perm p=0.000 / PBO 0.30 ✓;bootstrap 下界 / DSR ✗)——倉位上限 25% NAV(EV41 配置)",
+ "next_refit_due": "2027-01(半年)或 2027-07(一年)",
+ "grid_frozen": "EV38∪EV42 存活軸;變更須重過兩折 walk-forward",
+ "_kpi_history": [
+  {
+   "recorded_on_buggy_data": {
+    "cagr": 3.163982392064261,
+    "mdd": -0.44054472187877025,
+    "martin": 37.32872456118774,
+    "p5": 1.5050277434826855
+   },
+   "note": "2026-07-23 全資料鏈從 raw 重建(162 parser bug:dtd 自營商錯位/Int32/除權息參考價 FC1 等)。此為修正前 buggy 資料值。train_kpi 已重錄為完全校正 cache(FC1 除權息參考價欄生效)的正確值。完整 campaign 重驗證(重選 champion config)待做。"
   },
-  "train_kpi": {
+  {
+   "recorded_on": "2026-07-23 fully-corrected cache (FC1 ex-right reference-price active)",
+   "kpi": {
     "cagr": 3.1532194420637625,
     "mdd": -0.4405446741641339,
     "martin": 37.15230846273257
-  },
-  "selection_metric": "p5(EV44 裁決,KPI v3 主尺)",
-  "validation": "EV40 borderline(perm p=0.000 / PBO 0.30 ✓;bootstrap 下界 / DSR ✗)——倉位上限 25% NAV(EV41 配置)",
-  "next_refit_due": "2027-01(半年)或 2027-07(一年)",
-  "grid_frozen": "EV38∪EV42 存活軸;變更須重過兩折 walk-forward",
-  "_kpi_history": [
-    {
-      "recorded_on_buggy_data": {
-        "cagr": 3.163982392064261,
-        "mdd": -0.44054472187877025,
-        "martin": 37.32872456118774,
-        "p5": 1.5050277434826855
-      },
-      "note": "2026-07-23 全資料鏈從 raw 重建(162 parser bug:dtd 自營商錯位/Int32/除權息參考價 FC1 等)。此為修正前 buggy 資料值。train_kpi 已重錄為完全校正 cache(FC1 除權息參考價欄生效)的正確值。完整 campaign 重驗證(重選 champion config)待做。"
-    }
-  ],
-  "train_kpi_recorded_on": "2026-07-23 fully-corrected cache (FC1 ex-right reference-price active)"
+   },
+   "superseded_reason": "2026-07-24 資料權威重建(raw 全量 rebuild + 錯日/幽靈/截斷清除);舊 KPI 部分建於汙染 dtd 籌碼"
+  }
+ ],
+ "train_kpi_recorded_on": "2026-07-24"
 }
