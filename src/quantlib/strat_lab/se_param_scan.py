@@ -47,7 +47,8 @@ def main() -> None:
             print(f"  {label}: FAILED {r.stderr[-120:]}", flush=True)
             continue
         df = pl.read_csv(paths.OUT_STRAT_LAB / f"scan_{label}_summary.csv")
-        k = df.filter(pl.col("name") == "ev_v3_wf").select(["cagr", "sortino", "mdd", "calmar"]).to_dicts()[0]
+        strat = df.filter(~pl.col("name").str.starts_with("hold_"))  # 有的變體 name 帶後綴,取策略列
+        k = strat.select(["cagr", "sortino", "mdd", "calmar"]).to_dicts()[0]
         print(f"  {label:10}: CAGR {k['cagr']:+.1%}  Sortino {k['sortino']:.2f}  "
               f"MDD {k['mdd']:+.1%}  Calmar {k['calmar']:.2f}", flush=True)
     print("\n  現役基準  : CAGR +87.1%  Sortino 4.36  MDD -25.7%  Calmar 3.39")
