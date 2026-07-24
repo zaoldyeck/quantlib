@@ -128,3 +128,30 @@ def test_paths_module_is_never_shadowed() -> None:
                     break
     assert not offenders, "paths 被區域變數遮蔽(會在執行期 UnboundLocalError):\n  " \
         + "\n  ".join(offenders)
+
+
+def test_no_parents_based_repo_anchor():
+    """禁止 `Path(__file__).resolve().parents[N]` 自算 repo 根——一律 paths.REPO。
+
+    血的教訓(2026-07-24,rename research→src/quantlib 深度 +1 的一窩地雷):
+    - data_calendar QUOTE_DIR 指到不存在的 src/data → 休市日曆整個死掉(假日全誤判交易日);
+    - brokers/fubon DEFAULT_ENV_PATH 指到 src/quantlib/.env(不存在)→ 憑證載入靜默失效;
+    - 全庫掃出 80+ 處同類(tri/advisors、trading/*、futures/*…),一次消類(fix_parents_anchors)。
+    自算根錨對「搬目錄」零免疫;paths.REPO 是唯一真源。套件內相對資源
+    (如 `HERE.parents[0] / "registry"`)不受此限——本法條只抓 resolve().parents 形態。
+    """
+    offenders = []
+    for p in sorted((REPO / "src" / "quantlib").rglob("*.py")):
+        rel = p.relative_to(REPO).as_posix()
+        if ".venv" in rel or "/tests/" in rel or rel.endswith("paths.py") \
+                or rel.endswith("tools/fix_parents_anchors.py"):
+            continue
+        try:
+            text = p.read_text(encoding="utf-8")
+        except (UnicodeDecodeError, OSError):
+            continue
+        for i, line in enumerate(text.splitlines(), 1):
+            if ".resolve().parents[" in line and not line.lstrip().startswith("#"):
+                offenders.append(f"{rel}:{i}: {line.strip()[:80]}")
+    assert not offenders, (
+        "自算 repo 根錨(rename 即錯位;改用 paths.REPO):\n  " + "\n  ".join(offenders))

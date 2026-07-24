@@ -12,7 +12,7 @@ import polars as pl
 from plotly.subplots import make_subplots
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = paths.REPO
 RESEARCH_ROOT = REPO_ROOT / "src" / "quantlib"
 STRAT_LAB = RESEARCH_ROOT / "strat_lab"
 sys.path.insert(0, str(REPO_ROOT))

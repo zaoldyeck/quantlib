@@ -25,7 +25,6 @@ from pathlib import Path
 import duckdb
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 CACHE = paths.CACHE_DB
 SEEDS = Path(__file__).parent / "seeds"
 

@@ -26,7 +26,6 @@ from typing import Callable
 import polars as pl
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 CACHE_DB = paths.CACHE_DB
 FIRST_SEEN = paths.REVENUE_FIRST_SEEN
 

@@ -25,7 +25,6 @@ from quantlib import paths
 
 C = "company_code"
 #: 路徑一律以 **repo 根**為錨,不依賴 cwd(同 exit_replay 慣例)。
-_REPO = Path(__file__).resolve().parents[2]
 STATE_DIR = str(paths.STATE_POSITIONS)
 
 # ── per-position 帳戶事實(首見日 + 成本)──────────────────────────

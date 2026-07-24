@@ -19,7 +19,7 @@ import pandas as pd
 import polars as pl
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = paths.REPO
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src" / "quantlib"))
 RESULTS = paths.OUT_STRAT_LAB

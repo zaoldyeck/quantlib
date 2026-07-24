@@ -18,7 +18,6 @@ import sys
 from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 STATE_DIR = paths.STATE_LIVE / "plans"
 
 

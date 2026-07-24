@@ -20,7 +20,6 @@ from datetime import date
 from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 CACHE_DB = paths.CACHE_DB
 CANDLES_DIR = paths.OUT / "trading" / "candles"
 

@@ -22,7 +22,7 @@ from pathlib import Path
 import pandas as pd
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = paths.REPO
 ENGINE = Path(__file__).parent / "engine.py"
 REGISTRY = Path(__file__).parent / "registry" / "thesis_registry_2025.csv"
 ROLES = Path(__file__).parent / "registry" / "member_roles.csv"

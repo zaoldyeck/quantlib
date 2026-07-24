@@ -33,8 +33,8 @@ _TPEX_MAP = {
     "最低": "lowest_price", "成交股數": "trade_volume", "成交金額(元)": "trade_value",
     "成交筆數": "transaction", "最後買價": "last_best_bid_price", "最後賣價": "last_best_ask_price",
 }
-#: cache daily_quote 有的數值欄(比對這些)
-_DQ_NUMCOLS = ["trade_volume", "transaction", "trade_value", "opening_price", "highest_price",
+#: cache daily_quote 實際數值欄(不含成交筆數 transaction——cache 未存)
+_DQ_NUMCOLS = ["trade_volume", "trade_value", "opening_price", "highest_price",
                "lowest_price", "closing_price", "last_best_bid_price", "last_best_ask_price"]
 
 

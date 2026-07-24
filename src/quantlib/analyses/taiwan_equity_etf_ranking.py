@@ -32,7 +32,7 @@ from quantlib.db import connect  # noqa: E402
 from quantlib.prices import fetch_adjusted_panel  # noqa: E402
 
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = paths.REPO
 OUT_DIR = paths.OUT
 DOC_PATH = ROOT / "docs" / "taiwan_equity_etf_ranking.md"
 DOMESTIC_JSON = ROOT / "data" / "etf" / "domestic.json"

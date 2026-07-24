@@ -71,7 +71,7 @@ import polars as pl
 from quantlib.intraday.ratelimit import RateLimiter
 from quantlib import paths
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = paths.REPO
 OUT = paths.RAW_INTRADAY
 HIST_FLOOR = Date(2020, 3, 2)      # 官方股票/指數歷史下限
 RESERVE_BYTES = 2 * 1024 ** 2      # 一個工作單位的量級;剩餘低於此註定失敗,提早停

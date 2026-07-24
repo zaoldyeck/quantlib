@@ -36,9 +36,10 @@ from zoneinfo import ZoneInfo
 
 import duckdb
 import polars as pl
+from quantlib import paths
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = paths.REPO
 DEFAULT_ROOT_FOLDER_ID = "1mLvxQdqEQUty9EOeUQ33BoQcqxToM-SE"
 DEFAULT_DATA_ROOT = REPO_ROOT / "data" / "taifex" / "rpt"
 DEFAULT_RAW_DIR = DEFAULT_DATA_ROOT / "raw"

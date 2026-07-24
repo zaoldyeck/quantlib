@@ -22,8 +22,9 @@ from __future__ import annotations
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
+from quantlib import paths
 
-_REPO = Path(__file__).resolve().parents[3]
+_REPO = paths.REPO
 
 
 def _git(*args: str) -> str | None:

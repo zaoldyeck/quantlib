@@ -23,7 +23,6 @@ import json
 from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 SER_LEDGER = paths.STATE / "serenity" / "live_positions.json"
 
 #: 成本來源標記 → 給人看的短標籤

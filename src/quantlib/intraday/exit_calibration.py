@@ -25,7 +25,7 @@ import numpy as np
 import polars as pl
 from quantlib import paths
 
-REPO = Path(__file__).resolve().parents[2]
+REPO = paths.REPO
 KB = paths.RAW_INTRADAY
 TRAIL = 0.35            # S 規格
 WIDE = 0.50             # 安全網變體

@@ -13,9 +13,10 @@ from pathlib import Path
 
 import duckdb
 import polars as pl
+from quantlib import paths
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+REPO_ROOT = paths.REPO
 DEFAULT_RPT_LAKE_DIR = REPO_ROOT / "data" / "taifex" / "rpt" / "lake"
 DEFAULT_RPT_FEATURE_DIR = DEFAULT_RPT_LAKE_DIR / "features"
 DEFAULT_PRODUCTS = ("TX", "MTX", "TMF", "TE", "TF")

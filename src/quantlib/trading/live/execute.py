@@ -25,7 +25,6 @@ import time
 from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
 LOG_DIR = paths.OUT / "trading" / "live_executions"
 #: execution.trade 走完整場(等 09:00 → 階梯撈價 → 收盤未竟盤後掛收盤價)可能數小時;
 #: 上限給到遠過盤後撮合(14:30)以避免無限卡住

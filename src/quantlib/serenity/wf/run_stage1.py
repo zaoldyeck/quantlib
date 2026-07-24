@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = paths.REPO
 sys.path.insert(0, str(REPO_ROOT))
 ENGINE = REPO_ROOT / "src" / "quantlib" / "serenity" / "engine.py"
 REGISTRY = Path(__file__).parent / "registry_wf.csv"

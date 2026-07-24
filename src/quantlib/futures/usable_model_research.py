@@ -21,7 +21,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from quantlib import paths
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = paths.REPO
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 STRAT_LAB = ROOT / "strat_lab"
@@ -39,7 +39,7 @@ from strat_lab.evaluation import nav_metrics
 from strat_lab.validator import ValidationConfig
 
 
-BASE = Path(__file__).resolve().parents[2]
+BASE = paths.REPO
 DB_PATH = paths.CACHE_DB
 OUT_DIR = paths.OUT_STRAT_LAB / "futures_tx_usable_model"
 DOC_PATH = BASE / "docs" / "strategy_research" / "futures_usable_model_strategy_ranking.md"

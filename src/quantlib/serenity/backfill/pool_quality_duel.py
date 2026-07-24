@@ -17,12 +17,13 @@ import numpy as np
 import pandas as pd
 import polars as pl
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = paths.REPO
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src" / "quantlib"))
 
 from quantlib.db import connect  # noqa: E402
 from quantlib.prices import fetch_adjusted_panel  # noqa: E402
+from quantlib import paths
 
 REG_DIR = REPO_ROOT / "src" / "quantlib" / "serenity" / "registry"
 EV_REG = REPO_ROOT / "src" / "quantlib" / "evergreen" / "data" / "registry_v3.parquet"

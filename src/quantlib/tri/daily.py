@@ -20,7 +20,7 @@ import sys
 from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = paths.REPO
 from datetime import date as Date
 
 import polars as pl

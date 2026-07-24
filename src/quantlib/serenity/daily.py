@@ -36,7 +36,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = paths.REPO
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src" / "quantlib"))
 

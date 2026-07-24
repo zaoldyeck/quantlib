@@ -14,7 +14,6 @@ from zoneinfo import ZoneInfo
 import polars as pl
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
 ALIAS_PATH = paths.NEWS_ALIASES
 TAIPEI = ZoneInfo("Asia/Taipei")
 

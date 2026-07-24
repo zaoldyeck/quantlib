@@ -25,7 +25,7 @@ from pathlib import Path
 import polars as pl
 from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = paths.REPO
 EV_REGISTRY = REPO_ROOT / "src" / "quantlib" / "evergreen" / "data" / "registry_v3.parquet"
 EV_NEWS_DIRS = (REPO_ROOT / "src" / "quantlib" / "evergreen" / "data" / "ev28_news",
                 REPO_ROOT / "src" / "quantlib" / "evergreen" / "data" / "ev45_news",

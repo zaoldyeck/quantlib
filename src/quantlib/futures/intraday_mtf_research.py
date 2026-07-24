@@ -15,7 +15,7 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from quantlib import paths
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = paths.REPO
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 STRAT_LAB = ROOT / "strat_lab"
@@ -32,7 +32,7 @@ from strat_lab.evaluation import CAPITAL_DEFAULT, nav_metrics, trade_distributio
 from strat_lab.validator import ValidationConfig, recent_one_year_metrics
 
 
-BASE = Path(__file__).resolve().parents[2]
+BASE = paths.REPO
 DB_PATH = paths.CACHE_DB
 RPT_LAKE = BASE / "data" / "taifex" / "rpt" / "lake"
 OUT_DIR = paths.OUT_STRAT_LAB / "futures_tx_intraday_mtf"

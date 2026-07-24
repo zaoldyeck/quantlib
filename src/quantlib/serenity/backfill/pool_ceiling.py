@@ -16,7 +16,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-REPO_ROOT = Path(__file__).resolve().parents[4]
+REPO_ROOT = paths.REPO
 sys.path.insert(0, str(REPO_ROOT))
 sys.path.insert(0, str(REPO_ROOT / "src" / "quantlib"))
 
@@ -24,6 +24,7 @@ from quantlib.db import connect  # noqa: E402
 from quantlib.prices import fetch_adjusted_panel  # noqa: E402
 
 from quantlib.serenity.backfill.pool_quality_duel import (  # noqa: E402
+from quantlib import paths
     MONTHS, boot_cagr_lb, evergreen_pools, metrics, serenity_pools,
 )
 

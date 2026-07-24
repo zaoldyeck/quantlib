@@ -15,8 +15,9 @@ import re
 from pathlib import Path
 
 import pandas as pd
+from quantlib import paths
 
-REPO_ROOT = Path(__file__).resolve().parents[3]
+REPO_ROOT = paths.REPO
 DOCS = REPO_ROOT / "docs" / "serenity"
 REG = Path(__file__).parent / "thesis_registry_2025.csv"
 OUT_DIR = Path(__file__).parent / "evidence"

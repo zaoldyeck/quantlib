@@ -16,8 +16,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from quantlib import paths
 
-DEFAULT_ENV_PATH = Path(__file__).resolve().parents[1] / ".env"
+
+# .env 一律在 repo 根(唯一真源 paths.REPO;rename 前 parents[1] 恰為專案根、rename 後
+# 指到 src/quantlib/ 讀不到 .env——parents[N] 自算根類地雷,同 data_calendar 事故)
+DEFAULT_ENV_PATH = paths.REPO / ".env"
 PENDING_ACTIVATION_MARKERS = (
     "無簽署完成API使用風險暨聲明書帳號",
     "連線測試成功",
