@@ -831,3 +831,31 @@ exit_rules 常數(live 六道門/tri 同源)、`src/quantlib/serenity/data/live_
 大量/穎崴/朋億)。現有持倉自動改按新六道門管理(tp 673→590 級、trail 25%、td30)。
 下次 refit:2027-01 或 2027-07;網格凍結。trials 累計 ≈ 2,371+1,680(refit)= 4,051
 (refit cells 依 EV43 慣例屬年度制度性重選,DSR 另計於 refit 血統)。
+
+---
+
+## 2026-07-24 乾淨資料重優化 campaign(goal:Evergreen+Serenity 雙引擎,直到無法再進化)
+
+**背景**:資料權威重建(raw 全量 rebuild + 錯日/幽靈/截斷清除)後,汙染世代的所有選參/背書
+需重驗。Evergreen 側已重 refit(inst5 gate 證實為幽靈 dtd 法人資料所選,換 gate=none,
+MDD -44→-32%)。本段記 Serenity 側 trials。
+
+### T-2026072401:現役 ev_v3_wf 乾淨重驗(revalidation,非變更)
+現役 cli_flags + train 窗 2023-07-11~2026-07-09(registry mode):**CAGR 72.8% / Sortino 4.04 /
+MDD -16.5% / Calmar 4.42**(refit 記錄 111.9% 為汙染世代讀數,-39pp 幻影;體質仍強,勝
+2330/0050)。注意:registry mode 條目集中 2025+,前段空轉——長窗 CAGR 被稀釋,語義與 refit
+血統(wf 機械 registry)不完全同尺。
+
+### T-2026072402:出場網格 96 cells 乾淨重跑(tp×trail×abs×time;凍結網格之出場子集)
+**預註冊判準**:現役 cell 若非 top 區 → 需重選;top-1 若非現役 → 配對檢定 + 全窗 + 逐年
+一致才可提案換參(PBO 教訓:不憑排名)。
+**結果**:現役 tp40/tr25/ab15/td30 = Sortino 第 5/96(高原頂部,參數穩健)。top-1 =
+**tp40/trail=none/ab15/td30**:3y 窗 82.9%/Sortino 4.52 vs 現役 72.8%/4.04(MDD 同 -16.5%);
+4y 窗 57.3%/3.91 vs 50.7%/3.50;**配對 block-bootstrap 年化差 +4.5%,95% CI [+0.0%,+12.1%],
+P(≤0)=0.023 顯著**。機制:trail25 在 tp40+abs15+td30 多重出場下冗餘(3 年僅觸發 3 次)且該
+數次為誤傷——去 trail 讓 tp/td 收割完整右尾。
+**Caveat**:registry mode 有效期 ~2025-2026;機械 registry 全窗覆核進行中(T-03)。
+
+### T-2026072403(進行中):機械 registry(battle18 語義)全窗覆核 trnone vs tr25
+判準:全窗配對差同號且逐年一致 → 提案「去 trail」換參(等使用者裁決,依換帥慣例);
+反號/不一致 → 判 registry-mode 特例,不換。
