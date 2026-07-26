@@ -89,35 +89,54 @@ def prep_cached(con, end: str | None = None):
 def run_s_full(panel, feat, elig, start: str, *,
                _exit_spec: "ExitSpec | None" = None,
                _port_spec: "PortSpec | None" = None,
-               _fresh_days: int = 7, _stale_days: int = 26, _cfo_q: float = 0.5
+               _exec_spec: "ExecSpec | None" = None,
+               _fresh_days: int = 7, _stale_days: int = 26, _cfo_q: float = 0.5,
+               _wrel: dict | None = None,
+               _score_fn=None, _entries_fn=None, _top_k: int = 5,
                ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """S 規格回測(STRATEGY.md §4-§6),回 (歸一化 NAV, 交易明細 trades)。
     trades = TRADE_SCHEMA(進出場日/ret_net ROI/days_held/exit_reason;open=當下持有)。
 
-    底線參數為研究用參數化(**預設 = canonical S 規格**,生產行為不變):_exit_spec/_port_spec
-    (出場/組合)、_fresh_days(池=營收新鮮 ≤N 日)、_stale_days(≥N 日出場)、_cfo_q
-    (cfo_ni 閘分位)。僅供 strat_lab 結構變體/高原驗證實驗傳入,不改官方規格。"""
+    底線參數皆為**研究用 hooks(預設 = canonical S 規格,生產行為逐位不變)**,供 strat_lab
+    變體實驗傳入,不改官方規格:
+      _exit_spec/_port_spec/_exec_spec  出場/組合/執行(fill_at、min_hold_days、profit_recycle…)
+      _fresh_days/_stale_days/_cfo_q    池新鮮度閘 / 陳舊出場 / cfo_ni 閘分位
+      _wrel                             因子權重 dict(取代 monkeypatch WREL——後者非執行緒安全)
+      _score_fn(df) -> df               自訂計分:收「過濾後含全因子欄的 df」、回傳含 'score' 欄
+                                        (涵蓋聚合形態〔幾何/算術/z-score〕、非線性、時間平滑)
+      _entries_fn(entries) -> entries   自訂進場後處理:絕對分數門檻、自訂 'weight' 欄(sizing)
+      _top_k                            每日候選名單長度(與 n_slots 分離;>slots = 有備選)
+    """
+    wrel = _wrel or WREL
     pool = feat.filter(pl.col("rev_fresh_days") <= _fresh_days)
     df = (pool.join(elig.filter(pl.col("eligible")).select(["date", C]),
                     on=["date", C], how="semi")
-          .drop_nulls(subset=list(WREL))
+          .drop_nulls(subset=list(wrel))
           # defense-in-depth(2026-07-23 稽核 D-apex-s-live):任何因子若殘留 inf/NaN
           # (drop_nulls 不剔除 NaN/inf),rank 會把它排到頂端污染選股。六因子一律要求
           # 有限值,關掉此陷阱(rev_seq 護欄已治本,此為第二道防線)。
-          .filter(pl.all_horizontal([pl.col(c).is_finite() for c in WREL]))
+          .filter(pl.all_horizontal([pl.col(c).is_finite() for c in wrel]))
           .filter(pl.col("cfo_ni_ratio_ttm")
                   >= pl.col("cfo_ni_ratio_ttm").quantile(_cfo_q).over("date")))
-    expr = None
-    for c_, wt in WREL.items():
-        term = ((pl.col(c_).rank() / pl.len()).over("date")) ** wt
-        expr = term if expr is None else expr * term
-    sc = (df.with_columns(expr.alias("score"))
-          .select(["date", C, "score"])
+    if _score_fn is not None:
+        scored = _score_fn(df)
+    else:
+        expr = None
+        for c_, wt in wrel.items():
+            term = ((pl.col(c_).rank() / pl.len()).over("date")) ** wt
+            expr = term if expr is None else expr * term
+        scored = df.with_columns(expr.alias("score"))
+    keep = ["date", C, "score"] + (["weight"] if "weight" in scored.columns else [])
+    sc = (scored.select(keep)
           .filter(pl.col("date") >= pl.lit(start).str.to_date()))
-    entries, _ = entries_and_flags(sc, 5, 10**9)
+    entries, _ = entries_and_flags(sc, _top_k, 10**9)
+    if "weight" in sc.columns:   # entries_and_flags 只留 score;把 weight 接回來
+        entries = entries.join(sc.select(["date", C, "weight"]), on=["date", C], how="left")
+    if _entries_fn is not None:
+        entries = _entries_fn(entries)
     stale = (feat.filter(pl.col("rev_fresh_days") >= _stale_days).select(["date", C])
              .filter(pl.col("date") >= pl.lit(start).str.to_date()))
-    res = simulate(panel, entries, exit_flags=stale, exec_spec=ExecSpec(),
+    res = simulate(panel, entries, exit_flags=stale, exec_spec=_exec_spec or ExecSpec(),
                    port_spec=_port_spec or PortSpec(n_slots=5, max_new_per_day=2),
                    exit_spec=_exit_spec or ExitSpec(trailing_stop=0.35, time_stop=30,
                                                     loser_time_stop=15),
