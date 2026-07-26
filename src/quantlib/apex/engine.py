@@ -50,6 +50,29 @@ class ExecSpec:
     slippage: float = 0.001
     fill_at: str = "next_open"          # next_open | next_close | next_mid(分批 50/50)
     limit_buffer: float = 0.95          # 擋單門檻 = buffer × era_limit(無掛單資料時)
+    buy_limit: float | None = None      # 買單改掛限價:限價 = 決策日收盤 × (1 + buy_limit)
+    # ↑ None = 現行市價成交(依 fill_at)。設值後語義:
+    #   成交條件 = 成交日**最低價 ≤ 限價**(日 K 的 low 即完整判定,不需盤中資料);
+    #   成交價   = min(當日開盤, 限價)——開盤已低於限價時以開盤成交(限價單真實行為);
+    #   **不加滑價**——限價即成交價上界,再加滑價是錯的模型(這也正是限價單的實質優勢之一);
+    #   未成交   = 不佔席位、不動現金,該候選隔日若仍入選則自然重掛(不特別記憶)。
+    #   max_new_per_day 在限價模式下節流的是「掛單數」,成交數 ≤ 掛單數。
+    buy_limit_col: str | None = None    # 逐股逐日掛價:panel 中存「相對前收 offset」的欄名
+    # ↑ 與 buy_limit 二擇一(同時給則報錯)。供波動度自適應等規則使用——規則本身算在
+    #   研究層並掛回 panel,引擎只負責套用,不把 ATR 之類的定義寫死進引擎。
+    #   ⚠ **前視防線在研究層**:引擎讀的是「成交日 d 那一列」的 offset,而掛單發生在
+    #   d 的盤前,故該值只能由 ≤ d−1 的資料算出(研究層算完務必 .shift(1).over(code))。
+    buy_limit_fallback_close: bool = False
+    # ↑ 限價沒觸到時,改以**當日收盤價**成交(而非放棄)。這正是實盤 BUY_PATIENT 的語義
+    #   「整場掛結構位撈最低,盤中永不跨價,收盤未竟由盤後定價(14:30 撮合=收盤價)收尾」。
+    #   不開此旗標的限價單語義是「沒觸到就不買、隔日重評」,兩者是不同的策略,別混談。
+    sell_limit: float | None = None     # 賣單掛限價 = 決策日收盤 × (1 + sell_limit)
+    # ↑ 成交條件 = 成交日**最高價 ≥ 限價**;成交價 = max(開盤, 限價);同樣不加滑價。
+    #   未成交時**部位留著、出場理由掛在 pending_exit 隔日重掛**(沿用跌停鎖死那條重試路徑)
+    #   ——這正是賣單限價的真實風險:沒賣掉 ≠ 沒事,是繼續扛。
+    sell_limit_fallback_close: bool = False
+    # ↑ 賣單版的收盤保底,對應實盤 SELL_EXIT「整場撈相對高,收盤未竟由盤後定價收尾」。
+    #   有無保底是**兩種完全不同的策略**:沒保底 = 扛著風險等價格,有保底 = 當天一定出場。
 
 
 @dataclass(frozen=True)
@@ -124,14 +147,41 @@ def simulate(
       exit_flags: 訊號死亡出場 (date, company_code)——date 收盤判定、隔日賣出。
       eligibility: (date, company_code, eligible)——決策日資格,semi-join 過濾 entries。
       start: NAV 起算日(預設 panel 第 2 個交易日);之前的 panel 只當暖機。
+
+    限價單模式(exec_spec.buy_limit / buy_limit_col / sell_limit)需 panel 具 low/high;
+    語義與各自的風險見 ExecSpec 欄位註解。預設 None = 市價,行為與過去逐位相同。
     """
     if exec_spec.fill_at not in ("next_open", "next_close", "next_mid"):
         raise ValueError(
             f"fill_at must be next_open|next_close|next_mid, got {exec_spec.fill_at!r}"
         )
+    if exec_spec.buy_limit is not None and exec_spec.buy_limit_col is not None:
+        raise ValueError("buy_limit 與 buy_limit_col 二擇一(固定掛價 vs 逐股掛價)")
+    if ((exec_spec.buy_limit is not None or exec_spec.buy_limit_col is not None)
+            and port_spec.pyramid_trigger is not None):
+        # 加碼走市價路徑,與限價買單語義不同源;混用會靜默分岔,故明確擋下而非默默混算。
+        raise ValueError("buy_limit 與 pyramid_trigger 尚未同時支援(加碼仍為市價成交)")
+    if exec_spec.sell_limit is not None and (
+            exit_spec.profit_recycle is not None or exit_spec.same_day_exit):
+        # 部分回收與當日出場仍走市價路徑,語義不同源;同上,明擋不默默混算。
+        raise ValueError("sell_limit 與 profit_recycle/same_day_exit 尚未同時支援")
 
     exact_lock = "ask_missing" in panel.columns and "bid_missing" in panel.columns
+    use_buy_limit = exec_spec.buy_limit is not None or exec_spec.buy_limit_col is not None
+    use_sell_limit = exec_spec.sell_limit is not None
+    if use_buy_limit and "low" not in panel.columns:
+        raise ValueError("buy_limit 需要 panel 具 'low' 欄(成交判定 = 最低價 ≤ 限價)")
+    if use_sell_limit and "high" not in panel.columns:
+        raise ValueError("sell_limit 需要 panel 具 'high' 欄(成交判定 = 最高價 ≥ 限價)")
+    if exec_spec.buy_limit_col is not None and exec_spec.buy_limit_col not in panel.columns:
+        raise ValueError(f"buy_limit_col={exec_spec.buy_limit_col!r} 不在 panel 欄位中")
     cols = ["date", "company_code", "open", "close"] + (
+        ["low"] if use_buy_limit else []
+    ) + (
+        ["high"] if use_sell_limit else []
+    ) + (
+        [exec_spec.buy_limit_col] if exec_spec.buy_limit_col is not None else []
+    ) + (
         ["ask_missing", "bid_missing"] if exact_lock else []
     )
     px = panel.select(cols).sort(["date", "company_code"])
@@ -193,7 +243,34 @@ def simulate(
         sell_block = fill_ret <= -thr
     last_bar = (D - 1) - np.argmax(has_bar[::-1], axis=0)
 
-    if exit_spec.same_day_exit:
+    # 限價買單:限價 = 決策日收盤(= prev_mark)×(1+buy_limit);low ≤ 限價才成交
+    if use_buy_limit:
+        low_ = np.full((D, C), np.nan)
+        low_[d_ix, c_ix] = px["low"].to_numpy()
+        if exec_spec.buy_limit_col is not None:
+            off = np.full((D, C), np.nan)
+            off[d_ix, c_ix] = px[exec_spec.buy_limit_col].cast(pl.Float64).to_numpy()
+        else:
+            off = exec_spec.buy_limit
+        buy_lim_px = prev_mark * (1.0 + off)
+        buy_fill_px = np.minimum(open_, buy_lim_px)
+        with np.errstate(invalid="ignore"):
+            buy_touch = has_bar & (low_ <= buy_lim_px) & (buy_fill_px > 0)
+    else:
+        buy_fill_px = buy_touch = None
+
+    if use_sell_limit:
+        high_ = np.full((D, C), np.nan)
+        high_[d_ix, c_ix] = px["high"].to_numpy()
+        sell_lim_px = prev_mark * (1.0 + exec_spec.sell_limit)
+        sell_fill_px = np.maximum(open_, sell_lim_px)
+        with np.errstate(invalid="ignore"):
+            sell_touch = has_bar & (high_ >= sell_lim_px) & (sell_fill_px > 0)
+    else:
+        sell_fill_px = sell_touch = None
+
+    if exit_spec.same_day_exit or exec_spec.sell_limit_fallback_close:
+        # 收盤價賣出的鎖死判定(同日出場、以及限價賣的盤後定價保底共用)
         with np.errstate(invalid="ignore", divide="ignore"):
             _cr = close / prev_mark - 1.0
         if exact_lock:
@@ -259,9 +336,10 @@ def simulate(
     r_inv: list[float] = []
     r_npos: list[int] = []
 
-    def _sell(i: int, pos: _Pos, px_raw: float, exit_d: int, reason: str) -> None:
+    def _sell(i: int, pos: _Pos, px_raw: float, exit_d: int, reason: str,
+              slip: bool = True) -> None:
         nonlocal cash
-        px_out = px_raw * (1 - xc.slippage)
+        px_out = px_raw * (1 - xc.slippage) if slip else px_raw   # 限價賣不加滑價(限價即下界)
         proceeds = pos.shares * px_out * (1 - xc.commission - xc.sell_tax)
         cash += proceeds
         trades.append(
@@ -293,7 +371,19 @@ def simulate(
             )
             if reason is None:
                 continue
-            if has_bar[d, i] and not sell_block[d, i] and fill_px_mat[d, i] > 0:
+            if use_sell_limit:
+                # 限價賣:high ≥ 限價才成交;沒成交 → 部位留著、理由掛 pending 隔日重掛
+                # (開了 fallback 則當日收盤價收尾,對應實盤 SELL_EXIT 的盤後定價)
+                if has_bar[d, i] and sell_touch[d, i] and sell_fill_px[d, i] > 0:
+                    positions.pop(i)
+                    _sell(i, pos, sell_fill_px[d, i], d, reason, slip=False)
+                elif (xc.sell_limit_fallback_close and has_bar[d, i]
+                        and not sd_sell_block[d, i] and close[d, i] > 0):
+                    positions.pop(i)
+                    _sell(i, pos, close[d, i], d, reason, slip=False)
+                else:
+                    pos.pending_exit = reason
+            elif has_bar[d, i] and not sell_block[d, i] and fill_px_mat[d, i] > 0:
                 positions.pop(i)
                 _sell(i, pos, fill_px_mat[d, i], d, reason)
             else:
@@ -320,21 +410,32 @@ def simulate(
                     pos.recycled = True
 
         # 3) 進場(score 高者優先;漲停鎖死擋掉不重試)
+        #    限價模式:new_orders 節流「掛單數」,未成交不佔席位、不動現金(隔日自然重掛)
         new_fills = 0
+        new_orders = 0
         for score, i, w in by_day.get(d, ()):
             if len(positions) >= port_spec.n_slots:
                 break
-            if port_spec.max_new_per_day is not None and new_fills >= port_spec.max_new_per_day:
+            if port_spec.max_new_per_day is not None and new_orders >= port_spec.max_new_per_day:
                 break
             if i in positions or not has_bar[d, i] or buy_block[d, i]:
                 continue
-            px_in = fill_px_mat[d, i]
+            if use_buy_limit:
+                new_orders += 1                    # 掛出去就算一張單(不論成交與否)
+                if buy_touch[d, i]:
+                    px_in = buy_fill_px[d, i]
+                elif xc.buy_limit_fallback_close and close[d, i] > 0:
+                    px_in = close[d, i]            # 盤後定價收尾(BUY_PATIENT 語義)
+                else:
+                    continue                       # 沒觸價 → 不成交,席位與現金原封不動
+            else:
+                px_in = fill_px_mat[d, i]
             if not px_in > 0:
                 continue
             notional = min(nav_prev * w, cash / (1 + xc.commission))
             if notional < 1000.0:
                 break
-            px_eff = px_in * (1 + xc.slippage)
+            px_eff = px_in if use_buy_limit else px_in * (1 + xc.slippage)
             positions[i] = _Pos(
                 shares=notional / px_eff,
                 entry_px=px_eff,
@@ -345,6 +446,8 @@ def simulate(
             )
             cash -= notional * (1 + xc.commission)
             new_fills += 1
+            if not use_buy_limit:
+                new_orders += 1          # 市價模式:掛單數 ≡ 成交數(逐位維持原語義)
 
         # 3.2) 獲利加碼(pyramiding):T-1 浮盈 ≥ trigger → T 加碼;
         #      新倉優先用完當日節流額度,加碼與新倉共用 max_new_per_day

@@ -387,3 +387,86 @@ def test_buy_hold_parity_vs_canonical_prices():
     expected = panel["close"][-1] / fill_close
     got = res.nav["nav"][-1] / 1_000_000.0
     assert abs(got / expected - 1) < 1e-9
+
+
+# ── 限價單模式(2026-07-26 s_buy_limit 研究引入;money-path,語義須鎖死)──────
+
+_LIM = dict(commission=0.0, sell_tax=0.0, slippage=0.0)
+
+
+def test_buy_limit_fills_at_limit_when_touched():
+    """限價在當日區間內 → 以限價成交(非開盤價),且不加滑價。"""
+    days = weekdays(Date(2020, 1, 6), 4)
+    # d1 開 104、低 96:限價 = 前收 100 × 0.98 = 98,落在區間內 → 成交在 98
+    panel = make_panel({"1101": [(100, 100), (104, 96), (96, 96), (96, 96)]})
+    res = simulate(panel, entries_at("1101", [days[0]]),
+                   exec_spec=ExecSpec(buy_limit=-0.02, **_LIM),
+                   port_spec=PortSpec(n_slots=1, capital=1_000_000.0))
+    assert res.trades.height + len(res.nav) > 0
+    # 部位以 98 進場:d1 收盤 96 → NAV = 1e6 × 96/98
+    nav_d1 = res.nav.filter(pl.col("date") == days[1])["nav"][0]
+    assert abs(nav_d1 / (1_000_000.0 * 96 / 98) - 1) < 1e-9
+
+
+def test_buy_limit_not_touched_leaves_slot_and_cash_intact():
+    """限價低於當日最低 → 不成交,現金與席位原封不動(不是「報酬 0 的成交」)。"""
+    days = weekdays(Date(2020, 1, 6), 3)
+    panel = make_panel({"1101": [(100, 100), (104, 104), (104, 104)]})  # d1 low=104
+    res = simulate(panel, entries_at("1101", [days[0]]),
+                   exec_spec=ExecSpec(buy_limit=-0.02, **_LIM),
+                   port_spec=PortSpec(n_slots=1, capital=1_000_000.0))
+    assert res.trades.height == 0
+    assert all(abs(v / 1_000_000.0 - 1) < 1e-12 for v in res.nav["nav"])
+
+
+def test_buy_limit_fallback_close_fills_at_close():
+    """開了 fallback_close:沒觸價改以當日收盤價成交(BUY_PATIENT 語義)。"""
+    days = weekdays(Date(2020, 1, 6), 3)
+    panel = make_panel({"1101": [(100, 100), (104, 106), (106, 106)]})
+    res = simulate(panel, entries_at("1101", [days[0]]),
+                   exec_spec=ExecSpec(buy_limit=-0.02, buy_limit_fallback_close=True, **_LIM),
+                   port_spec=PortSpec(n_slots=1, capital=1_000_000.0))
+    nav_d1 = res.nav.filter(pl.col("date") == days[1])["nav"][0]
+    assert abs(nav_d1 / 1_000_000.0 - 1) < 1e-9        # 以收盤 106 買、收在 106 → 持平
+
+
+def test_sell_limit_unfilled_keeps_position_and_retries():
+    """賣單限價沒觸到 → 部位留著、隔日重掛(『沒賣掉 ≠ 沒事』必須被模擬出來)。"""
+    days = weekdays(Date(2020, 1, 6), 5)
+    # 進場後 signal 出場;賣限價 = 前收 × 1.03,d2 碰不到、d3 碰得到
+    panel = make_panel({"1101": [(100, 100), (100, 100), (100, 100), (100, 104), (104, 104)]})
+    res = simulate(panel, entries_at("1101", [days[0]]),
+                   exit_flags=pl.DataFrame({"date": [days[1]], "company_code": ["1101"]}),
+                   exec_spec=ExecSpec(sell_limit=0.03, **_LIM),
+                   port_spec=PortSpec(n_slots=1, capital=1_000_000.0, min_hold_days=0))
+    assert res.trades.height == 1
+    t = res.trades.row(0, named=True)
+    assert t["exit_date"] == days[3]                    # d2 沒成交,拖到 d3 才賣掉
+    assert abs(t["exit_px"] - 103.0) < 1e-9             # 成交在限價 100×1.03
+
+
+def test_limit_modes_reject_unsupported_combos():
+    """語義不同源的組合必須明確報錯,不得靜默混算。"""
+    panel = make_panel({"1101": [100, 100, 100]})
+    ent = entries_at("1101", [weekdays(Date(2020, 1, 6), 3)[0]])
+    with pytest.raises(ValueError, match="二擇一"):
+        simulate(panel, ent, exec_spec=ExecSpec(buy_limit=0.0, buy_limit_col="x"))
+    with pytest.raises(ValueError, match="pyramid_trigger"):
+        simulate(panel, ent, exec_spec=ExecSpec(buy_limit=0.0),
+                 port_spec=PortSpec(pyramid_trigger=0.1))
+    with pytest.raises(ValueError, match="profit_recycle"):
+        simulate(panel, ent, exec_spec=ExecSpec(sell_limit=0.0),
+                 exit_spec=ExitSpec(same_day_exit=True))
+
+
+def test_sell_limit_fallback_close_exits_same_day():
+    """賣單開了收盤保底:沒撈到高價也當天出場(實盤 SELL_EXIT 盤後定價語義)。"""
+    days = weekdays(Date(2020, 1, 6), 4)
+    panel = make_panel({"1101": [(100, 100), (100, 100), (100, 98), (98, 98)]})
+    res = simulate(panel, entries_at("1101", [days[0]]),
+                   exit_flags=pl.DataFrame({"date": [days[1]], "company_code": ["1101"]}),
+                   exec_spec=ExecSpec(sell_limit=0.05, sell_limit_fallback_close=True, **_LIM),
+                   port_spec=PortSpec(n_slots=1, capital=1_000_000.0, min_hold_days=0))
+    t = res.trades.row(0, named=True)
+    assert t["exit_date"] == days[2]                    # 沒撈到 105,當天收盤 98 出場
+    assert abs(t["exit_px"] - 98.0) < 1e-9
