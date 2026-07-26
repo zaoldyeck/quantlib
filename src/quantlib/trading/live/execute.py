@@ -136,7 +136,7 @@ def main() -> None:
     pp = plan_path(date_str)
     if not pp.exists():
         sys.exit(f"✗ [execute] 找不到今日計劃 {pp}(premarket 是否已於 07:20 執行?)")
-    from quantlib.trading.live.s_plan import protected_from_env
+    from quantlib.trading.live.s_plan import protected_holdings
 
     load_env_file()
     plan = json.loads(pp.read_text(encoding="utf-8"))
@@ -144,7 +144,7 @@ def main() -> None:
     # 所有被建議賣的股(計劃可能已拆保留、也可能沒拆)——execute 為權威閘,一律以
     # env 保留清單重新判定,即使計劃檔沒拆保留股也擋得住(defense in depth)。
     suggested_sells = list(plan.get("sells") or []) + list(plan.get("protected_sells") or [])
-    protected = protected_from_env()
+    protected = protected_holdings()
     auto_sells = [c for c in suggested_sells if c not in protected]
     protected_suggested = [c for c in suggested_sells if c in protected]
     print(f"[execute] {date_str} 計劃:買 {buys or '無'}｜自動賣 {auto_sells or '無'}"

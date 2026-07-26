@@ -97,7 +97,7 @@ def main() -> None:
     from quantlib.apex import data
     from quantlib.trading.execution.daily_context import lookup_names
     from quantlib.trading.live import account, notify
-    from quantlib.trading.live.s_plan import build_day_plan, protected_from_env
+    from quantlib.trading.live.s_plan import build_day_plan, protected_holdings
 
     today = notify.today_taipei()
     print(f"[premarket] 交易日 {today}")
@@ -121,7 +121,7 @@ def main() -> None:
         print(f"[premarket] 持股 {len(holdings)} 檔、現金 {cash:,.0f}、NAV≈{nav:,.0f}")
 
         # 3) 決策(重用 s_advisor)+ 套用保留股(使用者要自己控的持股不自動賣)
-        plan = build_day_plan(con, holdings, today, nav, protected_from_env())
+        plan = build_day_plan(con, holdings, today, nav, protected_holdings())
         names = lookup_names(_all_codes(plan))
         # 金額/損益試算(信件用):價=cache 最新收盤(盤前無即時報價,已於信中註明);
         # 成本走 cost_basis 唯一真源(收養者標「收養價」,不假裝是真實成本)。

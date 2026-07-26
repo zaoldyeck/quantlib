@@ -23,14 +23,31 @@ from datetime import date as Date
 _MANUAL_MARKER = "人工確認"
 
 
-def protected_from_env() -> set[str]:
-    """QL_S_PROTECTED="2059,6446" → {"2059","6446"}。
+#: 使用者指定「自己控、不許自動賣」的持股。**版控是唯一真源。**
+#:
+#: 2026-07-27 事故:本清單原本只活在 VM 的 `.env`,而 `.env` 由 Secret Manager 的
+#: env 值產生、該值的文件清單(infra `secrets.tf` 註解)從來沒列 `QL_S_PROTECTED`
+#: ——某次重新上傳 secret 就照文件來,這個鍵靜靜消失,`protected_from_env()` 讀不到
+#: 便回空集合(**fail-open,零警告**),川湖 2059 因此被排進當日自動賣單。
+#:
+#: 根本解:股票代號不是機密,不該住 Secret Manager;它是策略行為的一部分,住版控。
+#: 環境變數 `QL_S_PROTECTED` 降級為**只能額外增加**的臨時覆寫,**移除不了**本清單
+#: 任何一檔——要解除保護必須改這裡並 commit,留下審計軌跡(2026-07-27 使用者
+#: 明示 6446 解除保護,即以本次 commit 為憑)。
+PROTECTED_HOLDINGS: frozenset[str] = frozenset({
+    "2059",   # 川湖(2026-07-27 使用者重申保留)
+})
 
-    使用者明確要自己控、不許自動賣的持股;唯一真源(premarket 顯示 + execute 執行
-    都讀它),改保留清單只需改這個環境變數(VM 的 .env / Secret Manager)。
+
+def protected_holdings() -> set[str]:
+    """今日生效的保留股 = 版控清單 ∪ 環境變數額外指定者。
+
+    刻意用聯集而非「環境變數覆蓋」:防護機制不得因為某個檔案少一行就整個消失。
+    環境變數只加不減,故最壞情況(變數遺失/為空)仍保有版控清單的保護。
     """
     raw = os.environ.get("QL_S_PROTECTED", "")
-    return {c.strip().zfill(4) for c in raw.split(",") if c.strip()}
+    extra = {c.strip().zfill(4) for c in raw.split(",") if c.strip()}
+    return set(PROTECTED_HOLDINGS) | extra
 #: 進場建議中代表「今日實際進場」的 reason 前綴(其餘為排隊/遞補,今日不動作)
 _ENTER_TODAY_PREFIX = "今日進場"
 
@@ -43,6 +60,9 @@ class DayPlan:
     buys: list[str] = field(default_factory=list)                 # 今日進場代碼(自動買)
     sells: list[str] = field(default_factory=list)                # 自動賣(非保留)
     protected_sells: list[str] = field(default_factory=list)      # 保留股卻建議賣→需你回信確認才賣
+    #: **當日生效的完整保留清單**(不只「今天被建議賣的那些」)。落進計劃檔 = 審計軌跡,
+    #: 並讓計劃信每天顯示它——2026-07-27 事故正是「清單靜靜變空而沒人看得見」。
+    protected: list[str] = field(default_factory=list)
     manual_review: list[tuple[str, str]] = field(default_factory=list)  # (code, reason)
     keeps: list[tuple[str, str]] = field(default_factory=list)    # 續抱(信件顯示用)
     queued: list[tuple[str, str]] = field(default_factory=list)   # ⏸排隊/🕒遞補(不執行)
@@ -62,6 +82,7 @@ class DayPlan:
             "buys": list(self.buys),
             "sells": list(self.sells),
             "protected_sells": list(self.protected_sells),
+            "protected": list(self.protected),
             "manual_review": [list(x) for x in self.manual_review],
             "keeps": [list(x) for x in self.keeps],
             "queued": [list(x) for x in self.queued],
@@ -117,6 +138,7 @@ def plan_from_advice(adv, today: Date,
         buys=buys,
         sells=sells,
         protected_sells=protected_sells,
+        protected=sorted(protected),
         manual_review=manual_review,
         keeps=list(adv.keeps),
         queued=queued,

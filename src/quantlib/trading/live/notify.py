@@ -230,6 +230,19 @@ def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
             "<h3 style='color:#b45309'>需人工複核(不自動下單)</h3>"
             f"<ul>{manual_html}</ul>")
 
+    # 保留股名冊:**每天都顯示**,不論今天有沒有被建議賣。2026-07-27 事故的教訓是
+    # 「清單靜靜變空而沒人看得見」——只在有事時才顯示的東西,沒事時的異常就看不見。
+    if plan.protected:
+        protected_roster = (
+            "<p style='color:#52606d;font-size:13px;margin:14px 0 0'>🔒 保留股(永不自動賣):"
+            + "、".join(e(_nm(c, names)) for c in plan.protected) + "</p>")
+    else:
+        protected_roster = (
+            "<p style='background:#fef2f2;border:1px solid #fecaca;border-radius:8px;"
+            "padding:10px 12px;color:#b91c1c;font-size:13px;margin:14px 0 0'>"
+            "⚠️ <b>保留股清單目前是空的</b>——若這不是你的本意,代表防護失效,"
+            "請立即檢查 s_plan.PROTECTED_HOLDINGS。</p>")
+
     protected_block = ""
     if plan.protected_sells:
         btn = ("display:inline-block;padding:6px 14px;margin-left:8px;background:#b45309;"
@@ -264,6 +277,8 @@ def render_plan_html(plan, names: dict[str, str], to: str, settle=None) -> str:
 
   {money_block}
   {manual_block}
+
+  {protected_roster}
 
   <h3>續抱</h3>
   <ul>{keeps_html}</ul>

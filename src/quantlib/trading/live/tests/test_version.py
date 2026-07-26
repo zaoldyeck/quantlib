@@ -59,6 +59,7 @@ def test_email_subject_carries_drift_warning() -> None:
         class _P:
             date, buys, sells = "2026-07-22", ["2886"], []
             protected_sells: list = []
+            protected: list = ["2059"]
             manual_review: list = []
             keeps: list = []
             queued: list = []
