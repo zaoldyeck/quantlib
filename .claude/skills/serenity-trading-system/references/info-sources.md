@@ -104,7 +104,7 @@ read-through)維持預設高階模型。能用 1–2 次 inline WebSearch 解決
   partner pages; (5) append findings to a dated watch log. Pairs naturally
   with the `quantlib-daily-briefing` skill.
 - **Event studies**: `update_from_upstream.sh --with-archive` drops the full
-  tweet archive into `research/external/serenity-archive/` (self-gitignored);
+  tweet archive into `var/external/serenity-archive/` (self-gitignored);
   join tweet timestamps against local `daily_quote` for TW names to measure
   post-tweet drift/reversal before trusting any copy-trade impulse.
 - **Honest limits**: paid research (Digitimes full text, LightCounting,

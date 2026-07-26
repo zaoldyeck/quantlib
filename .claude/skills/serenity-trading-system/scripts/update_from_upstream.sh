@@ -33,7 +33,7 @@ cp "$TMP/repo/data/ticker_stats.txt" "$SKILL_DIR/references/ticker-stats.txt"
 echo "Vendored references refreshed from upstream ($(date '+%Y-%m-%d %H:%M'))."
 
 if [[ "${1:-}" == "--with-archive" ]]; then
-  ARCHIVE_DIR="$PROJECT_ROOT/research/external/serenity-archive"
+  ARCHIVE_DIR="$PROJECT_ROOT/var/external/serenity-archive"
   mkdir -p "$ARCHIVE_DIR"
   echo '*' > "$PROJECT_ROOT/research/external/.gitignore"
   cp "$TMP/repo/data/aleabitoreddit_tweets.json" "$ARCHIVE_DIR/"

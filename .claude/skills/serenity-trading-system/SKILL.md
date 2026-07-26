@@ -160,7 +160,7 @@ findings to a watch log; promote candidates into workflow (a). Pairs with the
 ### (e) Archive mining / event study
 
 `scripts/update_from_upstream.sh --with-archive` drops the full tweet JSON
-into `research/external/serenity-archive/` (self-gitignored). Join tweet
+into `var/external/serenity-archive/` (self-gitignored). Join tweet
 timestamps with local `daily_quote` (TW) or web price history to measure
 post-tweet drift/reversal before trusting any copy-trade pattern.
 
