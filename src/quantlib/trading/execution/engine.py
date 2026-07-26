@@ -439,6 +439,7 @@ class ExecutionEngine:
         board: Any | None = None,
         avoid_open_min: int = 3,
         cap_auto: bool = False,
+        collar_exempts_close: bool = True,
         slice_qty: int | None = None,
         trigger_strict: bool = False,
     ):
@@ -460,6 +461,9 @@ class ExecutionEngine:
         self.board = board
         self.avoid_open_min = int(avoid_open_min)
         self.cap_auto = cap_auto
+        #: 收盤保底(盤後定價)是否豁免護欄。預設 True——見 _afterhours_completion 的
+        #: 說明與 strat_lab/collar_fill_risk.py 的量測;設 False 回到「破欄不掛」的舊行為。
+        self.collar_exempts_close = bool(collar_exempts_close)
         self.trigger_strict = trigger_strict
         self.cap_pct_eff = profile.cap_pct
         # 大單 TWAP 切片:整股 ≥2 張自動切 1 張/child(降低衝擊);零股不切。
@@ -782,9 +786,16 @@ class ExecutionEngine:
         """收盤(13:30)未竟 → 盤後定價交易自動掛當日收盤價完成。
 
         規則:盤後 14:30 一次集合競價、成交價=當日收盤價(零股 13:40 起收單、
-        整股定價 14:00 起收單)。**護欄仍是鐵律**:收盤價破護欄就不掛(那正是
-        盤中沒完成的原因),留待明日出場門重評。盤後量不足按隨機順序分配,
-        不保證中籤——未中籤如實記錄。
+        整股定價 14:00 起收單)。盤後量不足按隨機順序分配,不保證中籤——未中籤如實記錄。
+
+        **收盤保底豁免護欄**(2026-07-26 使用者裁決,`collar_exempts_close=True` 時):
+        護欄的本意是「盤中不要追價」,而收盤價是市場的官方結算價、不是追價——兩者
+        混用會讓「保底」變成不保底。實測(`strat_lab/collar_fill_risk.py`,S 的 689
+        個進場日 / 684 個出場日):護欄 0.5% 時,買有 39.0%、賣有 46.1% 的日子連收盤
+        都掛不出去;即使放寬到 3% 仍各有 17%。而 12 年全史結論是「致命的從來不是掛
+        什麼價,是沒成交」(買單無保底最深 −52%/年;賣單沒賣掉 MDD −34%→−40%,見
+        docs/strategy_research/limit_order_verdict.md)。故盤中照樣撈最低/最高、永不
+        追價,但收盤那一筆一定送出去。
         """
         remaining = self.qty - self.result.filled_qty
         if remaining <= 0 or stop["flag"] or HALT_FILE.exists():
@@ -813,9 +824,14 @@ class ExecutionEngine:
                               _replace(self.profile, cap_pct=self.cap_pct_eff))
         within = close_px <= collar if self.side == "Buy" else close_px >= collar
         if not within:
-            self.log("afterhours_skip", reason="close_breaches_collar",
-                     close=close_px, collar=collar)
-            return
+            if not self.collar_exempts_close:
+                self.log("afterhours_skip", reason="close_breaches_collar",
+                         close=close_px, collar=collar)
+                return
+            # 豁免:照掛,但如實記錄破欄幅度,讓 TCA 看得見這筆是在什麼價位收尾的
+            self.log("afterhours_collar_exempt", close=close_px, collar=collar,
+                     breach=round(abs(close_px / collar - 1), 4),
+                     note="收盤價破護欄仍掛(護欄只管盤中追價;不掛=沒成交才是更大的損失)")
         while _hhmm(self.clock()) < window_open:  # 等收單窗開
             if stop["flag"] or HALT_FILE.exists():
                 return

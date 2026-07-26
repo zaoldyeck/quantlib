@@ -56,6 +56,11 @@ def build_parser(side: str) -> argparse.ArgumentParser:
                    help="狙擊模式:micro 加速需全部條件 AND(止穩+竭盡/掃蕩+資金流+價值區)")
     p.add_argument("--cap-auto", action="store_true",
                    help="護欄改為波動自適應:8×(1 分 K 平均振幅),夾在 0.4%%~2%%")
+    p.add_argument("--collar-blocks-close", action="store_true",
+                   help="回到舊行為:收盤價破護欄就不掛盤後定價單(當天不成交、明日重評)。"
+                        "預設**不擋**——護欄只管盤中不追價,收盤價是市場官方結算價;"
+                        "實測 0.5%% 護欄下買 39%%/賣 46%% 的日子連收盤都掛不出去,"
+                        "而『沒成交』才是 12 年全史證明的最大損失來源")
     p.add_argument("--avoid-open-min", type=int, default=3,
                    help="開盤前 N 分鐘只被動不跨價(輪動噪音迴避;預設 3)")
     p.add_argument("--slice-qty", type=int, default=None,
@@ -434,6 +439,7 @@ def _run_inner(side: str) -> None:
             allow_refill=args.allow_refill,
             stop_event=stop_event, manage_sigint=False, board=board,
             avoid_open_min=args.avoid_open_min, cap_auto=args.cap_auto,
+            collar_exempts_close=not args.collar_blocks_close,
             slice_qty=args.slice_qty, trigger_strict=args.trigger_strict,
         )
         prepared.append((leg, engine))

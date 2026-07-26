@@ -143,3 +143,28 @@ def test_explicit_slice_qty_is_never_overridden() -> None:
 def test_no_slicing_when_order_fits_in_one_child() -> None:
     leg = _FakeLeg(qty=300, slice_qty=None)
     assert leg._effective_slice(120.0) == 300
+
+
+# ── 收盤保底豁免護欄(2026-07-26 使用者裁決)──────────────────────────────────
+
+def test_collar_exempts_close_is_default_and_cli_can_restore_old_behaviour() -> None:
+    """預設收盤保底不受護欄限制;--collar-blocks-close 才回到舊的「破欄不掛」。
+
+    理由(strat_lab/collar_fill_risk.py 實測):護欄 0.5% 時,買 39.0% / 賣 46.1%
+    的日子連收盤都掛不出去,而「沒成交」是 12 年全史證明的最大損失來源。
+    """
+    from quantlib.trading.execution._cli import build_parser
+
+    p = build_parser("Sell")
+    assert p.parse_args(["--code", "2330"]).collar_blocks_close is False
+    assert p.parse_args(["--code", "2330", "--collar-blocks-close"]).collar_blocks_close is True
+
+
+def test_engine_defaults_to_exempting_close_from_collar() -> None:
+    """引擎建構參數的預設值本身就要是豁免——CLI 沒接上時也不能悄悄退回舊行為。"""
+    import inspect
+
+    from quantlib.trading.execution.engine import ExecutionEngine
+
+    sig = inspect.signature(ExecutionEngine.__init__)
+    assert sig.parameters["collar_exempts_close"].default is True
