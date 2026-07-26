@@ -14,11 +14,11 @@ from quantlib.execsim import (
 
 
 def test_fubon_fee_meter_splits_monthly_tiers() -> None:
-    schedule = FubonFeeSchedule(minimum_commission=0.0)
+    schedule = FubonFeeSchedule(minimum_commission=0.0, odd_lot_minimum_commission=0.0)
     meter = MonthlyFeeMeter(schedule)
 
-    first = meter.commission(date(2026, 5, 1), 800_000)
-    second = meter.commission(date(2026, 5, 2), 500_000)
+    first = meter.commission(date(2026, 5, 1), 800_000, shares=8_000)
+    second = meter.commission(date(2026, 5, 2), 500_000, shares=5_000)
 
     assert round(first, 6) == round(800_000 * 0.001425 * 0.18, 6)
     assert round(second, 6) == round(
@@ -28,10 +28,11 @@ def test_fubon_fee_meter_splits_monthly_tiers() -> None:
 
 
 def test_fubon_fee_meter_resets_each_month() -> None:
-    meter = MonthlyFeeMeter(FubonFeeSchedule(minimum_commission=0.0))
+    meter = MonthlyFeeMeter(FubonFeeSchedule(minimum_commission=0.0,
+                                             odd_lot_minimum_commission=0.0))
 
-    may = meter.commission(date(2026, 5, 31), 1_200_000)
-    june = meter.commission(date(2026, 6, 1), 1_000_000)
+    may = meter.commission(date(2026, 5, 31), 1_200_000, shares=12_000)
+    june = meter.commission(date(2026, 6, 1), 1_000_000, shares=10_000)
 
     assert may > june
     assert round(june, 6) == round(1_000_000 * 0.001425 * 0.18, 6)

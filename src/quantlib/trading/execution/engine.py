@@ -28,6 +28,7 @@ from .daily_context import dump_candles, load_daily_levels, load_prior_value_are
 from .policy import LadderProfile, price_collar, target_price
 from .ticks import add_ticks
 from quantlib import paths
+from quantlib.trading.order_sizing import min_efficient_slice
 
 TAIPEI = ZoneInfo("Asia/Taipei")
 STATE_DIR = Path(f"{paths.STATE}/trading")
@@ -461,7 +462,10 @@ class ExecutionEngine:
         self.cap_auto = cap_auto
         self.trigger_strict = trigger_strict
         self.cap_pct_eff = profile.cap_pct
-        # 大單 TWAP 切片:整股 ≥2 張自動切 1 張/child(降低衝擊);零股不切
+        # 大單 TWAP 切片:整股 ≥2 張自動切 1 張/child(降低衝擊);零股不切。
+        # 切片有代價:**每切一片就多付一次最低手續費**(整股低消 20 元),故自動切片
+        # 另受費率閘門約束,見 _effective_slice()。使用者顯式指定 --slice-qty 時不套閘門。
+        self._auto_slice = slice_qty is None
         self.slice_qty = slice_qty or (1000 if qty >= 2000 else qty)
         self._bars_refreshed = 0.0
         self._last_bars: list[dict] = []  # 收盤 dump 用(1 分 K 自建歷史)
@@ -678,6 +682,25 @@ class ExecutionEngine:
             if not is_transient_network_error(exc2):
                 raise
             # 網路還沒回來:下一輪再對,狀態不動
+
+    def _effective_slice(self, price: float) -> int:
+        """本輪實際採用的切片股數。
+
+        自動切片的目的是降低市場衝擊,但衝擊只在「單量相對成交量夠大」時才顯著,
+        而切片的代價是確定的:每片都是一張獨立委託,各自吃一次最低手續費下限。
+        故自動切片只在**每片金額仍拿得到折後費率**(≥ 整股臨界 77,973 元)時才成立;
+        否則不切——省下的衝擊是假的,多付的低消是真的。
+
+        判準完全由費率表推得(min_efficient_slice = 低消 / 折後費率),不是拍板的數字。
+        使用者以 --slice-qty 顯式指定時視為明確意圖,不套此閘門。
+        """
+        if self.slice_qty >= self.qty or price <= 0:
+            return self.qty
+        if self._auto_slice and self.slice_qty * price < min_efficient_slice():
+            self.log("slice_skipped", slice_qty=self.slice_qty, price=price,
+                     note="每片金額低於折扣臨界,切片只會重複付最低手續費")
+            return self.qty
+        return self.slice_qty
 
     def _place(self, price: float, qty: int) -> None:
         req = StockOrderRequest(
@@ -1065,11 +1088,11 @@ class ExecutionEngine:
                     remaining = self.qty - self.result.filled_qty
 
                     if self.working is None and remaining > 0:
-                        self._place(desired, min(remaining, self.slice_qty))
+                        self._place(desired, min(remaining, self._effective_slice(desired)))
                     elif self.working is not None and (
                             self.working["price"] != desired
                             or self.working["qty"] - self.working["seen_fill"] != remaining):
-                        self._reprice(desired, min(remaining, self.slice_qty))
+                        self._reprice(desired, min(remaining, self._effective_slice(desired)))
 
                     self.log("round", i=round_idx, bid=q.bid, ask=q.ask,
                              working=self.working["price"] if self.working else None,

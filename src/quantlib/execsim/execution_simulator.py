@@ -555,7 +555,7 @@ class RealisticExecutionSimulator:
             fill_price = self._fill_price(side, bar, fill_shares)
 
         notional = fill_shares * fill_price
-        commission = fee_meter.commission(day, notional)
+        commission = fee_meter.commission(day, notional, shares=fill_shares)
         tax = fee_meter.sell_tax(notional) if side == "sell" else 0.0
         slippage = abs(fill_price - bar.open) * fill_shares
         return Fill(
@@ -678,7 +678,7 @@ class RealisticExecutionSimulator:
         base_price = self._exit_base_price(reason, bar, trigger_price)
         fill_price = self._fill_price_from_base("sell", bar, fill_shares, base_price)
         notional = fill_shares * fill_price
-        commission = fee_meter.commission(day, notional)
+        commission = fee_meter.commission(day, notional, shares=fill_shares)
         tax = fee_meter.sell_tax(notional)
         slippage = abs(fill_price - base_price) * fill_shares
         return Fill(

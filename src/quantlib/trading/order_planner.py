@@ -15,6 +15,7 @@ import polars as pl
 from quantlib.brokers.fubon import StockOrderRequest
 from quantlib.execsim.broker_fee import FubonFeeSchedule
 from quantlib.trading.live_config import LiveTradingConfig
+from quantlib.trading.order_sizing import plan_tickets
 from quantlib.trading.portfolio import PortfolioSnapshot
 from quantlib.trading.strategy_registry import StrategyRegistration
 
@@ -152,10 +153,12 @@ def load_latest_close_prices(cache_db: Path, codes: set[str], price_date: date) 
     return prices
 
 
-def commission_estimate(notional: float, schedule: FubonFeeSchedule) -> float:
+def commission_estimate(notional: float, schedule: FubonFeeSchedule, shares: float) -> float:
+    """單筆手續費(含最低收費)。`shares` 決定套零股(1 元)還是整股(20 元)下限
+    ——2026-07-26 前這裡一律套整股下限,IntradayOdd 那一段被高估最多 19 元。"""
     if notional <= 0:
         return 0.0
-    return max(notional * schedule.low_tier_rate(), schedule.minimum_commission)
+    return max(notional * schedule.low_tier_rate(), schedule.minimum_for(shares))
 
 
 def split_order_quantity(
@@ -169,13 +172,11 @@ def split_order_quantity(
     if quantity <= 0:
         return []
     schedule = FubonFeeSchedule()
-    chunks: list[tuple[int, str]] = []
-    board = (quantity // 1000) * 1000
-    odd = quantity - board
-    if board:
-        chunks.append((board, "Common"))
-    if odd:
-        chunks.append((odd, "IntradayOdd"))
+    # 切分交給 order_sizing(費率感知:整股低消 20 元 vs 零股 1 元;在不放棄曝險、
+    # 且省下的手續費蓋得過一檔價差時才改走純零股)。此處不得再自行拆分——2026-07-26
+    # 前這裡寫死「整張走 Common、餘數走 IntradayOdd」,與費率無關,低價股平白多付低消。
+    chunks = [(t.shares, t.market_type)
+              for t in plan_tickets(quantity, reference_price)[0]]
 
     if side not in {"Buy", "Sell"}:
         raise ValueError(f"Unsupported side: {side}")
@@ -200,7 +201,7 @@ def split_order_quantity(
                 order_type="Stock",
                 reference_price=reference_price,
                 estimated_notional=notional,
-                estimated_fee=commission_estimate(notional, schedule),
+                estimated_fee=commission_estimate(notional, schedule, qty),
                 estimated_tax=(notional * schedule.sell_tax_rate if side == "Sell" else 0.0),
                 user_def=user_def,
             )

@@ -18,24 +18,23 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from quantlib.execsim.broker_fee import FubonFeeSchedule
+from quantlib.execsim.broker_fee import LOT_SIZE, FubonFeeSchedule
 
 _FEE = FubonFeeSchedule()             # 1.8 折(月成交額 100 萬內)、證交稅 0.3%
 COMMISSION_RATE = _FEE.low_tier_rate()
 SELL_TAX_RATE = _FEE.sell_tax_rate
 #: 整股單最低手續費(TWD);零股另有更低的最低收費,見 ODD_LOT_COMMISSION_MIN
 COMMISSION_MIN = _FEE.minimum_commission
-#: **零股最低手續費 1 元**(富邦盤中/盤後零股;使用者 2026-07-22 提供之帳戶費率)。
-#: 這對 1 股營運是決定性的:用整股的 20 元下限估,單筆 45 元的買進會被高估 19 元
-#: 成本,ROI 直接失真數十個百分點。
-ODD_LOT_COMMISSION_MIN = 1.0
-#: 一張 = 1,000 股;未滿一張即零股(交易所定義)
-LOT_SIZE = 1_000
+#: **零股最低手續費 1 元**。對 1 股營運是決定性的:用整股的 20 元下限估,單筆 45 元
+#: 的買進會被高估 19 元成本,ROI 直接失真數十個百分點。
+#: 2026-07-26 起改由 broker_fee schedule 提供(原本此處自存一份,結果 order_planner 與
+#: MonthlyFeeMeter 都沒跟上、對零股一律套 20 元 —— 常數複製出來的同類缺陷)。
+ODD_LOT_COMMISSION_MIN = _FEE.odd_lot_minimum_commission
 
 
 def commission_min(shares: int) -> float:
     """該筆委託適用的最低手續費:未滿一張走零股下限,整張走整股下限。"""
-    return ODD_LOT_COMMISSION_MIN if 0 < shares < LOT_SIZE else COMMISSION_MIN
+    return _FEE.minimum_for(shares)
 
 
 def fee_buy(amount: float, shares: int = LOT_SIZE) -> float:
