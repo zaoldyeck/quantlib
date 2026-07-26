@@ -41,11 +41,15 @@ def build_parser(side: str) -> argparse.ArgumentParser:
     p.add_argument("--round-sec", type=float, default=60.0,
                    help="撮合輪詢週期秒數(盤中零股逐分鐘撮合 → 預設 60)")
     if side in ("Sell", "Trade"):
-        p.add_argument("--urgency", choices=("normal", "exit", "stop"),
+        p.add_argument("--urgency", choices=("normal", "exit", "open", "stop"),
                        default="exit" if side == "Trade" else "normal",
-                       help="賣腿模式。exit = 系統出場(六道門;Trade 模式預設):結構錨整場撈"
-                            "相對高點、盤中永不因時間跨價,收盤未竟→盤後掛收盤價收尾(護欄 -3%%);"
-                            "stop = 急殺(僅事實級利空 override):首輪即跨價;normal = 一般賣出(吃 --patience)")
+                       help="賣腿模式,**選哪個取決於該策略回測的出場成交價語義**。"
+                            "exit = 收盤價出場(Serenity 語義;Trade 模式預設):結構錨整場撈相對"
+                            "高點、盤中永不因時間跨價,收盤未竟→盤後掛收盤價收尾(護欄 -3%%);"
+                            "open = 開盤即出場(apex_revcycle_S 語義):首輪即跨價、必成交"
+                            "(回測:拖到收盤 -5.4%%/年顯著較差,見 limit_order_verdict.md);"
+                            "stop = 急殺(僅事實級利空 override):機制同 open,差別在來由;"
+                            "normal = 一般賣出(吃 --patience)")
     p.add_argument("--no-micro", action="store_true",
                    help="關閉微結構擇時層(OFI/VPIN/TPO/SMC 加速/減速訊號)")
     p.add_argument("--trigger-strict", action="store_true",
@@ -77,8 +81,10 @@ def resolve_profile(side: str, args: argparse.Namespace) -> LadderProfile:
         prof = PROFILES["buy_patient" if patient else "buy_normal"]
     elif getattr(args, "urgency", "normal") == "stop":
         prof = PROFILES["sell_stop"]  # 急殺(事實級 override)不吃 patience
+    elif getattr(args, "urgency", "normal") == "open":
+        prof = PROFILES["sell_open"]  # 開盤即出場(apex_revcycle_S 回測語義,必成交)
     elif getattr(args, "urgency", "normal") == "exit":
-        prof = PROFILES["sell_exit"]  # 系統出場:整場撈相對高,收盤未竟→盤後收盤價收尾
+        prof = PROFILES["sell_exit"]  # 收盤價出場(Serenity 回測語義)
     else:
         prof = PROFILES["sell_patient" if patient else "sell_normal"]
     from dataclasses import replace

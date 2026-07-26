@@ -73,6 +73,30 @@ def order_safety_error(n_shares: int, buys: list) -> str | None:
     return None
 
 
+#: S 賣腿的出場語義。**必須是 "open"**(首輪即跨價、必成交),因為 S 的回測出場
+#: 價是「隔日開盤」。CLI 預設的 "exit" 是**收盤價出場**——那是 Serenity 的回測語義
+#: (serenity/engine.py 的 exits execute at today's close),S 套上去等於整場撈高、
+#: 拖到盤後定價收尾。全史 12 年 689 筆配對 block bootstrap:拖到收盤 −5.39%/年
+#: [−9.30, −1.20] 顯著較差,且 MDD 由 −34.1% 惡化到 −36.0%;掛高等回升 +2% 亦
+#: −3.25% [−6.18, −0.48] 顯著較差(docs/strategy_research/limit_order_verdict.md ④)。
+#: 買賣不對稱的原因:買晚只是買貴一點(可回收),賣晚是「該離場時還在場上」。
+SELL_URGENCY = "open"
+
+
+def build_trade_cmd(buys: list, sells: list, n: int, live: bool) -> list[str]:
+    """組 execution.trade 的派工指令(抽成純函式:money-path 的語義要能被測試鎖死)。"""
+    cmd = ["uv", "run", "--project", ".", "python", "-m",
+           "quantlib.trading.execution.trade"]
+    if buys:
+        cmd += ["--buy", ",".join(f"{c}:{n}" for c in buys)]
+    if sells:
+        cmd += ["--sell", ",".join(f"{c}:all" for c in sells)]
+        cmd += ["--urgency", SELL_URGENCY]
+    if live:
+        cmd += ["--live"]
+    return cmd
+
+
 def _abort(notifier, date_str: str, reason: str) -> None:
     """安全防護:一律不交易 + 告警 + 非零退出。過量寧可不下,不可下錯。"""
     body = f"🛑 安全防護觸發,今日一律不交易(未送任何單):{reason}"
@@ -177,14 +201,7 @@ def main() -> None:
     if err:
         _abort(notifier, date_str, err)
 
-    cmd = ["uv", "run", "--project", ".", "python", "-m",
-           "quantlib.trading.execution.trade"]
-    if buys:
-        cmd += ["--buy", ",".join(f"{c}:{n}" for c in buys)]
-    if sells:
-        cmd += ["--sell", ",".join(f"{c}:all" for c in sells)]
-    if live:
-        cmd += ["--live"]
+    cmd = build_trade_cmd(buys, sells, n, live)
     mode = "LIVE(真下單)" if live else "DRY-RUN(模擬)"
     # 明確印出最大曝險:買入嚴格上限 = 每檔 n 股 × 腿數(執行器 own 模式只會更少)
     print(f"[execute] 下單上限:買 {len(buys)} 檔 × {n} 股 = 最多 {n * len(buys)} 股"

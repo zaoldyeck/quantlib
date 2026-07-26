@@ -58,3 +58,60 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
+
+# ── 出場語義守護(2026-07-26;回測依據 limit_order_verdict.md ④)──────────────
+
+def test_sell_leg_uses_open_urgency() -> None:
+    """S 賣腿必須帶 --urgency open(開盤即出場 = S 的回測語義)。
+
+    若退回 CLI 預設 exit,實盤會變成「整場撈高 + 收盤價收尾」= Serenity 語義,
+    對 S 是 −5.39%/年顯著較差且 MDD 惡化。這條測試就是防那個回歸。
+    """
+    cmd = execute.build_trade_cmd(["2466"], ["3374"], 1, live=False)
+    assert "--urgency" in cmd
+    assert cmd[cmd.index("--urgency") + 1] == "open"
+    assert execute.SELL_URGENCY == "open"
+
+
+def test_no_urgency_flag_when_no_sell_leg() -> None:
+    """純買入日不該帶賣腿參數(避免無意義旗標混淆 log)。"""
+    cmd = execute.build_trade_cmd(["2466"], [], 1, live=False)
+    assert "--urgency" not in cmd
+    assert "--sell" not in cmd
+    assert cmd[cmd.index("--buy") + 1] == "2466:1"
+
+
+def test_live_flag_only_when_live() -> None:
+    cmd = execute.build_trade_cmd([], ["3374"], 1, live=True)
+    assert "--live" in cmd
+    assert execute.build_trade_cmd([], ["3374"], 1, live=False)[-2:] == ["--urgency", "open"]
+
+
+def test_sell_open_profile_crosses_immediately() -> None:
+    """sell_open 必須首輪就跨價(掛買一 = 必成交),否則「必成交」是空話。"""
+    import argparse
+
+    from quantlib.trading.execution._cli import resolve_profile
+    from quantlib.trading.execution.policy import target_price
+
+    args = argparse.Namespace(urgency="open", patience="price", cap_pct=None, deadline=None)
+    prof = resolve_profile("Sell", args)
+    assert prof.name == "sell_open"
+    assert prof.passive_rounds == 0 and prof.mid_rounds == 0   # round 0 即 >= 0 → 跨價
+    # 首輪掛價 = 買一(跨價),不是賣一(被動)
+    px = target_price("Sell", prof, round_idx=0, past_deadline=False,
+                      bid=99.0, ask=101.0, arrival=100.0)
+    assert abs(px - 99.0) < 1e-9
+
+
+def test_serenity_still_uses_close_semantics() -> None:
+    """Serenity 的 exit 語義不得被一起改掉——它的回測本來就是收盤價出場。"""
+    import argparse
+
+    from quantlib.trading.execution._cli import resolve_profile
+
+    args = argparse.Namespace(urgency="exit", patience="price", cap_pct=None, deadline=None)
+    prof = resolve_profile("Sell", args)
+    assert prof.name == "sell_exit"
+    assert prof.deadline_hhmm is None and prof.structure_anchor is True

@@ -117,13 +117,27 @@ CI [−3.97%, +2.49%]**;逐年 5/13 為正,無穩定方向。
 它的每日 loop 也明確帶了 `--patience balanced` 與 `--urgency exit`
 (`serenity/daily.py:585,595`)。
 
-問題只在 **S 共用同一個執行器,但 S 的回測出場語義是「隔日開盤賣」**。因此:
+問題只在 **S 共用同一個執行器,但 S 的回測出場語義是「隔日開盤賣」**——S 的實盤
+出場因此比它自己的規格差 2~5%/年(統計顯著),MDD 也較差。
 
-- **S 的實盤出場,依 12 年回測比它自己的規格差 2~5%/年(統計顯著),MDD 也較差。**
-- 對齊做法:S 的派工加 `--urgency normal --patience balanced`(→ `SELL_NORMAL`:
-  被動 3 輪 → 中價 3 輪 → 跨價,12:30 死線,盤中完成)。
-- **這是 money-path 的行為變更,且推翻的是使用者先前的明確指示,交由使用者裁決,
-  未自行更動。**
+### 已修正(2026-07-26,使用者裁決後執行)
+
+新增 `urgency=open` → `SELL_OPEN` profile,並讓 S 的派工明確帶上:
+
+| 策略 | 派工參數 | profile | 出場成交價 | 與該策略回測 |
+|---|---|---|---|---|
+| **apex_revcycle_S** | `--urgency open` | `SELL_OPEN`(首輪即跨價、護欄 3%) | 開盤即出場、必成交 | ✅ 對齊(隔日開盤賣) |
+| **Serenity** | `--urgency exit`(不變) | `SELL_EXIT`(結構錨整場撈高) | 收盤價收尾 | ✅ 對齊(收盤價出場) |
+
+- `SELL_OPEN` 的階梯數字由 `dataclasses.replace(SELL_STOP, name=...)` 派生——機制與
+  急殺完全相同(`passive_rounds=0, mid_rounds=0` → `round_idx >= 0` 恆真 → 第一輪
+  就掛買一成交,且不受 `--avoid-open-min` 阻擋,那個旗標只壓 `effective_round`),
+  差別只在來由與 log 名稱。**不重複魔術數字**。
+- 守護:`src/quantlib/trading/live/tests/test_execute.py` 五支測試鎖死「S 賣腿必帶
+  `--urgency open`」「`sell_open` 首輪必跨價(掛買一而非賣一)」「Serenity 的
+  `sell_exit` 語義不得被一起改掉」,已做突變驗證(改回 `exit` → 2 支變紅)。
+- 順手把 `main()` 裡內嵌的指令組裝抽成 `build_trade_cmd()` 純函式,money-path 的
+  語義才測得到。
 
 ## ⑥ 對「該掛什麼價」的最終建議
 

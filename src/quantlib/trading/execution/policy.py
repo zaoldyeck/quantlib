@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from dataclasses import replace as _replace
 
 from .ticks import add_ticks, snap_down, snap_up
 
@@ -51,8 +52,19 @@ BUY_PATIENT = LadderProfile("buy_patient", passive_rounds=10**6, mid_rounds=0,
 SELL_PATIENT = LadderProfile("sell_patient", passive_rounds=10**6, mid_rounds=0,
                              cap_pct=0.005, deadline_hhmm=None,
                              structure_anchor=True)
+# 開盤即出場(apex_revcycle_S 的回測語義:隔日開盤賣、必成交)。
+# **機制與 sell_stop 完全相同**(首輪即跨價、護欄 3%)——故用 replace 從同一組數字
+# 派生,不重複魔術數字;差別只在「來由」與 log/通知名稱:sell_stop 是事實級利空的
+# 急殺,sell_open 是系統出場的常態語義。
+#
+# 回測依據(docs/strategy_research/limit_order_verdict.md ④,全史 12 年 689 筆、
+# 配對 block bootstrap):相對「開盤即賣」,拖到收盤 −5.39%/年 [−9.30, −1.20] 顯著
+# 較差且 MDD −34.1%→−36.0%;掛高等回升 +2% −3.25% [−6.18, −0.48] 顯著較差。
+# 買賣不對稱的原因:買晚只是買貴一點(可回收),賣晚是「該離場時還在場上」。
+SELL_OPEN = _replace(SELL_STOP, name="sell_open")
 
-PROFILES = {p.name: p for p in (BUY_NORMAL, SELL_NORMAL, SELL_STOP, SELL_EXIT, BUY_PATIENT, SELL_PATIENT)}
+PROFILES = {p.name: p for p in (BUY_NORMAL, SELL_NORMAL, SELL_STOP, SELL_EXIT,
+                                BUY_PATIENT, SELL_PATIENT, SELL_OPEN)}
 
 
 def price_collar(side: str, arrival: float, profile: LadderProfile) -> float:
