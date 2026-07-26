@@ -112,10 +112,16 @@ CI [−3.97%, +2.49%]**;逐年 5/13 為正,無穩定方向。
 | 賣 | `SELL_EXIT`(Trade 模式 `--urgency` 預設 `exit`) | 整場撈高 + 收盤保底 | ④ 已驗證:**−2%~−5%/年顯著較差** |
 
 **這個分岔有來歷,不是 bug**:`SELL_EXIT` 是 2026-07-14 使用者指示(「死線拖到盤後」)
-的產物,且對 **Serenity 是正確對齊的**——Serenity 引擎的出場本來就是收盤價成交
+的產物,而它對 **Serenity 的語義是正確的**——Serenity 引擎的出場本來就是收盤價成交
 (`serenity/engine.py:463`「execute yesterday's scheduled exits at today's close」),
 它的每日 loop 也明確帶了 `--patience balanced` 與 `--urgency exit`
 (`serenity/daily.py:585,595`)。
+
+**但要點清楚(2026-07-26 使用者指正並經查證)**:**自動化路徑目前只跑 S**——
+雲端 systemd 只有 `quantlib-s-premarket/execute/statesync` 三個 unit,本機 launchd
+只有 1 分 K 回補,crontab 空;Serenity 的每日 loop 是人工執行。因此 CLI 的
+`--urgency` 預設值 `exit` **不在任何自動化路徑上**,只有人工直接呼叫
+`execution.trade` 時才會碰到。
 
 問題只在 **S 共用同一個執行器,但 S 的回測出場語義是「隔日開盤賣」**——S 的實盤
 出場因此比它自己的規格差 2~5%/年(統計顯著),MDD 也較差。
