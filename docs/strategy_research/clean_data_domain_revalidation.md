@@ -43,9 +43,12 @@ t01:RSI/KD/MACD/布林/MFI/OBV/vwap20_dev/**avwap_dev(錨=月營收法定生效�
 f03 SMC/形態:FVG、liquidity sweep、BOS、gap、updays 全零訊號(h21 IC −0.008~+0.013);
 hvn_dist(高量價位距離 = **TPO POC 的日頻 proxy**)h21 IC +0.004。close_pos_20(S 已有)仍最強。
 
-**TPO/Market Profile 誠實聲明**:真 TPO 需日內資料;現有 1 分 K 僅持倉股 ~10 檔/月(執行紀錄
-用途),**截面因子檢驗不可行**(需每日數百檔)。日頻 proxy(hvn_dist)已測=無訊號。若未來全市場
-日內資料可得再升級實測。
+**TPO/Market Profile 聲明(2026-07-26 更新——原判定已過時)**:真 TPO 需日內資料。撰寫本文時
+1 分 K 僅持倉股 ~10 檔/月,故判「截面檢驗不可行」;**但回補已推進到全市場**——2026-06 有
+**2,324 檔**、2026-07 有 **2,548 檔**,且每日往回補中(`intraday/pull_kbars.py`,launchd 08:30)。
+**現況**:樣本僅 2 個月(~37 交易日),**足以量執行層系統性偏差**(已產出:開盤搶單溢價,見
+`intraday/entry_timing_1m.py`)、**不足以做截面因子結論**;累積 6-12 個月後 TPO/日內因子的截面
+檢驗即可正式進行。日頻 proxy(hvn_dist)已測=無訊號。
 
 ## ③ 估值模型(DCF、PEG、五線譜、EV/EBIT、E/P、B/P、CFO 殖利率)
 
