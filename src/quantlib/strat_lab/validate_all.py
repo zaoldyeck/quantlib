@@ -547,11 +547,11 @@ def main():
                     f"{r['oos_cagr']*100:+.2f}% | "
                     f"{r['boot_cagr_lb']*100:+.2f}% | "
                     f"{r['mc_p']:.4f} | {r['dsr']:.3f} |\n")
-    print(f"f'報告已寫入 {paths.OUT_STRAT_LAB}/all_validation.md'")
+    print(f"報告已寫入 {paths.OUT_STRAT_LAB}/all_validation.md")
 
     # === Output 2: annotated by verdict_class ===
     write_annotated_report(results, f"{paths.OUT_STRAT_LAB}/all_validation_annotated.md")
-    print(f"f'分區報告已寫入 {paths.OUT_STRAT_LAB}/all_validation_annotated.md'")
+    print(f"分區報告已寫入 {paths.OUT_STRAT_LAB}/all_validation_annotated.md")
 
 
 def write_annotated_report(results: list[dict], out_path: str):

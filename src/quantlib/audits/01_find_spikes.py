@@ -148,7 +148,7 @@ def main():
     with pl.Config(tbl_rows=10):
         print(by_company.head(10))
 
-    out_path = args.out or f"f'{paths.OUT}/spikes_g'{int(args.min_gain*100)}_w{args.window}.parquet"
+    out_path = args.out or f"{paths.OUT}/spikes_g{int(args.min_gain * 100)}_w{args.window}.parquet"
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     events.write_parquet(out_path)
     print(f"\n[01] saved {n_events:,} events → {out_path}")
