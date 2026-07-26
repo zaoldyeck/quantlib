@@ -48,8 +48,16 @@ def _s_pool(feat: pl.DataFrame, elig: pl.DataFrame) -> pl.DataFrame:
             .filter(pl.col("cfo_ni_ratio_ttm") >= pl.col("cfo_ni_ratio_ttm").median().over("date")))
 
 
-def _ic(pool: pl.DataFrame, fwd: pl.DataFrame, col: str, lo: dt.date, hi: dt.date) -> float:
-    """train 期 h21 截面 IC(每日 rank 相關的均值)。"""
+def _ic(pool: pl.DataFrame, fwd: pl.DataFrame, col: str, lo: dt.date, hi: dt.date,
+        metric: str = "ic") -> float:
+    """train 期的因子品質分數。
+
+    metric="ic"     :h21 截面 IC(每日 rank 相關均值)——**注意:IC 高 ≠ 可交易**
+                     (candidate_edges 實測:dy/價值類 IC 顯著但 decile spread ≈ 0,
+                      極端分位不分離 → 選不出可交易的股票)。
+    metric="spread" :**top 五分位 − bottom 五分位的 fwd21 平均報酬差**(可交易性直接量測)
+                     ——對「用近期資料重新研發」的想法更公平的選因子標準。
+    """
     d = (pool.select(["date", C, col]).drop_nulls()
          .filter(pl.col(col).is_finite())
          .filter((pl.col("date") >= lo) & (pl.col("date") < hi))
@@ -57,6 +65,13 @@ def _ic(pool: pl.DataFrame, fwd: pl.DataFrame, col: str, lo: dt.date, hi: dt.dat
          .drop_nulls(subset=["fwd_21"]))
     if d.height < 500:
         return float("nan")
+    if metric == "spread":
+        q = (d.with_columns(((pl.col(col).rank("ordinal").over("date") * 5)
+                             // (pl.len().over("date") + 1)).alias("_q"))
+             .group_by("_q").agg(pl.col("fwd_21").mean().alias("m")).sort("_q"))
+        if q.height < 5:
+            return float("nan")
+        return float(q["m"][-1] - q["m"][0])
     daily = (d.with_columns([pl.col(col).rank().over("date").alias("_a"),
                              pl.col("fwd_21").rank().over("date").alias("_b"),
                              pl.len().over("date").alias("_n")])
@@ -91,14 +106,15 @@ def _year_ret(panel, feat, elig, y: int, cols: list[str], weights=None) -> float
     return float(seg["nav"][-1] / seg["nav"][0] - 1)
 
 
-def main() -> None:
+def main(metric: str = "ic") -> None:
     con = data.connect()
     panel, feat, elig = prep_cached(con)
     fwd = factors.forward_returns(panel)
     pool = _s_pool(feat, elig)
     s_cols = list(WREL)
 
-    print(f"[refactor] 因子池 {len(POOL)} 個,每年選 top-{K};OOS {OOS_YEARS[0]}-{OOS_YEARS[-1]}", flush=True)
+    print(f"[refactor] 因子池 {len(POOL)} 個,每年選 top-{K}(選因子標準={metric});"
+          f"OOS {OOS_YEARS[0]}-{OOS_YEARS[-1]}", flush=True)
     rows, picks = [], {}
     for y in OOS_YEARS:
         base_a = _year_ret(panel, feat, elig, y, s_cols, WREL)
@@ -107,7 +123,7 @@ def main() -> None:
             continue
         for N in WINDOWS:
             lo, hi = dt.date(max(2015, y - N), 1, 1), dt.date(y, 1, 1)
-            ics = {c: _ic(pool, fwd, c, lo, hi) for c in POOL}
+            ics = {c: _ic(pool, fwd, c, lo, hi, metric) for c in POOL}
             top = [c for c, v in sorted(ics.items(), key=lambda kv: -(kv[1] if kv[1] == kv[1] else -9))
                    if v == v][:K]
             if len(top) < K:
@@ -158,4 +174,5 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    import sys
+    main("spread" if "--spread" in sys.argv else "ic")
