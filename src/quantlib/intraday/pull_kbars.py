@@ -49,7 +49,7 @@
   uv run --project . python -m quantlib.intraday.pull_kbars --workers 1 # 強制序列
   uv run --project . python -m quantlib.intraday.pull_kbars --since 2022-07-01  # 只補近四年
   uv run --project . python -m quantlib.intraday.pull_kbars --selftest  # 登入+單檔驗證
-金鑰:research/.env 的 SHIOAJI_API_KEY / SHIOAJI_SECRET_KEY(資料查詢免 CA 憑證)。
+金鑰:<repo>/.env(paths.ENV_FILE)的 SHIOAJI_API_KEY / SHIOAJI_SECRET_KEY(資料查詢免 CA 憑證)。
 依賴 cache:是(流動性排序,缺 cache 則退回代碼序)。資料不進 git。
 """
 from __future__ import annotations
@@ -119,7 +119,7 @@ class QuotaExhausted(RuntimeError):
 
 # ── 環境 / 連線 ──────────────────────────────────────────────────────────
 def _env() -> tuple[str, str]:
-    envp = REPO / "src" / "quantlib" / ".env"
+    envp = paths.ENV_FILE
     if envp.exists():
         for line in envp.read_text().splitlines():
             if "=" in line and not line.lstrip().startswith("#"):
@@ -127,7 +127,7 @@ def _env() -> tuple[str, str]:
                 os.environ.setdefault(k.strip(), v.strip().strip('"').strip("'"))
     key, sec = os.environ.get("SHIOAJI_API_KEY"), os.environ.get("SHIOAJI_SECRET_KEY")
     if not key or not sec:
-        sys.exit("✗ 缺 SHIOAJI_API_KEY / SHIOAJI_SECRET_KEY(research/.env)")
+        sys.exit(f"✗ 缺 SHIOAJI_API_KEY / SHIOAJI_SECRET_KEY({paths.ENV_FILE})")
     return key, sec
 
 
@@ -553,9 +553,24 @@ def main() -> None:
           f"{'未知' if rem0 is None else f'{rem0/1e6:.0f} MB'}")
 
     if args.selftest:
+        # 2026-07-26 修:_pull 的第 5 參數已改為「日期清單」(重構時 selftest 漏跟),
+        # 應有日一律由 daily_quote 決定(_expected,與正式路徑同源)。
         c = api.Contracts.Stocks["2330"]
-        tag = f"{Date.today().year:04d}-{Date.today().month:02d}"
-        n = _pull(api, c, "2330", tag, Date.today().replace(day=1), Date.today())
+        today = Date.today()
+        m0 = today.replace(day=1)
+        tag = f"{m0.year:04d}-{m0.month:02d}"
+        from quantlib.db import connect as _connect
+        with _connect() as _con:
+            exp, _ = _expected(_con, m0, today)
+        days = sorted(exp.get("2330", set()))
+        if not days:
+            print(f"[selftest] daily_quote 在 {tag} 尚無 2330 交易日(cache 未更新?)——改用上月")
+            m0 = (m0 - timedelta(days=1)).replace(day=1)
+            tag = f"{m0.year:04d}-{m0.month:02d}"
+            with _connect() as _con:
+                exp, _ = _expected(_con, m0, (m0.replace(day=28) + timedelta(days=4)).replace(day=1) - timedelta(days=1))
+            days = sorted(exp.get("2330", set()))
+        n = _pull(api, c, "2330", tag, days)
         d = pl.read_parquet(OUT / tag / "2330.parquet")
         print(f"[selftest] 2330 {tag}:{n} 列,{d['dt'].min()} → {d['dt'].max()}")
         print(f"[selftest] 剩餘 {(_remaining(api) or 0)/1e6:.0f} MB;✓ 管線可用")

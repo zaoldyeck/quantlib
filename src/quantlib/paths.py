@@ -33,6 +33,11 @@ from pathlib import Path
 #: repo 根(本檔位於 <repo>/src/quantlib/paths.py)
 REPO = Path(__file__).resolve().parents[2]  # src/quantlib/paths.py → repo 根(parents[2])
 
+#: 憑證與金鑰(gitignored;**在 repo 根,不在套件內**)。所有讀 .env 的程式一律用這個常數
+#: ——2026-07-26 事故:pull_kbars 寫死 `REPO/"src"/"quantlib"/".env"`(rename 機械改寫誤傷),
+#: 每日 launchd 抓取靜默失敗數日,錯誤訊息還指著更舊的 `research/.env`。
+ENV_FILE = REPO / ".env"
+
 # ── RAW:原始封存(不可重生)────────────────────────────────────────────
 RAW = REPO / "data"
 #: 台股 1 分 K 歷史(永豐 Shioaji;每日 2 GB 上限,全補約 30 天)
