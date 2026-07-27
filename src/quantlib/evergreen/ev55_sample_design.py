@@ -334,6 +334,19 @@ def main() -> None:
     print(f"  「fwd63 ≥30%」與「2-6 月最高 ≥80%」重疊: "
           f"{100 * ov.filter(pl.col('g_2_6m') >= 0.80).height / max(ov.height, 1):.1f}%"
           f" 的前者也是後者")
+
+    # ── 13. 對照組的選取條件與暴漲組是否對稱?(EV31 設計交叉檢查)
+    #     EV31 的對照組要求「前 120 日漲 ≥25%」,暴漲組沒有這個要求。
+    #     若暴漲組多半不滿足它,兩組在「前期動能」上系統性不同 → 蒸餾會學到混淆因子。
+    pm = (px.select(["company_code", "date", "adj_p120"]))
+    q = st.join(pm, on=["company_code", "date"], how="left").drop_nulls("adj_p120")
+    sg = q.filter(pl.col("g_2_6m") >= 0.80)
+    print("\n=== 13. 前期動能對稱性(暴漲組 vs EV31 對照組的入選條件)===")
+    print(f"  暴漲組前 120 日報酬 中位 {sg['adj_p120'].median():+.1%};"
+          f"滿足『前 120 日 ≥+25%』者僅 {100 * (sg['adj_p120'] >= 0.25).mean():.1f}%")
+    print(f"  全母體 中位 {q['adj_p120'].median():+.1%};"
+          f"滿足 ≥+25% 者 {100 * (q['adj_p120'] >= 0.25).mean():.1f}%")
+    print("  → 對照組若強制 ≥+25% 而暴漲組不強制,兩組在前期動能上不可比")
     print(f"\n明細已寫入 {out}/ev55_*.csv")
 
 
