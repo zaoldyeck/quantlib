@@ -83,6 +83,18 @@ def order_safety_error(n_shares: int, buys: list) -> str | None:
 SELL_URGENCY = "open"
 
 
+def _named(codes, names: dict) -> str:
+    """把代碼串成「2059 川湖」的可讀形式——終端機輸出一律帶中文名。
+
+    使用者 2026-07-27 指正:先前只印四碼代碼,人要自己去查那是哪一檔。money-path 的
+    輸出給人看就要人看得懂;名稱來源與計劃信同一個(`daily_context.lookup_names`),
+    不另立第二條路徑以免兩邊漂移。查不到名稱時退回只印代碼,不讓查名失敗擋住下單。
+    """
+    if not codes:
+        return "無"
+    return "、".join(f"{c} {names[c]}" if names.get(c) else str(c) for c in codes)
+
+
 def build_trade_cmd(buys: list, sells: list, n: int, live: bool) -> list[str]:
     """組 execution.trade 的派工指令(抽成純函式:money-path 的語義要能被測試鎖死)。"""
     cmd = ["uv", "run", "--project", ".", "python", "-m",
@@ -147,8 +159,15 @@ def main() -> None:
     protected = protected_holdings()
     auto_sells = [c for c in suggested_sells if c not in protected]
     protected_suggested = [c for c in suggested_sells if c in protected]
-    print(f"[execute] {date_str} 計劃:買 {buys or '無'}｜自動賣 {auto_sells or '無'}"
-          + (f"｜保留股待確認 {protected_suggested}" if protected_suggested else ""))
+    try:
+        from quantlib.trading.execution.daily_context import lookup_names
+        names = lookup_names(sorted(set(buys) | set(suggested_sells)))
+    except Exception as exc:  # noqa: BLE001 - 查名失敗絕不可擋住 money path
+        print(f"[execute] 股名查詢失敗({exc});以代碼顯示", file=sys.stderr)
+        names = {}
+    print(f"[execute] {date_str} 計劃:買 {_named(buys, names)}"
+          f"｜自動賣 {_named(auto_sells, names)}"
+          + (f"｜保留股待確認 {_named(protected_suggested, names)}" if protected_suggested else ""))
 
     if not buys and not suggested_sells:
         print("[execute] 今日無下單腿,結束。")
@@ -186,7 +205,8 @@ def main() -> None:
     sells = auto_sells + confirmed_sells
     if protected_suggested:
         kept = [c for c in protected_suggested if c not in confirmed_sells]
-        print(f"[execute] 保留股:確認賣出 {confirmed_sells or '無'}、續抱保留 {kept or '無'}")
+        print(f"[execute] 保留股:確認賣出 {_named(confirmed_sells, names)}"
+              f"、續抱保留 {_named(kept, names)}")
 
     if not buys and not sells:
         print("[execute] 過濾保留股後今日無下單腿(全數續抱),結束。")
@@ -204,8 +224,8 @@ def main() -> None:
     cmd = build_trade_cmd(buys, sells, n, live)
     mode = "LIVE(真下單)" if live else "DRY-RUN(模擬)"
     # 明確印出最大曝險:買入嚴格上限 = 每檔 n 股 × 腿數(執行器 own 模式只會更少)
-    print(f"[execute] 下單上限:買 {len(buys)} 檔 × {n} 股 = 最多 {n * len(buys)} 股"
-          f"(own 模式已持有則跳過);賣 {len(sells)} 檔全部庫存。模式 {mode}")
+    print(f"[execute] 買 {_named(buys, names)} 各 {n} 股(own 模式已持有則跳過)"
+          f"｜賣 {_named(sells, names)} 全部庫存。模式 {mode}")
     print(f"[execute] 派工 execution.trade:{' '.join(cmd[6:])}")
 
     if args.check:
@@ -224,7 +244,7 @@ def main() -> None:
             _b = FubonBroker.from_env()
             _b.login()
             gone = safety_net.cancel_for(_b, set(sells))
-            print(f"[execute] 賣出前撤安全網 {len(gone)} 張({sells})")
+            print(f"[execute] 賣出前撤安全網 {len(gone)} 張({_named(sells, names)})")
         except Exception as exc:  # noqa: BLE001 - 撤不掉要響亮,不擋今日交易
             print(f"⚠ [execute] 安全網撤單失敗({type(exc).__name__}: {exc});"
                   f"賣出後請確認殘留條件單", file=sys.stderr)
