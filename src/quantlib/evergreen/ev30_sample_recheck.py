@@ -40,9 +40,9 @@ from quantlib.apex import data
 MIN_GAIN, WINDOW = 0.80, 60
 
 
-def _old_samples() -> list[dict]:
+def _old_samples(kind: str = "surge") -> list[dict]:
     out: list[dict] = []
-    for f in sorted(glob.glob("src/quantlib/evergreen/data/ev18_packs/surge_*.json")):
+    for f in sorted(glob.glob(f"src/quantlib/evergreen/data/ev18_packs/{kind}_*.json")):
         out += json.load(open(f))
     seen, uniq = set(), []
     for x in out:
@@ -115,6 +115,38 @@ def main() -> None:
     fp.parent.mkdir(parents=True, exist_ok=True)
     df.write_csv(fp)
     print(f"\n  逐檔明細 → {fp}")
+
+    # ── 同類掃描:對照組(偽形)是同一批汙染資料選出來的,一併重驗 ──────────
+    # 偽形的定義是「前 120 日漲 ≥25%,但後 60 日最高漲幅 <20%」。若乾淨資料上它其實
+    # 漲了 ≥20%,它就不是偽形——當初被當成「看起來像卻沒漲」的反例是錯的,
+    # 蒸餾會從一個假的反例學到假的排除規則。
+    ctrl = _old_samples("control")
+    print(f"\n=== 對照組(偽形)重驗:{len(ctrl)} 檔 ===")
+    crows = []
+    for x in ctrl:
+        code, t0 = x["code"], x["t0"]
+        q = con.sql(f"""
+          WITH px AS (
+            SELECT date, closing_price,
+                   MAX(closing_price) OVER (ORDER BY date
+                       ROWS BETWEEN 1 FOLLOWING AND 60 FOLLOWING) AS fmax
+            FROM daily_quote WHERE company_code = '{code}' AND closing_price > 0)
+          SELECT closing_price, fmax FROM px WHERE date = '{t0}'
+        """).pl()
+        if q.height == 0 or q["fmax"][0] is None:
+            crows.append({"code": code, "t0": t0, "new_fwd60_max": None, "verdict": "無報價"})
+            continue
+        r = q.row(0, named=True)
+        fmax = r["fmax"] / r["closing_price"] - 1
+        crows.append({"code": code, "t0": t0, "old_fwd60_max": x.get("fwd60_max"),
+                      "new_fwd60_max": fmax,
+                      "verdict": "仍是偽形" if fmax < 0.20 else "其實漲了(不是偽形)"})
+    cdf = pl.DataFrame(crows, strict=False)
+    for v, n in cdf.group_by("verdict").agg(pl.len().alias("n")).sort("n", descending=True).iter_rows():
+        print(f"  {v:<24} {n:>3} 檔  ({n / cdf.height:.1%})")
+    fc = paths.OUT / "evergreen_ev30_control_recheck.csv"
+    cdf.write_csv(fc)
+    print(f"  逐檔明細 → {fc}")
 
 
 if __name__ == "__main__":
