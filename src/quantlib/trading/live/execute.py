@@ -123,8 +123,10 @@ def _abort(notifier, date_str: str, reason: str) -> None:
 def main() -> None:
     ap = argparse.ArgumentParser(description="S 策略開盤執行(派工 execution.trade)")
     ap.add_argument("--date", default=None, help="計劃日(預設台北今日)")
-    ap.add_argument("--grace-sec", type=int, default=60,
-                    help="查取消前的緩衝秒數(讓臨界前寄出的取消信傳播;預設 60)")
+    ap.add_argument("--grace-sec", type=int, default=10,
+                    help="查取消前的緩衝秒數(讓臨界前寄出的取消信傳播;預設 10)。"
+                         "2026-07-27 使用者定調由 60 降為 10:取消信實務上在 08:55 前"
+                         "數分鐘就寄出,60 秒是白等,而開盤後每一秒都影響成交價")
     ap.add_argument("--no-cancel-check", action="store_true", help="跳過取消檢查(測試)")
     ap.add_argument("--dry", action="store_true", help="強制 dry-run(不加 --live,不論 env)")
     ap.add_argument("--check", action="store_true",
