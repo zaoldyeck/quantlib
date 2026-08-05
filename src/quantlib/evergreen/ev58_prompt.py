@@ -1,0 +1,220 @@
+"""EV58 提示詞組裝器 + 真相釋出閘門——把提示詞裡「用散文承諾的隔離」變成機制。
+
+## 為什麼必須有這支(2026-08-05 第六輪 review 抓到的兩個缺口)
+
+**缺口一:提示詞是模板,但沒有任何東西會把它渲染出來。**
+`PROMPT_ev58_*.md` 內有 `{era_code}`/`{news_root}`/`{truth_root}`/`{sample_period_end}`/
+`{distill_eras}`/`{holdout_eras}` 等由編排代入的變數,repo 裡卻找不到填充者。
+兩個後果:(a) 有人直接把 `.md` 貼給 agent,agent 看到的是 `{news_root}` 字面值,
+落檔路徑全錯、材料散落無法回收;(b) 有人用 `str.format()` 去填——提示詞裡有大量
+JSON 範例區塊,`{` 會被當成欄位起頭,當場 `KeyError`/`IndexError`。
+本模組只做**具名 token 的字面替換**,JSON 區塊原樣不動,且 `{code}`/`{d0}` 這兩個
+**由 agent 逐檔自行代入**的模板變數刻意保留不填。
+
+**缺口二:`truth.json` 與 `cards.json` 同目錄,「物理隔離」名不副實。**
+`ev58_build_cards` 的 docstring 寫「編排腳本在階段 A 寫檔完成後才釋出」,但實作
+把兩者寫進同一個 `batch_XXX/`,而歸因 agent 從第一秒就拿著 `{truth_root}`。
+盲判只剩「請你不要看」——**那正是這整套設計宣稱要取代的東西**。
+本模組把真相移到獨立的 `ev58_truth/` 根(從不交給 agent),並提供 `release()`:
+逐檔驗明 `ex_ante_d_prev.json` 與 `ex_ante_d0.json` 都已落地,才把該檔真相寫進
+agent 看得到的 `_truth/`;任一檔缺件則整批拒絕釋出。**閘門 fail-closed**。
+
+**缺口三:提示詞開頭的「組裝說明」區塊會洩漏編排契約。**
+那段寫著「每批 6 檔 = 2 組配對(暴漲 + 其配對對照)+ 2 檔未配對」——agent 讀到
+就知道批內恰有兩組配對,配對關係一被反推,臂別跟著露餡。原文標了「此區塊不進入
+agent 提示詞」,但沒有任何機制執行它。本模組在渲染時機械剝除。
+
+Run:
+  uv run --project . python -m quantlib.evergreen.ev58_prompt render batch_000
+  uv run --project . python -m quantlib.evergreen.ev58_prompt release batch_000
+  uv run --project . python -m quantlib.evergreen.ev58_prompt distill
+依賴 cache: 否(只讀 ev58_build_cards 的產出)。
+"""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+from datetime import date as Date
+from pathlib import Path
+
+from quantlib import paths
+from quantlib.evergreen.ev58_build_cards import OUT as CARDS
+from quantlib.evergreen.ev58_build_cards import TRUTH
+
+DRAFT = Path(__file__).parent / "draft"
+#: agent 的工作根(材料、身分卡、年代語彙表、階段 A 落檔)。跨批共用,
+#: 讓 `_era_brief/` 與 `_identity/` 只採一次(提示詞第 0、1 步的前提)。
+NEWS = paths.OUT / "ev58_news"
+#: 釋出後的真相落點,位於 agent 工作根之下;**釋出前這個目錄是空的**。
+REVEAL = NEWS / "_truth"
+
+_PHASE_B = "# 第二部・階段 B"
+#: 開頭的引用區塊 + 緊接其後的水平線。水平線是那個區塊的收尾,留著就成了
+#: 提示詞的第一行,渲染出來的檔案看起來像被截斷過。
+_HEADER = re.compile(r"\A(?:> .*\n)+\s*(?:-{3,}\s*\n)?\s*", re.MULTILINE)
+
+
+def _strip_header(text: str) -> str:
+    """剝除開頭的組裝說明引用區塊(缺口三)。
+
+    那段自稱「此區塊不進入 agent 提示詞」,卻同時寫著批次的配對結構——它是全文
+    洩漏量最大的一段。用「開頭連續的 `> ` 行」為界:那是 markdown 引用區塊的形態,
+    正文一律不以 `> ` 起頭(已由測試鎖死)。
+    """
+    return _HEADER.sub("", text, count=1)
+
+
+def _split(text: str) -> tuple[str, str]:
+    i = text.index(_PHASE_B)
+    return text[:i].rstrip() + "\n", text[i:]
+
+
+def _fill(text: str, **vars: str) -> str:
+    """只替換具名 token,JSON 區塊的大括號原樣保留。
+
+    刻意**不填** `{code}` 與 `{d0}`:那兩個是 agent 逐檔自行代入的模板變數,
+    填掉會讓路徑鎖死在單一檔案。
+    """
+    for k, v in vars.items():
+        text = text.replace("{" + k + "}", v)
+        text = text.replace("`{" + k + "}`", f"`{v}`")   # 反引號包住的同款
+    return text
+
+
+def _batch_ctx(batch_id: str) -> dict[str, str]:
+    cards = json.loads((CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    eras = {c["era_code"] for c in cards}
+    if len(eras) != 1:
+        raise ValueError(f"{batch_id} 跨越多個期別 {eras},年代語彙表無法批內共用")
+    era = eras.pop()
+    return {
+        "era_code": era,
+        "era_key": era,                       # 語彙表以密封碼命名,檔名本身不得洩漏年份
+        "news_root": str(NEWS),
+        "truth_root": str(REVEAL),
+        # 批內最晚站位日即本批的記憶天花板。逐檔 PIT 由鐵律 1 管,更嚴;
+        # 這條管的是「你記憶中後來發生的事」,只需批級上界。d0 本就印在卡片上,不構成洩漏。
+        "sample_period_end": max(c["d0"] for c in cards),
+    }
+
+
+def render_attribution(batch_id: str) -> tuple[str, str, str]:
+    """回傳 (階段 A, 階段 B・暴漲分支, 階段 B・偽形分支),皆已填好變數。
+
+    階段 A 只有一份——這是設計的承重點:兩分支的階段 A 若有一字之差,agent 就可能
+    從措辭密度察覺自己拿到的是哪一臂。這裡直接**驗證後只留一份**,而不是「發射前
+    記得 diff」。
+    """
+    ctx = _batch_ctx(batch_id)
+    a_s, b_s = _split(_strip_header((DRAFT / "PROMPT_ev58_attribution_surge.md")
+                                    .read_text(encoding="utf-8")))
+    a_c, b_c = _split(_strip_header((DRAFT / "PROMPT_ev58_attribution_control.md")
+                                    .read_text(encoding="utf-8")))
+    if a_s != a_c:
+        raise ValueError("兩分支的階段 A 不一致——盲測對稱性已破,禁止發射")
+    return _fill(a_s, **ctx), _fill(b_s, **ctx), _fill(b_c, **ctx)
+
+
+# ---------------------------------------------------------------- 真相釋出閘門
+
+def _cases(batch_id: str) -> list[tuple[str, str]]:
+    cards = json.loads((CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    return [(c["code"], c["d0"]) for c in cards]
+
+
+def release(batch_id: str, *, force: bool = False) -> list[Path]:
+    """階段 A 全批落檔後,才把該批真相寫進 agent 看得到的 `_truth/`。
+
+    fail-closed:任一檔缺 `ex_ante_d_prev.json` 或 `ex_ante_d0.json`,整批拒絕釋出。
+    理由是不對稱——早釋出一次,該批的盲判永久失效且**事後看不出來**(卡片與報告
+    長得一模一樣);晚釋出只是多跑一次指令。
+    """
+    truth = json.loads((TRUTH / f"{batch_id}.json").read_text(encoding="utf-8"))
+    by_case = {(t["code"], t["d0"]): t for t in truth}
+    missing: list[str] = []
+    stamps: list[float] = []
+    for code, d0 in _cases(batch_id):
+        for name in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
+            f = NEWS / f"{code}_{d0}" / name
+            if not f.exists():
+                missing.append(str(f))
+            else:
+                stamps.append(f.stat().st_mtime)
+    if missing and not force:
+        raise RuntimeError(
+            f"{batch_id} 階段 A 未完成,拒絕釋出真相(缺 {len(missing)} 個檔案):\n  "
+            + "\n  ".join(missing[:6]) + ("\n  …" if len(missing) > 6 else ""))
+    REVEAL.mkdir(parents=True, exist_ok=True)
+    out = []
+    for (code, d0), t in by_case.items():
+        p = REVEAL / f"{code}_{d0}.json"
+        p.write_text(json.dumps(t, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        out.append(p)
+    # mtime 順序是事後稽核的唯一物證:真相檔必須晚於所有 ex_ante 檔。
+    if stamps and min(p.stat().st_mtime for p in out) < max(stamps):
+        raise RuntimeError(f"{batch_id} 真相檔早於階段 A 落檔,該批作廢")
+    return out
+
+
+# ---------------------------------------------------------------- 蒸餾期別切分
+
+def era_split() -> tuple[list[str], list[str]]:
+    """保留組 = **每個漲跌幅世代各自最近的那個期別**(實測 ≈24% 樣本)。
+
+    純日期規則,不看實際批數——`--pilot` 只建部分批次,若拿批內卡片去數樣本,
+    試跑與正式跑會選出不同的保留組,而保留組必須在蒸餾開始前就固定下來。
+
+    為什麼是「最近」而不是「最大」:
+    - 最近的期別離下游標記期(2022-07 起)最近,在它身上能複製,才是最強的移植證據。
+    - 取最大的 7% 期別會把 2008-2010 整段拿去當保留組——**崩跌 regime 的樣本全在
+      那裡**,蒸餾就再也看不到崩跌,而哲學第十道判別正是宏觀 regime 時點。保留組
+      的檢力不值得用「蒸餾看不到最稀缺的那類樣本」去換。
+
+    兩種會讓檢驗形同虛設的填法也一併排除:同世代挑兩個(測不到跨世代移植)、
+    只挑一個(單世代通過說明不了移植)。
+    """
+    m = json.loads((CARDS / "_era_map.json").read_text(encoding="utf-8"))
+    limit = Date(2015, 6, 1)                       # 漲跌幅 7% → 10% 的市場微結構斷點
+    start = {k: Date.fromisoformat(v.split("~")[0]) for k, v in m.items()}
+    hold = [max((k for k in m if start[k] >= limit), key=lambda k: start[k]),
+            max((k for k in m if start[k] < limit), key=lambda k: start[k])]
+    return [k for k in sorted(m) if k not in hold], hold
+
+
+def render_distill() -> str:
+    d, h = era_split()
+    return _fill(_strip_header((DRAFT / "PROMPT_ev58_distill.md").read_text(encoding="utf-8")),
+                 distill_eras="、".join(d), holdout_eras="、".join(h))
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser()
+    ap.add_argument("cmd", choices=("render", "release", "distill"))
+    ap.add_argument("batch_id", nargs="?")
+    ap.add_argument("--force", action="store_true", help="繞過階段 A 完成檢查(只供測試)")
+    a = ap.parse_args()
+
+    if a.cmd == "distill":
+        d, h = era_split()
+        print(f"蒸餾期別 {d} / 保留期別 {h}\n")
+        print(render_distill())
+        return
+    if not a.batch_id:
+        ap.error("render / release 需要 batch_id")
+    if a.cmd == "render":
+        pa, bs, bc = render_attribution(a.batch_id)
+        out = CARDS / a.batch_id / "prompt"
+        out.mkdir(exist_ok=True)
+        (out / "phase_a.md").write_text(pa, encoding="utf-8")
+        (out / "phase_b_surge.md").write_text(bs, encoding="utf-8")
+        (out / "phase_b_control.md").write_text(bc, encoding="utf-8")
+        left = sorted(set(re.findall(r"\{[a-z_]+\}", pa + bs + bc)))
+        print(f"→ {out}(階段 A {len(pa.splitlines())} 行);未填變數:{left or '無'}")
+        return
+    for p in release(a.batch_id, force=a.force):
+        print(f"釋出 {p.name}")
+
+
+if __name__ == "__main__":
+    main()

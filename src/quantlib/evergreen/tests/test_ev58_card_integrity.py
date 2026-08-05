@@ -19,7 +19,7 @@ import numpy as np
 import pytest
 
 from quantlib import paths
-from quantlib.evergreen.ev58_build_cards import CARD_FIELDS
+from quantlib.evergreen.ev58_build_cards import CARD_FIELDS, TRUTH
 
 CARDS = paths.OUT / "ev58_cards"
 #: 判別力以**顯著性**判定,不用固定門檻。固定門檻(如 0.60)在小樣本上必然誤報:
@@ -32,8 +32,13 @@ _Z_MAX = 3.0
 def _batches() -> list[tuple[list[dict], list[dict]]]:
     out = []
     for d in sorted(CARDS.glob("batch_*")):
+        # 真相在**另一個根**(`ev58_truth/`),不與卡片同目錄——見 ev58_build_cards
+        # docstring:同目錄等於把答案放進 agent 已獲授權的路徑裡。
+        t = TRUTH / f"{d.name}.json"
+        if not t.exists():
+            continue
         out.append((json.loads((d / "cards.json").read_text()),
-                    json.loads((d / "truth.json").read_text())))
+                    json.loads(t.read_text())))
     return out
 
 

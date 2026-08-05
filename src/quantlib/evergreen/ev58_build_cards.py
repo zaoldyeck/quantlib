@@ -9,9 +9,14 @@
 **盲判不能靠紀律,要靠物理隔離**:本模組產出兩份互斥的檔案,結果欄位**在階段 A 的卡片
 裡根本不存在**,不是「請你不要看」。
 
-## 產出
+## 產出(**兩個互斥的根**——這是第六輪 review 修掉的缺口)
     out/ev58_cards/{batch_id}/cards.json    階段 A 用。**零結果欄位**,且不揭露臂別。
-    out/ev58_cards/{batch_id}/truth.json    階段 B 用。編排腳本在階段 A 寫檔完成後才釋出。
+    out/ev58_truth/{batch_id}.json          真相。**從不交給任何 agent**。
+
+真相原本與卡片同目錄,而歸因 agent 從第一秒就拿著那個目錄的路徑——「物理隔離」
+於是退化成「請你不要看」,正是本設計宣稱要取代的東西。現在真相在另一個根,
+由 `ev58_prompt.release()` 驗明該批階段 A 全數落檔後,才逐檔複製進 agent 看得到的
+`ev58_news/_truth/`;缺任一檔即整批拒絕釋出。
 
 ## 批次編排(與提示詞的契約一致)
 每批 6 檔 = 2 組配對(正例 + 其配對負例)+ 2 檔未配對;順序打散,正負比例在
@@ -19,7 +24,8 @@
 (`limit_era` × `regime` 分批),讓年代語彙表能在批內共用只採一次。
 
 Run: uv run --project . python -m quantlib.evergreen.ev58_build_cards [--pilot]
-依賴 cache: 是。`--pilot` 只出 8 批(第一階段試跑用)。
+依賴 cache: 是。`--pilot` **每個年代桶各出 1 批**(6 批 × 6 檔 = 36 張),
+第一階段試跑用——試跑的唯一目的是量各年代的消息可得性,全押同一年代等於白跑。
 """
 from __future__ import annotations
 
@@ -36,6 +42,9 @@ from quantlib.apex import data
 
 C = "company_code"
 OUT = paths.OUT / "ev58_cards"
+#: 真相的權威位置。與 `OUT` 分根是**承重設計**,不是整理癖:同根就等於把答案
+#: 放進 agent 已被授予的目錄裡,盲判只剩自律。
+TRUTH = paths.OUT / "ev58_truth"
 #: 每批檔數;正負比例在 2:4 / 3:3 / 4:2 間浮動,agent 無從由結構反推
 BATCH = 6
 #: 卡片可含的欄位白名單。**結果欄位不在此列即為不存在**——白名單而非黑名單,
@@ -66,12 +75,18 @@ def _era_labels(seed: int) -> dict[tuple[str, str], str]:
     return dict(zip(ERA_BANDS, labels))
 
 
-def _era_band(d: Date) -> tuple[str, str] | None:
+def _era_band(d: Date) -> tuple[str, str]:
+    """落不進任何桶就**當場炸**,不回 None。
+
+    回 None 的話,`era_of[None]` 只會拋一個沒有上下文的 KeyError;更糟的是若哪天
+    有人補了 `.get()`,期別碼就變成空字串,而空字串在密封期別的世界裡等於「所有
+    卡片同一期」——保留組隔離無聲失效。
+    """
     s = d.isoformat()
     for lo, hi in ERA_BANDS:
         if lo <= s <= hi:
             return (lo, hi)
-    return None
+    raise ValueError(f"{s} 不在任何年代桶內(ERA_BANDS 未覆蓋到樣本期間)")
 
 
 def _stations(panel: pl.DataFrame) -> list[Date]:
@@ -232,9 +247,11 @@ def main() -> None:
                 break            # 每個年代桶只取 1 批,讓試跑橫跨全部年代
 
     OUT.mkdir(parents=True, exist_ok=True)
+    TRUTH.mkdir(parents=True, exist_ok=True)
     npos = nneg = 0
     for bi, items in enumerate(batches):
-        bdir = OUT / f"batch_{bi:03d}"
+        bid = f"batch_{bi:03d}"
+        bdir = OUT / bid
         bdir.mkdir(exist_ok=True)
         cards = [c for c, _ in items]
         truth = [t for _, t in items]
@@ -242,7 +259,7 @@ def main() -> None:
         nneg += sum(1 for t in truth if t["arm"] == "negative")
         (bdir / "cards.json").write_text(
             json.dumps(cards, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-        (bdir / "truth.json").write_text(
+        (TRUTH / f"{bid}.json").write_text(          # **另一個根**,見模組 docstring
             json.dumps(truth, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
     # 硬性驗證:卡片絕不可含任何結果欄位
