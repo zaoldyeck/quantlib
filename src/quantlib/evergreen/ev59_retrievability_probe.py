@@ -41,18 +41,33 @@ OUT = paths.OUT / "ev59_g1_coverage.json"
 #: **序列查詢 + 間隔**。第一版用 6 併發,結果:最早跑的 E1 拿到 83% 覆蓋,其餘期別
 #: 全部 100% 失敗——那不是覆蓋斷層,是端點在限流我。而報表把兩者都印成「覆蓋率 0%」,
 #: 差點讓「2020 年的 MOPS 查不到」這種顯然荒謬的結論寫進決策。
-#: 教訓正是這支自己的 docstring 講的那條:端點沒答 ≠ 該月無資料。現在失敗要重試、
-#: 要記下**為什麼**失敗,而不是折疊成一個「error」計數。
-WORKERS = 1
-#: 每次查詢之間的間隔秒數。無官方文件,取實測不再觸發限流的值。
+#: 教訓正是這支自己的 docstring 講的那條:端點沒答 ≠ 該月無資料。
+#:
+#: **但修法不是砍成序列**——那是把一個錯誤換成另一個(432 次 × 1 秒 = 慢到沒必要)。
+#: 真正的根因是**沒有重試**:單次 429 就被記成永久 error。補上指數退避重試之後,
+#: 併發本身不再是問題,限流只會讓個別請求多繞一圈。併發值由 `--workers` 可調,
+#: 預設取實測不觸發持續限流的值。
+WORKERS = 2
+#: 退避基數。實測 4 併發 / 0.3 秒基數仍殘留 100 次限流,且**集中在後跑的期別**——
+#: 那會被誤讀成「近年反而查不到」,實際只是排隊順序。降併發 + 拉長退避到 31 秒上限。
 GAP_SEC = 1.0
+#: 端點的回應有**四種形態**,實際打過才知道(前兩版都是用猜的,兩次都量錯):
+#:   1. 表格頁,含「發言日期」          → hit(該月有公告)
+#:   2. 「資料庫中查無需求資料」         → miss(端點答了,該月無公告)
+#:   3. 只有標題、正文全空(len ≈ 2.5KB)→ `none`。**不是「尚未上市」**(那是我的第
+#:      三次錯猜):實測這四檔在 2007 年就已交易,共同點是**後來下市**。MOPS 不保留
+#:      已下市公司的歷史公告,查詢回空白頁而非「查無」。分離乾淨:已下市 4/4 全空、
+#:      仍在市 0/32。全樣本 432 檔中 40 檔(9.3%)屬此類,正負臂 21:19 大致平衡。
+#:   4. BOM + `<!DOCTYPE HTML PUBLIC`   → 限流頁,要重試,**絕不可當成沒資料**
+#: 教訓寫在這裡而不是 commit 訊息裡:量一個外部端點之前,先看它到底回什麼。
 _HAS = re.compile(r"發言日期")
 _NONE = re.compile(r"查無需求資料")
+_THROTTLE = re.compile(r"\A\ufeff?<!DOCTYPE", re.I)
 
 
 def _month_has_filings(code: str, y: int, m: int, timeout: int = 40,
-                       tries: int = 4) -> tuple[str, str]:
-    """回傳 (`hit`/`miss`/`error`, 失敗原因)。
+                       tries: int = 6) -> tuple[str, str]:
+    """回傳 (`hit`/`miss`/`none`/`error`, 失敗原因)。
 
     三態而非布林:`miss`(端點答了、該月無公告)與 `error`(端點沒答)在語義上
     完全不同,合併會讓「覆蓋斷層」與「公司沒公告」互相偽裝——這正是提示詞裡
@@ -76,7 +91,12 @@ def _month_has_filings(code: str, y: int, m: int, timeout: int = 40,
                 return "hit", ""
             if _NONE.search(t):
                 return "miss", ""
-            why = f"unexpected_body:{t[:60].strip()!r}"
+            if _THROTTLE.match(t):
+                why = "throttled"                          # 退避後重試,不是「沒資料」
+            elif len(t) < 3000:
+                return "none", ""                          # 空殼:該公司當時多半尚未上市
+            else:
+                why = f"unexpected_body:{t[:60].strip()!r}"
         except urllib.error.HTTPError as e:
             why = f"http_{e.code}"
         except Exception as e:                             # noqa: BLE001
@@ -99,6 +119,7 @@ def _prior_months(d0: Date, n: int = 12) -> list[tuple[int, int]]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--months", type=int, default=12, help="往前查幾個月(對齊 G1 的窗)")
+    ap.add_argument("--workers", type=int, default=WORKERS, help="併發數;限流靠重試退避吸收")
     a = ap.parse_args()
 
     cards = [c for b in sorted(CARDS.glob("batch_*"))
@@ -109,10 +130,10 @@ def main() -> None:
 
     jobs = [(c, ym) for c in cards
             for ym in _prior_months(Date.fromisoformat(c["d0"]), a.months)]
-    print(f"{len(cards)} 張卡 × {a.months} 個月 = {len(jobs)} 次查詢,併發 {WORKERS}…",
+    print(f"{len(cards)} 張卡 × {a.months} 個月 = {len(jobs)} 次查詢,併發 {a.workers}…",
           flush=True)
-    if WORKERS > 1:
-        with ThreadPoolExecutor(WORKERS) as ex:
+    if a.workers > 1:
+        with ThreadPoolExecutor(a.workers) as ex:
             res = list(ex.map(lambda j: _month_has_filings(j[0]["code"], *j[1]), jobs))
     else:
         res = []
@@ -127,13 +148,14 @@ def main() -> None:
     for (c, _), (r, why) in zip(jobs, res):
         d = per_card.setdefault(c["code"] + "@" + c["d0"], {
             "era_code": c["era_code"], "limit_era": c["limit_era"],
-            "hit": 0, "miss": 0, "error": 0})
+            "hit": 0, "miss": 0, "none": 0, "error": 0})
         d[r] += 1
         if why:
             why_count[why] = why_count.get(why, 0) + 1
 
     print("\n=== G1(MOPS 重大訊息)覆蓋:d0 前 12 個月 ===")
-    print(f"{'期別':<5}{'區間':<24}{'卡數':>5}{'有公告的卡':>11}{'月覆蓋率':>10}{'端點失敗':>9}")
+    print(f"{'期別':<5}{'區間':<24}{'卡數':>5}{'有公告的卡':>11}{'月覆蓋率':>10}"
+          f"{'未上市月':>9}{'端點失敗':>9}")
     by_era: dict[str, list[dict]] = {}
     for v in per_card.values():
         by_era.setdefault(v["era_code"], []).append(v)
@@ -142,10 +164,12 @@ def main() -> None:
         answered = sum(r["hit"] + r["miss"] for r in rows)
         # 「月覆蓋率」= 端點答得出來的月份比例(hit + miss);它量的是**端點的深度**,
         # 不是公司有沒有公告。分母刻意含 miss——把 miss 排除會讓覆蓋率永遠是 100%。
-        cov = answered / max(sum(r["hit"] + r["miss"] + r["error"] for r in rows), 1)
+        # 分母排除 `none`(該公司當時尚未上市)——那不是端點的覆蓋問題,
+        # 而分母含 `miss`(把 miss 排除會讓覆蓋率永遠是 100%)。
+        cov = answered / max(answered + sum(r["error"] for r in rows), 1)
         with_any = sum(1 for r in rows if r["hit"] > 0)
         print(f"{era:<5}{era_map[era]:<24}{len(rows):>5}{with_any:>11}"
-              f"{cov:>9.0%}{sum(r['error'] for r in rows):>9}")
+              f"{cov:>9.0%}{sum(r['none'] for r in rows):>9}{sum(r['error'] for r in rows):>9}")
 
     if why_count:
         # 失敗原因必須印出來:它決定結論是「那個年代沒有資料」還是「我們被擋了」,
