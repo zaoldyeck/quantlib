@@ -116,11 +116,61 @@ def _prior_months(d0: Date, n: int = 12) -> list[tuple[int, int]]:
     return out
 
 
+UNAVAIL = paths.OUT / "ev59_g1_unavailable.json"
+
+
+def scan_full_sample(workers: int = 2) -> list[dict]:
+    """掃全樣本,產出 **G1 不可得清單**——`blocked` 判定的機械依據。
+
+    為什麼要有這份清單:提示詞可以告訴 agent「空白頁記 blocked 不記 miss」,但
+    那只是一句話,沒有機制。有了清單,編排端就能事後對照 `retrieval_log.jsonl`:
+    某案我們已知 MOPS 回空白頁,agent 卻在 G1 記了 `miss` —— 那是機械可偵測的錯誤,
+    而它的後果是產出一個假的「這家公司當年真的沒有消息」。
+
+    預測子是「後來下市」(cache 的最後交易日早於今年),但**清單以實測為準**:
+    預測子只用來縮小要打的查詢數,每一筆仍實際打過 MOPS 才寫進清單。
+    """
+    import polars as pl                                    # 只有這條路徑需要,不拖累匯入
+
+    from quantlib.apex import data
+    con = data.connect()
+    s = pl.concat([pl.read_csv(paths.OUT / f"evergreen_ev57_{k}.csv",
+                               schema_overrides={"company_code": pl.Utf8})
+                   .select(["company_code", "date"]) for k in ("positives", "negatives")])
+    codes = ",".join(repr(c) for c in s["company_code"].to_list())
+    last = con.sql(f"SELECT company_code, max(date) ld FROM daily_quote "
+                   f"WHERE company_code IN ({codes}) GROUP BY 1").pl()
+    fresh = last["ld"].max()
+    gone = (s.join(last, on="company_code")
+             .filter(pl.col("ld") < pl.date(fresh.year, 1, 1)).to_dicts())
+    print(f"樣本 {s.height};已下市 {len(gone)}({len(gone) / s.height:.1%})——逐筆實測 G1…",
+          flush=True)
+
+    def one(r: dict) -> str:
+        d = Date.fromisoformat(str(r["date"]))
+        y, m = (d.year - 1, 12) if d.month == 1 else (d.year, d.month - 1)
+        return _month_has_filings(r["company_code"], y, m)[0]
+
+    with ThreadPoolExecutor(workers) as ex:
+        res = list(ex.map(one, gone))
+    out = [{"code": r["company_code"], "d0": str(r["date"])}
+           for r, v in zip(gone, res) if v == "none"]
+    UNAVAIL.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"  實測結果:{ {v: res.count(v) for v in set(res)} }")
+    print(f"G1 不可得清單 {len(out)} 檔 → {UNAVAIL}")
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--months", type=int, default=12, help="往前查幾個月(對齊 G1 的窗)")
     ap.add_argument("--workers", type=int, default=WORKERS, help="併發數;限流靠重試退避吸收")
+    ap.add_argument("--full-sample", action="store_true",
+                    help="掃全 432 樣本,產出 G1 不可得清單(blocked 判定的機械依據)")
     a = ap.parse_args()
+    if a.full_sample:
+        scan_full_sample(a.workers)
+        return
 
     cards = [c for b in sorted(CARDS.glob("batch_*"))
              for c in json.loads((b / "cards.json").read_text(encoding="utf-8"))]

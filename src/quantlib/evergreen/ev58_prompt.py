@@ -137,6 +137,38 @@ def _cases(batch_id: str) -> list[tuple[str, str]]:
     return [(c["code"], c["d0"]) for c in cards]
 
 
+#: 實測 MOPS 回空白頁的案子(`ev59_retrievability_probe --full-sample` 產出)。
+#: 這份清單存在的理由:提示詞可以叫 agent「空白頁記 blocked 不記 miss」,但那只是
+#: 一句話。有清單就能機械對照——**規則沒有機制就等於沒有規則**。
+G1_UNAVAIL = paths.OUT / "ev59_g1_unavailable.json"
+
+
+def _g1_misrecorded(batch_id: str) -> list[str]:
+    """找出「我們已知 MOPS 回空白頁,agent 卻在 G1 記 `miss`」的案子。
+
+    這個錯誤的後果很具體:`NO_NEWS_EXISTS` 的窮盡條件第 4 條要求 T1 層不得有
+    `blocked`,記成 `miss` 會讓該案一路通過,產出「這家公司當年真的沒有消息」——
+    而真相是那份資料根本不在系統裡。清單以**實測**為準,不用「後來下市」去推:
+    實測 40 檔已下市樣本中有 4 檔照樣查得到,推論會誤殺那 4 檔。
+    """
+    if not G1_UNAVAIL.exists():
+        return []
+    known = {(r["code"], r["d0"]) for r in
+             json.loads(G1_UNAVAIL.read_text(encoding="utf-8"))}
+    bad = []
+    for code, d0 in _cases(batch_id):
+        log = NEWS / f"{code}_{d0}" / "retrieval_log.jsonl"
+        if (code, d0) not in known or not log.exists():
+            continue
+        for line in log.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            if row.get("gate") == "G1" and row.get("status") == "miss":
+                bad.append(f"{code}@{d0}:G1 記為 miss,實測應為 blocked")
+    return bad
+
+
 def release(batch_id: str, *, force: bool = False) -> list[Path]:
     """階段 A 全批落檔後,才把該批真相寫進 agent 看得到的 `_truth/`。
 
@@ -163,6 +195,12 @@ def release(batch_id: str, *, force: bool = False) -> list[Path]:
                 missing.append(str(f))
             else:
                 stamps.append(f.stat().st_mtime)
+    if mis := _g1_misrecorded(batch_id):
+        raise RuntimeError(
+            f"{batch_id} 的 G1 記錄與實測矛盾,拒絕釋出真相:\n  " + "\n  ".join(mis)
+            + "\n  這些案的 MOPS 查詢**實測回空白頁**(來源不保留已下市公司的公告),"
+              "應記 `blocked` 而非 `miss`——記成 miss 會讓 `NO_NEWS_EXISTS` 的窮盡條件"
+              "第 4 條被繞過,產出假的「這家公司當年真的沒有消息」。")
     if missing and not force:
         raise RuntimeError(
             f"{batch_id} 階段 A 未完成,拒絕釋出真相(缺 {len(missing)} 個檔案;"

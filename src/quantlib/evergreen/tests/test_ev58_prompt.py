@@ -138,3 +138,53 @@ def test_era_brief_prompt_never_touches_single_stocks() -> None:
     """年代語境卡是共用觀測,一旦混進個股就不再共用,還會把個股偏見散佈給整個期別。"""
     t = (P.DRAFT / "PROMPT_ev58_era_brief.md").read_text(encoding="utf-8")
     assert "不碰個股" in t and "不准出現任何個股名稱或代碼" in t
+
+
+def _stage_a(root, cards, g1_status=None):
+    for c in cards:
+        d = root / f"{c['code']}_{c['d0']}"
+        d.mkdir(parents=True, exist_ok=True)
+        for n in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
+            (d / n).write_text("{}")
+        if g1_status:
+            (d / "retrieval_log.jsonl").write_text(
+                json.dumps({"gate": "G1", "status": g1_status, "queries": []}) + "\n")
+
+
+def test_release_rejects_g1_recorded_as_miss(tmp_path, monkeypatch, batch_id) -> None:
+    """已知 MOPS 回空白頁的案子,G1 記 `miss` 即擋下。
+
+    記成 miss 會讓 `NO_NEWS_EXISTS` 的窮盡條件第 4 條(T1 層不得 blocked)被繞過,
+    產出假的「這家公司當年真的沒有消息」——而真相是那份資料不在系統裡。這種錯誤
+    在卡片上看不出來,所以必須機械攔。
+    """
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "unavail.json")
+    P.G1_UNAVAIL.write_text(json.dumps([{"code": cards[0]["code"], "d0": cards[0]["d0"]}]))
+    _stage_a(P.NEWS, cards, g1_status="miss")
+    with pytest.raises(RuntimeError, match="G1 記錄與實測矛盾"):
+        P.release(batch_id)
+
+
+def test_release_accepts_g1_recorded_as_blocked(tmp_path, monkeypatch, batch_id) -> None:
+    """正常路徑必過——只會誤殺的閘門會逼現場繞過它。"""
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "unavail.json")
+    P.G1_UNAVAIL.write_text(json.dumps([{"code": cards[0]["code"], "d0": cards[0]["d0"]}]))
+    _stage_a(P.NEWS, cards, g1_status="blocked")
+    assert len(P.release(batch_id)) == len(cards)
+
+
+def test_g1_check_ignores_cases_not_on_the_list(tmp_path, monkeypatch, batch_id) -> None:
+    """不在清單上的案子記 miss 是合法的——那是真的「查了沒有」。"""
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "unavail.json")
+    P.G1_UNAVAIL.write_text("[]")
+    _stage_a(P.NEWS, cards, g1_status="miss")
+    assert len(P.release(batch_id)) == len(cards)
