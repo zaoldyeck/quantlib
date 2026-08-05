@@ -85,3 +85,56 @@ def test_era_split_spans_both_limit_generations() -> None:
     assert len(h) == 2 and {gen[k] for k in h} == {"7%", "10%"}, f"保留組世代不完整:{h}"
     assert not set(d) & set(h), "同一期別同時在蒸餾組與保留組"
     assert set(d) | set(h) == set(m), "有期別既不蒸餾也不保留,樣本被靜默丟棄"
+
+
+def test_release_accepts_a_voided_case(tmp_path, monkeypatch, batch_id) -> None:
+    """作廢也算結案——閘門與提示詞的契約必須是同一份。
+
+    提示詞明文允許 agent 作廢一檔(觸發鐵律、機械性事件、完全無法檢索)。閘門若仍
+    要求兩張卡全員到齊,該批就永遠釋不出來,而現場最可能的反應是「那就別寫 voided,
+    硬產一張卡」——把守門機制變成造假誘因。
+    """
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    for i, c in enumerate(cards):
+        d = P.NEWS / f"{c['code']}_{c['d0']}"
+        d.mkdir(parents=True)
+        if i == 0:
+            (d / "voided.json").write_text('{"reason":"mechanical_suspect"}')
+        else:
+            for n in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
+                (d / n).write_text("{}")
+    assert len(P.release(batch_id)) == len(cards)
+
+
+def test_prompt_tells_agent_to_write_voided(batch_id) -> None:
+    """閘門認得 voided.json,提示詞就必須叫 agent 寫它——否則機制在等一個沒人會產的檔案。"""
+    pa, _, _ = P.render_attribution(batch_id)
+    assert "voided.json" in pa, "提示詞未告知作廢檔的落檔方式"
+
+
+def test_era_brief_is_read_only_for_attribution(batch_id) -> None:
+    """年代語境卡是跨批共用觀測,歸因 agent 只准讀——並行寫會互相覆寫且無人察覺。"""
+    pa, _, _ = P.render_attribution(batch_id)
+    assert "_era_brief" in pa and "addenda" in pa, "缺 append-only 的補充管道"
+    assert "只讀不寫" in pa, "未明文禁止歸因 agent 覆寫年代語境卡"
+
+
+def test_era_brief_prompt_renders_for_every_era() -> None:
+    """每個期別都要能渲染出前置提示詞——少一個,該期別的歸因批次會全數停在第 0 步。"""
+    if not (P.CARDS / "_era_map.json").exists():
+        pytest.skip("尚未產生期別對照表")
+    m = json.loads((P.CARDS / "_era_map.json").read_text(encoding="utf-8"))
+    for era in m:
+        t = P.render_era_brief(era)
+        left = {x[1:-1] for x in re.findall(r"\{[a-z_]+\}", t)}
+        assert not left, f"{era} 的年代提示詞殘留變數:{sorted(left)}"
+        assert m[era].split("~")[0] in t, "未代入實際區間,agent 不知道要研究哪幾年"
+        assert "組裝說明" not in t
+
+
+def test_era_brief_prompt_never_touches_single_stocks() -> None:
+    """年代語境卡是共用觀測,一旦混進個股就不再共用,還會把個股偏見散佈給整個期別。"""
+    t = (P.DRAFT / "PROMPT_ev58_era_brief.md").read_text(encoding="utf-8")
+    assert "不碰個股" in t and "不准出現任何個股名稱或代碼" in t

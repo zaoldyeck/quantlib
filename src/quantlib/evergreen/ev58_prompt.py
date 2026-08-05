@@ -1,6 +1,6 @@
 """EV58 提示詞組裝器 + 真相釋出閘門——把提示詞裡「用散文承諾的隔離」變成機制。
 
-## 為什麼必須有這支(2026-08-05 第六輪 review 抓到的兩個缺口)
+## 為什麼必須有這支(2026-08-05 第六、七輪 review 抓到的缺口)
 
 **缺口一:提示詞是模板,但沒有任何東西會把它渲染出來。**
 `PROMPT_ev58_*.md` 內有 `{era_code}`/`{news_root}`/`{truth_root}`/`{sample_period_end}`/
@@ -24,7 +24,21 @@ agent 看得到的 `_truth/`;任一檔缺件則整批拒絕釋出。**閘門 fai
 就知道批內恰有兩組配對,配對關係一被反推,臂別跟著露餡。原文標了「此區塊不進入
 agent 提示詞」,但沒有任何機制執行它。本模組在渲染時機械剝除。
 
+**缺口四(第七輪):年代語境卡是跨批共用觀測,卻叫每批自己做。**
+原提示詞寫「若該檔已由同年代的前一批建立,直接讀用,只補你新學到的語彙」——
+讀-改-寫的競態:同年代多批並行時,後寫的把前一批的語彙整段抹掉,而且沒有任何跡象。
+批次少時看不出來(試跑每年代只有 1 批),正式跑 E1 有二十幾批必然踩到。改成專責前置
+步驟(`PROMPT_ev58_era_brief.md`,每期別一次),歸因 agent **只讀不寫**,現場的補充走
+append-only 的 addenda。這同時省掉「同一份年代研究被重做二十次」的 token。
+
+**缺口五(第七輪):作廢的檔沒有出口,閘門與提示詞契約互相打架。**
+提示詞明文允許 agent 作廢一檔(觸發鐵律、機械性事件、完全無法檢索),但落檔契約與
+本模組的釋出閘門都要求「6 檔的 ex_ante 全部落地」——作廢一檔,該批永遠釋不出來。
+現場最可能的反應是「那就別寫作廢,硬產一張卡」,把守門機制變成造假誘因。
+現在「結案」= 兩張卡齊備**或**有 `voided.json`,兩邊同一份契約。
+
 Run:
+  uv run --project . python -m quantlib.evergreen.ev58_prompt era-brief E1   # 前置,每期別一次
   uv run --project . python -m quantlib.evergreen.ev58_prompt render batch_000
   uv run --project . python -m quantlib.evergreen.ev58_prompt release batch_000
   uv run --project . python -m quantlib.evergreen.ev58_prompt distill
@@ -126,24 +140,33 @@ def _cases(batch_id: str) -> list[tuple[str, str]]:
 def release(batch_id: str, *, force: bool = False) -> list[Path]:
     """階段 A 全批落檔後,才把該批真相寫進 agent 看得到的 `_truth/`。
 
-    fail-closed:任一檔缺 `ex_ante_d_prev.json` 或 `ex_ante_d0.json`,整批拒絕釋出。
-    理由是不對稱——早釋出一次,該批的盲判永久失效且**事後看不出來**(卡片與報告
-    長得一模一樣);晚釋出只是多跑一次指令。
+    「結案」= 兩張 `ex_ante` 卡齊備,**或**有 `voided.json`(觸發鐵律、判定機械性事件、
+    完全無法檢索)。作廢也算結案是必要的:提示詞明文允許 agent 作廢一檔,若閘門仍
+    要求全員到齊,該批永遠釋不出來——閘門與提示詞的契約必須是同一份。反過來,作廢
+    **必須留檔**,不能靜默跳過:靜默跳過會讓分母悄悄變小,批次統計失真而毫無跡象。
+
+    fail-closed:任一檔未結案即整批拒絕。理由是不對稱——早釋出一次,該批的盲判永久
+    失效且**事後看不出來**(卡片與報告長得一模一樣);晚釋出只是多跑一次指令。
     """
     truth = json.loads((TRUTH / f"{batch_id}.json").read_text(encoding="utf-8"))
     by_case = {(t["code"], t["d0"]): t for t in truth}
     missing: list[str] = []
     stamps: list[float] = []
     for code, d0 in _cases(batch_id):
+        cdir = NEWS / f"{code}_{d0}"
+        if (cdir / "voided.json").exists():
+            stamps.append((cdir / "voided.json").stat().st_mtime)
+            continue
         for name in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
-            f = NEWS / f"{code}_{d0}" / name
+            f = cdir / name
             if not f.exists():
                 missing.append(str(f))
             else:
                 stamps.append(f.stat().st_mtime)
     if missing and not force:
         raise RuntimeError(
-            f"{batch_id} 階段 A 未完成,拒絕釋出真相(缺 {len(missing)} 個檔案):\n  "
+            f"{batch_id} 階段 A 未完成,拒絕釋出真相(缺 {len(missing)} 個檔案;"
+            f"該檔若已作廢,請寫 voided.json 而非留空):\n  "
             + "\n  ".join(missing[:6]) + ("\n  …" if len(missing) > 6 else ""))
     REVEAL.mkdir(parents=True, exist_ok=True)
     out = []
@@ -182,6 +205,21 @@ def era_split() -> tuple[list[str], list[str]]:
     return [k for k in sorted(m) if k not in hold], hold
 
 
+def render_era_brief(era_code: str) -> str:
+    """年代語境卡的前置步驟——每個期別跑一次,在該期別任何歸因批次啟動之前。
+
+    這是唯一一份**需要知道實際年份**的提示詞:重建當年語彙就得去讀當年的報導。
+    密封在這裡不適用,也不必適用——它不碰任何個股、不做任何判別,產物是純語境。
+    """
+    m = json.loads((CARDS / "_era_map.json").read_text(encoding="utf-8"))
+    if era_code not in m:
+        raise ValueError(f"未知期別 {era_code}(已知:{sorted(m)})")
+    start, end = m[era_code].split("~")
+    return _fill(_strip_header((DRAFT / "PROMPT_ev58_era_brief.md").read_text(encoding="utf-8")),
+                 era_code=era_code, era_key=era_code, era_start=start, era_end=end,
+                 news_root=str(NEWS))
+
+
 def render_distill() -> str:
     d, h = era_split()
     return _fill(_strip_header((DRAFT / "PROMPT_ev58_distill.md").read_text(encoding="utf-8")),
@@ -190,11 +228,16 @@ def render_distill() -> str:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=("render", "release", "distill"))
-    ap.add_argument("batch_id", nargs="?")
+    ap.add_argument("cmd", choices=("render", "release", "distill", "era-brief"))
+    ap.add_argument("batch_id", nargs="?", help="render/release 用批次號;era-brief 用期別碼")
     ap.add_argument("--force", action="store_true", help="繞過階段 A 完成檢查(只供測試)")
     a = ap.parse_args()
 
+    if a.cmd == "era-brief":
+        if not a.batch_id:
+            ap.error("era-brief 需要期別碼(如 E1);全部跑一遍見 _era_map.json")
+        print(render_era_brief(a.batch_id))
+        return
     if a.cmd == "distill":
         d, h = era_split()
         print(f"蒸餾期別 {d} / 保留期別 {h}\n")
