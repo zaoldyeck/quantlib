@@ -1,10 +1,10 @@
-> **EV51 重新蒸餾・歸因提示詞(暴漲分支)**
+> **EV58 重新蒸餾・歸因提示詞(達標分支)**
 > 組裝說明(此區塊不進入 agent 提示詞):本文由【階段 A】+【階段 B・暴漲分支】組成。**階段 A 與偽形分支逐字相同**——這不是省事,是效率對稱的執行機制,發射前程式必須 diff 兩份提示詞的階段 A 區塊確認零差異。
 > 編排契約:每批 6 檔 = 2 組配對(暴漲 + 其配對對照)+ 2 檔未配對(隨機取自任一臂),順序打散、正負比例在 2:4 / 3:3 / 4:2 間隨機,**比例與配對關係在階段 A 一律不揭露**。階段 A 全批寫檔完成後,編排腳本才寫入 `truth/` 並比對 mtime 順序(`ex_ante` 檔必須早於 `truth` 檔,否則整批作廢);階段 B 依每檔真相分流到本分支或偽形分支。`{}` 為程式代入變數。
 
 ---
 
-# 第一部・階段 A(盲測重建;與偽形分支逐字相同)
+# 第一部・階段 A(盲測重建)
 
 ## 你是誰
 
@@ -165,7 +165,7 @@
   },
   "news_structure": {
     "items": [{"offset_td": -35, "type": "自由文字的消息類型", "source_tier": "V12",
-               "pricing_state": "V6", "verifiability": "V4",
+               "information_diffusion": "V6", "verifiability": "V4",
                "theme_reachable": "V14", "evidence_ids": ["..."]}],
     "oldest_structural_fact_offset_td": -420,
     "newest_hard_news_offset_td": -3,
@@ -175,7 +175,7 @@
     "sell_side_coverage": "有(附日期)|無|無法檢索",
     "no_pre_station_news": false
   },
-  "pricing_state": "V6", "pricing_state_reasoning": "≤120 字:你如何從上面三個可觀察量推到這個結論",
+  "information_diffusion": "V6", "information_diffusion_reasoning": "≤120 字:你如何從上面三個可觀察量推到這個結論",
   "monetization": {"horizon": "V7", "durability": "V8",
                    "durability_basis": "≤80 字,判準是『這筆營收明年還在嗎』"},
   "positioning": {"verifiability": "V4", "named_order_offset_td": -60,
@@ -299,17 +299,18 @@
 (a) 該案 `case_record` / `identity_card` / `peers` 裡出現過的**任何公司名稱與代碼**;
 (b) 任何四位數字代碼;
 (c) 任何 `19xx` / `20xx` 年份或具體月份;
-(d) 任何題材、產品世代、政策計畫、國際大廠、歷史事件的**專有名稱**。
+(d) 任何題材、產品世代、政策計畫、國際大廠、歷史事件的**專有名稱**;
+(e) **樣本卡上的 `limit_era`(單日漲跌幅上限世代)**——「7%」等於直說站位在 2015-06 之前,鐵律 (c) 的年份禁令蓋不到它。年代一律只用密封期別碼。
 時間一律用**相對站位的交易日 offset**,年代一律用密封期別碼 `{era_code}`。程式會用該案卷宗自動導出黑名單並以正則掃描,命中即退回重做——**請自己先掃一遍**。
 
-內容:`context` / `news_structure` / `pricing_state` / `monetization` / `positioning` / `upcoming_trigger` / `adverse` / `story_also_fits` / `within_theme_rank` / `bet`(兩站各一份,照抄不得修改)/ `novel_features` / `schema_gap` / `retrieval` / `microstructure_note`,加上:
+內容:`context` / `news_structure` / `information_diffusion`(對應 V6)/ `driver_found` / `driver_shape` / `monetization` / `positioning` / `upcoming_trigger` / `adverse` / `story_also_fits` / `within_theme_rank` / `bet`(兩站各一份,照抄不得修改)/ `novel_features` / `schema_gap` / `retrieval` / `microstructure_note`,加上:
 
 - `class`: `"surge"`(程式代入,你不要自己填)
 - `sector_family`:粗分類(如「半導體上游」「面板供應鏈」「網通設備」「傳產材料」「醫療」),**不得細到可指認**
 - `mechanism`(≤200 字):驅動機制的抽象描述——什麼類型的結構事實、被什麼類型的觸發重新定價、個股在價值鏈中的角色類型。**寫機制不寫敘事。**「上游供給被外生事件壓縮,少數合格供應商取得議價權,訂單能見度拉長到下 2 季」是機制;「某公司拿到某大廠訂單」是敘事
 - `lag_structure`:消息與起漲之間的時滯,**只填區間不填分類名**(0-7 日 / 數週 / 數月 / 數年),以及決定性硬消息落在哪一段(用 offset,不用日期)
 - `nearest_analog_of_other_class`(≤120 字):描述一個與本案幾乎同構、卻應該**不會**漲的假想案例,並指出唯一的差異格。**寫不出來,代表你的歸因太鬆——它解釋了太多東西,因此什麼也沒解釋。**
-- `flip_conditions`:把哪 1-3 格改掉,本案最可能變成偽形(用封閉詞彙)
+- `flip_conditions`:把哪 1-3 格改掉,本案最可能變成未達標的負例(用封閉詞彙)
 - `era_specific_vs_timeless`:這個機制是**該年代特有**(依賴當年的宏觀環境、產業循環位置或市場制度)還是**跨年代恆常**?必須說理由
 - `blind_postmortem` / `kill_criteria_review` / `mechanism_tag` / `markable_window` 的**去識別版本**
 
