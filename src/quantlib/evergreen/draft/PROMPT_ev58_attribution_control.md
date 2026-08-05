@@ -158,7 +158,7 @@
   "context": {
     "theme_archetype": "V1", "theme_name_at_the_time": "≤20 字,用當時媒體的語彙",
     "value_chain_position": "V2", "theme_stage": "V3",
-    "theme_age_td": 整數(該題材最早可公開得知之日到本站位的交易日數;不可考填 null),
+    "theme_age_td": 250,
     "theme_leader": "該題材當時的龍頭是誰、本檔是否為龍頭(是|否|無明確龍頭)",
     "theme_revenue_share": "V5", "substitutability": "唯數家能供|少數合格供應商|多家可替代|不明",
     "market_state": "V10", "market_state_evidence": "當時可證的公開描述,無年份無具名事件",
@@ -191,9 +191,9 @@
   "story_also_fits": "是|部分|否", "story_also_fits_note": "一句話理由",
   "within_theme_rank": "在『本檔 + peers』這組裡的排序,本檔第幾,關鍵差異是什麼",
   "bet": {
-    "p_up80": 0-100 的整數,
+    "p_up80": 25,
     "mark_or_not": "標記|觀察|不標記",
-    "conviction": 1-5,
+    "conviction": 3,
     "strongest_disconfirmer": "站位當天就已可觀察、最傷你這個判斷的一項事實",
     "kill_criteria": ["3 條可觀察的證偽條件:什麼事實、在什麼時點可被觀察到,就足以宣告論點已死。必須是站在當時就能事先寫下、且事後可用公開資訊查核的"],
     "reasoning": "≤200 字"
@@ -202,7 +202,7 @@
                       "value": "", "why_generalizable": "為何你認為它跨產業跨年代成立"}],
   "schema_gap": "封閉詞彙無法表達、但你認為對機制理解不可或缺的東西(可留空)",
   "retrieval": {
-    "retrievability_score": 0-3,
+    "retrievability_score": 2,
     "no_news_verdict": "NO_NEWS_EXISTS|NOT_RETRIEVABLE|N_A",
     "coverage_tier_mix": {"A": 4, "B": 6, "C": 2},
     "gate_summary": "九格結果摘要"
@@ -213,6 +213,15 @@
   "microstructure_note": "當年制度背景(漲跌幅上限、是否曾被處置或警示、流動性狀況)對這一段價格型態的影響"
 }
 ```
+**上面是**形狀範例**,值都是示意——照抄形狀、換成你的真值。各欄位的型別與取值約束:
+- `theme_age_td`:**整數**,該題材最早可公開得知之日到本站位的**交易日數**;不可考填 `null`
+- `p_up80`:**整數 0-100**,你認為「結果視窗內最高還原報酬 ≥ +80%」的機率(母體基準 6.38%)
+- `conviction`:**整數 1-5**
+- `retrievability_score`:**整數 0-3**,見第 3 步九格矩陣的評分規則
+
+**輸出必須是合法 JSON**(可被 `json.loads` 直接解析):不得出現未加引號的中文說明、
+不得出現註解、不得用 `0-100` 這種區間字面值當值。編排腳本會直接解析,解析失敗即整檔退回。
+
 
 **幾個欄位請認真對待**:
 
