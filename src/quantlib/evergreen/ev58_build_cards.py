@@ -24,6 +24,7 @@ Run: uv run --project . python -m quantlib.evergreen.ev58_build_cards [--pilot]
 from __future__ import annotations
 
 import argparse
+import itertools
 import json
 import random
 from datetime import date as Date
@@ -40,8 +41,32 @@ BATCH = 6
 #: 卡片可含的欄位白名單。**結果欄位不在此列即為不存在**——白名單而非黑名單,
 #: 因為黑名單漏一個就洩漏答案,白名單漏一個只是少給資訊。
 CARD_FIELDS = ("card_id", "code", "name_today", "market", "industry", "limit_era",
-               "d_prev", "d0", "ret20", "ret60", "ret120", "adv_decile",
+               "era_code", "d_prev", "d0", "ret20", "ret60", "ret120", "adv_decile",
                "mom_decile", "pct_below_250d_high", "size_tier")
+
+#: 年代分桶:提示詞要求「同批同年代」——年代語彙表(當年的題材用語)批內共用只採一次,
+#: 而語彙每隔數年就換一輪,故以 2-3 年為一桶,並讓桶不跨越 2015-06 的漲跌幅世代斷點。
+ERA_BANDS = ((2008, 2010), (2011, 2013), (2014, 2015), (2016, 2017),
+             (2018, 2019), (2020, 2021))
+
+
+def _era_labels(seed: int) -> dict[tuple[int, int], str]:
+    """把年代桶對應到**密封**期別碼 E1..E6。
+
+    標籤刻意**打亂**再指派:若 E1..E6 依時序遞增,任何看到卡片的人(含蒸餾器)都能
+    由代碼推回年代,密封就形同虛設——而期別保留組的整個隔離都建立在「蒸餾器不知道
+    自己在看哪個年代」之上。對照表另存 `_era_map.json`,不進卡片、不給任何 agent。
+    """
+    labels = [f"E{i}" for i in range(1, len(ERA_BANDS) + 1)]
+    random.Random(seed).shuffle(labels)
+    return dict(zip(ERA_BANDS, labels))
+
+
+def _era_band(year: int) -> tuple[int, int] | None:
+    for lo, hi in ERA_BANDS:
+        if lo <= year <= hi:
+            return (lo, hi)
+    return None
 
 
 def _stations(panel: pl.DataFrame) -> list[Date]:
@@ -87,7 +112,9 @@ def _names(con) -> dict[str, str]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--pilot", action="store_true", help="只出 8 批(第一階段試跑)")
+    ap.add_argument("--pilot", action="store_true",
+                    help="試跑模式:**每個年代桶各出 1 批**(不是全域取前 N 批)。"
+                         "試跑的唯一目的是量各年代的消息可得性,全押同一年代等於白跑")
     ap.add_argument("--seed", type=int, default=20260805)
     a = ap.parse_args()
     rng = random.Random(a.seed)
@@ -106,6 +133,8 @@ def main() -> None:
     names = _names(con)
 
     fmap = {(r[C], str(r["date"])): r for r in feat.to_dicts()}
+    era_of = _era_labels(a.seed)
+    _alias_seq = itertools.count(1)
 
     def card(row: dict, arm: str, cid: str) -> tuple[dict, dict] | None:
         k = (row[C], str(row["date"]))
@@ -117,6 +146,7 @@ def main() -> None:
             "card_id": cid, "code": row[C], "name_today": names.get(row[C], ""),
             "market": row["market"], "industry": row["industry"],
             "limit_era": row["limit_era"],
+            "era_code": era_of[_era_band(d0.year)],
             "d_prev": str(prev_of.get(d0, "")), "d0": str(d0),
             "ret20": f["ret20"], "ret60": f["ret60"], "ret120": f["ret120"],
             "adv_decile": row["adv_dec"], "mom_decile": row["mom_dec"],
@@ -124,48 +154,70 @@ def main() -> None:
             "size_tier": f["size_q"],
         }
         assert set(c) <= set(CARD_FIELDS), "卡片出現白名單外的欄位"
-        truth = {"card_id": cid, "code": row[C], "d0": str(d0), "arm": arm,
+        # 蒸餾用假名:S=正例、C=near_miss 負例、Q=quiet 負例(提示詞的機制卡命名契約)。
+        # 假名只進 truth 與日後的 mechanism_card,**絕不進階段 A 的卡片**——首字母就是答案。
+        pfx = "S" if arm == "positive" else ("C" if row.get("neg_kind") == "near_miss" else "Q")
+        alias = f"{pfx}{next(_alias_seq):03d}"
+        truth = {"card_id": cid, "alias": alias, "code": row[C], "d0": str(d0), "arm": arm,
                  "fwd_max_ret": row["fwd_max_ret"], "regime": row["regime"],
+                 "era_code": era_of[_era_band(d0.year)],
                  "neg_kind": row.get("neg_kind"), "matched_to": row.get("matched_to")}
         return c, truth
 
     # 配對關係:負例的 matched_to 指向正例;同批放入 2 組配對 + 2 檔未配對
     by_match = {r["matched_to"]: r for r in neg.to_dicts() if r.get("matched_to")}
-    pos_rows = pos.to_dicts()
-    rng.shuffle(pos_rows)
+    neg_rows = neg.to_dicts()
+    # **按年代桶分群後才組批**:提示詞要求同批同年代(年代語彙表批內共用只採一次)。
+    # 不分群的話一批會橫跨 3-4 個年份與兩個漲跌幅世代,語彙表共用機制當場失效。
+    pos_by_era: dict[tuple[int, int], list[dict]] = {}
+    for r in pos.to_dicts():
+        b = _era_band(Date.fromisoformat(str(r["date"])).year)
+        if b:
+            pos_by_era.setdefault(b, []).append(r)
     used_neg: set[str] = set()
     batches: list[list[tuple[dict, dict]]] = []
-    i = 0
-    while i + 2 <= len(pos_rows):
-        pair_src = pos_rows[i:i + 2]
-        i += 2
-        items: list[tuple[dict, dict]] = []
-        for p in pair_src:
-            key = f"{p[C]}@{p['date']}"
-            n = by_match.get(key)
-            if not n or key in used_neg:
-                continue
-            used_neg.add(key)
-            for row, arm in ((p, "positive"), (n, "negative")):
-                cid = f"X{len(batches):03d}{len(items):02d}"
-                got = card(row, arm, cid)
+    neg_by_era: dict[tuple[int, int], list[dict]] = {}
+    for r in neg_rows:
+        b = _era_band(Date.fromisoformat(str(r["date"])).year)
+        if b:
+            neg_by_era.setdefault(b, []).append(r)
+
+    for band in sorted(pos_by_era):
+        n_before = len(batches)
+        pos_rows = pos_by_era[band][:]
+        spare_neg = [r for r in neg_by_era.get(band, [])]
+        rng.shuffle(pos_rows)
+        rng.shuffle(spare_neg)
+        i = 0
+        while i + 2 <= len(pos_rows):
+            items: list[tuple[dict, dict]] = []
+            for p_row in pos_rows[i:i + 2]:                 # 2 組配對
+                key = f"{p_row[C]}@{p_row['date']}"
+                n_row = by_match.get(key)
+                if not n_row or key in used_neg:
+                    continue
+                used_neg.add(key)
+                for row, arm in ((p_row, "positive"), (n_row, "negative")):
+                    got = card(row, arm, f"X{len(batches):03d}{len(items):02d}")
+                    if got:
+                        items.append(got)
+            i += 2
+            # 2 檔未配對(**同年代桶內**取),讓正負比例在 2:4 / 3:3 / 4:2 間浮動,
+            # agent 無法由 3:3 的整齊結構反推出「這批是配對來的」
+            pool = [(r, "positive") for r in pos_rows[i:i + 3]]
+            pool += [(r, "negative") for r in spare_neg
+                     if f"{r[C]}@{r['date']}" not in used_neg][:3]
+            rng.shuffle(pool)
+            for row, arm in pool[:2]:
+                got = card(row, arm, f"X{len(batches):03d}{len(items):02d}")
                 if got:
                     items.append(got)
-        # 2 檔未配對:讓正負比例浮動,agent 無法由 3:3 結構反推配對
-        pool = [(r, "positive") for r in pos_rows[i:i + 4]] + \
-               [(r, "negative") for r in neg.to_dicts() if f"{r[C]}@{r['date']}" not in used_neg][:4]
-        rng.shuffle(pool)
-        for row, arm in pool[:2]:
-            cid = f"X{len(batches):03d}{len(items):02d}"
-            got = card(row, arm, cid)
-            if got:
-                items.append(got)
-        if len(items) < BATCH:
-            continue
-        rng.shuffle(items)
-        batches.append(items[:BATCH])
-        if a.pilot and len(batches) >= 8:
-            break
+            if len(items) < BATCH:
+                continue
+            rng.shuffle(items)
+            batches.append(items[:BATCH])
+            if a.pilot and len(batches) - n_before >= 1:
+                break            # 每個年代桶只取 1 批,讓試跑橫跨全部年代
 
     OUT.mkdir(parents=True, exist_ok=True)
     npos = nneg = 0
@@ -189,6 +241,10 @@ def main() -> None:
           f"(正 {npos} / 負 {nneg});每批正例數分布:"
           f"{sorted({sum(1 for _,t in b if t['arm']=='positive') for b in batches})}")
     print(f"卡片欄位:{list(json.loads((OUT/'batch_000'/'cards.json').read_text())[0])}")
+    (OUT / "_era_map.json").write_text(json.dumps(
+        {v: f"{k[0]}-{k[1]}" for k, v in era_of.items()}, ensure_ascii=False, indent=2) + "\n",
+        encoding="utf-8")
+    print(f"期別對照(**不給任何 agent**,僅供事後稽核)→ {OUT}/_era_map.json")
     print(f"→ {OUT}")
 
 
