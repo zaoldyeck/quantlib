@@ -46,11 +46,15 @@ CARD_FIELDS = ("card_id", "code", "name_today", "market", "industry", "limit_era
 
 #: 年代分桶:提示詞要求「同批同年代」——年代語彙表(當年的題材用語)批內共用只採一次,
 #: 而語彙每隔數年就換一輪,故以 2-3 年為一桶,並讓桶不跨越 2015-06 的漲跌幅世代斷點。
-ERA_BANDS = ((2008, 2010), (2011, 2013), (2014, 2015), (2016, 2017),
-             (2018, 2019), (2020, 2021))
+#: 2026-08-05 自查:原本 (2014, 2015) **跨越 2015-06-01 的漲跌幅世代斷點**,與註解
+#: 自相矛盾,守衛實測即紅。改用日期區間(非年份)使桶界精確落在斷點上。
+ERA_BANDS = (("2008-01-01", "2010-12-31"), ("2011-01-01", "2013-12-31"),
+             ("2014-01-01", "2015-05-31"),          # 7% 世代結束於 2015-05-31
+             ("2015-06-01", "2017-12-31"), ("2018-01-01", "2019-12-31"),
+             ("2020-01-01", "2021-12-31"))
 
 
-def _era_labels(seed: int) -> dict[tuple[int, int], str]:
+def _era_labels(seed: int) -> dict[tuple[str, str], str]:
     """把年代桶對應到**密封**期別碼 E1..E6。
 
     標籤刻意**打亂**再指派:若 E1..E6 依時序遞增,任何看到卡片的人(含蒸餾器)都能
@@ -62,9 +66,10 @@ def _era_labels(seed: int) -> dict[tuple[int, int], str]:
     return dict(zip(ERA_BANDS, labels))
 
 
-def _era_band(year: int) -> tuple[int, int] | None:
+def _era_band(d: Date) -> tuple[str, str] | None:
+    s = d.isoformat()
     for lo, hi in ERA_BANDS:
-        if lo <= year <= hi:
+        if lo <= s <= hi:
             return (lo, hi)
     return None
 
@@ -105,7 +110,14 @@ def _card_features(panel: pl.DataFrame) -> pl.DataFrame:
 
 
 def _names(con) -> dict[str, str]:
-    q = con.sql("SELECT company_code, any_value(company_name) AS nm "
+    """代碼 → **最新申報的**公司名。
+
+    不可用 `any_value()`:DuckDB 不保證它取同一列,兩次執行會拿到不同名稱
+    (實測「德宏工業」vs「德宏」),卡片因此不可重現——而卡片不可重現就等於
+    無法事後證明「當時給 agent 看的到底是什麼」,稽核鏈斷掉。
+    `arg_max(name, 年月)` 既是決定性的,也正好符合 `name_today`(今天的名字)的語義。
+    """
+    q = con.sql("SELECT company_code, arg_max(company_name, year * 100 + month) AS nm "
                 "FROM operating_revenue GROUP BY company_code").pl()
     return {r[C]: r["nm"] for r in q.iter_rows(named=True)}
 
@@ -146,7 +158,7 @@ def main() -> None:
             "card_id": cid, "code": row[C], "name_today": names.get(row[C], ""),
             "market": row["market"], "industry": row["industry"],
             "limit_era": row["limit_era"],
-            "era_code": era_of[_era_band(d0.year)],
+            "era_code": era_of[_era_band(d0)],
             "d_prev": str(prev_of.get(d0, "")), "d0": str(d0),
             "ret20": f["ret20"], "ret60": f["ret60"], "ret120": f["ret120"],
             "adv_decile": row["adv_dec"], "mom_decile": row["mom_dec"],
@@ -160,7 +172,7 @@ def main() -> None:
         alias = f"{pfx}{next(_alias_seq):03d}"
         truth = {"card_id": cid, "alias": alias, "code": row[C], "d0": str(d0), "arm": arm,
                  "fwd_max_ret": row["fwd_max_ret"], "regime": row["regime"],
-                 "era_code": era_of[_era_band(d0.year)],
+                 "era_code": era_of[_era_band(d0)],
                  "neg_kind": row.get("neg_kind"), "matched_to": row.get("matched_to")}
         return c, truth
 
@@ -169,16 +181,16 @@ def main() -> None:
     neg_rows = neg.to_dicts()
     # **按年代桶分群後才組批**:提示詞要求同批同年代(年代語彙表批內共用只採一次)。
     # 不分群的話一批會橫跨 3-4 個年份與兩個漲跌幅世代,語彙表共用機制當場失效。
-    pos_by_era: dict[tuple[int, int], list[dict]] = {}
+    pos_by_era: dict[tuple[str, str], list[dict]] = {}
     for r in pos.to_dicts():
-        b = _era_band(Date.fromisoformat(str(r["date"])).year)
+        b = _era_band(Date.fromisoformat(str(r["date"])))
         if b:
             pos_by_era.setdefault(b, []).append(r)
     used_neg: set[str] = set()
     batches: list[list[tuple[dict, dict]]] = []
-    neg_by_era: dict[tuple[int, int], list[dict]] = {}
+    neg_by_era: dict[tuple[str, str], list[dict]] = {}
     for r in neg_rows:
-        b = _era_band(Date.fromisoformat(str(r["date"])).year)
+        b = _era_band(Date.fromisoformat(str(r["date"])))
         if b:
             neg_by_era.setdefault(b, []).append(r)
 
@@ -242,7 +254,7 @@ def main() -> None:
           f"{sorted({sum(1 for _,t in b if t['arm']=='positive') for b in batches})}")
     print(f"卡片欄位:{list(json.loads((OUT/'batch_000'/'cards.json').read_text())[0])}")
     (OUT / "_era_map.json").write_text(json.dumps(
-        {v: f"{k[0]}-{k[1]}" for k, v in era_of.items()}, ensure_ascii=False, indent=2) + "\n",
+        {v: f"{k[0]}~{k[1]}" for k, v in era_of.items()}, ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8")
     print(f"期別對照(**不給任何 agent**,僅供事後稽核)→ {OUT}/_era_map.json")
     print(f"→ {OUT}")
