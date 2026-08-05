@@ -35,6 +35,10 @@ REGISTRY = EG / "data" / "registry_v3.parquet"
 PROMPT_MD = EG / "PROMPT_ev28_labeling.md"
 PHIL = EG / "data" / "ev27_phil_inline.txt"
 NEWS_DIR = EG / "data" / "ev28_news"
+#: 產出這批標記的哲學版本。registry 是**跨月累積**的,而重新蒸餾會分批重標——
+#: 沒有這一欄,重標到一半停手就會留下「一半舊哲學、一半新哲學」的池,而回測把它
+#: 當成單一策略讀,NAV 是兩套哲學拼出來的嵌合體,且沒有任何跡象。
+PHIL_VERSION = "ev27"
 PROMPTS_DIR = EG / "data" / "prompts"
 
 DATE_PATS = [
@@ -156,6 +160,22 @@ def cmd_validate(path: str) -> None:
     print("✓ 驗收通過(merge 前請人工掃過 ⚠ 項)")
 
 
+def assert_single_philosophy(reg: pl.DataFrame) -> str:
+    """registry 必須整份出自同一套哲學,否則回測讀到的是嵌合體。
+
+    為什麼要擋而不是警告:混版的 NAV 看起來完全正常——沒有缺值、沒有斷點,
+    只是前半年用一套判斷標準、後半年用另一套。任何從它算出來的 CAGR、Sharpe、
+    置換檢定都不對應任何一個真實可執行的策略,而且事後從數字上看不出來。
+    """
+    if "phil_version" not in reg.columns:
+        raise ValueError("registry 沒有 phil_version 欄——無從判定是否混版,先補欄再跑")
+    vers = sorted(reg["phil_version"].unique().to_list())
+    if len(vers) > 1:
+        raise ValueError(f"registry 混了 {len(vers)} 套哲學 {vers}:回測拒絕執行。"
+                         "把全部月份重標到同一版,或先篩出單一版本再跑。")
+    return vers[0]
+
+
 def cmd_merge(path: str) -> None:
     month, df = load_labels(path)
     d = stance_day(month)
@@ -165,13 +185,23 @@ def cmd_merge(path: str) -> None:
         df = df.filter(~pl.col("code").is_in(drop))
     cols = ["month", "code", "name", "theme", "signal_type", "event",
             "evidence", "invalidation", "conviction"]
-    df = df.select(cols).with_columns(pl.col("conviction").cast(pl.Int64))
+    df = (df.select(cols).with_columns(pl.col("conviction").cast(pl.Int64))
+            .with_columns(pl.lit(PHIL_VERSION).alias("phil_version")))
     reg = pl.read_parquet(REGISTRY)
+    if "phil_version" not in reg.columns:      # 舊檔補欄,一次性
+        reg = reg.with_columns(pl.lit("ev27").alias("phil_version"))
     bak = REGISTRY.with_suffix(f".backup_{Date.today():%Y%m%d}.parquet")
     shutil.copy(REGISTRY, bak)
     merged = (pl.concat([reg.filter(pl.col("month") != month), df])
               .sort(["month", "code"]))
     merged.write_parquet(REGISTRY)
+    vers = sorted(merged["phil_version"].unique().to_list())
+    if len(vers) > 1:
+        print(f"  ⚠ registry 現在混了 {len(vers)} 套哲學:{vers}"
+              f"(逐版月數 {dict(merged.group_by('phil_version')
+                                 .agg(pl.col('month').n_unique()).iter_rows())})。"
+              "\n    回測前必須把全部月份重標到同一版——混版的 NAV 是兩套哲學拼出來的"
+              "嵌合體,`assert_single_philosophy` 會擋。")
     print(f"✓ registry_v3:{reg.height} → {merged.height} 筆"
           f"(月份 {reg['month'].n_unique()} → {merged['month'].n_unique()};"
           f"備份 {bak.name})")

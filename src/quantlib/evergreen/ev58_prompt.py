@@ -142,6 +142,12 @@ def _cases(batch_id: str) -> list[tuple[str, str]]:
 #: 一句話。有清單就能機械對照——**規則沒有機制就等於沒有規則**。
 G1_UNAVAIL = paths.OUT / "ev59_g1_unavailable.json"
 
+#: 階段 A 的四張卡。thin 兩張是**標記日深度**的判斷戳(第 2.5 步),deep 兩張是
+#: 考掘深度(第 3-4 步)。兩個深度都要,因為生產端的標記 Agent 只拿得到 thin 那一種
+#: ——只量 deep 等於報一個生產端永遠達不到的天花板。
+_STAGE_A = ("ex_ante_thin_d_prev.json", "ex_ante_thin_d0.json",
+            "ex_ante_d_prev.json", "ex_ante_d0.json")
+
 
 def _g1_misrecorded(batch_id: str) -> list[str]:
     """找出「我們已知 MOPS 回空白頁,agent 卻在 G1 記 `miss`」的案子。
@@ -172,7 +178,7 @@ def _g1_misrecorded(batch_id: str) -> list[str]:
 def release(batch_id: str, *, force: bool = False) -> list[Path]:
     """階段 A 全批落檔後,才把該批真相寫進 agent 看得到的 `_truth/`。
 
-    「結案」= 兩張 `ex_ante` 卡齊備,**或**有 `voided.json`(觸發鐵律、判定機械性事件、
+    「結案」= **四張卡齊備**(thin 兩張 + deep 兩張),**或**有 `voided.json`(觸發鐵律、判定機械性事件、
     完全無法檢索)。作廢也算結案是必要的:提示詞明文允許 agent 作廢一檔,若閘門仍
     要求全員到齊,該批永遠釋不出來——閘門與提示詞的契約必須是同一份。反過來,作廢
     **必須留檔**,不能靜默跳過:靜默跳過會讓分母悄悄變小,批次統計失真而毫無跡象。
@@ -184,17 +190,31 @@ def release(batch_id: str, *, force: bool = False) -> list[Path]:
     by_case = {(t["code"], t["d0"]): t for t in truth}
     missing: list[str] = []
     stamps: list[float] = []
+    order_bad: list[str] = []
     for code, d0 in _cases(batch_id):
         cdir = NEWS / f"{code}_{d0}"
         if (cdir / "voided.json").exists():
             stamps.append((cdir / "voided.json").stat().st_mtime)
             continue
-        for name in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
+        for name in _STAGE_A:
             f = cdir / name
             if not f.exists():
                 missing.append(str(f))
             else:
                 stamps.append(f.stat().st_mtime)
+        # thin 必須早於 deep。反過來就代表淺判斷是在看過深度證據之後補寫的,
+        # 而 thin/deep 的比較整個建立在「thin 那一刻真的只有那些材料」之上。
+        # 這種汙染事後從檔案內容完全看不出來,只有時序看得出來。
+        for a, b in (("ex_ante_thin_d_prev.json", "ex_ante_d_prev.json"),
+                     ("ex_ante_thin_d0.json", "ex_ante_d0.json")):
+            fa, fb = cdir / a, cdir / b
+            if fa.exists() and fb.exists() and fa.stat().st_mtime > fb.stat().st_mtime:
+                order_bad.append(f"{code}@{d0}:{a} 晚於 {b}")
+    if order_bad:
+        raise RuntimeError(
+            f"{batch_id} 的標記日模擬晚於考掘落檔,拒絕釋出真相:\n  " + "\n  ".join(order_bad)
+            + "\n  thin 戳必須在九格開跑前蓋下。順序反了就代表淺判斷是看過深度證據後補寫的,"
+              "thin/deep 的比較整個失效——而那是本研究用來回答「標記日該不該加深查證」的唯一依據。")
     if mis := _g1_misrecorded(batch_id):
         raise RuntimeError(
             f"{batch_id} 的 G1 記錄與實測矛盾,拒絕釋出真相:\n  " + "\n  ".join(mis)

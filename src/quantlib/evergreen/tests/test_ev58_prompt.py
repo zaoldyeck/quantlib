@@ -68,7 +68,7 @@ def test_release_refuses_before_phase_a_lands(batch_id) -> None:
     """階段 A 未落檔即拒絕釋出,且錯誤訊息要指名缺哪個檔(否則沒人知道怎麼往下走)。"""
     cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
     done = all((P.NEWS / f"{c['code']}_{c['d0']}" / n).exists()
-               for c in cards for n in ("ex_ante_d_prev.json", "ex_ante_d0.json"))
+               for c in cards for n in P._STAGE_A)
     if done:
         pytest.skip("該批階段 A 已完成,閘門不適用")
     with pytest.raises(RuntimeError, match="拒絕釋出真相"):
@@ -103,7 +103,7 @@ def test_release_accepts_a_voided_case(tmp_path, monkeypatch, batch_id) -> None:
         if i == 0:
             (d / "voided.json").write_text('{"reason":"mechanical_suspect"}')
         else:
-            for n in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
+            for n in P._STAGE_A:
                 (d / n).write_text("{}")
     assert len(P.release(batch_id)) == len(cards)
 
@@ -144,7 +144,7 @@ def _stage_a(root, cards, g1_status=None):
     for c in cards:
         d = root / f"{c['code']}_{c['d0']}"
         d.mkdir(parents=True, exist_ok=True)
-        for n in ("ex_ante_d_prev.json", "ex_ante_d0.json"):
+        for n in P._STAGE_A:                       # thin 兩張 + deep 兩張
             (d / n).write_text("{}")
         if g1_status:
             (d / "retrieval_log.jsonl").write_text(
@@ -188,3 +188,26 @@ def test_g1_check_ignores_cases_not_on_the_list(tmp_path, monkeypatch, batch_id)
     P.G1_UNAVAIL.write_text("[]")
     _stage_a(P.NEWS, cards, g1_status="miss")
     assert len(P.release(batch_id)) == len(cards)
+
+
+def test_release_rejects_thin_stamped_after_deep(tmp_path, monkeypatch, batch_id) -> None:
+    """thin 戳晚於 deep 落檔即擋下——順序反了代表淺判斷是看過深度證據後補寫的。
+
+    這種汙染從檔案內容完全看不出來(thin 卡的欄位長得一模一樣),只有時序看得出來。
+    而 thin/deep 的比較是本研究回答「標記日該不該加深查證」的唯一依據,汙染一次就沒了。
+    """
+    import time
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "none.json")
+    for i, c in enumerate(cards):
+        d = P.NEWS / f"{c['code']}_{c['d0']}"
+        d.mkdir(parents=True)
+        order = (P._STAGE_A if i else ("ex_ante_d_prev.json", "ex_ante_d0.json",
+                                       "ex_ante_thin_d_prev.json", "ex_ante_thin_d0.json"))
+        for n in order:
+            (d / n).write_text("{}")
+            time.sleep(0.01)
+    with pytest.raises(RuntimeError, match="標記日模擬晚於考掘落檔"):
+        P.release(batch_id)
