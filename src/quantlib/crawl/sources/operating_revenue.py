@@ -253,7 +253,12 @@ def fetch_month(market: str, year: int, month: int) -> pl.DataFrame | None:
     raw = http.fetch_bytes(_URL, form=form)  # bytes:讓 parse_bytes 自行按世代解碼
     text = raw.decode("utf-8", errors="replace")
     if "查詢無資料" in text or "無應揭露資訊" in text:
-        return None  # 無資料 → 不封存(對齊 ex_right:無資料檔不落地)
+        # 該月無資料 → **留 0-byte sentinel**(2026-08-05 起;舊註解「對齊 ex_right:
+        # 無資料檔不落地」已隨 ex_right 一併改正)。沒有 sentinel 時,「問過了但當月
+        # 沒資料」與「從沒問過這個月」在 raw 封存上完全相同,覆蓋稽核
+        # (`crawl.monthly_coverage`)就永遠有一批歸不了零的假陽性,真空洞被雜訊淹沒。
+        archive.save_raw_named(TABLE, market, year, f"{year}_{month}_c.csv", b"")
+        return None
     # 原始檔封存鐵律:先原樣原子落地 raw 才 parse(歷史命名 {年}_{月}_c.csv,c=合併)
     archive.save_raw_named(TABLE, market, year, f"{year}_{month}_c.csv", raw)
     return _to_df(parse_bytes(raw, market, "consolidated", year, month))

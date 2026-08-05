@@ -1,4 +1,4 @@
-"""EV32:站位錨定的蒸餾樣本(取代 EV31)——把「暴漲起點」換成「實盤標記者站的那一天」。
+"""EV57:站位錨定的蒸餾樣本(取代 EV31)——把「暴漲起點」換成「實盤標記者站的那一天」。
 
 ## 為什麼要取代 EV31(兩個缺陷,都經自行實測確認)
 
@@ -43,8 +43,8 @@ EV31 的對照組沿用舊定義「前 120 日漲 ≥25% 且前瞻最大 <20%」
   只有 quiet 的話對比太容易、學不到細緻判別。各半。
 - **配對鍵含前期動能十分位**,把缺陷 A 的混淆因子直接控制掉。
 
-Run: uv run --project . python -m quantlib.evergreen.ev32_station_sample --explore
-     uv run --project . python -m quantlib.evergreen.ev32_station_sample --per-cell 5
+Run: uv run --project . python -m quantlib.evergreen.ev57_station_sample --explore
+     uv run --project . python -m quantlib.evergreen.ev57_station_sample --per-cell 5
 依賴 cache: 是。長任務,建議背景跑。
 """
 from __future__ import annotations
@@ -78,6 +78,29 @@ def _panel(con) -> pl.DataFrame:
                       .with_columns(pl.lit(m).alias("market")))
     return (pl.concat(fr).unique(subset=[C, "date"], keep="first")
             .filter(pl.col("close") > 0).sort([C, "date"]))
+
+
+def _regime(panel: pl.DataFrame) -> pl.DataFrame:
+    """市場 regime 標籤(等權市場 proxy;定義與 `ev55_sample_design.py` 逐字相同)。
+
+    為什麼要這個維度:EV55 量到蒸餾期(≤2021-12)**崩跌 regime 只有 23 個站位**,
+    而各 regime 的暴漲基準率差很多(崩跌 17.6% / 修正 6.4% / 多頭 5.9% / 狂熱 7.5%)。
+    純按「年」分層會讓最稀缺、也最有資訊量的崩跌樣本過薄——而哲學的第十道判別
+    正是「宏觀 regime 時點」。故 regime 一律標記,並在報告中列出配額分布。
+    """
+    ret = (panel.sort([C, "date"])
+           .with_columns((pl.col("close") / pl.col("close").shift(1).over(C) - 1).alias("r"))
+           .filter(pl.col("r").is_between(-0.2, 0.2)))     # 濾停板級雜訊
+    mkt = (ret.group_by("date").agg(pl.col("r").mean().alias("mr")).sort("date")
+           .with_columns((1 + pl.col("mr")).cum_prod().alias("idx")))
+    return mkt.with_columns([
+        (pl.col("idx") / pl.col("idx").shift(250) - 1).alias("r12m"),
+        (pl.col("idx") / pl.col("idx").rolling_max(750) - 1).alias("dd3y"),
+    ]).with_columns(
+        pl.when(pl.col("dd3y") < -0.25).then(pl.lit("1崩跌"))
+          .when(pl.col("r12m") > 0.30).then(pl.lit("4狂熱"))
+          .when(pl.col("r12m") > 0.0).then(pl.lit("3多頭"))
+          .otherwise(pl.lit("2修正")).alias("regime")).select(["date", "regime"])
 
 
 def _stations(panel: pl.DataFrame) -> list[Date]:
@@ -178,7 +201,9 @@ def _match(pos: pl.DataFrame, negs: pl.DataFrame, seed: int, kind: str) -> pl.Da
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--explore", action="store_true")
-    ap.add_argument("--per-cell", type=int, default=5, help="每 (年 × 流動性層) 抽幾檔正例")
+    ap.add_argument("--per-cell", type=int, default=18,
+                    help="每 (regime × 流動性層) 抽幾檔正例;4 regime × 3 層 = 12 格,"
+                         "預設 18 → 約 216 檔(與舊「年×層」規模相當)")
     ap.add_argument("--seed", type=int, default=20260727)
     a = ap.parse_args()
 
@@ -187,8 +212,13 @@ def main() -> None:
     panel = _panel(con)
     st = _stations(panel)
     print(f"  {panel.height:,} 列;月度站位 {len(st)} 個({st[0]} ~ {st[-1]})", flush=True)
-    u = _universe(con, _features(panel), st)
+    u = (_universe(con, _features(panel), st)
+         .join(_regime(panel), on="date", how="left")
+         .with_columns(pl.col("regime").fill_null("2修正")))
     print(f"  站位母體觀測 {u.height:,}", flush=True)
+    print("  regime 站位分布:", dict(
+        u.group_by("regime").agg(pl.col("date").n_unique().alias("n"))
+         .sort("regime").iter_rows()))
 
     print("\n=== 站位錨定的母體基準率(蒸餾與盲判的校準錨)===")
     for thr in (0.50, SURGE_MIN, 1.00):
@@ -202,8 +232,19 @@ def main() -> None:
               .pivot(on="tier", index="y", values="n").sort("y"))
         return
 
+    # 分層改為 **regime × 流動性層**(取代原本的「年 × 層」)。理由見 `_regime`:
+    # 年份是日曆刻度、不是市場狀態刻度;2012 與 2013 同屬多頭卻各拿一份配額,而崩跌
+    # 這個最稀缺、基準率最高(17.6%)的狀態會被稀釋。改用 regime 後,哲學的第十道
+    # 判別(宏觀時點)才有各狀態的對照樣本可學。
+    # 格內再依「年」輪抽(round-robin),避免只按 regime 分層時整格擠在同一年——
+    # 崩跌 regime 在蒸餾期只有 23 個站位且高度集中於 2008,不輪抽會讓該格幾乎全是
+    # 金融海嘯單一事件,學到的是那次危機的特性而非崩跌 regime 的通則。
+    n_cell = max(a.per_cell, 1)
     pos = (pos_all.sample(fraction=1.0, shuffle=True, seed=a.seed)
-           .group_by(["y", "tier"], maintain_order=True).head(a.per_cell).sort(["y", "tier", C]))
+           .with_columns(pl.int_range(pl.len()).over(["regime", "tier", "y"]).alias("_rr"))
+           .sort(["_rr"])                       # 先各年取第 1 檔,再各年取第 2 檔…
+           .group_by(["regime", "tier"], maintain_order=True).head(n_cell)
+           .drop("_rr").sort(["regime", "tier", C]))
     half = pos.height // 2
     near = _match(pos.head(half),
                   u.filter((pl.col("fwd_max_ret") >= NEAR_MISS[0])
@@ -212,6 +253,10 @@ def main() -> None:
                    u.filter(pl.col("fwd_max_ret") < QUIET_MAX), a.seed + 1, "quiet")
     neg = pl.concat([near, quiet], how="diagonal")
 
+    print("\n正例配額(regime × 流動性層):")
+    print(pos.group_by(["regime", "tier"]).agg(pl.len().alias("n"))
+          .pivot(on="tier", index="regime", values="n").sort("regime"))
+    print("正例年份分布:", dict(pos.group_by("y").agg(pl.len().alias("n")).sort("y").iter_rows()))
     print(f"\n正例 {pos.height} 檔;負例 {neg.height} 檔"
           f"(near_miss {near.height} / quiet {quiet.height})")
     print("  配對層級:", dict(neg.group_by("match_level").agg(pl.len().alias("n"))
@@ -222,11 +267,11 @@ def main() -> None:
     print(f"  負例 prior120 中位 {neg['prior_ret'].median():+.1%}"
           f"  動能十分位中位 {neg['mom_dec'].median():.0f}")
 
-    cols = [C, "market", "date", "industry", "tier", "limit_era", "adv_dec", "mom_dec",
-            "fwd_max_ret", "prior_ret"]
+    cols = [C, "market", "date", "industry", "tier", "limit_era", "regime",
+            "adv_dec", "mom_dec", "fwd_max_ret", "prior_ret"]
     paths.OUT.mkdir(parents=True, exist_ok=True)
-    fp = paths.OUT / "evergreen_ev32_positives.csv"
-    fn = paths.OUT / "evergreen_ev32_negatives.csv"
+    fp = paths.OUT / "evergreen_ev57_positives.csv"
+    fn = paths.OUT / "evergreen_ev57_negatives.csv"
     pos.select(cols).write_csv(fp)
     neg.select(cols + ["neg_kind", "match_level", "matched_to"]).write_csv(fn)
     print(f"\n  正例 → {fp}\n  負例 → {fn}")

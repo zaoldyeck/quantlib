@@ -5,7 +5,7 @@
 > **(A)** 對照組「要求」前期漲 ≥25%,正例卻無此條件 → 兩組動能差 41 個百分點,
 > 蒸餾必然把動能學成判別力;**(B)** 用「暴漲起點日」當 t0 = 給了實盤標記者永遠拿不到
 > 的視角(起點日錨定正例 prior120 中位 −7.3%,站位日錨定 +3.7%,證明它系統性挑在低點)。
-> 現行方案見 `src/quantlib/evergreen/ev32_station_sample.py`,下方 EV31 的診斷部分
+> 現行方案見 `src/quantlib/evergreen/ev57_station_sample.py`,下方 EV31 的診斷部分
 > (三個原始問題、還原價、期間切分)全部仍然成立且被 EV32 承襲。
 
 **使用者指示**:「你先決定好重新蒸餾用的樣本。」
@@ -16,8 +16,8 @@
 (2022-07 起)完全不重疊。** 舊的 224 檔不丟棄,**降級為驗證集**——其中 126 檔
 (70 暴漲 + 56 對照)在乾淨資料上仍成立,消息材料 100% 已在庫、零額外成本。
 
-清單:`var/out/evergreen_ev31_surge_samples.csv` / `..._control_samples.csv`
-產生器:`src/quantlib/evergreen/ev31_resample.py`(可重跑,seed 固定 20260727)
+清單:`var/out/evergreen_ev57_positives.csv` / `..._control_samples.csv`
+產生器:`src/quantlib/evergreen/ev57_station_sample.py`(可重跑,seed 固定 20260727)
 
 ## 為什麼要重選——三個問題,不是一個
 
@@ -31,7 +31,7 @@
 框架本身已經知道那些月份的答案**。PIT 紀律管得住 Agent 的搜尋,管不住框架裡的
 後見之明。這使得 2022-2026 的回測**在方法上不成立**,無論資料多乾淨。
 
-驗證程式:`ev30_sample_recheck.py`(暴漲組 + 對照組全驗)。
+驗證程式:`ev56_sample_recheck.py`(暴漲組 + 對照組全驗)。
 
 ## 設計決定逐條(每個數字都寫得出出處)
 

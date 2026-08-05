@@ -256,10 +256,14 @@ def fetch_month(market: str, year: int, month: int) -> pl.DataFrame | None:
              "b_date": "1", "e_date": "31", "type": "0"}
     html = http.fetch_text(_PAGE, encoding="Big5-HKSCS", form=form1)
     tag = _INPUT_RE.search(html)
-    if not tag:
-        return None  # 該月無除權息事件
-    val = _VALUE_RE.search(tag.group(0))
+    val = _VALUE_RE.search(tag.group(0)) if tag else None
     if not val or not val.group(1).endswith(".csv"):
+        # 該月無除權息事件 → **留 0-byte sentinel**,不是靜默 return。
+        # 2026-08-05:沒有 sentinel 時,「問過了但當月沒事件」與「從沒問過這個月」
+        # 在 raw 封存上長得一模一樣,覆蓋稽核(`crawl.monthly_coverage`)因此永遠
+        # 有一批歸不了零的假陽性,真的空洞就淹沒在雜訊裡。與日頻源的休市日 sentinel
+        # 同一個道理:**「查證過、確實沒有」本身就是必須被記下來的事實。**
+        archive.save_raw_named(TABLE, market, year, f"{year}_{month}.csv", b"")
         return None
     raw = http.fetch_bytes(
         _FILE, form={"firstin": "true", "step": "10", "filename": val.group(1)})

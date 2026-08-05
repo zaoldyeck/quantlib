@@ -1,4 +1,4 @@
-"""EV30:用乾淨資料重驗 EV1 的 224 檔蒸餾樣本——哲學/提示詞的地基還在嗎?
+"""EV56:用乾淨資料重驗 EV1 的 224 檔蒸餾樣本——哲學/提示詞的地基還在嗎?
 
 ## 問題(使用者 2026-07-27)
 「歷史資料有誤的問題現在已經解決,過去 Evergreen 蒸餾出來的提示詞以及標記用來
@@ -25,7 +25,7 @@ inst5 gate 是「汙染幻影」;baeda67 重錄 live_config)。**消息材料 ev
   (錯日 / 幽靈日 / 截斷,已於 2026-07-24 權威 rebuild 清除)。
 - **C 仍成立**:漲幅仍達門檻(日期可能因 dedupe cooldown 挪動)。
 
-Run: uv run --project . python -m quantlib.evergreen.ev30_sample_recheck
+Run: uv run --project . python -m quantlib.evergreen.ev56_sample_recheck
 依賴 cache: 是(要乾淨資料)。
 """
 from __future__ import annotations
@@ -111,7 +111,7 @@ def main() -> None:
     print(f"  其餘是當初資料有誤才被選進來的——哲學就是從這批樣本蒸餾的。")
 
     from quantlib import paths
-    fp = paths.OUT / "evergreen_ev30_sample_recheck.csv"
+    fp = paths.OUT / "evergreen_ev56_sample_recheck.csv"
     fp.parent.mkdir(parents=True, exist_ok=True)
     df.write_csv(fp)
     print(f"\n  逐檔明細 → {fp}")
@@ -144,7 +144,7 @@ def main() -> None:
     cdf = pl.DataFrame(crows, strict=False)
     for v, n in cdf.group_by("verdict").agg(pl.len().alias("n")).sort("n", descending=True).iter_rows():
         print(f"  {v:<24} {n:>3} 檔  ({n / cdf.height:.1%})")
-    fc = paths.OUT / "evergreen_ev30_control_recheck.csv"
+    fc = paths.OUT / "evergreen_ev56_control_recheck.csv"
     cdf.write_csv(fc)
     print(f"  逐檔明細 → {fc}")
 
