@@ -80,15 +80,27 @@ def _panel(con) -> pl.DataFrame:
             .filter(pl.col("close") > 0).sort([C, "date"]))
 
 
-def _regime(panel: pl.DataFrame) -> pl.DataFrame:
-    """市場 regime 標籤(等權市場 proxy;定義與 `ev55_sample_design.py` 逐字相同)。
+#: regime 的 3 年回撤需 750 個交易日暖機;不足則 rolling_max 回 null、該段全掉進
+#: `otherwise` 分支。2026-08-05 抓到的實證:原本只給 180 天暖機,結果 **2008 金融海嘯
+#: 被標成「修正」(249 天、零天崩跌),而 2010-2011 被標成「崩跌」(139/247 天)**
+#: ——標籤整整落後真實崩盤兩年,分層等於照著錯的標籤配額。
+REGIME_WARMUP_DAYS = 1200          # 日曆天,≈ 750+ 個交易日
+REGIME_PROXY_MARKET = "twse"       # 只用 twse:tpex 2007-07 才有,混用會讓指數在該日不連續
+
+
+def _regime(con) -> pl.DataFrame:
+    """市場 regime 標籤(等權 twse proxy)。
 
     為什麼要這個維度:EV55 量到蒸餾期(≤2021-12)**崩跌 regime 只有 23 個站位**,
     而各 regime 的暴漲基準率差很多(崩跌 17.6% / 修正 6.4% / 多頭 5.9% / 狂熱 7.5%)。
     純按「年」分層會讓最稀缺、也最有資訊量的崩跌樣本過薄——而哲學的第十道判別
     正是「宏觀 regime 時點」。故 regime 一律標記,並在報告中列出配額分布。
     """
-    ret = (panel.sort([C, "date"])
+    warm = (Date.fromordinal(ERA_START.toordinal() - REGIME_WARMUP_DAYS)).isoformat()
+    px = prices.fetch_adjusted_panel(con, warm, FWD_MUST_END_BEFORE.isoformat(),
+                                     market=REGIME_PROXY_MARKET,
+                                     include_extra_history_days=0)
+    ret = (px.select([C, "date", "close"]).filter(pl.col("close") > 0).sort([C, "date"])
            .with_columns((pl.col("close") / pl.col("close").shift(1).over(C) - 1).alias("r"))
            .filter(pl.col("r").is_between(-0.2, 0.2)))     # 濾停板級雜訊
     mkt = (ret.group_by("date").agg(pl.col("r").mean().alias("mr")).sort("date")
@@ -213,7 +225,7 @@ def main() -> None:
     st = _stations(panel)
     print(f"  {panel.height:,} 列;月度站位 {len(st)} 個({st[0]} ~ {st[-1]})", flush=True)
     u = (_universe(con, _features(panel), st)
-         .join(_regime(panel), on="date", how="left")
+         .join(_regime(con), on="date", how="left")
          .with_columns(pl.col("regime").fill_null("2修正")))
     print(f"  站位母體觀測 {u.height:,}", flush=True)
     print("  regime 站位分布:", dict(
