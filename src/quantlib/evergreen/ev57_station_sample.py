@@ -180,14 +180,19 @@ def _universe(con, feat: pl.DataFrame, stations: list[Date]) -> pl.DataFrame:
             ]))
 
 
-def _match(pos: pl.DataFrame, negs: pl.DataFrame, seed: int, kind: str) -> pl.DataFrame:
+def _match(pos: pl.DataFrame, negs: pl.DataFrame, seed: int, kind: str,
+           used_codes: set[str] | None = None) -> pl.DataFrame:
     """同站位 × 同流動性十分位 × 同**前期動能**十分位 × 同產業(逐級放寬)。
 
     前期動能進配對鍵是本模組相對 EV31 的核心修正——EV31 的負例被**要求**前期漲
     ≥25%,正例卻沒有這個條件,兩組差 41 個百分點,蒸餾會把動能學成判別力。
+
+    前期動能進配對鍵是本模組相對 EV31 的核心修正(見上)。**`used_codes` 則是第八輪
+    review 補的**:一檔股票在整個樣本裡只准出現一次,理由見 `main` 的同名註解。
     """
     p = negs.sample(fraction=1.0, shuffle=True, seed=seed).to_dicts()
     used: set[tuple] = set()
+    taken: set[str] = used_codes if used_codes is not None else set()
     out: list[dict] = []
     for t in pos.to_dicts():
         levels = (
@@ -201,9 +206,10 @@ def _match(pos: pl.DataFrame, negs: pl.DataFrame, seed: int, kind: str) -> pl.Da
         )
         for name, ok in levels:
             hit = next((r for r in p if (r[C], r["date"]) not in used
-                        and r[C] != t[C] and ok(r)), None)
+                        and r[C] not in taken and r[C] != t[C] and ok(r)), None)
             if hit is not None:
                 used.add((hit[C], hit["date"]))
+                taken.add(hit[C])
                 out.append({**hit, "match_level": name, "neg_kind": kind,
                             "matched_to": f"{t[C]}@{t['date']}"})
                 break
@@ -251,18 +257,42 @@ def main() -> None:
     # 格內再依「年」輪抽(round-robin),避免只按 regime 分層時整格擠在同一年——
     # 崩跌 regime 在蒸餾期只有 23 個站位且高度集中於 2008,不輪抽會讓該格幾乎全是
     # 金融海嘯單一事件,學到的是那次危機的特性而非崩跌 regime 的通則。
+    # **一檔股票在整個樣本裡只准出現一次**(2026-08-05 第八輪 review 補的硬約束)。
+    # 不加的話實測 432 檔裡有 60 檔重複、最多 4 次,32 檔同時當過正例與負例,而且
+    # 有 9 檔的兩個站位相隔不到半年。三個後果各自都足以致命:
+    #   (a) **PIT 破功**——歸因 agent 研究同一檔的兩個站位時,做晚站位時查到的材料
+    #       會留在它的上下文裡;若批次順序讓晚站位先做,早站位那張卡就是帶著未來
+    #       資訊寫的,而卡片本身看不出任何異樣。
+    #   (b) **臂別露餡**——同一家公司出現兩次(一次正一次負),agent 幾乎必然認出來,
+    #       身分卡還是跨檔共用的,認出的成本近乎零。
+    #   (c) **有效樣本數灌水**——同一家公司的兩個時點不是兩個獨立觀測,統計檢力被
+    #       高估,而所有下游信賴區間都建立在「432 個獨立樣本」之上。
+    # 作法:洗牌後照年輪抽,逐列貪婪取,同代碼只取第一次遇到的站位。正例母體 15,598,
+    # 深度遠夠填滿配額,故約束不影響分層。
     n_cell = max(a.per_cell, 1)
-    pos = (pos_all.sample(fraction=1.0, shuffle=True, seed=a.seed)
-           .with_columns(pl.int_range(pl.len()).over(["regime", "tier", "y"]).alias("_rr"))
-           .sort(["_rr"])                       # 先各年取第 1 檔,再各年取第 2 檔…
-           .group_by(["regime", "tier"], maintain_order=True).head(n_cell)
-           .drop("_rr").sort(["regime", "tier", C]))
+    ranked = (pos_all.sample(fraction=1.0, shuffle=True, seed=a.seed)
+              .with_columns(pl.int_range(pl.len()).over(["regime", "tier", "y"]).alias("_rr"))
+              .sort(["_rr"]).drop("_rr"))
+    used_codes: set[str] = set()
+    cell_n: dict[tuple, int] = {}
+    keep: list[dict] = []
+    for r in ranked.iter_rows(named=True):
+        cell = (r["regime"], r["tier"])
+        if cell_n.get(cell, 0) >= n_cell or r[C] in used_codes:
+            continue
+        used_codes.add(r[C])
+        cell_n[cell] = cell_n.get(cell, 0) + 1
+        keep.append(r)
+    pos = pl.DataFrame(keep).sort(["regime", "tier", C])
     half = pos.height // 2
+    # 負例也吃同一個 `used_codes`(逐次累加),確保正負之間、負例彼此之間都不重複。
     near = _match(pos.head(half),
                   u.filter((pl.col("fwd_max_ret") >= NEAR_MISS[0])
-                           & (pl.col("fwd_max_ret") < NEAR_MISS[1])), a.seed, "near_miss")
+                           & (pl.col("fwd_max_ret") < NEAR_MISS[1])), a.seed, "near_miss",
+                  used_codes)
     quiet = _match(pos.tail(pos.height - half),
-                   u.filter(pl.col("fwd_max_ret") < QUIET_MAX), a.seed + 1, "quiet")
+                   u.filter(pl.col("fwd_max_ret") < QUIET_MAX), a.seed + 1, "quiet",
+                   used_codes)
     neg = pl.concat([near, quiet], how="diagonal")
 
     print("\n正例配額(regime × 流動性層):")
