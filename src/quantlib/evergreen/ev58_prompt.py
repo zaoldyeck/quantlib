@@ -272,14 +272,20 @@ def main() -> None:
     a = ap.parse_args()
 
     if a.cmd == "era-brief":
-        if not a.batch_id:
-            ap.error("era-brief 需要期別碼(如 E1);全部跑一遍見 _era_map.json")
-        print(render_era_brief(a.batch_id))
+        m = json.loads((CARDS / "_era_map.json").read_text(encoding="utf-8"))
+        eras = [a.batch_id] if a.batch_id else sorted(m)
+        out = CARDS / "_prompts"
+        out.mkdir(exist_ok=True)
+        for e in eras:
+            (out / f"era_brief_{e}.md").write_text(render_era_brief(e), encoding="utf-8")
+            print(f"→ {out / f'era_brief_{e}.md'}")
         return
     if a.cmd == "distill":
         d, h = era_split()
-        print(f"蒸餾期別 {d} / 保留期別 {h}\n")
-        print(render_distill())
+        out = CARDS / "_prompts"
+        out.mkdir(exist_ok=True)
+        (out / "distill.md").write_text(render_distill(), encoding="utf-8")
+        print(f"蒸餾期別 {d} / 保留期別 {h} → {out / 'distill.md'}")
         return
     if not a.batch_id:
         ap.error("render / release 需要 batch_id")
