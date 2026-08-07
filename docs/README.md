@@ -17,6 +17,7 @@
 | [`active_etf_analysis.md`](active_etf_analysis.md) | 主動式 ETF 量化分析與排名依據。 |
 | [`active_etf_investor_recommendation.md`](active_etf_investor_recommendation.md) | 給一般投資人的主動式 ETF 推薦報告。 |
 | [`leaders_by_domain.md`](leaders_by_domain.md) | 台股各領域龍頭股 watchlist。 |
+| [`global_expansion_ib_feasibility.md`](global_expansion_ib_feasibility.md) | 全球股票量化系統與 IB 擴展可行性評估(2026-08-07 查證,結論:暫不實作;IB 只能當執行層,歷史資料不含下市股)。 |
 
 ## 操作文件
 
