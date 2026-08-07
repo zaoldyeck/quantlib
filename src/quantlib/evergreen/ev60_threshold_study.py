@@ -209,12 +209,25 @@ def study(u: pl.DataFrame, ret_cols: list[str], col: str = "fwd_max_ret") -> lis
                      .group_by("date", maintain_order=True).head(TOP_N))
             row["picked_per_station"] = round(picks.height / picks["date"].n_unique(), 1)
             row["hit_rate_at_topN"] = round(float(picks["y"].mean()), 4)
+            # **可交易性**:報酬再高,買不到就不是報酬。短持有期的模型很容易去挑
+            # 流動性極差的小型股——那裡的「報酬」是報價跳動,不是可成交的價格。
+            # 專案鐵律:「好到不像話」的數字優先假設是自己的設計錯了。
+            row["pick_adv_dec_median"] = float(picks["adv_dec"].median())
+            row["pick_adv_dec_p25"] = float(picks["adv_dec"].quantile(0.25))
+            row["pick_bottom_decile_share"] = round(float((picks["adv_dec"] == 0).mean()), 4)
+            row["pick_adv20_median_ntd"] = round(float(picks["adv20"].median()), 0)
             row["lift_at_topN"] = round(float(picks["y"].mean()) / base, 2) if base else None
             for rc in ret_cols:
                 v = picks[rc].drop_nulls()
                 if v.len():
-                    row[f"pool_{rc}_mean"] = round(float(v.mean()), 4)
+                    m = float(v.mean())
+                    row[f"pool_{rc}_mean"] = round(m, 4)
                     row[f"pool_{rc}_median"] = round(float(v.median()), 4)
+                    # **年化**:不同 horizon 的單期報酬不可直接比——期數不同。
+                    # 一年約 250 個交易日(實測 2008-2021 年均 246,取整 250)。
+                    # 這是本報表自己差點犯的混口徑:h=250 的 18.25% 看起來遠勝
+                    # h=60 的 8.45%,年化後卻是 18.3% vs 40.2%,結論完全相反。
+                    row[f"pool_{rc}_ann"] = round((1 + m) ** (250 / ev57.FWD_DAYS) - 1, 4)
         rows.append(row)
     return rows
 
@@ -391,7 +404,7 @@ def main() -> None:
     print(f"\n=== 門檻掃描(標籤定義 = {a.label_col})===")
     hdr = f"{'θ':>6}{'基準率':>9}{'正例':>8}{'最小格':>8}{'OOS AUC':>10}{'top15 命中':>11}{'lift':>7}"
     for rc in ret_cols:
-        hdr += f"{'池' + rc.replace('fwd_', '').replace('_ret', ''):>13}"
+        hdr += f"{'池' + rc.replace('fwd_', '').replace('_ret', '') + '年化':>15}"
     print(hdr)
     for r in rows:
         line = (f"{r['threshold']:>6.0%}{r['base_rate']:>9.2%}{r['n_positive']:>8,}"
@@ -399,7 +412,7 @@ def main() -> None:
                 f"{r.get('hit_rate_at_topN', float('nan')):>11.2%}"
                 f"{r.get('lift_at_topN', float('nan')):>7.2f}")
         for rc in ret_cols:
-            line += f"{r.get(f'pool_{rc}_mean', float('nan')):>13.2%}"
+            line += f"{r.get(f'pool_{rc}_ann', float('nan')):>15.2%}"
         print(line)
     extra = {}
     if a.labels:
