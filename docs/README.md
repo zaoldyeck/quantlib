@@ -8,7 +8,7 @@
 |---|---|
 | [`strategy_research/research_sop.md`](strategy_research/research_sop.md) | 台股量化策略研發 SOP。新策略、策略改版、validation、升級 stage 都依此執行。 |
 | [`strategy_ranking.md`](strategy_ranking.md) | 目前策略 production 狀態、已驗證策略與交易規則說明。 |
-| [`strategy_research/s_conditional_probability_campaign.md`](strategy_research/s_conditional_probability_campaign.md) | 條件機率地圖改造 S(2026-08-07):資金分配軸與 σ 標準化停損全數否決;關鍵翻轉——對右尾策略該量 P(大贏) 而非 E÷σ;S 的移動停損只決定 0.6% 出場。 |
+| [`strategy_research/s_conditional_probability_campaign.md`](strategy_research/s_conditional_probability_campaign.md) | 條件機率地圖改造 S(2026-08-07,兩輪 11 批實驗):**零績效提升**——資金分配、σ 標準化停損、三大主控閥、條件篩出的新因子、訊號自身標準化、名單深度全數否決。換到四樣:對右尾策略該量 P(大贏) 而非 E÷σ;先量閘門觸發率再調門檻;標準化對風險門檻該做、對訊號強度不該做;S 的核心機制首次量化(避開營收公布事件本身值 3-5pp/年)。 |
 | [`strategy_research/meanrev_post_verdict.md`](strategy_research/meanrev_post_verdict.md) | 台股短期均值回歸查證(2026-08-07):訊號真實(秩相關 −0.038)但毛邊際僅 8 bp、成本門檻 35.7 bp;留下「日頻訊號可交易門檻」這條可複用的線。 |
 
 ## 資料與方法
