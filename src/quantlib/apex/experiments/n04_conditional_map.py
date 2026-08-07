@@ -170,6 +170,44 @@ def tail_risk() -> None:
             print(pl.DataFrame(rows))
 
 
+def rocket_prob() -> None:
+    """右尾機率:進場狀態 → P(60 日內最大漲幅 ≥ +50%)。
+
+    **為什麼這比期望值更切題**:S 是 5 席集中的右尾策略,組合績效由少數火箭的幅度
+    決定,不由平均值決定。【6】量到低波候選的 E÷σ 較好,但 N05 端到端測試顯示減碼
+    高波倉會砍掉 16~54pp 的 CAGR——若高波候選的**火箭機率**顯著較高,這個矛盾就有了
+    量化的解釋,而不是只能說「大概是右尾」。
+
+    火箭定義用**持有期內最大漲幅**(不是期末報酬):部位在路徑中觸及 +50% 時,trailing
+    與止盈都可能已把它變現,期末值會低估這種倉的實際貢獻。
+    """
+    p = pl.read_parquet(OUT / "paths.parquet")
+    ent = (p.group_by("eid").agg([
+        pl.col("entry_date").first(), pl.col("sig").first(), pl.col("rk").first(),
+        pl.col("cum").max().alias("max_cum"), pl.col("cum").min().alias("min_cum"),
+    ]))
+    days = ent.select("entry_date").unique().sort("entry_date")["entry_date"].to_list()
+    cut = days[int(len(days) * 0.75)]
+    print("=" * 78)
+    print(f"【8】右尾機率:進場 σ 五分位 → P(持有 {H} 日內最大漲幅 ≥ +50% / +30%)")
+    print("=" * 78)
+    for tag, sub in (("IS", ent.filter(pl.col("entry_date") <= cut)),
+                     ("OOS", ent.filter(pl.col("entry_date") > cut))):
+        d = sub.with_columns(
+            (pl.col("sig").rank("ordinal") / pl.len() * 5).ceil().cast(pl.Int32).alias("σ五分位"))
+        t = (d.group_by("σ五分位").agg([
+            pl.len().alias("n"),
+            (pl.col("sig").median() * 1e4).round(0).alias("σ_bp"),
+            (pl.col("max_cum") >= pl.lit(1.5).log()).mean().round(4).alias("P_火箭50"),
+            (pl.col("max_cum") >= pl.lit(1.3).log()).mean().round(4).alias("P_漲30"),
+            (pl.col("min_cum") <= pl.lit(0.7).log()).mean().round(4).alias("P_跌30"),
+            (pl.col("max_cum").exp() - 1).median().round(4).alias("中位最大漲幅"),
+        ]).sort("σ五分位"))
+        print(f"\n--- {tag} ---")
+        with pl.Config(tbl_rows=-1, tbl_width_chars=140):
+            print(t)
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     path = build_paths()
