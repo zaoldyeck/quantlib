@@ -149,6 +149,31 @@ _STAGE_A = ("ex_ante_thin_d_prev.json", "ex_ante_thin_d0.json",
             "ex_ante_d_prev.json", "ex_ante_d0.json")
 
 
+def _contaminated(batch_id: str) -> list[str]:
+    """找出 agent 自承「撞見站位後的材料且改變了判斷」的卡片。
+
+    這些卡的 ex_ante 判斷已被後見之明污染,**留在樣本裡會直接灌水盲判準確率**——
+    而它們從內容上完全看不出來(欄位一樣、日期一樣合法)。唯一的線索就是 agent
+    自己記下的 `leakage_log.encountered[].changed_my_view`。
+
+    實測踩過:以股名搜 PTT 時,結果清單本身把站位後的標題推到眼前(「連 4 漲停」
+    ——那就是答案)。這不是研究員不小心,是 G8 這一格的系統性風險。
+
+    **所以作廢必須是自動的、且不帶懲罰**:agent 誠實回報 → 程式自動剔除。任何讓
+    「回報」比「隱瞞」更痛的設計,都會把誠實變成傻事,而隱瞞在事後無法偵測。
+    """
+    out = []
+    for code, d0 in _cases(batch_id):
+        for name in _STAGE_A:
+            f = NEWS / f"{code}_{d0}" / name
+            if not f.exists():
+                continue
+            lk = (json.loads(f.read_text(encoding="utf-8")).get("leakage_log") or {})
+            if any(e.get("changed_my_view") for e in (lk.get("encountered") or [])):
+                out.append(f"{code}@{d0}:{name} 自承被站位後的材料改變了判斷")
+    return sorted(set(out))
+
+
 def _g1_misrecorded(batch_id: str) -> list[str]:
     """找出「我們已知 MOPS 回空白頁,agent 卻在 G1 記 `miss`」的案子。
 
@@ -215,6 +240,11 @@ def release(batch_id: str, *, force: bool = False) -> list[Path]:
             f"{batch_id} 的標記日模擬晚於考掘落檔,拒絕釋出真相:\n  " + "\n  ".join(order_bad)
             + "\n  thin 戳必須在九格開跑前蓋下。順序反了就代表淺判斷是看過深度證據後補寫的,"
               "thin/deep 的比較整個失效——而那是本研究用來回答「標記日該不該加深查證」的唯一依據。")
+    if bad := _contaminated(batch_id):
+        raise RuntimeError(
+            f"{batch_id} 有卡片自承被後見之明污染,拒絕釋出真相:\n  " + "\n  ".join(bad)
+            + "\n  這些案必須寫 voided.json(reason: leakage_changed_view)後才能繼續。"
+              "\n  作廢不是懲罰——它們的 ex_ante 判斷已經沒有盲判價值,留著只會灌水準確率。")
     if mis := _g1_misrecorded(batch_id):
         raise RuntimeError(
             f"{batch_id} 的 G1 記錄與實測矛盾,拒絕釋出真相:\n  " + "\n  ".join(mis)

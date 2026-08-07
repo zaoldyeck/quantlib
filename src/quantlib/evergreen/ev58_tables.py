@@ -132,6 +132,14 @@ def contingency(rows: list[tuple[Any, int]]) -> list[dict]:
 
 # ------------------------------------------------------------------ 資料載入
 
+def _p_up80(card: dict) -> int | None:
+    """取 `p_up80`,容忍扁平與 `bet` 巢狀兩種擺放。"""
+    if card.get("p_up80") is not None:
+        return card["p_up80"]
+    bet = card.get("bet")
+    return bet.get("p_up80") if isinstance(bet, dict) else None
+
+
 def _load() -> list[dict]:
     """每個「案 × 站位」一列,把真相、卡片特徵、thin/deep 判斷併在一起。"""
     truth: dict[tuple[str, str], dict] = {}
@@ -162,8 +170,11 @@ def _load() -> list[dict]:
                 "neg_kind": t.get("neg_kind"), "fwd_max_ret": t.get("fwd_max_ret"),
                 "adv_decile": feat.get((code, d0), {}).get("adv_decile"),
                 "card": dc,
-                "p_deep": dc.get("bet", {}).get("p_up80"),
-                "p_thin": tc.get("p_up80"),
+                # thin 卡實測會被寫成站位資訊卡的形狀(`p_up80` 掉進 `bet`)。
+                # 兩處都讀是為了**救回已產出的資料**,不是接受漂移——漂移由
+                # `ev58_stage_a_check` 單獨回報。只讀一處會讓 T5b 靜默回報零配對。
+                "p_deep": _p_up80(dc),
+                "p_thin": _p_up80(tc),
                 "conv_deep": dc.get("bet", {}).get("conviction"),
                 "conv_thin": tc.get("conviction"),
                 "retriev": dc.get("retrieval", {}).get("retrievability_score"),

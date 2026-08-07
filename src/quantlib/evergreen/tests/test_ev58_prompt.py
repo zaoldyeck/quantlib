@@ -140,12 +140,21 @@ def test_era_brief_prompt_never_touches_single_stocks() -> None:
     assert "不碰個股" in t and "不准出現任何個股名稱或代碼" in t
 
 
-def _stage_a(root, cards, g1_status=None):
-    for c in cards:
+def _stage_a(root, cards, g1_status=None, leak_first=None):
+    """依 `_STAGE_A` 的順序落檔(thin 先於 deep)——順序本身被閘門稽核。
+
+    `leak_first` 的內容要在**寫檔當下**就放進 thin 卡,不能事後覆寫:事後覆寫會讓
+    thin 的 mtime 晚於 deep,踩到「標記日模擬晚於考掘落檔」那道閘門,測到的就變成
+    另一件事了。
+    """
+    for i, c in enumerate(cards):
         d = root / f"{c['code']}_{c['d0']}"
         d.mkdir(parents=True, exist_ok=True)
         for n in P._STAGE_A:                       # thin 兩張 + deep 兩張
-            (d / n).write_text("{}")
+            body = "{}"
+            if leak_first is not None and i == 0 and n == "ex_ante_thin_d0.json":
+                body = json.dumps({"leakage_log": {"encountered": [leak_first]}})
+            (d / n).write_text(body)
         if g1_status:
             (d / "retrieval_log.jsonl").write_text(
                 json.dumps({"gate": "G1", "status": g1_status, "queries": []}) + "\n")
@@ -211,3 +220,38 @@ def test_release_rejects_thin_stamped_after_deep(tmp_path, monkeypatch, batch_id
             time.sleep(0.01)
     with pytest.raises(RuntimeError, match="標記日模擬晚於考掘落檔"):
         P.release(batch_id)
+
+
+def test_release_rejects_self_reported_contamination(tmp_path, monkeypatch, batch_id) -> None:
+    """agent 自承被站位後的材料改變判斷 ⇒ 該批擋下,直到那些案寫 voided。
+
+    這種污染從卡片內容看不出來(欄位一樣、日期一樣合法),唯一線索是 agent 自己記的
+    `changed_my_view`。所以作廢必須自動且不帶懲罰——任何讓「回報」比「隱瞞」更痛的
+    設計,都會把誠實變成傻事,而隱瞞事後無法偵測。
+    """
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "none.json")
+    _stage_a(P.NEWS, cards, leak_first={"title": "連4漲停", "changed_my_view": True})
+    with pytest.raises(RuntimeError, match="自承被後見之明污染"):
+        P.release(batch_id)
+
+
+def test_clean_leakage_log_does_not_block(tmp_path, monkeypatch, batch_id) -> None:
+    """撞見但未改變判斷 = PIT 紀律正常運作,不得擋——擋它就是在懲罰誠實記錄。"""
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "none.json")
+    _stage_a(P.NEWS, cards, leak_first={"title": "x", "changed_my_view": False})
+    assert len(P.release(batch_id)) == len(cards)
+
+
+def test_prompt_specifies_thin_schema_as_its_own_block(batch_id) -> None:
+    """thin schema 必須是獨立的 JSON 區塊並明令不得套用站位資訊卡——實測 46/48 張套錯。"""
+    pa, _, _ = P.render_attribution(batch_id)
+    i = pa.index("ex_ante_thin_d_prev.json")
+    seg = pa[i:i + 2000]
+    assert '"materials_used"' in seg and '"signal_type"' in seg, "thin schema 未以獨立區塊給出"
+    assert "絕對不要套用" in seg, "未明令禁止套用站位資訊卡的 schema"
