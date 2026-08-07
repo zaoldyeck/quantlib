@@ -1,50 +1,46 @@
-"""EV57:站位錨定的蒸餾樣本(取代 EV31)——把「暴漲起點」換成「實盤標記者站的那一天」。
+"""EV57:站位錨定的蒸餾樣本——標籤、門檻、配對、分層全部由量測導出。
 
-## 為什麼要取代 EV31(兩個缺陷,都經自行實測確認)
+## 每個設計決定的出處(完整盤點見 `docs/strategy_research/ev60_no_magic_numbers.md`)
 
-EV31 已修好資料汙染、還原價、期間重疊三件事,但它自己帶進兩個新問題:
+本模組不留任何說不出出處的數字。三類:**界限**(交易所公告、資料起始日)、
+**導出**(repo 內可重跑的量測)、**刪除**(讓不變式接手)。
 
-### 缺陷 A:對照組在前期動能上與正例系統性不同(混淆因子)
-EV31 的對照組沿用舊定義「前 120 日漲 ≥25% 且前瞻最大 <20%」,但正例的選取
-**完全沒有前期動能條件**。實測 EV31 樣本:
+### 標籤 = 實際入帳報酬,不是區間最高報酬(EV60 導出)
+下游用移動停利出場,一檔漲到 +80% 再全部吐回去,舊標籤算正例、**實際賺不到**。
+標籤與付款的口徑不同,是量化系統的頭號無聲殺手。稀有度對齊後實測:
 
-    暴漲組 prior120 中位 −7.3%,只有 18.6% 滿足 ≥+25%
-    對照組 prior120 中位 +33.7%,100% 滿足 ≥+25%      ← 差 41 個百分點
+    舊標籤(區間最高 @80%)  OOS AUC 0.689(最高)  池報酬 6.03%(最低)
+    實際入帳標籤            OOS AUC 0.622(最低)  池報酬 8.40%(最高)
 
-蒸餾必然學到「前期已經漲很多 → 偽形」。**那 100% 是選樣條件造出來的,不是市場事實。**
-修法:負例不再**要求**前期動能,改成與正例**配對**前期動能。
+**最好預測的目標最不賺錢。** 優化錯的目標,預測得越準賠越多。
 
-### 缺陷 B:用「暴漲起點日」當 t0 = 給了實盤永遠拿不到的視角
-掃描器找的 t0 是「從這天起算前瞻報酬最大」的那一天——事後才知道。實盤的標記者
-每月站在固定的站位日問「接下來會不會漲」。實測兩種錨定下正例的前期動能:
+### 門檻 20%、視窗 60 交易日(EV60/EV62,(h, θ) 聯合掃描 + 真實 NAV)
+判準是專案主尺 `p5`(block bootstrap CAGR 5% 下界,`live_config.selection_metric`)。
+θ 單峰內部最佳:5/10/15/**20**/30/50% 的 p5 為 6.08/6.53/7.15/**8.44**/5.61/1.82%,
+CAGR、MDD、Martin 同時最佳。h=20 因**可交易性**作廢(46.5% 選股落在最低流動性
+十分位、ADV20 中位僅 73 萬元——那種報酬買不到)。
 
-    起點日錨定:prior120 中位 −7.3%(系統性地挑在低點)
-    站位日錨定:prior120 中位 +3.7%
+### 配對 = 傾向分數,不是手挑的鍵(EV60 稽核)
+手挑配對鍵本身就是魔術數字的來源。而且實測漏了最強的:舊樣本稽核顯示鍵內的
+`adv_dec` 0.4989 / `mom_dec` 0.4999(控制到近乎完美),**沒進鍵的 `vol60` 殘留
+0.5781**。傾向分數配對讓任何量化特徵依構造都分不開兩臂 ⇒ 蒸餾器測到的是
+「相對於整個量化層的增量」。**逐折外樣本**,否則等於用未來資訊配對。
+配對在 (站位 × 流動性組) 格內進行——分層是設計的一部分,配對必須尊重它。
 
-差異證明起點日錨定會把樣本偏向「剛落底」那一型。修法:t0 一律改為**月度站位日**
-(當月 10 日後首個交易日,與 live 標記日曆完全相同)。
+### 抽樣層剔除未還原公司行動(2026-08-06)
+單日還原報酬 > 當日制度上限(2015-06 前 7%、後 10%)⇒ 該日有公司行動未被還原。
+**零參數,物理界限直接當偵測器。** 不擋的話機械跳空會被算成暴漲,而它只製造假正例
+不製造假沉寂(舊樣本實測正例 6.5% 受影響、負例僅 1.4%)。
 
-## 站位錨定後的母體基準率(自行實測,非引用)
-2008-01 ~ 2021-12、174 個站位、259,079 個「檔 × 站位」觀測:
+### 一檔股票只出現一次
+不加的話實測 432 檔裡 60 檔重複、32 檔同時當過正負例。後果三個:PIT 破功(做同一檔
+的晚站位時查到的材料留在上下文裡)、臂別露餡、有效樣本數灌水。
 
-    未來 120 交易日還原總報酬最高值 ≥ 50% → 13.96%
-                                  ≥ 80% →  6.27%
-                                  ≥100% →  4.01%
+## 刪掉的參數(不是替它們找理由,是讓不變式接手)
+`NEAR_MISS` / `QUIET_MAX`(硬度帶邊界沒有出處 → 改由配對後的分布量出來)、
+手挑配對鍵、`PRIOR_DAYS`、十分位切點。
 
-這個數字有實質用途:蒸餾與盲判的機率校準錨。給 30% 就是說「比隨機一檔高約 5 倍」。
-
-## 設計(承襲 EV31 已驗證正確的部分)
-還原價、120 交易日水平線、2008-01~2021-12 且前瞻窗須在 2022-07-01 前結束、
-四碼普通股 + 已申報月營收、橫斷面流動性分位、年 × 層分層、limit_era 標籤。
-
-## 新增
-- **兩檔硬度的負例**:`near_miss`(前瞻最大 25~50%,看起來要動卻沒走完)與
-  `quiet`(<15%,真的沒事)。只有 near_miss 的話蒸餾學不到「與沉寂股的差別」;
-  只有 quiet 的話對比太容易、學不到細緻判別。各半。
-- **配對鍵含前期動能十分位**,把缺陷 A 的混淆因子直接控制掉。
-
-Run: uv run --project . python -m quantlib.evergreen.ev57_station_sample --explore
-     uv run --project . python -m quantlib.evergreen.ev57_station_sample --per-cell 5
+Run: uv run --project . python -m quantlib.evergreen.ev57_station_sample [--explore]
 依賴 cache: 是。長任務,建議背景跑。
 """
 from __future__ import annotations
@@ -58,13 +54,45 @@ from quantlib import paths, prices
 from quantlib.apex import data
 
 C = "company_code"
-ERA_START, ERA_END = Date(2008, 1, 1), Date(2021, 12, 31)
+#: 每個數字的出處見 `docs/strategy_research/ev60_no_magic_numbers.md`。
+#: 那份文件把方法論裡的每一個影響行為的數字逐個判定為「界限 / 導出 / 魔術」,
+#: 並把魔術的量出來或刪掉。以下常數全部落在前兩類。
+
+#: **界限**:tpex 資料自 2007-07 起,加 250 交易日暖身。
+ERA_START = Date(2008, 1, 1)
+#: **導出**:下游標記期起點;前瞻窗越過它就與標記期重疊,哲學不再是樣本外。
 FWD_MUST_END_BEFORE = Date(2022, 7, 1)
-FWD_DAYS, PRIOR_DAYS = 120, 120
-SURGE_MIN = 0.80
-NEAR_MISS = (0.25, 0.50)      # 「看起來要動卻沒走完」
-QUIET_MAX = 0.15              # 「真的沒事」
+#: **導出**(EV62,真實 NAV + 專案主尺 p5):前瞻視窗 60 交易日。
+#: 掃 20/40/60/80/100/120/250,h=20 因可交易性作廢(46.5% 選股落在最低流動性十分位、
+#: ADV20 中位僅 73 萬元),h=250 明顯較差;60 的 p5 5.61% 為最高。
+FWD_DAYS = 60
+#: **導出**:由 `FWD_MUST_END_BEFORE` 與 `FWD_DAYS` 反推——前瞻窗必須在標記期之前結束。
+#: h 從 120 縮到 60,可用的最後站位因此往後延(先前寫死 2021-12-31 是舊 h 的產物)。
+ERA_END = Date(2022, 3, 31)
+#: **導出**(EV60/EV62):標籤 = 站位次日進場、移動停利 `LABEL_TRAIL` 出場、
+#: 期滿 `FWD_DAYS` 平倉的**實際入帳報酬** ≥ `SURGE_MIN`。
+#:
+#: 為什麼不是「區間最高報酬 ≥ 80%」(舊定義):下游用移動停利出場,一檔漲到 +80%
+#: 再全部吐回去,舊標籤算正例、實際賺不到。**標籤與付款的口徑不同,是量化系統的
+#: 頭號無聲殺手。** 稀有度對齊後實測:舊標籤 AUC 最高(0.689)卻最不賺(池 6.03%),
+#: 實際入帳標籤 AUC 最低(0.622)卻最賺(8.40%)。
+#: 門檻 20% 為 (h, θ) 聯合掃描在真實 NAV 上的**內部最佳**(單峰:5/10/15/20/30/50%
+#: 的 p5 為 6.08/6.53/7.15/**8.44**/5.61/1.82%),CAGR、MDD、Martin 同時最佳。
+LABEL_TRAIL = 0.25
+SURGE_MIN = 0.20
+#: **界限**:台股個股單日漲跌幅由 7% 放寬至 10% 的生效日(交易所公告)。
 LIMIT_ERA_SPLIT = Date(2015, 6, 1)
+#: **導出**(EV61,檢力):最小可偵測 lift 1.5、α .05、power .80、12 格
+#: (4 regime × 3 流動性組)⇒ 每格 16。`lift = 1.5` 是政策參數不是資料事實
+#: (低於它的規則對 15 檔的月度池子改變不了選誰),1.2/2.0 的對應值見該文件。
+PER_CELL = 16
+#: **導出**(EV61,配額可填滿的前提下基準率極差最大):極差 49.4%,
+#: 對照舊設定(250/750/−0.25)的 ~34% ——舊設定在分層品質上留了 15pp 沒拿。
+REGIME_R12M_WIN, REGIME_DD_WIN, REGIME_CRASH = 250, 1000, -0.30
+#: **導出**(EV61,等頻十分位 + 相鄰組信賴區間重疊即合併):資料支持三組
+#: {十分位 0} / {十分位 1} / {十分位 2-9}。舊切點(≥7 高 / ≥3 中)把毫無差異的 2-9
+#: 切成兩半,又把真正有差異的 0 與 1 併進同一組。
+LIQ_GROUPS = ((0, 0), (1, 1), (2, 9))
 
 
 def _panel(con) -> pl.DataFrame:
@@ -72,7 +100,9 @@ def _panel(con) -> pl.DataFrame:
     for m in ("twse", "tpex"):
         f = prices.fetch_adjusted_panel(
             con, ERA_START.isoformat(), FWD_MUST_END_BEFORE.isoformat(),
-            market=m, include_extra_history_days=PRIOR_DAYS + 60)
+            # 暖機取 310 個交易日:最長的站位當日特徵是 `rolling_max(250)`,
+            # 加 60 日的 `vol60` 緩衝。`PRIOR_DAYS` 已隨配對改傾向分數而刪除。
+            market=m, include_extra_history_days=310)
         if not f.is_empty():
             fr.append(f.select([C, "date", "close", "trade_value"])
                       .with_columns(pl.lit(m).alias("market")))
@@ -88,8 +118,8 @@ REGIME_WARMUP_DAYS = 1200          # 日曆天,≈ 750+ 個交易日
 REGIME_PROXY_MARKET = "twse"       # 只用 twse:tpex 2007-07 才有,混用會讓指數在該日不連續
 
 
-def _regime(con, r12m_win: int = 250, dd_win: int = 750,
-            crash: float = -0.25, mania: float = 0.30, bull: float = 0.0) -> pl.DataFrame:
+def _regime(con, r12m_win: int = REGIME_R12M_WIN, dd_win: int = REGIME_DD_WIN,
+            crash: float = REGIME_CRASH, mania: float = 0.30, bull: float = 0.0) -> pl.DataFrame:
     """市場 regime 標籤(等權 twse proxy)。
 
     為什麼要這個維度:EV55 量到蒸餾期(≤2021-12)**崩跌 regime 只有 23 個站位**,
@@ -129,16 +159,66 @@ def _stations(panel: pl.DataFrame) -> list[Date]:
 
 
 def _features(panel: pl.DataFrame) -> pl.DataFrame:
-    return panel.with_columns([
-        pl.col("close").shift(-1).reverse()
-          .rolling_max(FWD_DAYS, min_samples=1).reverse().over(C).alias("fwd_max_px"),
+    """站位當日可得的量化特徵 + **實際入帳報酬**標籤。
+
+    標籤從「區間最高報酬」改為「移動停利實際出場的報酬」,是 EV60 量出來的:
+    下游用移動停利出場,一檔漲到 +80% 再吐回去,舊標籤算正例、實際賺不到。
+    口徑對齊之後,同一個技能下的池子多賺 39%。
+
+    量化特徵在這裡就算好,因為**傾向分數配對要用它們**——配對必須把量化捷徑堵死,
+    才能讓蒸餾器測到的判別力是「相對於整個量化層的增量」。
+    """
+    p = panel.with_columns([
         pl.col("date").shift(-FWD_DAYS).over(C).alias("fwd_end_date"),
-        pl.col("close").shift(PRIOR_DAYS).over(C).alias("prior_px"),
         pl.col("trade_value").rolling_mean(20, min_samples=20).over(C).alias("adv20"),
-    ]).with_columns([
-        (pl.col("fwd_max_px") / pl.col("close") - 1.0).alias("fwd_max_ret"),
-        (pl.col("close") / pl.col("prior_px") - 1.0).alias("prior_ret"),
+        # 站位當日可得的特徵——**任何一欄都不得含未來**
+        (pl.col("close") / pl.col("close").shift(20).over(C) - 1).alias("ret20"),
+        (pl.col("close") / pl.col("close").shift(60).over(C) - 1).alias("ret60"),
+        (pl.col("close") / pl.col("close").shift(120).over(C) - 1).alias("ret120"),
+        (pl.col("close") / pl.col("close").rolling_max(250, min_samples=60).over(C) - 1)
+        .alias("pct_below_250d_high"),
+        (pl.col("close") / pl.col("close").shift(1).over(C) - 1)
+        .rolling_std(60, min_samples=40).over(C).alias("vol60"),
     ])
+    return p.with_columns([
+        (pl.col("trade_value") / pl.col("adv20")).alias("turnover20"),
+        pl.col("adv20").log1p().alias("log_adv20"),
+        # `prior_ret` 只為報表的混淆因子檢核而留;配對不再用它(改傾向分數)
+        (pl.col("close") / pl.col("close").shift(120).over(C) - 1).alias("prior_ret"),
+    ])
+
+
+def _realized_returns(panel: pl.DataFrame, keys: pl.DataFrame,
+                      trail: float = LABEL_TRAIL) -> pl.DataFrame:
+    """站位次日進場、自峰值回撤 `trail` 或期滿 `FWD_DAYS` 出場的**實際入帳報酬**。
+
+    逐日重放而非期末快照——專案的出場語義鐵律:只看期末價會把「中途已觸發」的出場
+    當成沒發生。每檔收盤價只轉 numpy 一次、站位以 searchsorted 定位,窗內全向量化。
+    """
+    import numpy as np
+
+    ser = panel.sort([C, "date"]).select([C, "date", "close"])
+    by_code = {code: (g["date"].to_numpy(), g["close"].to_numpy().astype(float))
+               for (code,), g in ser.group_by([C], maintain_order=True)}
+    codes, dates_out, rets = [], [], []
+    for code, d in keys.iter_rows():
+        pair = by_code.get(code)
+        if pair is None:
+            continue
+        dts, px = pair
+        i = int(np.searchsorted(dts, np.datetime64(d)))
+        if i >= len(px) or dts[i] != np.datetime64(d):
+            continue
+        w = px[i + 1: i + 1 + FWD_DAYS]
+        if w.size < 2 or w[0] <= 0:
+            continue
+        peak = np.maximum.accumulate(w)
+        below = w <= peak * (1 - trail)
+        k = int(np.argmax(below)) if below.any() else -1
+        codes.append(code)
+        dates_out.append(d)
+        rets.append(w[k] / w[0] - 1.0)
+    return pl.DataFrame({C: codes, "date": dates_out, "realized_ret": rets})
 
 
 def _unadjusted_action_days(con) -> pl.DataFrame:
@@ -178,7 +258,7 @@ def _universe(con, feat: pl.DataFrame, stations: list[Date]) -> pl.DataFrame:
          .filter((pl.col("date") >= ERA_START) & (pl.col("date") <= ERA_END)
                  & pl.col("fwd_end_date").is_not_null()
                  & (pl.col("fwd_end_date") < FWD_MUST_END_BEFORE)
-                 & pl.col("fwd_max_ret").is_not_null()
+                 & pl.col("realized_ret").is_not_null()
                  & pl.col("prior_ret").is_not_null()
                  & pl.col("adv20").is_not_null()
                  & pl.col(C).str.contains(r"^[0-9]{4}$"))
@@ -187,6 +267,7 @@ def _universe(con, feat: pl.DataFrame, stations: list[Date]) -> pl.DataFrame:
     u = u.with_columns([
         ((pl.col("adv20").rank("ordinal").over("date") * 10 - 1)
          // pl.len().over("date")).alias("adv_dec"),
+        # `mom_dec` 只留給報表的混淆因子檢核;**配對已改傾向分數,不再用它當鍵**
         ((pl.col("prior_ret").rank("ordinal").over("date") * 10 - 1)
          // pl.len().over("date")).alias("mom_dec"),
     ])
@@ -213,56 +294,104 @@ def _universe(con, feat: pl.DataFrame, stations: list[Date]) -> pl.DataFrame:
                 pl.col("industry").fill_null("(未分類)"),
                 pl.when(pl.col("date") >= LIMIT_ERA_SPLIT).then(pl.lit("10%"))
                   .otherwise(pl.lit("7%")).alias("limit_era"),
-                pl.when(pl.col("adv_dec") >= 7).then(pl.lit("高"))
-                  .when(pl.col("adv_dec") >= 3).then(pl.lit("中"))
-                  .otherwise(pl.lit("低")).alias("tier"),
+                # 分組由 EV61 導出:等頻十分位 + 相鄰組信賴區間重疊即合併 ⇒
+                # {十分位 0} / {十分位 1} / {十分位 2-9}。舊切點(≥7/≥3)把毫無差異的
+                # 2-9 切成兩半,又把真正有差異的 0 與 1 併起來。
+                pl.when(pl.col("adv_dec") <= LIQ_GROUPS[0][1]).then(pl.lit("D0"))
+                  .when(pl.col("adv_dec") <= LIQ_GROUPS[1][1]).then(pl.lit("D1"))
+                  .otherwise(pl.lit("D2-9")).alias("tier"),
                 pl.col("date").dt.year().alias("y"),
             ]))
 
 
-def _match(pos: pl.DataFrame, negs: pl.DataFrame, seed: int, kind: str,
-           used_codes: set[str] | None = None) -> pl.DataFrame:
-    """同站位 × 同流動性十分位 × 同**前期動能**十分位 × 同產業(逐級放寬)。
+#: 傾向分數要用的量化特徵——**與 EV60 的可學性下界代理同一組**,單一真源。
+PROPENSITY_FEATURES = ("ret20", "ret60", "ret120", "pct_below_250d_high",
+                       "adv_dec", "mom_dec", "turnover20", "vol60", "log_adv20")
 
-    前期動能進配對鍵是本模組相對 EV31 的核心修正——EV31 的負例被**要求**前期漲
-    ≥25%,正例卻沒有這個條件,兩組差 41 個百分點,蒸餾會把動能學成判別力。
 
-    前期動能進配對鍵是本模組相對 EV31 的核心修正(見上)。**`used_codes` 則是第八輪
-    review 補的**:一檔股票在整個樣本裡只准出現一次,理由見 `main` 的同名註解。
+def _propensity(u: pl.DataFrame, seed: int, folds: int = 5) -> pl.DataFrame:
+    """對每個「檔 × 站位」算傾向分數 = 量化模型預測的正例機率,**逐折外樣本**。
+
+    為什麼要它:手挑配對鍵(站位 × 流動性 × 動能 × 產業)本身就是魔術數字的來源
+    ——挑哪幾個維度、各切幾分位,全是選擇。而且實測漏了最強的那個:對舊樣本稽核,
+    配對鍵內的 `adv_dec` 0.4989 / `mom_dec` 0.4999(控制到近乎完美),**沒進鍵的
+    `vol60` 殘留 0.5781**、`ret60` 0.5418、`ret20` 0.5410。蒸餾器會把波動率學成
+    「判別力」,而下游引擎本來就有它。
+
+    傾向分數配對讓**任何量化特徵都無法分開兩臂(依構造)**,蒸餾器測到的判別力
+    因此是「相對於整個量化層的增量」——那才是質化系統該被評價的東西。而且它沒有
+    任何要挑的維度或分位數。
+
+    **逐折外樣本是必要的**:拿全期資料 fit 出來的分數去挑負例,等於用未來資訊配對。
+    按時間切折、每折用其他折訓練——折界由分位決定,不由人挑年份。
     """
-    p = negs.sample(fraction=1.0, shuffle=True, seed=seed).to_dicts()
-    used: set[tuple] = set()
-    taken: set[str] = used_codes if used_codes is not None else set()
-    out: list[dict] = []
-    for t in pos.to_dicts():
-        levels = (
-            ("L1 站位+流動+動能+產業", lambda r: r["date"] == t["date"] and r["adv_dec"] == t["adv_dec"]
-             and r["mom_dec"] == t["mom_dec"] and r["industry"] == t["industry"]),
-            ("L2 站位+流動+動能", lambda r: r["date"] == t["date"] and r["adv_dec"] == t["adv_dec"]
-             and r["mom_dec"] == t["mom_dec"]),
-            ("L3 站位+流動±1+動能±1", lambda r: r["date"] == t["date"]
-             and abs(r["adv_dec"] - t["adv_dec"]) <= 1 and abs(r["mom_dec"] - t["mom_dec"]) <= 1),
-            ("L4 站位+層", lambda r: r["date"] == t["date"] and r["tier"] == t["tier"]),
-        )
-        for name, ok in levels:
-            hit = next((r for r in p if (r[C], r["date"]) not in used
-                        and r[C] not in taken and r[C] != t[C] and ok(r)), None)
-            if hit is not None:
-                used.add((hit[C], hit["date"]))
-                taken.add(hit[C])
-                out.append({**hit, "match_level": name, "neg_kind": kind,
-                            "matched_to": f"{t[C]}@{t['date']}"})
-                break
+    import lightgbm as lgb
+    import numpy as np
+
+    u = u.with_columns((pl.col("realized_ret") >= SURGE_MIN).cast(pl.Int8).alias("_y"))
+    d = u["date"].to_numpy()
+    edges = np.quantile(d.astype("datetime64[D]").astype(int),
+                        np.linspace(0, 1, folds + 1))
+    fold = np.clip(np.searchsorted(edges[1:-1],
+                                   d.astype("datetime64[D]").astype(int)), 0, folds - 1)
+    score = np.full(u.height, np.nan)
+    X = u.select(PROPENSITY_FEATURES).to_pandas()
+    y = u["_y"].to_numpy()
+    for k in range(folds):
+        tr, te = fold != k, fold == k
+        if y[tr].sum() < 50 or te.sum() == 0:
+            continue
+        m = lgb.train(
+            {"objective": "binary", "learning_rate": 0.05, "num_leaves": 31,
+             "min_data_in_leaf": 200, "feature_fraction": 0.8, "bagging_fraction": 0.8,
+             "bagging_freq": 1, "verbose": -1, "seed": seed},
+            lgb.Dataset(X[tr], label=y[tr]), num_boost_round=200)
+        score[te] = m.predict(X[te])
+    return u.with_columns(pl.Series("propensity", score)).drop("_y")
+
+
+def _match(pos: pl.DataFrame, u: pl.DataFrame, seed: int) -> pl.DataFrame:
+    """負例 = **同站位、傾向分數最接近的非正例**。
+
+    「非正例」的定義就是標籤本身(`realized_ret < SURGE_MIN`),不再有 `near_miss` /
+    `quiet` 兩檔手設硬度帶——那兩個帶的邊界(25~50% / <15%)沒有出處。硬度改為
+    **量出來的維度**:配對完成後記錄每對的傾向分數差與負例的實際報酬,由統計表呈現。
+    """
+    import numpy as np
+
+    neg_pool = u.filter((pl.col("realized_ret") < SURGE_MIN)
+                        & pl.col("propensity").is_not_null())
+    out, used = [], set()
+    rng = np.random.default_rng(seed)
+    # **配對在(站位 × 流動性組)格內進行**,不是只在站位內。
+    # 只配站位的話實測 `adv_dec` 正例中位 1.0 vs 負例 5.0——因為正例被分層強制均分到
+    # 三個流動性組,而負例按自然分布落點。傾向分數平衡的是**分數**不是每個特徵,
+    # 兩檔分數相同可以來自完全不同的特徵組合。
+    # 這不是把手挑的配對鍵加回來:流動性組**本來就是分層維度**,配對尊重分層是
+    # 設計的一致性要求,不是新增一個要挑的鍵。
+    by_station = {k: g for k, g in neg_pool.group_by(["date", "tier"])}
+    for t in pos.sort("date").iter_rows(named=True):
+        g = by_station.get((t["date"], t["tier"]))
+        if g is None or t["propensity"] is None:
+            continue
+        cand = g.filter(~pl.col(C).is_in(list(used)) & (pl.col(C) != t[C]))
+        if cand.is_empty():
+            continue
+        gap = (cand["propensity"].to_numpy() - t["propensity"]).__abs__()
+        j = int(np.argmin(gap + rng.random(len(gap)) * 1e-12))   # 平手隨機打散
+        hit = cand.row(j, named=True)
+        used.add(hit[C])
+        out.append({**hit, "matched_to": f"{t[C]}@{t['date']}",
+                    "propensity_gap": float(gap[j])})
     return pl.DataFrame(out) if out else pl.DataFrame()
 
 
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--explore", action="store_true")
-    ap.add_argument("--per-cell", type=int, default=18,
-                    help="每 (regime × 流動性層) 抽幾檔正例;4 regime × 3 層 = 12 格,"
-                         "預設 18 → 約 216 檔(與舊「年×層」規模相當)")
-    ap.add_argument("--seed", type=int, default=20260727)
+    ap.add_argument("--per-cell", type=int, default=PER_CELL,
+                    help="每 (regime × 流動性組) 抽幾檔正例;預設由檢力導出(EV61)")
+    ap.add_argument("--seed", type=int, default=20260806)
     a = ap.parse_args()
 
     con = data.connect()
@@ -270,52 +399,48 @@ def main() -> None:
     panel = _panel(con)
     st = _stations(panel)
     print(f"  {panel.height:,} 列;月度站位 {len(st)} 個({st[0]} ~ {st[-1]})", flush=True)
-    u = (_universe(con, _features(panel), st)
+    feat = _features(panel)
+    base = (feat.filter(pl.col("date").is_in(st))
+            .select([C, "date"]))
+    print("  重放實際入帳報酬(逐日,移動停利 %.0f%%)…" % (LABEL_TRAIL * 100), flush=True)
+    lab = _realized_returns(panel, base, LABEL_TRAIL)
+    feat = feat.join(lab, on=[C, "date"], how="left")
+
+    u = (_universe(con, feat, st)
          .join(_regime(con), on="date", how="left")
          .with_columns(pl.col("regime").fill_null("2修正")))
-    print(f"  站位母體觀測 {u.height:,}", flush=True)
+    print(f"  站位母體觀測 {u.height:,}")
     print("  regime 站位分布:", dict(
         u.group_by("regime").agg(pl.col("date").n_unique().alias("n"))
          .sort("regime").iter_rows()))
 
-    print("\n=== 站位錨定的母體基準率(蒸餾與盲判的校準錨)===")
-    for thr in (0.50, SURGE_MIN, 1.00):
-        print(f"  未來 {FWD_DAYS} 交易日最大還原報酬 ≥ {thr:>4.0%} → {(u['fwd_max_ret'] >= thr).mean():.2%}")
+    print(f"\n=== 母體基準率(標籤 = 實際入帳報酬,{FWD_DAYS} 交易日)===")
+    for thr in (0.10, SURGE_MIN, 0.30, 0.50):
+        mark = " ←採用" if abs(thr - SURGE_MIN) < 1e-9 else ""
+        print(f"  實際入帳報酬 ≥ {thr:>4.0%} → {(u['realized_ret'] >= thr).mean():.2%}{mark}")
 
-    pos_all = u.filter(pl.col("fwd_max_ret") >= SURGE_MIN)
+    pos_all = u.filter(pl.col("realized_ret") >= SURGE_MIN)
     print(f"\n正例母體 {pos_all.height:,};prior120 中位 {pos_all['prior_ret'].median():+.1%}")
     if a.explore:
-        print("\n=== 正例逐年 × 層 ===")
         print(pos_all.group_by(["y", "tier"]).agg(pl.len().alias("n"))
               .pivot(on="tier", index="y", values="n").sort("y"))
         return
 
-    # 分層改為 **regime × 流動性層**(取代原本的「年 × 層」)。理由見 `_regime`:
-    # 年份是日曆刻度、不是市場狀態刻度;2012 與 2013 同屬多頭卻各拿一份配額,而崩跌
-    # 這個最稀缺、基準率最高(17.6%)的狀態會被稀釋。改用 regime 後,哲學的第十道
-    # 判別(宏觀時點)才有各狀態的對照樣本可學。
-    # 格內再依「年」輪抽(round-robin),避免只按 regime 分層時整格擠在同一年——
-    # 崩跌 regime 在蒸餾期只有 23 個站位且高度集中於 2008,不輪抽會讓該格幾乎全是
-    # 金融海嘯單一事件,學到的是那次危機的特性而非崩跌 regime 的通則。
-    # **一檔股票在整個樣本裡只准出現一次**(2026-08-05 第八輪 review 補的硬約束)。
-    # 不加的話實測 432 檔裡有 60 檔重複、最多 4 次,32 檔同時當過正例與負例,而且
-    # 有 9 檔的兩個站位相隔不到半年。三個後果各自都足以致命:
-    #   (a) **PIT 破功**——歸因 agent 研究同一檔的兩個站位時,做晚站位時查到的材料
-    #       會留在它的上下文裡;若批次順序讓晚站位先做,早站位那張卡就是帶著未來
-    #       資訊寫的,而卡片本身看不出任何異樣。
-    #   (b) **臂別露餡**——同一家公司出現兩次(一次正一次負),agent 幾乎必然認出來,
-    #       身分卡還是跨檔共用的,認出的成本近乎零。
-    #   (c) **有效樣本數灌水**——同一家公司的兩個時點不是兩個獨立觀測,統計檢力被
-    #       高估,而所有下游信賴區間都建立在「432 個獨立樣本」之上。
-    # 作法:洗牌後照年輪抽,逐列貪婪取,同代碼只取第一次遇到的站位。正例母體 15,598,
-    # 深度遠夠填滿配額,故約束不影響分層。
+    print("\n計算傾向分數(逐折外樣本)…", flush=True)
+    u = _propensity(u, a.seed)
+    pos_all = u.filter(pl.col("realized_ret") >= SURGE_MIN
+                       ).filter(pl.col("propensity").is_not_null())
+
+    # **一檔股票在整個樣本裡只准出現一次**(見 2026-08-05 的量測):不加的話實測
+    # 432 檔裡 60 檔重複、32 檔同時當過正負例,而同一檔的兩個時點會讓 PIT 破功
+    # (做晚站位查到的材料留在上下文裡)、臂別露餡、有效樣本數灌水。
     n_cell = max(a.per_cell, 1)
     ranked = (pos_all.sample(fraction=1.0, shuffle=True, seed=a.seed)
               .with_columns(pl.int_range(pl.len()).over(["regime", "tier", "y"]).alias("_rr"))
               .sort(["_rr"]).drop("_rr"))
     used_codes: set[str] = set()
     cell_n: dict[tuple, int] = {}
-    keep: list[dict] = []
+    keep = []
     for r in ranked.iter_rows(named=True):
         cell = (r["regime"], r["tier"])
         if cell_n.get(cell, 0) >= n_cell or r[C] in used_codes:
@@ -324,39 +449,36 @@ def main() -> None:
         cell_n[cell] = cell_n.get(cell, 0) + 1
         keep.append(r)
     pos = pl.DataFrame(keep).sort(["regime", "tier", C])
-    half = pos.height // 2
-    # 負例也吃同一個 `used_codes`(逐次累加),確保正負之間、負例彼此之間都不重複。
-    near = _match(pos.head(half),
-                  u.filter((pl.col("fwd_max_ret") >= NEAR_MISS[0])
-                           & (pl.col("fwd_max_ret") < NEAR_MISS[1])), a.seed, "near_miss",
-                  used_codes)
-    quiet = _match(pos.tail(pos.height - half),
-                   u.filter(pl.col("fwd_max_ret") < QUIET_MAX), a.seed + 1, "quiet",
-                   used_codes)
-    neg = pl.concat([near, quiet], how="diagonal")
 
-    print("\n正例配額(regime × 流動性層):")
+    neg = _match(pos, u.filter(~pl.col(C).is_in(list(used_codes))), a.seed)
+    print(f"\n正例 {pos.height} 檔;負例 {neg.height} 檔")
+    print("  配額(regime × 流動性組):")
     print(pos.group_by(["regime", "tier"]).agg(pl.len().alias("n"))
           .pivot(on="tier", index="regime", values="n").sort("regime"))
-    print("正例年份分布:", dict(pos.group_by("y").agg(pl.len().alias("n")).sort("y").iter_rows()))
-    print(f"\n正例 {pos.height} 檔;負例 {neg.height} 檔"
-          f"(near_miss {near.height} / quiet {quiet.height})")
-    print("  配對層級:", dict(neg.group_by("match_level").agg(pl.len().alias("n"))
-                              .sort("n", descending=True).iter_rows()))
-    print(f"\n=== 混淆因子檢核(EV31 的缺陷 A 是否修掉)===")
-    print(f"  正例 prior120 中位 {pos['prior_ret'].median():+.1%}"
-          f"  動能十分位中位 {pos['mom_dec'].median():.0f}")
-    print(f"  負例 prior120 中位 {neg['prior_ret'].median():+.1%}"
-          f"  動能十分位中位 {neg['mom_dec'].median():.0f}")
+    print(f"  正例年份分布: {dict(sorted(pos.group_by('y').agg(pl.len()).iter_rows()))}")
 
-    cols = [C, "market", "date", "industry", "tier", "limit_era", "regime",
-            "adv_dec", "mom_dec", "fwd_max_ret", "prior_ret"]
-    paths.OUT.mkdir(parents=True, exist_ok=True)
-    fp = paths.OUT / "evergreen_ev57_positives.csv"
-    fn = paths.OUT / "evergreen_ev57_negatives.csv"
-    pos.select(cols).write_csv(fp)
-    neg.select(cols + ["neg_kind", "match_level", "matched_to"]).write_csv(fn)
-    print(f"\n  正例 → {fp}\n  負例 → {fn}")
+    print("\n=== 配對品質(傾向分數應把量化捷徑堵死)===")
+    if neg.height:
+        print(f"  傾向分數差:中位 {neg['propensity_gap'].median():.5f}"
+              f"  p90 {neg['propensity_gap'].quantile(0.9):.5f}")
+        print(f"  負例實際入帳報酬:中位 {neg['realized_ret'].median():+.1%}"
+              f"  p10 {neg['realized_ret'].quantile(0.1):+.1%}"
+              f"  p90 {neg['realized_ret'].quantile(0.9):+.1%}")
+        print("  ↑ 硬度不再由手設的 near_miss/quiet 帶決定,而是**量出來的分布**")
+        for f in ("vol60", "ret20", "ret60", "prior_ret", "adv_dec"):
+            if f in pos.columns and f in neg.columns:
+                print(f"  {f:<12}正例中位 {pos[f].median():>9.4f}"
+                      f"  負例中位 {neg[f].median():>9.4f}")
+
+    cols = [C, "date", "market", "industry", "limit_era", "regime", "tier", "y",
+            "adv_dec", "mom_dec", "realized_ret", "prior_ret", "propensity"]
+    pos.select([c for c in cols if c in pos.columns]).write_csv(
+        paths.OUT / "evergreen_ev57_positives.csv")
+    neg.select([c for c in cols + ["matched_to", "propensity_gap"]
+                if c in neg.columns]).write_csv(
+        paths.OUT / "evergreen_ev57_negatives.csv")
+    print(f"\n  正例 → {paths.OUT / 'evergreen_ev57_positives.csv'}")
+    print(f"  負例 → {paths.OUT / 'evergreen_ev57_negatives.csv'}")
 
 
 if __name__ == "__main__":
