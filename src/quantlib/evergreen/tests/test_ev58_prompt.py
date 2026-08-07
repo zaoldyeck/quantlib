@@ -97,6 +97,8 @@ def test_release_accepts_a_voided_case(tmp_path, monkeypatch, batch_id) -> None:
     monkeypatch.setattr(P, "NEWS", tmp_path / "news")
     monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
     cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "g1.json")
+    P.G1_UNAVAIL.write_text(json.dumps({"scanned": _all(cards), "unavailable": []}))
     for i, c in enumerate(cards):
         d = P.NEWS / f"{c['code']}_{c['d0']}"
         d.mkdir(parents=True)
@@ -140,6 +142,11 @@ def test_era_brief_prompt_never_touches_single_stocks() -> None:
     assert "不碰個股" in t and "不准出現任何個股名稱或代碼" in t
 
 
+def _all(cards):
+    """本批全部案子——當作 G1 清單的 `scanned` 出處,代表「這批都掃過了」。"""
+    return [{"code": c["code"], "d0": c["d0"]} for c in cards]
+
+
 def _stage_a(root, cards, g1_status=None, leak_first=None):
     """依 `_STAGE_A` 的順序落檔(thin 先於 deep)——順序本身被閘門稽核。
 
@@ -171,7 +178,8 @@ def test_release_rejects_g1_recorded_as_miss(tmp_path, monkeypatch, batch_id) ->
     monkeypatch.setattr(P, "NEWS", tmp_path / "news")
     monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
     monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "unavail.json")
-    P.G1_UNAVAIL.write_text(json.dumps([{"code": cards[0]["code"], "d0": cards[0]["d0"]}]))
+    _one = [{"code": cards[0]["code"], "d0": cards[0]["d0"]}]
+    P.G1_UNAVAIL.write_text(json.dumps({"scanned": _all(cards), "unavailable": _one}))
     _stage_a(P.NEWS, cards, g1_status="miss")
     with pytest.raises(RuntimeError, match="G1 記錄與實測矛盾"):
         P.release(batch_id)
@@ -183,7 +191,8 @@ def test_release_accepts_g1_recorded_as_blocked(tmp_path, monkeypatch, batch_id)
     monkeypatch.setattr(P, "NEWS", tmp_path / "news")
     monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
     monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "unavail.json")
-    P.G1_UNAVAIL.write_text(json.dumps([{"code": cards[0]["code"], "d0": cards[0]["d0"]}]))
+    _one = [{"code": cards[0]["code"], "d0": cards[0]["d0"]}]
+    P.G1_UNAVAIL.write_text(json.dumps({"scanned": _all(cards), "unavailable": _one}))
     _stage_a(P.NEWS, cards, g1_status="blocked")
     assert len(P.release(batch_id)) == len(cards)
 
@@ -194,7 +203,7 @@ def test_g1_check_ignores_cases_not_on_the_list(tmp_path, monkeypatch, batch_id)
     monkeypatch.setattr(P, "NEWS", tmp_path / "news")
     monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
     monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "unavail.json")
-    P.G1_UNAVAIL.write_text("[]")
+    P.G1_UNAVAIL.write_text(json.dumps({"scanned": _all(cards), "unavailable": []}))
     _stage_a(P.NEWS, cards, g1_status="miss")
     assert len(P.release(batch_id)) == len(cards)
 
@@ -233,6 +242,7 @@ def test_release_rejects_self_reported_contamination(tmp_path, monkeypatch, batc
     monkeypatch.setattr(P, "NEWS", tmp_path / "news")
     monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
     monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "none.json")
+    P.G1_UNAVAIL.write_text(json.dumps({"scanned": _all(cards), "unavailable": []}))
     _stage_a(P.NEWS, cards, leak_first={"title": "連4漲停", "changed_my_view": True})
     with pytest.raises(RuntimeError, match="自承被後見之明污染"):
         P.release(batch_id)
@@ -244,6 +254,7 @@ def test_clean_leakage_log_does_not_block(tmp_path, monkeypatch, batch_id) -> No
     monkeypatch.setattr(P, "NEWS", tmp_path / "news")
     monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
     monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "none.json")
+    P.G1_UNAVAIL.write_text(json.dumps({"scanned": _all(cards), "unavailable": []}))
     _stage_a(P.NEWS, cards, leak_first={"title": "x", "changed_my_view": False})
     assert len(P.release(batch_id)) == len(cards)
 
@@ -255,3 +266,31 @@ def test_prompt_specifies_thin_schema_as_its_own_block(batch_id) -> None:
     seg = pa[i:i + 2000]
     assert '"materials_used"' in seg and '"signal_type"' in seg, "thin schema 未以獨立區塊給出"
     assert "絕對不要套用" in seg, "未明令禁止套用站位資訊卡的 schema"
+
+
+def test_release_rejects_stale_g1_list(tmp_path, monkeypatch, batch_id) -> None:
+    """G1 清單與本批樣本零交集 ⇒ 擋下。
+
+    清單是對某一版樣本實測出來的。樣本重抽後新的 (code, d0) 全不在舊清單裡,
+    每一案都被跳過 ⇒ **閘門靜默失效**,而報告上完全看不出來。零交集就是過期的證據。
+    """
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "stale.json")
+    P.G1_UNAVAIL.write_text(json.dumps(
+        {"scanned": [{"code": "0000", "d0": "1990-01-01"}], "unavailable": []}))
+    _stage_a(P.NEWS, cards)
+    with pytest.raises(RuntimeError, match="零交集"):
+        P.release(batch_id)
+
+
+def test_release_rejects_missing_g1_list(tmp_path, monkeypatch, batch_id) -> None:
+    """清單不存在時**不得** fail-open——會讓人以為有在擋,比沒有閘門更糟。"""
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    monkeypatch.setattr(P, "NEWS", tmp_path / "news")
+    monkeypatch.setattr(P, "REVEAL", tmp_path / "news" / "_truth")
+    monkeypatch.setattr(P, "G1_UNAVAIL", tmp_path / "does_not_exist.json")
+    _stage_a(P.NEWS, cards)
+    with pytest.raises(RuntimeError, match="清單不存在"):
+        P.release(batch_id)

@@ -155,7 +155,14 @@ def scan_full_sample(workers: int = 2) -> list[dict]:
         res = list(ex.map(one, gone))
     out = [{"code": r["company_code"], "d0": str(r["date"])}
            for r, v in zip(gone, res) if v == "none"]
-    UNAVAIL.write_text(json.dumps(out, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    # **清單要帶著自己的出處**:只存 `unavailable` 的話,「量過但一檔都沒有」與
+    # 「清單是對舊樣本量的、已經過期」在檔案上長得一模一樣(都是空的/對不上),
+    # 而下游閘門無從分辨 ⇒ 只能在兩種錯誤之間選一種。存 `scanned`(掃過哪些案)
+    # 就分得出來:交集為空 = 過期;交集不空而 unavailable 為空 = 真的都查得到。
+    UNAVAIL.write_text(json.dumps(
+        {"scanned": [{"code": r["company_code"], "d0": str(r["date"])}
+                     for r in s.to_dicts()],
+         "unavailable": out}, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"  實測結果:{ {v: res.count(v) for v in set(res)} }")
     print(f"G1 不可得清單 {len(out)} 檔 → {UNAVAIL}")
     return out

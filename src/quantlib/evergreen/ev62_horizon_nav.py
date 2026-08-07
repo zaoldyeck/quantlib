@@ -49,13 +49,17 @@ HORIZONS = (40, 60, 80, 100, 120)
 #: 掃描的資本規模(新台幣)。不是挑一個——最低收費讓最佳 horizon 取決於帳戶大小,
 #: 所以答案本來就是「視資本而定」,報成一張表才誠實。
 CAPITALS = (300_000, 1_000_000, 3_000_000, 10_000_000)
-#: 標籤:EV60 導出的「實際入帳報酬 ≥ 30%」。門檻與定義都有出處,見 ev60_no_magic_numbers.md
-LABEL_TRAIL, LABEL_THR = 0.25, 0.30
+#: 標籤定義:實際入帳報酬(EV60 導出,見 ev60_no_magic_numbers.md)。
+#: 門檻不再寫死——**(h, θ) 必須聯合掃**:θ=30% 是在 h=120 下、用近似指標選的;
+#: h=60 是在 θ 寫死 0.30 下、用真實 NAV 選的。兩者從未在同一個指標上一起比過,
+#: 而那正是「定案」的最後一哩。
+LABEL_TRAIL = 0.25
+THRESHOLDS = (0.20, 0.30, 0.50)
 
 
-def _fit(u: pl.DataFrame, label_col: str) -> pl.DataFrame:
+def _fit(u: pl.DataFrame, label_col: str, thr: float) -> pl.DataFrame:
     import lightgbm as lgb
-    u = u.with_columns((pl.col(label_col) >= LABEL_THR).cast(pl.Int8).alias("y"))
+    u = u.with_columns((pl.col(label_col) >= thr).cast(pl.Int8).alias("y"))
     tr, te = u.filter(pl.col("date") <= TRAIN_END), u.filter(pl.col("date") > TRAIN_END)
     if tr["y"].sum() < 50 or te["y"].sum() < 20:
         return pl.DataFrame()
@@ -197,6 +201,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--horizons", default=",".join(map(str, HORIZONS)))
     ap.add_argument("--capitals", default=",".join(map(str, CAPITALS)))
+    ap.add_argument("--thresholds", default=",".join(map(str, THRESHOLDS)))
     a = ap.parse_args()
 
     con = data.connect()
@@ -211,20 +216,24 @@ def main() -> None:
         if tr.is_empty():
             continue
         u = u.join(tr, on=["company_code", "date"], how="left")
-        scored = _fit(u, f"trail{int(LABEL_TRAIL * 100)}")
-        if scored.is_empty():
-            continue
-        picks = (scored.sort(["date", "score"], descending=[False, True])
-                 .group_by("date", maintain_order=True).head(TOP_N)
-                 .select(["company_code", "date", "adv20"]))
-        for cap in [int(x) for x in a.capitals.split(",")]:
-            k = simulate(panel, picks, h, float(cap))
-            if not k:
+        for thr in [float(x) for x in a.thresholds.split(",")]:
+            scored = _fit(u, f"trail{int(LABEL_TRAIL * 100)}", thr)
+            if scored.is_empty():
                 continue
-            res[f"h={h},cap={cap}"] = k
-            print(f"  資本 {cap:>10,}  CAGR {k['cagr']:>7.2%}  MDD {k['mdd']:>7.2%}"
-                  f"  **p5 {k['p5']:>7.2%}**  Martin {k['martin']:>6.2f}"
-                  f"  成本/年 {k['cost_drag_annual']:.2%}  參與率 {k['median_participation']}")
+            base = float(scored["y"].mean())
+            picks = (scored.sort(["date", "score"], descending=[False, True])
+                     .group_by("date", maintain_order=True).head(TOP_N)
+                     .select(["company_code", "date", "adv20"]))
+            for cap in [int(x) for x in a.capitals.split(",")]:
+                k = simulate(panel, picks, h, float(cap))
+                if not k:
+                    continue
+                k["base_rate"] = round(base, 4)
+                res[f"h={h},thr={thr},cap={cap}"] = k
+                print(f"  θ={thr:>4.0%} 基準率 {base:>6.2%}  資本 {cap:>10,}"
+                      f"  CAGR {k['cagr']:>7.2%}  MDD {k['mdd']:>7.2%}"
+                      f"  **p5 {k['p5']:>7.2%}**  Martin {k['martin']:>6.2f}"
+                      f"  成本/年 {k['cost_drag_annual']:.2%}")
 
     OUT.write_text(json.dumps(res, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"\n→ {OUT}")

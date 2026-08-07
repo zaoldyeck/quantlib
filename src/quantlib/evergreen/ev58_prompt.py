@@ -183,9 +183,25 @@ def _g1_misrecorded(batch_id: str) -> list[str]:
     實測 40 檔已下市樣本中有 4 檔照樣查得到,推論會誤殺那 4 檔。
     """
     if not G1_UNAVAIL.exists():
-        return []
-    known = {(r["code"], r["d0"]) for r in
-             json.loads(G1_UNAVAIL.read_text(encoding="utf-8"))}
+        return ["G1 不可得清單不存在 —— 先跑 "
+                "`ev59_retrievability_probe --full-sample`;沒有清單時本閘門是 fail-open,"
+                "而 fail-open 的閘門比沒有閘門更糟(它讓人以為有在擋)"]
+    blob = json.loads(G1_UNAVAIL.read_text(encoding="utf-8"))
+    if isinstance(blob, list):
+        return ["G1 清單是舊格式(純陣列,無 `scanned` 出處)—— 無法分辨「量過但都查得到」"
+                "與「清單已過期」,兩種在檔案上長得一樣。重跑 "
+                "`ev59_retrievability_probe --full-sample` 產生帶出處的新格式"]
+    known = {(r["code"], r["d0"]) for r in blob.get("unavailable", [])}
+    scanned = {(r["code"], r["d0"]) for r in blob.get("scanned", [])}
+    # **清單過期偵測**:清單是對「某一版樣本」實測出來的。樣本重抽之後,新的
+    # (code, d0) 全都不在清單的掃描範圍裡 ⇒ 每一案都被跳過 ⇒ 閘門靜默失效,
+    # 而報告上完全看不出來。用 `scanned` 而非 `unavailable` 判定:後者可能合法地為空
+    # (真的都查得到),前者為空或對不上才是過期。
+    cases = set(_cases(batch_id))
+    if cases and scanned and not (cases & scanned):
+        return [f"G1 清單的掃描範圍與本批樣本零交集({len(scanned)} 案已掃 vs "
+                f"{len(cases)} 檔樣本)—— 清單是對舊樣本實測的,樣本重抽後必須重跑 "
+                "`ev59_retrievability_probe --full-sample`,否則本閘門形同不存在"]
     bad = []
     for code, d0 in _cases(batch_id):
         log = NEWS / f"{code}_{d0}" / "retrieval_log.jsonl"
