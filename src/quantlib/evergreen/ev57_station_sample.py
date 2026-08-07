@@ -88,7 +88,8 @@ REGIME_WARMUP_DAYS = 1200          # 日曆天,≈ 750+ 個交易日
 REGIME_PROXY_MARKET = "twse"       # 只用 twse:tpex 2007-07 才有,混用會讓指數在該日不連續
 
 
-def _regime(con) -> pl.DataFrame:
+def _regime(con, r12m_win: int = 250, dd_win: int = 750,
+            crash: float = -0.25, mania: float = 0.30, bull: float = 0.0) -> pl.DataFrame:
     """市場 regime 標籤(等權 twse proxy)。
 
     為什麼要這個維度:EV55 量到蒸餾期(≤2021-12)**崩跌 regime 只有 23 個站位**,
@@ -105,13 +106,15 @@ def _regime(con) -> pl.DataFrame:
            .filter(pl.col("r").is_between(-0.2, 0.2)))     # 濾停板級雜訊
     mkt = (ret.group_by("date").agg(pl.col("r").mean().alias("mr")).sort("date")
            .with_columns((1 + pl.col("mr")).cum_prod().alias("idx")))
+    # 窗長與門檻**參數化**,好讓 EV61 掃描它們並把值導出來;預設值仍是現行設定,
+    # 呼叫端不改就行為不變。單一真源:定義只有這一份,掃描與生產共用。
     return mkt.with_columns([
-        (pl.col("idx") / pl.col("idx").shift(250) - 1).alias("r12m"),
-        (pl.col("idx") / pl.col("idx").rolling_max(750) - 1).alias("dd3y"),
+        (pl.col("idx") / pl.col("idx").shift(r12m_win) - 1).alias("r12m"),
+        (pl.col("idx") / pl.col("idx").rolling_max(dd_win) - 1).alias("dd3y"),
     ]).with_columns(
-        pl.when(pl.col("dd3y") < -0.25).then(pl.lit("1崩跌"))
-          .when(pl.col("r12m") > 0.30).then(pl.lit("4狂熱"))
-          .when(pl.col("r12m") > 0.0).then(pl.lit("3多頭"))
+        pl.when(pl.col("dd3y") < crash).then(pl.lit("1崩跌"))
+          .when(pl.col("r12m") > mania).then(pl.lit("4狂熱"))
+          .when(pl.col("r12m") > bull).then(pl.lit("3多頭"))
           .otherwise(pl.lit("2修正")).alias("regime")).select(["date", "regime"])
 
 
