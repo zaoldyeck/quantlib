@@ -324,3 +324,51 @@ def test_thin_card_has_leakage_field(batch_id) -> None:
     seg = pa[pa.index("ex_ante_thin_d_prev.json"):]
     seg = seg[:seg.index("```", seg.index("```json") + 8)]
     assert "leakage_log" in seg, "thin schema 缺 leakage_log"
+
+
+def test_era_brief_is_sliced_to_the_batch_station(batch_id) -> None:
+    """語境卡必須按站位日切片——共用一份來源,但逐批切片供給。
+
+    語境卡涵蓋整個期別,而站位落在桶中段的卡片會讀到**自己站位之後**的宏觀事實。
+    最小驗證實測撞到:E1 卡有三條晚於站位的條目,其中一條寫「為其後 2009 年大多頭的
+    起點」——純後見之明,且等樣本桶界之下絕大多數樣本都在桶中段。
+    這是共用設計換來的代價,只能用機制解決,不能靠 agent 自律。
+    """
+    cards = json.loads((P.CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
+    asof = min(c["d_prev"] or c["d0"] for c in cards)
+    pa, _, _ = P.render_attribution(batch_id)
+    assert f"__asof_{asof}" in pa, "提示詞未指向切片後的語境卡"
+
+    src = P.NEWS / "_era_brief" / f"{cards[0]['era_code']}.json"
+    if not src.exists():
+        pytest.skip("該期別語境卡尚未產出")
+    blob = json.loads((P.NEWS / "_era_brief" /
+                       f"{cards[0]['era_code']}__asof_{asof}.json").read_text(encoding="utf-8"))
+    late = [x for x in blob.get("macro_timeline", [])
+            if str(x.get("date", ""))[:10] > asof]
+    assert not late, f"切片後仍有晚於站位的條目:{late[:2]}"
+
+
+def test_slice_point_is_the_earliest_station_not_the_latest() -> None:
+    """切點取批內**最早**站位。取最晚的話,較早那些站位就拿到了自己之後的資訊。"""
+    cards = [{"d_prev": "2009-01-11", "d0": "2009-02-11", "era_code": "E1"},
+             {"d_prev": "2008-12-11", "d0": "2009-01-12", "era_code": "E1"}]
+    assert min(c["d_prev"] or c["d0"] for c in cards) == "2008-12-11"
+
+
+def test_forward_window_says_60_not_120(batch_id) -> None:
+    """結果視窗必須是 60 交易日——舊規格殘留曾明文叫 agent「不要用 60」。"""
+    pa, _, _ = P.render_attribution(batch_id)
+    seg = pa[pa.index("- **結果視窗**"):][:400]
+    assert "60 個交易日" in seg and "1 至 120" not in seg, seg[:200]
+
+
+def test_identity_step_does_not_pull_deep_material(batch_id) -> None:
+    """第 1 步只做最小身分——產品線/客戶/董座要靠年報與法說,那是第 4 步的材料。
+
+    放在 thin 之前會把考掘深度的內容結構性地漏進標記日模擬,把 thin/deep 差距壓小。
+    """
+    pa, _, _ = P.render_attribution(batch_id)
+    seg = pa[pa.index("## 第 1 步"):pa.index("## 第 2 步")]
+    assert "只做最小身分" in seg
+    assert "主要產品線與客戶" not in seg, "第 1 步仍要求查產品線與客戶"

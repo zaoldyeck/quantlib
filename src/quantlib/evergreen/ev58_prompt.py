@@ -96,20 +96,62 @@ def _fill(text: str, **vars: str) -> str:
     return text
 
 
+def _slice_dated(obj, asof: str):
+    """遞迴丟掉任何 `date` 晚於 `asof` 的條目——年代語境卡的 PIT 切片。
+
+    **為什麼需要**:語境卡是**整個期別共用**的(那是為了消掉讀-改-寫競態、也為了不要
+    把同一份年代研究重做二十次)。但它涵蓋整個桶,而站位落在桶中段的卡片因此會讀到
+    **自己站位之後**的宏觀事實。最小驗證實測撞到:E1 卡有三條晚於站位的條目,其中一條
+    直接寫「為其後 2009 年大多頭的起點」——純後見之明,而且**每一個站位在桶中段的樣本
+    都會中**,等樣本桶界之下那是絕大多數。
+
+    這是共用設計換來的代價,不是 agent 的疏忽,所以要用機制解決:共用**一份來源**,
+    但**逐批切片供給**。切點取批內最早站位(保守方向)——晚一點的卡片因此少看到一些
+    合法可得的宏觀脈絡,那是可接受的代價;反過來多看一天都是洩漏。
+    """
+    if isinstance(obj, dict):
+        d = str(obj.get("date") or obj.get("evidence_date") or "")[:10]
+        if d and d > asof:
+            return None
+        return {k: v for k, v in ((k, _slice_dated(v, asof)) for k, v in obj.items())
+                if v is not None}
+    if isinstance(obj, list):
+        return [x for x in (_slice_dated(v, asof) for v in obj) if x is not None]
+    return obj
+
+
+def slice_era_brief(era: str, asof: str) -> Path:
+    """把該期別的語境卡切到 `asof`,寫成逐批專屬檔並回傳路徑。"""
+    src = NEWS / "_era_brief" / f"{era}.json"
+    dst = NEWS / "_era_brief" / f"{era}__asof_{asof}.json"
+    if not src.exists():
+        return dst                       # 來源還沒產出;提示詞已規定缺檔即停,不自行補做
+    blob = json.loads(src.read_text(encoding="utf-8"))
+    sliced = _slice_dated(blob, asof)
+    sliced["_sliced_asof"] = asof
+    sliced["_note"] = ("本檔是期別語境卡按站位日切片後的版本。切點取批內最早站位,"
+                       "晚於該日的條目已機械移除——共用一份來源、逐批切片供給。")
+    dst.write_text(json.dumps(sliced, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return dst
+
+
 def _batch_ctx(batch_id: str) -> dict[str, str]:
     cards = json.loads((CARDS / batch_id / "cards.json").read_text(encoding="utf-8"))
     eras = {c["era_code"] for c in cards}
     if len(eras) != 1:
         raise ValueError(f"{batch_id} 跨越多個期別 {eras},年代語彙表無法批內共用")
     era = eras.pop()
+    # 切點取批內**最早**站位(而非最晚 d0)。批級上界只要有一個站位比它早,那個站位
+    # 就拿到了自己之後的資訊;取最早是唯一不會洩漏的方向。代價是晚站位的卡片少看到
+    # 一些合法脈絡——可接受,反過來多看一天都是洩漏。
+    asof = min(c["d_prev"] or c["d0"] for c in cards)
+    slice_era_brief(era, asof)
     return {
         "era_code": era,
-        "era_key": era,                       # 語彙表以密封碼命名,檔名本身不得洩漏年份
+        "era_key": f"{era}__asof_{asof}",     # 指向切片檔;檔名只含密封碼與站位日
         "news_root": str(NEWS),
         "truth_root": str(REVEAL),
-        # 批內最晚站位日即本批的記憶天花板。逐檔 PIT 由鐵律 1 管,更嚴;
-        # 這條管的是「你記憶中後來發生的事」,只需批級上界。d0 本就印在卡片上,不構成洩漏。
-        "sample_period_end": max(c["d0"] for c in cards),
+        "sample_period_end": asof,
     }
 
 
