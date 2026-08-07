@@ -470,3 +470,60 @@ def test_sell_limit_fallback_close_exits_same_day():
     t = res.trades.row(0, named=True)
     assert t["exit_date"] == days[2]                    # 沒撈到 105,當天收盤 98 出場
     assert abs(t["exit_px"] - 98.0) < 1e-9
+
+
+def _with_trail_col(panel: pl.DataFrame, per_code: dict[str, float | None]) -> pl.DataFrame:
+    """替合成 panel 加上逐倉 trail 欄(測試用;實務值由研究層算並 shift(1))。"""
+    return panel.with_columns(
+        pl.col("company_code").replace_strict(per_code, default=None,
+                                              return_dtype=pl.Float64).alias("trail_col")
+    )
+
+
+def test_trailing_stop_col_overrides_global_and_is_per_position():
+    """逐倉 trail:同一份價格路徑,兩檔用不同 trail 欄值 → 出場日不同。
+
+    沒有這個原語時,兩檔只能共用一個固定百分比,而固定百分比對不同波動度的股票
+    代表完全不同的極端程度(n04 量到 35% = 8.1σ ~ 37σ)。
+    """
+    days = weekdays(Date(2020, 1, 6), 6)
+    panel = _with_trail_col(
+        make_panel({"1101": [100, 100, 120, 95, 95, 95],
+                    "2330": [100, 100, 120, 95, 95, 95]}),
+        {"1101": 0.10, "2330": 0.50},          # 1101 緊、2330 鬆
+    )
+    ent = pl.concat([entries_at("1101", [days[0]]), entries_at("2330", [days[0]])])
+    res = simulate(
+        panel, ent, exec_spec=ZERO_COST,
+        port_spec=PortSpec(n_slots=2, capital=1_000_000.0),
+        exit_spec=ExitSpec(trailing_stop_col="trail_col", time_stop=99),
+    )
+    t = {r["company_code"]: r for r in res.trades.to_dicts()}
+    # peak=120;d3 收 95 = −20.8%:超過 1101 的 10% → trail 出場;未達 2330 的 50% → 續抱
+    assert t["1101"]["exit_reason"] == "trail" and t["1101"]["exit_date"] == days[4]
+    assert t["2330"]["exit_reason"] != "trail"
+
+
+def test_trailing_stop_col_null_means_no_trailing():
+    """欄值缺失 = 該倉無 trailing(不以全域值或中位數頂替——頂替會讓資料不足偽裝成已知門檻)。"""
+    days = weekdays(Date(2020, 1, 6), 6)
+    panel = _with_trail_col(make_panel({"1101": [100, 100, 120, 40, 40, 40]}), {})
+    res = simulate(
+        panel, entries_at("1101", [days[0]]), exec_spec=ZERO_COST,
+        port_spec=PortSpec(n_slots=1, capital=1_000_000.0),
+        exit_spec=ExitSpec(trailing_stop_col="trail_col"),
+    )
+    t = res.trades.to_dicts()
+    assert len(t) == 1 and t[0]["exit_reason"] == "open"   # 跌 67% 也沒被 trail 掃到
+
+
+def test_trailing_stop_col_rejects_ambiguous_and_missing_config():
+    days = weekdays(Date(2020, 1, 6), 4)
+    panel = _with_trail_col(make_panel({"1101": [100, 100, 100, 100]}), {"1101": 0.2})
+    ent = entries_at("1101", [days[0]])
+    kw = dict(exec_spec=ZERO_COST, port_spec=PortSpec(n_slots=1, capital=1_000_000.0))
+    with pytest.raises(ValueError, match="二擇一"):
+        simulate(panel, ent, exit_spec=ExitSpec(trailing_stop=0.2,
+                                                trailing_stop_col="trail_col"), **kw)
+    with pytest.raises(ValueError, match="不在 panel 欄位中"):
+        simulate(panel, ent, exit_spec=ExitSpec(trailing_stop_col="nope"), **kw)

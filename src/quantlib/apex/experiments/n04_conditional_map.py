@@ -133,6 +133,43 @@ def _bucket_zdd(col: str, edges: list[float]) -> pl.Expr:
     return e.otherwise(pl.lit(len(edges) + 1)).alias("bk")
 
 
+def tail_risk() -> None:
+    """條件分佈的尾巴(從已存 paths.parquet 重算,不需重建)。
+
+    **為什麼一定要看這個**:【1】只給了條件**期望**,而停損的價值從來不在期望值——
+    在避開左尾。若深回落桶的期望為正但左尾災難性,停損就仍然值得留;若左尾也還好,
+    停損就是在正期望區砍倉。只看均值會把這兩種完全相反的情況混為一談。
+
+    量三個:E[fwd]、左尾條件均值 CVaR5(最差 5% 的平均)、以及 E ÷ |CVaR5|
+    (每承擔一單位左尾換到多少期望報酬——這才是「該不該續抱」的判準)。
+    """
+    p = pl.read_parquet(OUT / "paths.parquet")
+    days = p.select("entry_date").unique().sort("entry_date")["entry_date"].to_list()
+    cut = days[int(len(days) * 0.75)]
+    ZE = [-0.5, -1.0, -2.0, -3.0, -5.0]
+    lab = ["在峰值"] + [f"至 {c}σ" for c in ZE] + ["更深"]
+    print("=" * 78)
+    print(f"【7】條件分佈的尾巴:σ 回落桶 → E[fwd{FWD}] / 左尾 CVaR5 / 兩者之比")
+    print("=" * 78)
+    for tag, sub in (("IS", p.filter(pl.col("entry_date") <= cut)),
+                     ("OOS", p.filter(pl.col("entry_date") > cut))):
+        rows = []
+        d = sub.with_columns(_bucket_zdd("z_dd", ZE))
+        for bk in range(len(lab)):
+            v = d.filter(pl.col("bk") == bk)["fwd"].to_numpy()
+            if v.size < 200:
+                continue
+            cvar = float(np.mean(np.sort(v)[: max(1, int(v.size * 0.05))]))
+            e = float(v.mean())
+            rows.append({"bk": bk, "桶": lab[bk], "n": int(v.size),
+                         "E_bp": round(e * 1e4, 1), "CVaR5_bp": round(cvar * 1e4, 1),
+                         "P_跌逾10%": round(float((v < np.log(0.9)).mean()), 3),
+                         "E÷|CVaR5|": round(e / abs(cvar), 3) if cvar < 0 else None})
+        print(f"\n--- {tag} ---")
+        with pl.Config(tbl_rows=-1, tbl_width_chars=140):
+            print(pl.DataFrame(rows))
+
+
 def main() -> None:
     OUT.mkdir(parents=True, exist_ok=True)
     path = build_paths()

@@ -89,6 +89,15 @@ class PortSpec:
 @dataclass(frozen=True)
 class ExitSpec:
     trailing_stop: float | None = None  # 相對持有期收盤峰值
+    trailing_stop_col: str | None = None
+    # ↑ 逐倉 trailing:panel 中存「該倉的 trail 幅度」的欄名,**進場當下讀一次、鎖進部位**
+    #   (與 trailing_stop 二擇一)。動機是量測結果而非美感:固定 35% 對進場日 20 日日
+    #   波動 1.16%(P10)的股票是 37 個 σ、對 5.35%(P90)的只有 8.1 個 σ——同一條線在
+    #   不同標的上是 4.5 倍不同的極端程度,機率上不一致(證據見 experiments/n04)。
+    #   欄值由研究層算(σ 倍數、ATR 倍數、regime 縮放皆可),引擎只負責套用。
+    #   ⚠ **前視防線在研究層**:引擎讀的是**成交日那一列**,而該倉的決策發生在前一日
+    #   盤後,故欄值只能由 ≤ 決策日的資料算出(研究層務必 .shift(1).over(code))
+    #   ——與 ExecSpec.buy_limit_col 同一條約定,勿另立慣例。
     abs_stop: float | None = None       # 相對進場成交價(含滑價)
     profit_take: float | None = None
     time_stop: int | None = None        # 交易日
@@ -111,6 +120,7 @@ class _Pos:
     recycled: bool = False
     w: float = 0.0       # 進場目標權重(加碼 sizing 基準)
     adds: int = 0        # 已加碼次數
+    trail: float | None = None   # 逐倉 trailing 幅度(進場鎖定;None = 用 ExitSpec 的固定值)
 
 
 #: same_day_exit 模式下,t-1 路徑只評估 signal 型出場(門檻型移到當日路徑)
@@ -175,12 +185,19 @@ def simulate(
         raise ValueError("sell_limit 需要 panel 具 'high' 欄(成交判定 = 最高價 ≥ 限價)")
     if exec_spec.buy_limit_col is not None and exec_spec.buy_limit_col not in panel.columns:
         raise ValueError(f"buy_limit_col={exec_spec.buy_limit_col!r} 不在 panel 欄位中")
+    if exit_spec.trailing_stop is not None and exit_spec.trailing_stop_col is not None:
+        raise ValueError("trailing_stop 與 trailing_stop_col 二擇一(固定幅度 vs 逐倉幅度)")
+    if exit_spec.trailing_stop_col is not None and exit_spec.trailing_stop_col not in panel.columns:
+        raise ValueError(f"trailing_stop_col={exit_spec.trailing_stop_col!r} 不在 panel 欄位中")
+    use_trail_col = exit_spec.trailing_stop_col is not None
     cols = ["date", "company_code", "open", "close"] + (
         ["low"] if use_buy_limit else []
     ) + (
         ["high"] if use_sell_limit else []
     ) + (
         [exec_spec.buy_limit_col] if exec_spec.buy_limit_col is not None else []
+    ) + (
+        [exit_spec.trailing_stop_col] if use_trail_col else []
     ) + (
         ["ask_missing", "bid_missing"] if exact_lock else []
     )
@@ -242,6 +259,11 @@ def simulate(
         buy_block = fill_ret >= thr                          # NaN 比較 → False
         sell_block = fill_ret <= -thr
     last_bar = (D - 1) - np.argmax(has_bar[::-1], axis=0)
+
+    # 逐倉 trailing 幅度:成交日那一列的欄值,進場時鎖進部位(前視防線在研究層,見 ExitSpec)
+    trail_mat = np.full((D, C), np.nan)
+    if use_trail_col:
+        trail_mat[d_ix, c_ix] = px[exit_spec.trailing_stop_col].cast(pl.Float64).to_numpy()
 
     # 限價買單:限價 = 決策日收盤(= prev_mark)×(1+buy_limit);low ≤ 限價才成交
     if use_buy_limit:
@@ -436,6 +458,7 @@ def simulate(
             if notional < 1000.0:
                 break
             px_eff = px_in if use_buy_limit else px_in * (1 + xc.slippage)
+            tr = trail_mat[d, i] if use_trail_col else np.nan
             positions[i] = _Pos(
                 shares=notional / px_eff,
                 entry_px=px_eff,
@@ -443,6 +466,9 @@ def simulate(
                 cost=notional * (1 + xc.commission),
                 peak=mark[d, i],
                 w=w,
+                # 欄值缺失(掛牌未滿暖機根數)→ None = 該倉無 trailing。不猜、不用全域中位數
+                # 頂替:頂替會讓「資料不足」偽裝成「已知門檻」,是靜默的錯誤來源。
+                trail=float(tr) if np.isfinite(tr) else None,
             )
             cash -= notional * (1 + xc.commission)
             new_fills += 1
@@ -570,7 +596,8 @@ def _exit_reason(
     r_entry = m / pos.entry_px - 1.0
     if xs.abs_stop is not None and r_entry <= -xs.abs_stop:
         return "abs_stop"
-    trail = xs.trailing_stop
+    # 逐倉 trail(進場鎖定)優先於 ExitSpec 的全域固定值;水下 trail 仍可覆蓋(語義不變)
+    trail = pos.trail if pos.trail is not None else xs.trailing_stop
     if xs.underwater_trail is not None and r_entry < 0:
         trail = xs.underwater_trail
     if trail is not None and pos.peak > 0 and m / pos.peak - 1.0 <= -trail:
