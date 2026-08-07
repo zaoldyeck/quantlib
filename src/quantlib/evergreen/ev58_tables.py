@@ -134,10 +134,15 @@ def contingency(rows: list[tuple[Any, int]]) -> list[dict]:
 
 def _p_up80(card: dict) -> int | None:
     """取 `p_up80`,容忍扁平與 `bet` 巢狀兩種擺放。"""
-    if card.get("p_up80") is not None:
-        return card["p_up80"]
+    # 欄位在門檻改為 20% 時由 `p_up80` 更名為 `p_hit`——舊名寫著 80 而門檻是 20,
+    # 留著就是一個永久的謊。兩個名字都讀,是為了救回改名前已產出的卡片。
+    for k in ("p_hit", "p_up80"):
+        if card.get(k) is not None:
+            return card[k]
     bet = card.get("bet")
-    return bet.get("p_up80") if isinstance(bet, dict) else None
+    if not isinstance(bet, dict):
+        return None
+    return bet.get("p_hit", bet.get("p_up80"))
 
 
 def _load() -> list[dict]:
@@ -167,7 +172,8 @@ def _load() -> list[dict]:
             rows.append({
                 "code": code, "d0": d0, "station": station, "y": y,
                 "era_code": t["era_code"], "regime": t.get("regime"),
-                "neg_kind": t.get("neg_kind"), "fwd_max_ret": t.get("fwd_max_ret"),
+                "realized_ret": t.get("realized_ret"),
+                "propensity_gap": t.get("propensity_gap"),
                 "adv_decile": feat.get((code, d0), {}).get("adv_decile"),
                 "card": dc,
                 # thin 卡實測會被寫成站位資訊卡的形狀(`p_up80` 掉進 `bet`)。
@@ -320,7 +326,7 @@ def build(rows: list[dict]) -> dict[str, Any]:
                 if (NEWS / f"{r['code']}_{r['d0']}" / "ex_ante_thin_d0.json").exists() else False)),
     }
 
-    mk = [(r["card"].get("bet", {}).get("mark_or_not"), r["y"], r["fwd_max_ret"])
+    mk = [(r["card"].get("bet", {}).get("mark_or_not"), r["y"], r["realized_ret"])
           for r in d0_rows]
     T["T6"] = {"note": "mark_or_not 混淆矩陣 + 標記組與未標記組的前瞻報酬分布",
                "confusion": {f"{m}|y={y}": c for (m, y), c in

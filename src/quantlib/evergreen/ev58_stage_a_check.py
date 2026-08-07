@@ -42,10 +42,15 @@ def _p(card: dict) -> int | None:
     容忍是為了**救回已產出的資料**,不是接受 schema 漂移:漂移本身照樣回報。
     只讀扁平的話,已經燒掉的 46 張卡會被當成不存在,而它們其實有判斷值。
     """
-    if card.get("p_up80") is not None:
-        return card["p_up80"]
+    # 欄位在門檻改為 20% 時由 `p_up80` 更名為 `p_hit`——舊名寫著 80 而門檻是 20,
+    # 留著就是一個永久的謊。兩個名字都讀,是為了救回改名前已產出的卡片。
+    for k in ("p_hit", "p_up80"):
+        if card.get(k) is not None:
+            return card[k]
     bet = card.get("bet")
-    return bet.get("p_up80") if isinstance(bet, dict) else None
+    if not isinstance(bet, dict):
+        return None
+    return bet.get("p_hit", bet.get("p_up80"))
 
 
 def _sign_test(deltas: list[float]) -> tuple[int, int, int, float]:

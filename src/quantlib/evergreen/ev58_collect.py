@@ -19,7 +19,7 @@ repo 裡沒有這支程式。後果不是不方便,是**整個密封只剩 agent
    代碼、任何 `19xx`/`20xx` 年份、黑名單詞、漲跌幅世代字樣(`7%`/`10%` 上限——
    「7%」等於直說站位在 2015-06 之前,年份禁令蓋不到它)。
 3. **代入 `alias` 與 `class`**——由真相檔供給,agent 不經手。假名首字母即類別
-   (`S`=正例、`C`=近乎成功的負例、`Q`=安靜的負例),這在蒸餾階段是**刻意公開**的:
+   (`S`=正例、`N`=配對負例),這在蒸餾階段是**刻意公開**的:
    蒸餾器要寫的就是判別規則,不知道類別無從寫起。
 4. **按期別分檔輸出**,讓「第一趟只准讀蒸餾期別」在檔案層面就是物理的。
 
@@ -239,8 +239,10 @@ def main() -> None:
             rework.append({"code": code, "d0": d0, "reasons": hits})
             continue
         # 假名與類別由程式代入,agent 不經手——提示詞就是這麼承諾的。
+        # 負例不再分 near_miss/quiet 兩檔(那兩個帶的邊界沒有出處);硬度改由配對後
+        # 的實際報酬分布呈現,見統計表。故只有兩類。
         card["alias"], card["class"] = t["alias"], (
-            "surge" if t["arm"] == "positive" else t.get("neg_kind") or "quiet")
+            "surge" if t["arm"] == "positive" else "control")
         card["era_code"] = t["era_code"]
         clean.setdefault(t["era_code"], []).append(card)
 

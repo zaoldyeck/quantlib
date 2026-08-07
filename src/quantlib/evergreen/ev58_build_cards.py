@@ -38,6 +38,7 @@ from datetime import date as Date
 import polars as pl
 
 from quantlib import paths, prices
+from quantlib.evergreen import ev57_station_sample as ev57
 from quantlib.apex import data
 
 C = "company_code"
@@ -53,29 +54,58 @@ CARD_FIELDS = ("card_id", "code", "name_today", "market", "industry", "limit_era
                "era_code", "d_prev", "d0", "ret20", "ret60", "ret120", "adv_decile",
                "mom_decile", "pct_below_250d_high", "size_tier")
 
-#: 年代分桶:提示詞要求「同批同年代」——年代語彙表(當年的題材用語)批內共用只採一次,
-#: 而語彙每隔數年就換一輪,故以 2-3 年為一桶,並讓桶不跨越 2015-06 的漲跌幅世代斷點。
-#: 2026-08-05 自查:原本 (2014, 2015) **跨越 2015-06-01 的漲跌幅世代斷點**,與註解
-#: 自相矛盾,守衛實測即紅。改用日期區間(非年份)使桶界精確落在斷點上。
-ERA_BANDS = (("2008-01-01", "2010-12-31"), ("2011-01-01", "2013-12-31"),
-             ("2014-01-01", "2015-05-31"),          # 7% 世代結束於 2015-05-31
-             ("2015-06-01", "2017-12-31"), ("2018-01-01", "2019-12-31"),
-             ("2020-01-01", "2021-12-31"))
+#: 年代分桶:桶數與桶界**由約束導出,不由人挑年份**(EV61)。
+#: 原本打算由「當年語彙的汰換速度」量出桶寬,但那個量測**無效**——六份語彙表由六個
+#: 獨立 agent 各自撰寫,概念重疊(`today`)0.002 比用詞重疊(`then`)0.035 還低,
+#: 量到的是作者的用詞習慣差異而非語彙汰換。故改為刪除參數:
+#:
+#:   1. 桶界必須落在 2015-06-01(跨世代的桶,其「當年市場制度」欄位自相矛盾)——界限。
+#:   2. 每個世代至少要能拿出 1 個保留期別(期別保留組要求各世代各一)。
+#:   3. 蒸餾期別至少 4 個:`era_support` / `era_counter` / `era_sparse` 三分類要能互相
+#:      分辨,只有 2 個時「1 成立 + 1 反例」與「1 成立 + 1 樣本不足」在資料上長得一樣。
+#:   4. 桶內樣本等量——桶界由等樣本分位決定;時間等寬會讓樣本稀薄的年份自成一桶而
+#:      統計上無用。
+#: ⇒ 總桶數 = 4 蒸餾 + 2 保留 = 6,每世代 3 個。桶界在建卡時**從樣本算出來**,
+#: 不寫死年份——樣本期間隨 `FWD_DAYS` 變動時桶界會自動跟上。
+BANDS_PER_GENERATION = 3
 
 
-def _era_labels(seed: int) -> dict[tuple[str, str], str]:
+def _era_bands(dates: list[Date]) -> tuple[tuple[str, str], ...]:
+    """由樣本本身算出**等樣本**桶界,並讓 2015-06-01 成為桶界。
+
+    `dates` 要傳**含重複的每一筆樣本日期**,不是不重複的站位日集合:樣本在站位上
+    分布不均(有些站位抽到 5 檔、有些 1 檔),按不重複站位等分會讓各桶的樣本數
+    不等,而桶存在的理由之一就是「各桶檢力一致」。第一版傳了 set,已修。
+    """
+    out: list[tuple[str, str]] = []
+    for lo, hi in ((None, ev57.LIMIT_ERA_SPLIT), (ev57.LIMIT_ERA_SPLIT, None)):
+        seg = sorted(d for d in dates
+                     if (lo is None or d >= lo) and (hi is None or d < hi))
+        if not seg:
+            continue
+        n = len(seg)
+        cuts = [seg[min(n * i // BANDS_PER_GENERATION, n - 1)]
+                for i in range(BANDS_PER_GENERATION)] + [seg[-1]]
+        for i in range(BANDS_PER_GENERATION):
+            end = cuts[i + 1] if i == BANDS_PER_GENERATION - 1 else \
+                Date.fromordinal(cuts[i + 1].toordinal() - 1)
+            out.append((cuts[i].isoformat(), end.isoformat()))
+    return tuple(out)
+
+
+def _era_labels(seed: int, bands: tuple[tuple[str, str], ...]) -> dict[tuple[str, str], str]:
     """把年代桶對應到**密封**期別碼 E1..E6。
 
     標籤刻意**打亂**再指派:若 E1..E6 依時序遞增,任何看到卡片的人(含蒸餾器)都能
     由代碼推回年代,密封就形同虛設——而期別保留組的整個隔離都建立在「蒸餾器不知道
     自己在看哪個年代」之上。對照表另存 `_era_map.json`,不進卡片、不給任何 agent。
     """
-    labels = [f"E{i}" for i in range(1, len(ERA_BANDS) + 1)]
+    labels = [f"E{i}" for i in range(1, len(bands) + 1)]
     random.Random(seed).shuffle(labels)
-    return dict(zip(ERA_BANDS, labels))
+    return dict(zip(bands, labels))
 
 
-def _era_band(d: Date) -> tuple[str, str]:
+def _era_band(d: Date, bands: tuple[tuple[str, str], ...]) -> tuple[str, str]:
     """落不進任何桶就**當場炸**,不回 None。
 
     回 None 的話,`era_of[None]` 只會拋一個沒有上下文的 KeyError;更糟的是若哪天
@@ -83,10 +113,10 @@ def _era_band(d: Date) -> tuple[str, str]:
     卡片同一期」——保留組隔離無聲失效。
     """
     s = d.isoformat()
-    for lo, hi in ERA_BANDS:
+    for lo, hi in bands:
         if lo <= s <= hi:
             return (lo, hi)
-    raise ValueError(f"{s} 不在任何年代桶內(ERA_BANDS 未覆蓋到樣本期間)")
+    raise ValueError(f"{s} 不在任何年代桶內(桶界未覆蓋到樣本期間)")
 
 
 def _stations(panel: pl.DataFrame) -> list[Date]:
@@ -118,10 +148,15 @@ def _card_features(panel: pl.DataFrame) -> pl.DataFrame:
         .alias("pct_below_250d_high"),
         pl.col("trade_value").rolling_mean(20, min_samples=20).over(C).alias("adv20"),
     ]).with_columns(
-        # 市值級距用「當日成交值截面五分位」代理——cache 無逐日市值,而成交值是
-        # 同一天橫斷面上可得的規模代理;絕對金額在 2008 與 2021 不可比,故取分位。
-        ((pl.col("adv20").rank("ordinal").over("date") * 5 - 1)
-         // pl.len().over("date")).alias("size_q"))
+        # 市值級距用「當日成交值截面十分位再合併」——cache 無逐日市值,成交值是同一天
+        # 橫斷面上可得的規模代理;絕對金額在 2008 與 2021 不可比,故取分位。
+        # **格數 3 而非 5**:EV61 用「等頻十分位 + 相鄰組信賴區間重疊即合併」量出資料
+        # 只支持三組({十分位 0} / {1} / {2-9});切五格會把毫無差異的中段切碎。
+        pl.when(pl.col("adv20").rank("ordinal").over("date") * 10
+                <= pl.len().over("date")).then(pl.lit(0))
+          .when(pl.col("adv20").rank("ordinal").over("date") * 10
+                <= 2 * pl.len().over("date")).then(pl.lit(1))
+          .otherwise(pl.lit(2)).alias("size_q"))
 
 
 def _names(con) -> dict[str, str]:
@@ -160,7 +195,17 @@ def main() -> None:
     names = _names(con)
 
     fmap = {(r[C], str(r["date"])): r for r in feat.to_dicts()}
-    era_of = _era_labels(a.seed)
+    # 桶界由樣本自己算,不寫死年份——樣本期間隨 FWD_DAYS 變動時桶界自動跟上
+    # **含重複**——等樣本不是等站位日:樣本在站位上分布不均,用不重複日期切會讓
+    # 樣本多的桶被切小、樣本少的桶被切大,正好與「桶內檢力一致」的目的相反。
+    all_dates = sorted(Date.fromisoformat(str(d))
+                       for d in list(pos["date"]) + list(neg["date"]))
+    bands = _era_bands(all_dates)
+    era_of = _era_labels(a.seed, bands)
+    print("年代桶(等樣本 + 世代斷點):")
+    for b in bands:
+        n = sum(1 for d in all_dates if b[0] <= d.isoformat() <= b[1])
+        print(f"  {era_of[b]}  {b[0]} ~ {b[1]}  n={n}")
     _alias_seq = itertools.count(1)
 
     def card(row: dict, arm: str, cid: str) -> tuple[dict, dict] | None:
@@ -173,7 +218,7 @@ def main() -> None:
             "card_id": cid, "code": row[C], "name_today": names.get(row[C], ""),
             "market": row["market"], "industry": row["industry"],
             "limit_era": row["limit_era"],
-            "era_code": era_of[_era_band(d0)],
+            "era_code": era_of[_era_band(d0, bands)],
             "d_prev": str(prev_of.get(d0, "")), "d0": str(d0),
             "ret20": f["ret20"], "ret60": f["ret60"], "ret120": f["ret120"],
             "adv_decile": row["adv_dec"], "mom_decile": row["mom_dec"],
@@ -183,12 +228,15 @@ def main() -> None:
         assert set(c) <= set(CARD_FIELDS), "卡片出現白名單外的欄位"
         # 蒸餾用假名:S=正例、C=near_miss 負例、Q=quiet 負例(提示詞的機制卡命名契約)。
         # 假名只進 truth 與日後的 mechanism_card,**絕不進階段 A 的卡片**——首字母就是答案。
-        pfx = "S" if arm == "positive" else ("C" if row.get("neg_kind") == "near_miss" else "Q")
+        # 假名首字母 = 類別。負例不再分 near_miss/quiet 兩檔(那兩個帶的邊界沒有出處),
+        # 硬度改由配對後的實際報酬分布呈現,故負例一律 `N`。
+        pfx = "S" if arm == "positive" else "N"
         alias = f"{pfx}{next(_alias_seq):03d}"
         truth = {"card_id": cid, "alias": alias, "code": row[C], "d0": str(d0), "arm": arm,
-                 "fwd_max_ret": row["fwd_max_ret"], "regime": row["regime"],
-                 "era_code": era_of[_era_band(d0)],
-                 "neg_kind": row.get("neg_kind"), "matched_to": row.get("matched_to")}
+                 "realized_ret": row["realized_ret"], "regime": row["regime"],
+                 "era_code": era_of[_era_band(d0, bands)],
+                 "matched_to": row.get("matched_to"),
+                 "propensity_gap": row.get("propensity_gap")}
         return c, truth
 
     # 配對關係:負例的 matched_to 指向正例;同批放入 2 組配對 + 2 檔未配對
@@ -198,14 +246,14 @@ def main() -> None:
     # 不分群的話一批會橫跨 3-4 個年份與兩個漲跌幅世代,語彙表共用機制當場失效。
     pos_by_era: dict[tuple[str, str], list[dict]] = {}
     for r in pos.to_dicts():
-        b = _era_band(Date.fromisoformat(str(r["date"])))
+        b = _era_band(Date.fromisoformat(str(r["date"])), bands)
         if b:
             pos_by_era.setdefault(b, []).append(r)
     used_neg: set[str] = set()
     batches: list[list[tuple[dict, dict]]] = []
     neg_by_era: dict[tuple[str, str], list[dict]] = {}
     for r in neg_rows:
-        b = _era_band(Date.fromisoformat(str(r["date"])))
+        b = _era_band(Date.fromisoformat(str(r["date"])), bands)
         if b:
             neg_by_era.setdefault(b, []).append(r)
 
