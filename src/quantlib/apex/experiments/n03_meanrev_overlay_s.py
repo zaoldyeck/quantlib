@@ -33,25 +33,11 @@ import polars as pl
 
 from quantlib import paths
 from quantlib.apex import data, metrics
-from quantlib.apex.strategy_s import WREL, prep_cached, run_s_full
+from quantlib.apex.strategy_s import canonical_score, prep_cached, run_s_full
 
 C = "company_code"
 START = "2015-01-01"
 N02 = paths.OUT / "apex" / "n02_meanrev" / "panel.parquet"
-
-
-def _canonical_score(df: pl.DataFrame) -> pl.DataFrame:
-    """strategy_s.run_s_full 內建計分的逐字複製(六因子 rank 幾何加權)。
-
-    ⚠ 這是 hook 介面的必要複製:_score_fn 的契約是「收過濾後的 df、回傳含 score 的 df」,
-    引擎不會再幫忙算。與 strategy_s.py L124-128 同式,任一方改動須同步(本檔只做研究對照,
-    不進生產路徑;生產計分的唯一真源仍是 strategy_s)。
-    """
-    expr = None
-    for c_, wt in WREL.items():
-        term = ((pl.col(c_).rank() / pl.len()).over("date")) ** wt
-        expr = term if expr is None else expr * term
-    return df.with_columns(expr.alias("score"))
 
 
 def _signals() -> pl.DataFrame:
@@ -70,7 +56,7 @@ def _signals() -> pl.DataFrame:
 def make_score_fn(sig: pl.DataFrame, mode: str):
     """canonical 分數算完後再套 overlay,確保 baseline 分數逐位不變(乾淨歸因)。"""
     def f(df: pl.DataFrame) -> pl.DataFrame:
-        d = _canonical_score(df).join(sig, on=["date", C], how="left")
+        d = canonical_score(df).join(sig, on=["date", C], how="left")
         dn = pl.col("dn_run").fill_null(0)
         up = pl.col("up_run").fill_null(0)
         if mode == "baseline":

@@ -86,6 +86,45 @@ def prep_cached(con, end: str | None = None):
     return panel, feat, elig
 
 
+def score_pool(feat, elig, *, fresh_days: int = 7, cfo_q: float = 0.5,
+               wrel: dict | None = None, score_fn=None) -> pl.DataFrame:
+    """S 的候選池過濾 + 計分(唯一真源)——回傳含 `score` 欄的逐日逐股 df。
+
+    從 run_s_full 抽出的可重用單元:回測、live、以及研究層(條件機率地圖、overlay
+    對決)一律呼叫本函式,**禁止各自複製這段過濾/計分**。抽出的動機是實證的——研究層
+    複製一份計分式後,任何一方改動都會讓對照組悄悄不再是 S(n03 七臂對決的 ΔCAGR
+    會整批作廢);守護見 apex/tests/test_n03_overlay_parity.py。
+
+    score_fn 不為 None 時由呼叫端自訂計分(收「過濾後含全因子欄的 df」、回傳含
+    'score' 欄的 df),過濾邏輯仍走本函式,確保池籍不分岔。
+    """
+    wrel = wrel or WREL
+    df = (feat.filter(pl.col("rev_fresh_days") <= fresh_days)
+          .join(elig.filter(pl.col("eligible")).select(["date", C]),
+                on=["date", C], how="semi")
+          .drop_nulls(subset=list(wrel))
+          # defense-in-depth(2026-07-23 稽核 D-apex-s-live):任何因子若殘留 inf/NaN
+          # (drop_nulls 不剔除 NaN/inf),rank 會把它排到頂端污染選股。六因子一律要求
+          # 有限值,關掉此陷阱(rev_seq 護欄已治本,此為第二道防線)。
+          .filter(pl.all_horizontal([pl.col(c).is_finite() for c in wrel]))
+          .filter(pl.col("cfo_ni_ratio_ttm")
+                  >= pl.col("cfo_ni_ratio_ttm").quantile(cfo_q).over("date")))
+    return score_fn(df) if score_fn is not None else canonical_score(df, wrel)
+
+
+def canonical_score(df: pl.DataFrame, wrel: dict | None = None) -> pl.DataFrame:
+    """S 的計分式(唯一真源):六因子逐日截面 rank 百分位的幾何加權乘積。
+
+    獨立成函式是為了讓自訂 score_fn 能在「canonical 分數之上」疊加 overlay 而不必
+    複製公式——複製品漂移會讓對照組不再是 S(見 score_pool docstring)。
+    """
+    expr = None
+    for c_, wt in (wrel or WREL).items():
+        term = ((pl.col(c_).rank() / pl.len()).over("date")) ** wt
+        expr = term if expr is None else expr * term
+    return df.with_columns(expr.alias("score"))
+
+
 def run_s_full(panel, feat, elig, start: str, *,
                _exit_spec: "ExitSpec | None" = None,
                _port_spec: "PortSpec | None" = None,
@@ -108,24 +147,8 @@ def run_s_full(panel, feat, elig, start: str, *,
       _top_k                            每日候選名單長度(與 n_slots 分離;>slots = 有備選)
     """
     wrel = _wrel or WREL
-    pool = feat.filter(pl.col("rev_fresh_days") <= _fresh_days)
-    df = (pool.join(elig.filter(pl.col("eligible")).select(["date", C]),
-                    on=["date", C], how="semi")
-          .drop_nulls(subset=list(wrel))
-          # defense-in-depth(2026-07-23 稽核 D-apex-s-live):任何因子若殘留 inf/NaN
-          # (drop_nulls 不剔除 NaN/inf),rank 會把它排到頂端污染選股。六因子一律要求
-          # 有限值,關掉此陷阱(rev_seq 護欄已治本,此為第二道防線)。
-          .filter(pl.all_horizontal([pl.col(c).is_finite() for c in wrel]))
-          .filter(pl.col("cfo_ni_ratio_ttm")
-                  >= pl.col("cfo_ni_ratio_ttm").quantile(_cfo_q).over("date")))
-    if _score_fn is not None:
-        scored = _score_fn(df)
-    else:
-        expr = None
-        for c_, wt in wrel.items():
-            term = ((pl.col(c_).rank() / pl.len()).over("date")) ** wt
-            expr = term if expr is None else expr * term
-        scored = df.with_columns(expr.alias("score"))
+    scored = score_pool(feat, elig, fresh_days=_fresh_days, cfo_q=_cfo_q,
+                        wrel=wrel, score_fn=_score_fn)
     keep = ["date", C, "score"] + (["weight"] if "weight" in scored.columns else [])
     sc = (scored.select(keep)
           .filter(pl.col("date") >= pl.lit(start).str.to_date()))
