@@ -127,3 +127,18 @@ def test_without_code_universe_still_catches_own_code() -> None:
     最主要的洩漏面是本案自己;不相干第三方的代碼擋不到,但那是降級不是失效。
     """
     assert scan({"m": "與 2330 同一供應鏈"}, BL, None)
+
+
+@pytest.mark.parametrize("txt", [
+    "當年跌幅減半為 3.5%",
+    "市場採取跌幅減半措施",
+    "單日漲跌幅上限 3.5%",
+])
+def test_halved_limit_wording_is_caught(txt: str) -> None:
+    """2008-10-13~10-24 台股跌幅臨時減半為 3.5%。
+
+    寫出這個數字或「跌幅減半」,等於把年代**釘死到那兩週**——比寫「7%」更精確地洩漏。
+    由 E1 年代語境卡回報,並自資料驗證(該窗當日最低報酬恰為 −0.0350、零檔跌逾 3.6%;
+    窗前窗後皆為 −0.07 且數百檔觸及)。
+    """
+    assert scan({"mechanism": txt}, set(), set()), txt
