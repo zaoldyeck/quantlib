@@ -141,6 +141,29 @@ def _features(panel: pl.DataFrame) -> pl.DataFrame:
     ])
 
 
+def _unadjusted_action_days(con) -> pl.DataFrame:
+    """還原價漏還原公司行動的「檔 × 日」——由**物理界限**偵測,零參數。
+
+    台股個股單日漲跌幅上限 2015-06-01 前 7%、後 10%(交易所公告)。真實交易不可能
+    超過它 ⇒ 超過即代表該日有公司行動未被還原(減資、面額變更、合併換股、股票分割)。
+
+    為什麼要在抽樣層擋掉:機械跳空會被 `fwd_max_ret` 算成暴漲,而它**只製造假正例、
+    不製造假沉寂**——實測正例 6.5% 受影響、負例僅 1.4%,差 4.6 倍。留著等於在正例臂
+    摻進一批「漲幅是換股比例」的樣本,而蒸餾器會認真去替它們找消息面解釋。
+
+    為什麼不修資料就好:`capital_reduction` 端點只回溯到 twse 2011 / tpex 2013
+    (2026-08-06 逐年實測的界限),而 2011 補齊後該年仍有 201 筆違反——**減資不是唯一
+    成因**,股票分割與面額變更根本不在那張表裡。修不到的部分只能誠實剔除。
+    """
+    import importlib
+    scan = importlib.import_module("quantlib.audits.09_unadjusted_action_scan").scan
+    fr = [scan(con, m, ERA_START.isoformat(), FWD_MUST_END_BEFORE.isoformat())
+          for m in ("twse", "tpex")]
+    fr = [f for f in fr if not f.is_empty()]
+    return (pl.concat(fr).select([C, "date"]).unique()
+            if fr else pl.DataFrame({C: [], "date": []}))
+
+
 def _universe(con, feat: pl.DataFrame, stations: list[Date]) -> pl.DataFrame:
     """站位日 × 可執行母體,附流動性與前期動能的**當日橫斷面十分位**。
 
@@ -167,6 +190,20 @@ def _universe(con, feat: pl.DataFrame, stations: list[Date]) -> pl.DataFrame:
         ((pl.col("prior_ret").rank("ordinal").over("date") * 10 - 1)
          // pl.len().over("date")).alias("mom_dec"),
     ])
+    # **剔除前瞻窗內含未還原公司行動的站位**。用 as-of 而非逐列迴圈:對每個 (檔, 站位)
+    # 找該檔下一個「壞日」,落在前瞻窗內就剔除。
+    bad = _unadjusted_action_days(con).rename({"date": "bad_date"}).sort("bad_date")
+    if bad.height:
+        n0 = u.height
+        u = (u.sort("date")
+             .join_asof(bad, left_on="date", right_on="bad_date", by=C, strategy="forward")
+             .with_columns(pl.col("bad_date").alias("_bad"))
+             .filter(pl.col("_bad").is_null()
+                     | (pl.col("_bad") > pl.col("fwd_end_date")))
+             .drop(["bad_date", "_bad"]))
+        print(f"  剔除前瞻窗含未還原公司行動的站位:{n0:,} → {u.height:,}"
+              f"(-{n0 - u.height:,})", flush=True)
+
     tax = con.sql("SELECT company_code, effective_date, industry FROM industry_taxonomy_pit "
                   "WHERE industry IS NOT NULL ORDER BY effective_date").pl()
     return (u.sort("date")

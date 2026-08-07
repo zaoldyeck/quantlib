@@ -128,6 +128,44 @@ def fetch_range(market: str, start: Date, end: Date) -> pl.DataFrame | None:
             .unique(subset=["date", "company_code"], keep="first", maintain_order=True))
 
 
+#: 端點的歷史深度——**實測邊界,不是猜的**(2026-08-06 逐年打過):
+#: TWSE 2011 回得出 34 列、2010 與 2009 皆空;TPEx 2013 回得出 22 列、2011 與 2009 皆空。
+#: 這是端點的界限,不是我們的缺漏——早於此的減資資料**這條路拿不到**。
+HISTORY_FROM = {"twse": Date(2011, 1, 1), "tpex": Date(2013, 1, 1)}
+
+
+def backfill(sink: Sink, upto: Date | None = None) -> int:
+    """逐年補齊端點給得出的**全部歷史**。
+
+    為什麼需要這支:`refresh()` 只抓 `upto ± 90/30 天`,歷史**永遠不會被補**。
+    這與 `monthly_coverage` 治的「只回頭看最近 N 個月」是同一種病——窗是效率手段,
+    覆蓋才是正確性,而窗永遠不會自己發現漏掉的部分。
+
+    實測後果(2026-08-06):cache 的 `capital_reduction` 最早只到 twse 2012 / tpex 2013,
+    而 EV58 蒸餾期 2008-2011 完全沒有減資資料 ⇒ 還原價機械跳空被算成暴漲,
+    正例有 6.5% 的前瞻窗被汙染。
+    """
+    upto = upto or Date.today()
+    total = 0
+    for market in MARKETS:
+        y0 = HISTORY_FROM[market].year
+        for y in range(y0, upto.year + 1):
+            s = Date(y, 1, 1)
+            e = min(Date(y, 12, 31), upto)
+            try:
+                df = fetch_range(market, s, e)
+            except Exception as exc:  # noqa: BLE001
+                print(f"[backfill] capital_reduction/{market} {y}:失敗 {exc}")
+                continue
+            if df is None:
+                print(f"[backfill] capital_reduction/{market} {y}:端點回空")
+                continue
+            n = sink.upsert(TABLE, df, KEY_COLS)
+            total += n
+            print(f"[backfill] capital_reduction/{market} {y}: {n} 列")
+    return total
+
+
 def refresh(sink: Sink, upto: Date) -> int:
     start, end = upto - timedelta(days=_BACK_DAYS), upto + timedelta(days=_FWD_DAYS)
     total = 0

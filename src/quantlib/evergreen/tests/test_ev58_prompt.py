@@ -294,3 +294,33 @@ def test_release_rejects_missing_g1_list(tmp_path, monkeypatch, batch_id) -> Non
     _stage_a(P.NEWS, cards)
     with pytest.raises(RuntimeError, match="清單不存在"):
         P.release(batch_id)
+
+
+def test_thin_step_comes_before_any_deep_search(batch_id) -> None:
+    """步驟編號本身就是執行順序——標記日模擬必須排在任何深度搜尋之前。
+
+    實測踩過:第一版把「一次搜遍」編為第 2 步、標記日模擬編為第 2.5 步。agent 照
+    編號做,先把深度材料全搜完才去做「標記日模擬」——**thin 就不 thin 了**,而
+    thin/deep 的比較是這次設計的承重點。順序錯了從產出的檔案完全看不出來。
+    """
+    pa, _, _ = P.render_attribution(batch_id)
+    i_thin = pa.index("標記日模擬")
+    i_sweep = pa.index("一次搜遍")
+    i_gates = pa.index("九格最低檢索矩陣")
+    assert i_thin < i_sweep < i_gates, "標記日模擬未排在深度搜尋之前"
+
+
+def test_g3_does_not_ask_for_the_current_year_annual_report(batch_id) -> None:
+    """`d0` 當年度的年報要隔年三月才刊印,站位當天不存在——讀它就是直接違反 PIT。"""
+    pa, _, _ = P.render_attribution(batch_id)
+    seg = pa[pa.index("G3 —"):pa.index("G3 —") + 400]
+    assert "當年度" not in seg or "不是「" in seg, "G3 仍要求讀 d0 當年度年報"
+    assert "已經刊印" in seg, "G3 未改為以實際刊印日為準"
+
+
+def test_thin_card_has_leakage_field(batch_id) -> None:
+    """thin 卡也要有 `leakage_log`——釋出閘門會掃四張卡,缺欄等於那兩張永遠不被檢查。"""
+    pa, _, _ = P.render_attribution(batch_id)
+    seg = pa[pa.index("ex_ante_thin_d_prev.json"):]
+    seg = seg[:seg.index("```", seg.index("```json") + 8)]
+    assert "leakage_log" in seg, "thin schema 缺 leakage_log"
