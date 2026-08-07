@@ -60,6 +60,51 @@ _UNIT = re.compile(r"^\s*(?:萬|億|千|百|元|人|片|家|座|條|台|噸|股|
 _YEAR = re.compile(r"(?<![\d.])((?:19|20)\d{2})(?![\d.])")
 #: 漲跌幅世代。年份禁令蓋不到它,但它同樣直接定位年代。
 _LIMIT = re.compile(r"漲跌幅[^。]{0,8}(?:7|10)\s*%|(?:7|10)\s*%\s*(?:的)?(?:單日)?(?:漲跌幅|上限)")
+#: 民國紀年。`_YEAR` 只認 19xx/20xx,對這批卡片幾乎沒有防禦力——當年的一手材料
+#: (重大訊息、年報、公開說明書)**全部以民國紀年書寫**,agent 逐字引用時帶進來的
+#: 是「100/03/22」「99 年度」而不是西元年,一個字都不會被舊規則攔到。這不是理論
+#: 風險:本批第一張機制卡的來源卡上就有十餘處。
+#: 判準:年碼限 8x/9x/1xx(民國 80~149 年),月日各自限合法範圍——「80/20 法則」
+#: 因 20 不是合法月份而放行,「3 年」因不足兩位而放行。
+_ROC_DATE = re.compile(
+    r"(?<![\d.])(?:8\d|9\d|1[0-4]\d)\s*[/年]\s*(?:0?[1-9]|1[0-2])"
+    r"(?:\s*[/月]\s*(?:0?[1-9]|[12]\d|3[01]))?")
+_ROC_YEAR = re.compile(r"(?<![\d.])(?:8\d|9\d|1[0-4]\d)\s*年度?(?![\d])")
+#: 月份。鐵律明文禁的是「年份**或月份**」,而月份同樣定位得到年代區段
+#: (「三月那批報導」+ 期別碼 = 直接定位到某個季度)。時長寫法(「三個月」「6 個月」)
+#: 因中間有量詞「個」而自然放行,不需要例外清單。
+#: 唯一需要例外的是**任指詞**:「任一月營收」「每一月」的「一」屬於前面的「任/每」,
+#: 不是一月。這個寫法在證偽條件裡極常見(本批第一案四份 bet 就有兩份),不排除會
+#: 讓乾淨的卡片被系統性退回——而規模化的誤報正是本模組 docstring 警告的那種「牆」。
+_MONTH = re.compile(r"(?<![任某每逐唯])(?:[一二三四五六七八九]|十[一二]?)月(?![份薪])"
+                    r"|(?<![\d.])(?:0?[1-9]|1[0-2])\s*月(?![份薪])")
+
+#: 被**刻意公開**的密封欄位:期別碼與遮罩後的卡片編號。它們的 key 含 "code",
+#: 若跟著身分欄位一起進黑名單,會把「機制卡必須寫 `E4`」變成「機制卡一定被退回」
+#: ——守護反過來擋住正確答案,而且退回理由看起來跟真洩漏一模一樣。
+_SEALED_KEYS = {"era_code", "code_masked"}
+#: 身分欄位的 key 特徵。命中者的**值**進黑名單;不命中者仍要往下走
+#: (見 `_strings` 的註解)。
+#: **「name」刻意不列**:光憑一個 `name` 判不出那是公司還是別的東西——機制卡自己的
+#: `novel_features[].name`(特徵名)就會被誤收,而特徵名本來就該同時出現在卷宗與
+#: 機制卡上,於是每張卡都因為「寫了自己的特徵名」被退回。改由 `_is_identity_key`
+#: 判定:複合的 name 欄位(`name_today`/`company_name`)一律算身分;**光禿禿的
+#: `name` 只有在同一個 dict 裡還帶著代碼時才算**(同業條目的形態)。
+_IDENTITY_KEYS = ("aliases", "peers", "customers", "suppliers",
+                  "company", "ticker", "code")
+
+
+def _is_identity_key(key: str, siblings: dict) -> bool:
+    k = key.lower()
+    if k in _SEALED_KEYS:
+        return False
+    if any(t in k for t in _IDENTITY_KEYS):
+        return True
+    if "name" not in k:
+        return False
+    if k != "name":
+        return True                       # name_today / name_then / english_name…
+    return any("code" in s.lower() or "ticker" in s.lower() for s in siblings)
 
 
 def _blacklist(case_dir: Path, code: str, d0: str) -> set[str]:
@@ -80,17 +125,26 @@ def _blacklist(case_dir: Path, code: str, d0: str) -> set[str]:
     return {b for b in bl if b}
 
 
-def _strings(x) -> list[str]:
+def _strings(x, collect: bool = False) -> list[str]:
+    """挖出卷宗裡的身分字串:**只收**身分欄位的值,但**照樣往下走**每一層。
+
+    「只收」與「只走」是兩件事,第一版把它們寫成同一件,結果整個黑名單是空的:
+    提示詞規定的 `case_record.json` 形態是 `{"identity_card": {"name_today": ...}}`,
+    而 `identity_card` 這個 key 不含任何身分字樣,於是遞迴在最外層就停住,公司名、
+    當年名、同業名單一個都沒進黑名單——掃描器照樣回報「乾淨」。這是本模組
+    docstring 自己警告的那種無聲失效:洩漏的卡片長得跟乾淨的一模一樣,而現在
+    連守門的都說它乾淨。
+
+    修法:遞迴永遠往下,`collect` 旗標一旦在某層被身分 key 打開,該子樹的字串
+    全收(同業條目是 `{"code":..., "name":...}` 這種巢狀結構,必須整棵收)。
+    """
     if isinstance(x, str):
-        return [x]
+        return [x] if collect else []
     if isinstance(x, dict):
-        # 只挖與身分有關的欄位;把整份卷宗攤平會把敘述句也收進黑名單。
-        keys = ("name", "name_then", "name_today", "name_en", "english_name", "aliases",
-                "peers", "customers", "suppliers", "company", "ticker", "code")
-        return [s for k, v in x.items() if any(t in k.lower() for t in keys)
-                for s in _strings(v)]
+        return [s for k, v in x.items()
+                for s in _strings(v, collect or _is_identity_key(k, x))]
     if isinstance(x, list):
-        return [s for i in x for s in _strings(i)]
+        return [s for i in x for s in _strings(i, collect)]
     return []
 
 
@@ -132,6 +186,12 @@ def scan(card: dict, bl: set[str], codes: set[str] | None = None) -> list[str]:
         hits.append(f"年份:{sorted(set(years))[:5]}")
     if m := _LIMIT.findall(txt):
         hits.append(f"漲跌幅世代:{m[:3]}")
+    if m := _ROC_DATE.findall(txt):
+        hits.append(f"民國紀年日期:{sorted(set(m))[:5]}")
+    if m := _ROC_YEAR.findall(txt):
+        hits.append(f"民國年度:{sorted(set(m))[:5]}")
+    if m := _MONTH.findall(txt):
+        hits.append(f"月份:{sorted(set(m))[:5]}")
     # 黑名單裡的**純數字**(本案代碼)也要走同一個數量判定,否則「資本額 2330 萬元」
     # 會因為子字串比對而誤報——而黑名單的誤報最毒:它會讓「真的有洩漏」與「剛好
     # 撞到一個數字」在報表上長得一樣,現場久了就不再認真看它。
