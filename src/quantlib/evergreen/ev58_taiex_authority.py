@@ -106,10 +106,23 @@ def main() -> None:
     ap.add_argument("--start", required=True)
     ap.add_argument("--end", required=True)
     ap.add_argument("--threshold", type=float, default=0.03)
+    ap.add_argument(
+        "--dump",
+        action="store_true",
+        help="印出官方逐日收盤與日漲跌幅(era_brief 的 market_impact 逐條引用它,故須可重跑覆核)",
+    )
     args = ap.parse_args()
 
     start, end = date.fromisoformat(args.start), date.fromisoformat(args.end)
     off = fetch_official(start, end)
+    if args.dump:
+        ret = off.select("date", "close").with_columns(
+            (pl.col("close") / pl.col("close").shift(1) - 1).alias("ret")
+        )
+        for r in ret.iter_rows(named=True):
+            pct = "" if r["ret"] is None else f"{r['ret'] * 100:+6.2f}%"
+            print(f"{r['date']}\t{r['close']:9.2f}\t{pct}")
+        return
     print(f"# TWSE 官方 TAIEX {args.start}~{args.end}  rows={len(off)}")
     hi = off.filter(pl.col("close") == pl.col("close").max()).row(0, named=True)
     lo = off.filter(pl.col("close") == pl.col("close").min()).row(0, named=True)

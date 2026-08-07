@@ -81,6 +81,21 @@ def _ptt_one(d: _date) -> str:
     return f"ok   ptt {d} n={len(rows)}"
 
 
+def _epoch_one(d: _date) -> str:
+    """單日大紀元標題枚舉。
+
+    每一格都要自己吞例外:枚舉走 Wayback CDX,而 CDX 在連發下會直接拒連
+    (實測 ``URLError: Connection refused``)。若讓例外穿出 ``pool.map``,
+    整批日期會在第一次拒連時全滅——已抓到的日期還在快取裡,但**尚未抓的
+    幾十天會被整批放棄**,而重跑又得從頭排隊。這與 ``_portal_one`` 的守法
+    一致:單格失敗只記一行 ERR,不中斷矩陣;重跑時該格自然補上。
+    """
+    try:
+        return f"ok   epochtimes {d} n={len(ap.titles('epochtimes', d))}"
+    except Exception as exc:  # noqa: BLE001 - 單格失敗不該中斷整個矩陣
+        return f"ERR  epochtimes {d} {type(exc).__name__}"
+
+
 def main(argv: list[str] | None = None) -> int:
     a_ = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     a_.add_argument("cmd", choices=["portal", "ptt", "epochtimes"])
@@ -104,9 +119,7 @@ def main(argv: list[str] | None = None) -> int:
             print(_ptt_one(d), flush=True)
         return 0
     with cf.ThreadPoolExecutor(max_workers=a.workers) as pool:
-        for line in pool.map(
-            lambda d: f"ok epochtimes {d} n={len(ap.titles('epochtimes', d))}", days
-        ):
+        for line in pool.map(_epoch_one, days):
             print(line, flush=True)
     return 0
 
