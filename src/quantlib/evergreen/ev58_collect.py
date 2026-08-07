@@ -40,9 +40,24 @@ from quantlib.evergreen.ev58_build_cards import TRUTH
 from quantlib.evergreen.ev58_prompt import NEWS
 
 CORPUS = paths.OUT / "ev58_corpus"
-#: 四位數字代碼與年份——這兩類不需要卷宗就能掃,是最後一道通用網。
-_CODE = re.compile(r"(?<!\d)\d{4}(?!\d)")
-_YEAR = re.compile(r"(?:19|20)\d{2}")
+#: 四位數字。**不能單憑位數判定是股票代碼**——第一版這麼做,實測會把
+#: 「1500 萬元」「2000 人」「3000 片」全部判成洩漏,而機制卡本來就會有金額、
+#: 產能、人數。攔到九成正常文字的網不是網,是牆:它會讓幾乎每張卡退回重做、
+#: 零張進蒸餾語料,而且發生在燒完全部歸因成本**之後**。
+#: 改為兩個條件同時成立才算:①該數字是**實際存在的上市櫃代碼**(查 cache,不是猜);
+#: ②它**沒有被量詞或單位跟隨**(有單位的是數量,不是代碼)。
+_CODE = re.compile(r"(?<![\d.])(\d{4})(?![\d.])")
+#: 量詞與單位——跟在數字後面就代表那是數量。這不是窮舉清單的問題:漏一個單位只會
+#: 讓一個數量被誤判成代碼(該案退回重做,可修),而多列一個單位會讓真的代碼漏過去
+#: (無聲洩漏,不可修)。**不對稱,所以寧可漏列**。
+#: **年/月/日/季刻意不列**:四位數字後面接「年」是日曆年份(2016 年),不是時長
+#: ——時長是一兩位數(「3 年內」)。列進去會讓「2016 年的產業循環」這種真洩漏放行,
+#: 而那正是上面那條不對稱原則講的「多列一個單位 ⇒ 無聲洩漏」。實測踩過。
+_UNIT = re.compile(r"^\s*(?:萬|億|千|百|元|人|片|家|座|條|台|噸|股|張|%|％|"
+                   r"個|次|倍|坪|平方|公噸|美元|美金|新台幣|K|M|GW|MW|kg|mm|nm|吋|寸)")
+#: 年份。與代碼同一個問題:「2000 人」「1998 元」的數字剛好落在年份區間。
+#: 同樣用「後面有沒有跟單位」判定,規則只寫一次(`_is_quantity`)。
+_YEAR = re.compile(r"(?<![\d.])((?:19|20)\d{2})(?![\d.])")
 #: 漲跌幅世代。年份禁令蓋不到它,但它同樣直接定位年代。
 _LIMIT = re.compile(r"漲跌幅[^。]{0,8}(?:7|10)\s*%|(?:7|10)\s*%\s*(?:的)?(?:單日)?(?:漲跌幅|上限)")
 
@@ -79,19 +94,57 @@ def _strings(x) -> list[str]:
     return []
 
 
-def scan(card: dict, bl: set[str]) -> list[str]:
-    """回傳命中的洩漏原因;空清單代表乾淨。"""
+def _is_quantity(txt: str, m: re.Match) -> bool:
+    """該數字是不是「數量」而非識別碼——判準是後面有沒有跟單位。
+
+    規則只寫一次,代碼與年份共用:兩者是同一個問題(數字剛好落在該區間)。
+    """
+    return bool(_UNIT.match(txt[m.end():]))
+
+
+def listed_codes() -> set[str]:
+    """實際存在的四碼上市櫃代碼——用來把「代碼」與「數量」分開。
+
+    查 cache 而不是用規則猜:台股代碼的號段沒有一條乾淨的規則,而猜錯的兩個方向
+    代價不對稱(見 `_UNIT` 註解)。
+    """
+    from quantlib.apex import data
+    con = data.connect()
+    q = con.sql("SELECT DISTINCT company_code FROM daily_quote "
+                "WHERE length(company_code) = 4").pl()
+    return set(q["company_code"].to_list())
+
+
+def scan(card: dict, bl: set[str], codes: set[str] | None = None) -> list[str]:
+    """回傳命中的洩漏原因;空清單代表乾淨。
+
+    `codes` 為實際上市櫃代碼集合;省略時退化為「只靠卷宗黑名單 + 年份」,
+    仍能擋住本案自己的代碼(那是最主要的洩漏面),只是擋不到不相干的第三家公司。
+    """
     txt = json.dumps(card, ensure_ascii=False)
     hits = []
-    if m := _CODE.findall(txt):
-        hits.append(f"四位數字代碼:{sorted(set(m))[:5]}")
-    if m := _YEAR.findall(txt):
-        hits.append(f"年份:{sorted(set(m))[:5]}")
+    suspect = [m.group(1) for m in _CODE.finditer(txt)
+               if (codes is None or m.group(1) in codes) and not _is_quantity(txt, m)]
+    if suspect:
+        hits.append(f"四位數字代碼:{sorted(set(suspect))[:5]}")
+    years = [m.group(1) for m in _YEAR.finditer(txt) if not _is_quantity(txt, m)]
+    if years:
+        hits.append(f"年份:{sorted(set(years))[:5]}")
     if m := _LIMIT.findall(txt):
         hits.append(f"漲跌幅世代:{m[:3]}")
-    named = sorted({b for b in bl if len(b) >= 2 and b in txt})
+    # 黑名單裡的**純數字**(本案代碼)也要走同一個數量判定,否則「資本額 2330 萬元」
+    # 會因為子字串比對而誤報——而黑名單的誤報最毒:它會讓「真的有洩漏」與「剛好
+    # 撞到一個數字」在報表上長得一樣,現場久了就不再認真看它。
+    named = []
+    for b in bl:
+        if len(b) < 2 or b not in txt:
+            continue
+        if b.isdigit() and len(b) == 4:
+            if all(_is_quantity(txt, m) for m in re.finditer(re.escape(b), txt)):
+                continue
+        named.append(b)
     if named:
-        hits.append(f"卷宗專名:{named[:5]}")
+        hits.append(f"卷宗專名:{sorted(named)[:5]}")
     return hits
 
 
@@ -107,6 +160,8 @@ def main() -> None:
     if not truth:
         raise SystemExit(f"找不到真相檔({TRUTH});先跑 ev58_build_cards")
 
+    codes = listed_codes()
+    print(f"上市櫃四碼代碼 {len(codes):,} 個(用來把代碼與數量分開)")
     clean: dict[str, list[dict]] = {}
     rework: list[dict] = []
     absent = 0
@@ -119,7 +174,7 @@ def main() -> None:
             absent += 1
             continue
         card = json.loads(mc.read_text(encoding="utf-8"))
-        hits = scan(card, _blacklist(cdir, code, d0))
+        hits = scan(card, _blacklist(cdir, code, d0), codes)
         if hits:
             rework.append({"code": code, "d0": d0, "reasons": hits})
             continue
