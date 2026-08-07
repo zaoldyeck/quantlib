@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import json
 import math
+import pathlib
 
 import polars as pl
 
@@ -182,6 +183,164 @@ def batch_size() -> dict:
                     % (ratios, len(ratios))}
 
 
+# ---------------------------------------------------------------- #18 年代分桶寬度
+
+def era_band_width() -> dict:
+    """年代分桶的寬度,由**當年語彙的汰換速度**導出。
+
+    分桶的唯一用途:讓「當年語彙表」在桶內共用一份仍然管用。所以桶該多寬,就是
+    「語彙撐多久還沒換掉」——不是 2-3 年這個我拍的數字。
+
+    量法:六份年代語境卡各有一張當年語彙表(`then` 欄=當年的說法)。算兩兩期別的
+    Jaccard 相似度,對「期別中點的時間距離」看衰減,取**相似度掉到一半的距離**當
+    半衰期。桶寬取半衰期——桶內語彙相似度即維持在 0.5 以上。半衰期是分布本身的性質,
+    沒有要挑的門檻。
+    """
+    from quantlib.evergreen.ev58_prompt import CARDS, NEWS
+    m = json.loads((CARDS / "_era_map.json").read_text(encoding="utf-8"))
+    vocab, concept, mid = {}, {}, {}
+    from datetime import date as _D
+    for era, span in m.items():
+        f = NEWS / "_era_brief" / f"{era}.json"
+        if not f.exists():
+            continue
+        d = json.loads(f.read_text(encoding="utf-8"))
+        terms, concepts = set(), set()
+        for v in d.get("vocabulary", []) or []:
+            for fld, bag in (("then", terms), ("today", concepts)):
+                t = v.get(fld)
+                for x in ([t] if isinstance(t, str) else (t or [])):
+                    if isinstance(x, str) and x.strip():
+                        bag.add(x.strip())
+        if not terms:
+            continue
+        vocab[era] = terms
+        concept[era] = concepts
+        a, b = (_D.fromisoformat(x) for x in span.split("~"))
+        mid[era] = (a.toordinal() + b.toordinal()) / 2 / 365.25
+    pairs = []
+    eras = sorted(vocab)
+    for i, x in enumerate(eras):
+        for y in eras[i + 1:]:
+            inter = len(vocab[x] & vocab[y])
+            union = len(vocab[x] | vocab[y])
+            ci = len(concept.get(x, set()) & concept.get(y, set()))
+            cu = len(concept.get(x, set()) | concept.get(y, set()))
+            pairs.append({"a": x, "b": y, "gap_years": round(abs(mid[x] - mid[y]), 2),
+                          "jaccard_then": round(inter / union, 4) if union else 0.0,
+                          "jaccard_today": round(ci / cu, 4) if cu else 0.0,
+                          "shared": inter, "n_a": len(vocab[x]), "n_b": len(vocab[y])})
+    pairs.sort(key=lambda r: r["gap_years"])
+    # 半衰期:相似度首次跌破「最近一對的一半」時的距離。用最近一對當基準而非固定值,
+    # 因為 Jaccard 的絕對水準受語彙表長度影響,只有相對衰減可比。
+    # **有效性檢查**:六份語彙表由六個獨立 agent 各自撰寫,字面 Jaccard 可能量到的是
+    # 用詞習慣差異而非語彙汰換。`today`(現代說法=概念)與 `then`(當年說法)並列即可
+    # 分辨:概念重疊高而當年說法重疊低 ⇒ 真的是語彙換了;兩者都低 ⇒ 只是作者不同。
+    mt = sum(r["jaccard_then"] for r in pairs) / max(len(pairs), 1)
+    mc = sum(r["jaccard_today"] for r in pairs) / max(len(pairs), 1)
+    valid = mc > 2 * mt and mc > 0.15
+    base = pairs[0]["jaccard_then"] if pairs else 0.0
+    half = next((r["gap_years"] for r in pairs if r["jaccard_then"] < base / 2), None)
+    return {"pairs": pairs, "mean_jaccard_then": round(mt, 4),
+            "mean_jaccard_today": round(mc, 4), "measurement_valid": bool(valid),
+            "closest_pair_jaccard": base, "half_life_years": half,
+            "verdict": (f"半衰期 ≈ {half} 年 ⇒ 桶寬取此值" if valid and half else
+                        "**量測無效**:概念重疊(today %.3f)未明顯高於用詞重疊"
+                        "(then %.3f)⇒ 量到的是六位作者的用詞習慣差異,不是語彙汰換。"
+                        "需改用同一位作者跨期別比對,或直接量當年新聞語料的詞頻變化。"
+                        % (mc, mt))}
+
+
+# ---------------------------------------------------------------- #25 檢索飽和
+
+def retrieval_saturation() -> dict:
+    """`retrievability_score ≥ 2` 要求「≥2 個獨立外部來源」——2 這個數字的出處。
+
+    量法:用最大的現成語料 `ev27_news`(224 案、1,088 筆材料)。對每一案,把
+    **站位前**的材料按來源分組,問:第 k 個來源帶進多少**新的日期**(= 新事實的代理)?
+    曲線壓平的地方,就是再多一個來源也不會改變「有沒有驅動」這個判定的地方。
+
+    為什麼用「新日期」當新事實的代理:同一件事被多家報導,日期會重複;不同的事
+    才會帶進新日期。這比字面去重穩,也不需要任何相似度門檻。
+    """
+    base = pathlib.Path("src/quantlib/evergreen/data/ev27_news")
+    curves: dict[int, list[float]] = {}
+    per_case = []
+    for f in sorted(base.glob("*.json")):
+        d = json.loads(f.read_text(encoding="utf-8"))
+        d = d if isinstance(d, list) else [d]
+        pre = [r for r in d if r.get("pit") == "pre_t0"]
+        by_src: dict[str, set] = {}
+        for r in pre:
+            by_src.setdefault(str(r.get("source", "?")), set()).add(str(r.get("date"))[:10])
+        # 來源依「帶進的日期數」由多到少排序——模擬研究員先找到覆蓋最好的來源
+        order = sorted(by_src.values(), key=len, reverse=True)
+        seen: set = set()
+        gains = []
+        for s_ in order:
+            new = len(s_ - seen)
+            seen |= s_
+            gains.append(new)
+        per_case.append({"file": f.stem, "n_sources": len(order),
+                         "total_dates": len(seen), "gains": gains})
+        for k, g in enumerate(gains, 1):
+            curves.setdefault(k, []).append(g / max(len(seen), 1))
+    marg = {k: round(sum(v) / len(v), 4) for k, v in sorted(curves.items()) if len(v) >= 10}
+    cum = {}
+    run = 0.0
+    for k, v in marg.items():
+        run += v
+        cum[k] = round(run, 4)
+    # 飽和點:邊際貢獻首次低於「第一個來源的 10%」——10% 是相對於自身第一名的
+    # 比例而非絕對門檻,故不隨語料規模漂移。
+    first = marg.get(1, 0.0)
+    sat = next((k for k, v in marg.items() if v < first * 0.10), None)
+    return {"n_cases": len(per_case),
+            "mean_sources_per_case": round(sum(c["n_sources"] for c in per_case)
+                                           / max(len(per_case), 1), 2),
+            "marginal_new_date_share": marg, "cumulative_share": cum,
+            "saturation_k": sat,
+            "verdict": (f"第 {sat} 個來源之後,新事實的邊際貢獻低於首源的 10% "
+                        f"⇒ 門檻取 {sat - 1 if sat else '?'}"
+                        if sat else "未達飽和 ⇒ 現有語料不足以定門檻")}
+
+
+def era_bands_by_quota(u: pl.DataFrame, per_generation: int = 3) -> dict:
+    """年代分桶:**把參數刪掉**,而不是替它找一個量不出來的理由。
+
+    語彙汰換速度量不出來(見 `era_band_width`:六位作者的用詞習慣差異蓋過真實汰換),
+    所以不要再問「幾年一桶」。改問桶要滿足什麼**約束**,答案就唯一了:
+
+    1. **桶界必須落在漲跌幅世代斷點(2015-06-01)上** —— 跨世代的桶,其「當年制度」
+       欄位自相矛盾。這是界限,不是選擇。
+    2. **每個世代至少要能拿出 1 個保留期別** —— 期別保留組的設計要求各世代各一個。
+    3. **蒸餾期別至少 4 個** —— 蒸餾提示詞的複製門檻是「跨 ≥2 個不重疊期別」,而
+       `era_support` / `era_counter` / `era_sparse` 三分類要能互相分辨,至少需要 4 個
+       蒸餾期別;只有 2 個時,「在 1 個成立、1 個反例」與「1 個成立、1 個樣本不足」
+       在資料上長得一樣。
+    ⇒ 總桶數 = 4 蒸餾 + 2 保留 = **6**,即每個世代 3 個。
+
+    4. **桶內樣本等量** —— 桶界由等樣本分位決定,不由人挑年份。各桶檢力才一致;
+       時間等寬會讓樣本稀薄的年份自成一桶而統計上無用。
+    """
+    out = {}
+    for gen, sub in (("7%", u.filter(pl.col("date") < ev57.LIMIT_ERA_SPLIT)),
+                     ("10%", u.filter(pl.col("date") >= ev57.LIMIT_ERA_SPLIT))):
+        d = sub.select("date").sort("date")
+        n = d.height
+        cuts = [d["date"][min(int(n * i / per_generation), n - 1)]
+                for i in range(1, per_generation)]
+        edges = [d["date"][0]] + cuts + [d["date"][n - 1]]
+        out[gen] = {"n_obs": n,
+                    "bands": [{"start": str(edges[i]), "end": str(edges[i + 1]),
+                               "n": int(sub.filter((pl.col("date") >= edges[i])
+                                                   & (pl.col("date") <= edges[i + 1])).height)}
+                              for i in range(per_generation)]}
+    return {"per_generation": per_generation, "total_bands": per_generation * 2,
+            "by_generation": out,
+            "rationale": "桶數由『2 保留 + ≥4 蒸餾』導出;桶界由等樣本分位 + 世代斷點導出"}
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--skip-regime", action="store_true")
@@ -230,6 +389,29 @@ def main() -> None:
             d = res["regime"]["best_detail"]
             print(f"     各層基準率 {d['rates']}")
             print(f"     各層佔比   {d['shares']}  最小格正例 {d['min_cell_positives']:,}")
+
+    print("\n=== #18 年代分桶寬度(由語彙汰換速度導出)===")
+    res["era_band"] = era_band_width()
+    for r in res["era_band"]["pairs"][:8]:
+        print(f"  {r['a']}×{r['b']}  相距 {r['gap_years']:>5.1f} 年  當年說法 {r['jaccard_then']:.4f}"
+              f"  現代概念 {r['jaccard_today']:.4f}")
+    print(f"  ⇒ {res['era_band']['verdict']}")
+
+    print("\n=== #18b 年代分桶:改由約束導出(取代量不出來的語彙汰換)===")
+    res["era_bands"] = era_bands_by_quota(u)
+    for gen, v in res["era_bands"]["by_generation"].items():
+        print(f"  {gen} 世代({v['n_obs']:,} 觀測):")
+        for b in v["bands"]:
+            print(f"    {b['start']} ~ {b['end']}  n={b['n']:,}")
+    print(f"  ⇒ {res['era_bands']['rationale']}")
+
+    print("\n=== #25 檢索飽和(由 ev27_news 1,088 筆材料導出)===")
+    res["retrieval"] = retrieval_saturation()
+    r = res["retrieval"]
+    print(f"  {r['n_cases']} 案,平均每案 {r['mean_sources_per_case']} 個來源")
+    print(f"  第 k 個來源帶進的新日期佔比:{r['marginal_new_date_share']}")
+    print(f"  累積:{r['cumulative_share']}")
+    print(f"  ⇒ {r['verdict']}")
 
     OUT.write_text(json.dumps(res, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"\n→ {OUT}")
